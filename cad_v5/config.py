@@ -20,7 +20,9 @@ _OPENCLAW     = Path.home() / ".openclaw"
 LOG_FILE      = _OPENCLAW / "cad-agent.log"
 FEEDBACK_FILE = _OPENCLAW / "cad-examples.jsonl"     # unified corpus: gold + rated + auto
 SESSION_FILE  = _OPENCLAW / "cad-session.json"
-CONFIG_FILE   = _OPENCLAW / "openclaw.json"
+CONFIG_FILE     = _OPENCLAW / "openclaw.json"
+CAD_CONFIG_FILE = _OPENCLAW / "cad.json"   # agent settings (cad.*) — separate file because the
+                                           # OpenClaw gateway's strict schema rejects unknown keys
 SCRIPTS_DIR   = _HERE / "scripts"
 B123D_DIR     = _HERE / "b123d"
 
@@ -82,11 +84,24 @@ log = logging.getLogger("cad_v5")
 
 # ── Config / credentials ──────────────────────────────────────────────────────
 def load_config() -> dict:
+    """openclaw.json (channels/env) overlaid with ~/.openclaw/cad.json as the `cad` block
+    (kept separate — the OpenClaw gateway's strict schema rejects a top-level cad key)."""
+    cfg: dict = {}
     try:
         with open(CONFIG_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+            cfg = json.load(f)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning("[v5] openclaw.json unreadable (%s) — creds/telegram token unavailable.", e)
+    try:
+        with open(CAD_CONFIG_FILE) as f:
+            cfg["cad"] = {**cfg.get("cad", {}), **json.load(f)}
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning("[v5] cad.json unreadable (%s) — cad.* settings ignored.", e)
+    return cfg
 
 def creds() -> tuple[str, str]:
     cfg = load_config()

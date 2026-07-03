@@ -55,7 +55,9 @@ _OPENCLAW     = Path.home() / ".openclaw"
 LOG_FILE      = _OPENCLAW / "cad-agent.log"
 FEEDBACK_FILE = _OPENCLAW / "cad-examples.jsonl"   # unified corpus: gold + rated + auto
 SESSION_FILE  = _OPENCLAW / "cad-session.json"
-CONFIG_FILE   = _OPENCLAW / "openclaw.json"
+CONFIG_FILE     = _OPENCLAW / "openclaw.json"
+CAD_CONFIG_FILE = _OPENCLAW / "cad.json"   # agent settings (cad.*) — separate file because the
+                                           # OpenClaw gateway's strict schema rejects unknown keys
 SCRIPTS_DIR   = _HERE / "scripts"
 
 # Semantic few-shot retrieval (graceful — any failure here must never break a build).
@@ -98,11 +100,44 @@ log = logging.getLogger("cad_v4")
 # ── Config / credentials ──────────────────────────────────────────────────────
 
 def _load_config() -> dict:
+    """openclaw.json (channels/env — schema-validated by the OpenClaw gateway) overlaid
+    with ~/.openclaw/cad.json as the `cad` block. The agent's settings live in their own
+    file because a top-level "cad" key in openclaw.json fails the gateway's strict config
+    validation (Unrecognized key) and prevents it from starting."""
+    cfg: dict = {}
     try:
         with open(CONFIG_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+            cfg = json.load(f)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        # A corrupt openclaw.json silently disabled creds and the telegram token; loud.
+        log.warning("[v4] openclaw.json unreadable (%s) — Onshape creds / telegram token "
+                    "unavailable until it is fixed.", e)
+    try:
+        with open(CAD_CONFIG_FILE) as f:
+            cfg["cad"] = {**cfg.get("cad", {}), **json.load(f)}
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning("[v4] cad.json unreadable (%s) — model pin / cad.* settings ignored.", e)
+    return cfg
+
+BUILDS_DIR = _OPENCLAW / "cad-builds"
+KEEP_BUILDS = 20   # retention: prune oldest per-build artifact dirs beyond this
+
+def _new_build_dir(spec: str) -> Path:
+    """Per-build artifact dir — concurrent builds must never clobber each other's output."""
+    slug = re.sub(r"[^a-z0-9]+", "-", spec.lower()).strip("-")[:40] or "build"
+    d = BUILDS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{slug}"
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        old = sorted(p for p in BUILDS_DIR.iterdir() if p.is_dir())[:-KEEP_BUILDS]
+        for p in old:
+            shutil.rmtree(p, ignore_errors=True)
+    except Exception as e:
+        log.warning("[v4] build-dir pruning failed: %s", e)
+    return d
 
 def _creds() -> tuple[str, str]:
     cfg = _load_config()
@@ -1585,30 +1620,41 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             done = True
             accepted_via = "gate"
 
-        # Persist the STEP so a failed upload is still recoverable, then upload.
-        shutil.copy(step_path, STEP_OUT)
+        # Persist artifacts into a per-build directory (concurrent builds previously
+        # clobbered each other in the shared cad-last-build.* files), then refresh the
+        # legacy cad-last-build.* convenience copies that Satine/v5/docs rely on.
+        build_dir = _new_build_dir(spec)
+        step_out = build_dir / "build.step"
+        stl_out  = build_dir / "build.stl"
+        dxf_out  = build_dir / "build.dxf"
+        shutil.copy(step_path, step_out)
         # Always export a sliceable STL alongside the STEP (printable mesh, mm units).
-        # Clear any stale STL first so a failed export can't be reported as this build's.
         try:
-            STL_OUT.unlink()
-        except FileNotFoundError:
-            pass
-        try:
-            run_stl(STEP_OUT, STL_OUT)
+            run_stl(step_out, stl_out)
         except Exception as e:
             log.warning("[v4] STL export failed: %s", e)
         # Best-effort flat-pattern DXF (laser/sheet). Only meaningful for plate-like parts; a part
         # with no usable flat face just won't get one — not an error, so never fail the build.
         dxf_summary = ""
         try:
-            DXF_OUT.unlink()
-        except FileNotFoundError:
-            pass
-        try:
-            _, dxf_summary = run_dxf(STEP_OUT, DXF_OUT)
-            log.info("[v4] DXF flat pattern: %s", dxf_summary or DXF_OUT)
+            _, dxf_summary = run_dxf(step_out, dxf_out)
+            log.info("[v4] DXF flat pattern: %s", dxf_summary or dxf_out)
         except Exception as e:
             log.info("[v4] DXF flat pattern skipped: %s", str(e)[:120])
+        # Legacy last-build copies (clear stale ones first so a missing export from THIS
+        # build can never be mistaken for its output).
+        for src, legacy in ((step_out, STEP_OUT), (stl_out, STL_OUT), (dxf_out, DXF_OUT)):
+            try:
+                legacy.unlink()
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                log.warning("[v4] could not clear %s: %s", legacy, e)
+            if src.exists():
+                try:
+                    shutil.copy(src, legacy)
+                except Exception as e:
+                    log.warning("[v4] last-build copy failed (%s): %s", legacy.name, e)
 
     # Stage B: if this build recovered from an early failure, distil one reusable lesson.
     if done and recovered_problem and use_fewshots and cad_retrieval is not None:
@@ -1624,9 +1670,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "spec":         spec,
         "path":         "code_v4",
         "version":      VERSION,
-        "step_local":   str(STEP_OUT),
-        "stl_local":    str(STL_OUT) if STL_OUT.exists() else "",
-        "dxf_local":    str(DXF_OUT) if DXF_OUT.exists() else "",
+        "build_dir":    str(build_dir),
+        "step_local":   str(step_out),
+        "stl_local":    str(stl_out) if stl_out.exists() else "",
+        "dxf_local":    str(dxf_out) if dxf_out.exists() else "",
         "code":         code,
         "brief":        brief,
         "model_done":   done,
@@ -1650,27 +1697,28 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         render_local = ""
         if final_render:   # chat skips this — fstl/CAD-Viewer show the model instead of a static PNG
             try:
-                png  = run_render(STEP_OUT, STEP_OUT.parent, section=want_section)  # +section if internal
-                dest = STEP_OUT.with_suffix(".png")
+                png  = run_render(step_out, build_dir, section=want_section)  # +section if internal
+                dest = build_dir / "build.png"
                 if Path(png) != dest:
                     shutil.copy(png, dest)
+                shutil.copy(dest, STEP_OUT.with_suffix(".png"))   # legacy convenience copy
                 render_local = str(dest)
             except Exception as e:
                 log.warning("[v4] Final render failed: %s", e)
         result = {**base_result, "ok": True, "has_bodies": True, "url": "",
                   "render_local": render_local}
         _write_session(result)
-        log.info("[v4] Done (no upload): step=%s render=%s", STEP_OUT, render_local)
+        log.info("[v4] Done (no upload): step=%s render=%s", step_out, render_local)
         return result
 
     try:
-        upload = import_step_to_onshape(STEP_OUT, name, public=_public_uploads())
+        upload = import_step_to_onshape(step_out, name, public=_public_uploads())
     except Exception as e:
         fail = {**base_result, "ok": False, "has_bodies": True,
                 "url": "", "error": str(e)}
         _write_session(fail)
         log.error("[v4] Upload failed: %s", e)
-        raise RuntimeError(f"{e}  (local STEP saved at {STEP_OUT})")
+        raise RuntimeError(f"{e}  (local STEP saved at {step_out})")
 
     result = {**base_result, "ok": True, "has_bodies": True,
               "url": upload["url"], "did": upload["did"],
