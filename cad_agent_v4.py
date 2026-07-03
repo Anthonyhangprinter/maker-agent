@@ -72,37 +72,15 @@ DXF_OUT       = _OPENCLAW / "cad-last-build.dxf"    # flat-pattern DXF (laser/sh
 STL_VIEWER_CMD  = os.environ.get("CAD_STL_VIEWER", "fstl")  # local GUI STL viewer the chat auto-opens
 CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD Viewer (text-to-cad skill)
 
-# ── Models ────────────────────────────────────────────────────────────────────
-
-BRIEF_MODEL    = "qwen3:8b"
-# Code model. Default is the FAST 7B; build() auto-escalates to the STRONG 30B coder when the
-# spec looks hard (LLM triage) or the fast model fails to converge. Force either with --coder,
-# or pin one in openclaw.json cad.code_model (which disables auto-switching).
-#   qwen2.5-coder:7b-instruct-q5_k_m → ~16 s/call, full GPU, decent in algebra mode (DEFAULT)
-#   qwen3-coder:30b → stronger build123d codegen, ~7 min/call (18GB MoE, CPU offload on 8GB VRAM)
-CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q5_k_m"
-CODE_MODEL_STRONG  = "qwen3-coder:30b"
-CODE_MODEL_DEFAULT = CODE_MODEL_FAST   # fast unless triage/escalation/manual selects strong
-CRITIC_MODEL   = "gemma4:e4b"                        # multimodal — gives the coder "sight"
-OLLAMA_HOST    = "http://localhost:11434"
-OLLAMA_URL     = OLLAMA_HOST + "/api/generate"
-OLLAMA_TAGS    = OLLAMA_HOST + "/api/tags"
-OLLAMA_TIMEOUT = 300
-CODE_TIMEOUT   = 600    # a 30B coder offloaded to CPU can take several minutes per call
-CRITIC_TIMEOUT = 200    # gemma4:e4b cold-loads slowly; vision encoder on CPU
-
-# ── Loop config ─────────────────────────────────────────────────────────────--
-
-MAX_TURNS      = 4
-ESCALATE_AFTER = 2      # failed/stuck turns on the fast coder before auto-escalating to the strong one
-BUILD_TIMEOUT  = 1800   # wall-clock; a 30B coder + visual-critic swaps make freeform builds slow
-STEP_TIMEOUT   = 120
-RENDER_TIMEOUT = 120
-STL_TIMEOUT    = 120
-INSPECT_TIMEOUT = 60
-TRANSLATE_TIMEOUT = 120   # Onshape STEP→PartStudio translation poll budget
-BASE_URL       = "https://cad.onshape.com"
-DONE_SENTINEL  = "###DONE###"
+# ── Models + loop constants — single source of truth is cad_v5/config.py ──────
+# (previously duplicated here; the two copies drifted independently. Model/timeout/loop
+# tuning now happens in ONE place and both the v4 engine and the v5 package follow.)
+from cad_v5.config import (        # noqa: E402
+    BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_DEFAULT, CRITIC_MODEL,
+    OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
+    MAX_TURNS, ESCALATE_AFTER, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
+    INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
+)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
