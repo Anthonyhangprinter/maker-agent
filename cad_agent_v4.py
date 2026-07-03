@@ -1728,9 +1728,12 @@ def store_feedback(result: dict, rating: int, comment: str = "") -> None:
     })
     if len(rated) > 50:
         rated = rated[-50:]
-    with open(FEEDBACK_FILE, "w") as f:
+    # Atomic replace — a crash mid-rewrite must not lose the gold corpus.
+    tmp = FEEDBACK_FILE.with_suffix(".jsonl.tmp")
+    with open(tmp, "w") as f:
         for row in gold + rated:
             f.write(json.dumps(row) + "\n")
+    os.replace(tmp, FEEDBACK_FILE)
     log.info("[v4] Stored %d★ to corpus (gold=%d rated=%d): %s",
              rating, len(gold), len(rated), result.get("spec", "")[:50])
 

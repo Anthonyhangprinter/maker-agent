@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""
+Generate a STEP file from a build123d source .py file.
+
+Usage:
+    python3 scripts/step <source.py> [output.step]
+
+Conventions:
+  - The source file must assign `result` to a build123d Part/Compound/Shape.
+  - If `result` is not defined, the last variable ending in `_part`, `_body`,
+    or `_shape` is tried, then any exportable build123d object.
+  - The variable OUTPUT_STEP is injected into the source namespace so the
+    source file can optionally call  export_step(result, OUTPUT_STEP)  itself.
+"""
+import sys
+import os
+import runpy
+from pathlib import Path
+
+# ── Args ─────────────────────────────────────────────────────────────────────
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/step <source.py> [output.step]", file=sys.stderr)
+    sys.exit(1)
+
+src_path = Path(sys.argv[1]).resolve()
+out_path = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else src_path.with_suffix('.step')
+
+if not src_path.exists():
+    print(f"ERROR: Source file not found: {src_path}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Path setup ────────────────────────────────────────────────────────────────
+
+# b123d library lives two levels up from this script (cad-builder/b123d/)
+_scripts_dir = Path(__file__).parent
+_cad_builder  = _scripts_dir.parent
+for _p in [str(src_path.parent), str(_cad_builder)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# ── Execute source ────────────────────────────────────────────────────────────
+
+ns = runpy.run_path(
+    str(src_path),
+    init_globals={
+        'OUTPUT_STEP': str(out_path),
+        '__file__': str(src_path),
+        '__name__': '__main__',
+    },
+)
+
+# ── Locate exportable shape ───────────────────────────────────────────────────
+
+def _is_exportable(obj):
+    # Exclude classes: `from build123d import *` fills the namespace with types whose
+    # class-level attributes satisfy hasattr, so a scan could "export" e.g. BaseLineObject
+    # (the class object itself) instead of the user's actual solid.
+    return (not isinstance(obj, type)
+            and hasattr(obj, 'volume') and hasattr(obj, 'solids'))
+
+result = None
+found_as = None
+for name in ['result', 'part', 'shape', 'body', 'output']:
+    obj = ns.get(name)
+    if obj is not None and _is_exportable(obj):
+        result = obj
+        found_as = name
+        break
+
+if result is None:
+    # Suffix scan
+    for suffix in ['_part', '_body', '_shape']:
+        for var, obj in ns.items():
+            if var.endswith(suffix) and _is_exportable(obj):
+                result = obj
+                found_as = var
+                break
+        if result:
+            break
+
+if result is None:
+    # Full scan — skip builtins and private vars
+    for var, obj in ns.items():
+        if not var.startswith('_') and _is_exportable(obj):
+            result = obj
+            found_as = var
+            break
+
+if result is not None and found_as != 'result':
+    # Discovery picked something in namespace order — it may be an INTERMEDIATE solid,
+    # not the finished part. Loud so the agent's revise loop sees it in the step log.
+    print(f"WARNING: no 'result' variable — exported '{found_as}' found by discovery scan, "
+          f"which can pick an intermediate solid. Set:  result = <final_shape>")
+
+if result is None:
+    # Check if the source already exported the file directly
+    if out_path.exists():
+        print(f"STEP: {out_path}")
+        sys.exit(0)
+    print(
+        "ERROR: No build123d Part/Compound found in source file.\n"
+        "Set:  result = bp.part  (or result = <your_shape_var>)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
+try:
+    from build123d import export_step
+    export_step(result, str(out_path))
+except Exception as e:
+    print(f"ERROR: export_step failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Report ────────────────────────────────────────────────────────────────────
+
+try:
+    bbox = result.bounding_box()
+    print(f"STEP:    {out_path}")
+    print(f"Volume:  {result.volume:.3f} mm³")
+    print(f"Bbox:    {bbox.size.X:.2f} x {bbox.size.Y:.2f} x {bbox.size.Z:.2f} mm")
+except Exception:
+    print(f"STEP: {out_path}")
