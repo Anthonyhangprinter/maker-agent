@@ -720,8 +720,11 @@ def decide_or_edit(spec: str, code: str, state: str,
         f"Reply {DONE_SENTINEL} if correct, otherwise return the corrected full script:"
     )
     raw = _ollama(_code_model(), _DECIDE_SYSTEM, prompt, timeout=CODE_TIMEOUT, temperature=0.15)
-    # A 'done' reply is just the sentinel; a real edit is a full script (contains an import).
-    if DONE_SENTINEL in raw and "import" not in raw.lower():
+    # A 'done' verdict is the sentinel, possibly with a short remark; a real edit contains
+    # code. Detect code by a fence or an actual import STATEMENT — the old substring test
+    # ("import" not in raw) misread prose like "all important dimensions match" as an edit.
+    has_code = "```" in raw or re.search(r"^\s*(?:from|import)\s+\w+", raw, re.M)
+    if DONE_SENTINEL in raw and not has_code:
         return "done", None
     return "edit", _patch_code(_strip_fences(raw))
 
@@ -815,13 +818,23 @@ def parse_facts(inspect_output: str) -> dict:
     if m:
         axes = []
         for seg in m.group(1).split(";"):
-            mm = re.search(r"Ø([\d.]+)\s+(radial|axial)", seg)
+            mm = re.search(r"Ø([\d.]+)\s+(radial|axial|ambiguous)", seg)
             if mm:
                 axes.append((float(mm.group(1)), mm.group(2)))
         facts["bore_axes"] = axes
     return facts
 
-def verify_expected(facts: dict, expected: dict) -> tuple[list[str], list[str]]:
+def _spec_mentions_dim(spec: str, d: float) -> bool:
+    """Does the spec text corroborate dimension d (mm, as diameter or radius)? Guards the
+    gate against brief-hallucinated feature dims: only a number the user actually wrote may
+    hard-fail a build — an invented bore can never be satisfied and burns every turn."""
+    for m in re.findall(r"\d+(?:\.\d+)?", spec or ""):
+        v = float(m)
+        if abs(v - d) < 0.05 or abs(v * 2 - d) < 0.05 or abs(v / 2 - d) < 0.05:
+            return True
+    return False
+
+def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[str], list[str]]:
     """Sanity-check the produced geometry. Returns (hard_fails, advisories).
 
     DESIGN (2026-06-26): the gate's job is to confirm the code produced a VALID, non-degenerate,
@@ -958,22 +971,38 @@ def verify_expected(facts: dict, expected: dict) -> tuple[list[str], list[str]]:
                 orient = ch.get("orientation")
                 if not isinstance(d, (int, float)) or d <= 0:
                     continue
+                # Only a spec-corroborated dimension may HARD-fail; a hallucinated feature
+                # check must guide, not block (see _spec_mentions_dim).
+                corroborated = _spec_mentions_dim(spec, d)
                 tol = max(0.6, 0.06 * d)
                 got = [o for (dd, o) in axes if abs(dd - d) <= tol]
                 if not got:
-                    if orient in ("radial", "axial"):
-                        hard.append(f"the spec needs a {orient} Ø{d:g}mm bore but no bore of that "
-                                    f"size exists — add it.")
+                    # Distinguish "measured absent" from "couldn't measure": cylinders exist
+                    # but none were orientation-classified → the detector is blind here, and
+                    # absence of evidence must not hard-fail the build.
+                    detector_blind = (not axes and facts.get("cyl_faces", 0) != 0)
+                    msg = (f"the spec needs a {orient + ' ' if orient in ('radial', 'axial') else ''}"
+                           f"Ø{d:g}mm bore but no bore of that size was measured — add it.")
+                    if orient in ("radial", "axial") and corroborated and not detector_blind:
+                        hard.append(msg)
+                    else:
+                        soft.append(msg)
                     continue
                 if orient in ("radial", "axial") and orient not in got:
+                    if "ambiguous" in got:
+                        soft.append(
+                            f"the Ø{d:g}mm bore's axis is tilted/ambiguous — confirm it runs "
+                            f"{orient} as the spec requires.")
+                        continue
+                    bucket = hard if corroborated else soft
                     have = "/".join(sorted(set(got)))
                     if orient == "radial":
-                        hard.append(
+                        bucket.append(
                             f"the Ø{d:g}mm bore must be RADIAL (through the SIDE wall) but it came "
                             f"out {have} (through the top/bottom). Use cross_bore({d:g}, <length>) — "
                             f"a plain Cylinder points up +Z and bores the wrong way.")
                     else:
-                        hard.append(
+                        bucket.append(
                             f"the Ø{d:g}mm bore must be AXIAL (along the part's long axis) but it "
                             f"came out {have}. Orient the cutting cylinder along that axis.")
             elif kind == "groove":
@@ -1431,7 +1460,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # target (solid count, holes-actually-cut, overall size). This is the AUTHORITY for
             # feature presence; the vision critic below only judges shape/proportion.
             facts = parse_facts(inspection["output"])
-            gate_fails, gate_notes = verify_expected(facts, brief.get("expected", {}))
+            gate_fails, gate_notes = verify_expected(facts, brief.get("expected", {}), spec=spec)
             if gate_notes:
                 last_state += "\n[advisory] " + "  ".join(gate_notes)
             if gate_fails:

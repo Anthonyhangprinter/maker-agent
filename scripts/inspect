@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""
+Inspect a STEP file and validate geometry.
+
+Usage:
+    python3 scripts/inspect <file.step>
+
+Exit 0 if the STEP contains at least one closed solid body.
+Exit 1 on any error or degenerate geometry.
+Prints a structured report to stdout.
+"""
+import sys
+from pathlib import Path
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/inspect <file.step>", file=sys.stderr)
+    sys.exit(1)
+
+step_file = Path(sys.argv[1]).resolve()
+if not step_file.exists():
+    print(f"ERROR: File not found: {step_file}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Import STEP ───────────────────────────────────────────────────────────────
+
+try:
+    from build123d import import_step
+except ImportError:
+    print("ERROR: build123d not installed (pip install build123d)", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    shape = import_step(str(step_file))
+except Exception as e:
+    print(f"ERROR: Failed to import STEP: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Diff mode: `inspect NEW.step --diff OLD.step` → report what an edit changed ──
+# Deterministic before→after delta (solids/faces/cyl/volume/bbox) so the agentic loop can
+# confirm an EDIT did the intended thing (e.g. "added a hole" ⇒ ΔCyl +1, ΔVolume < 0) instead
+# of relying on the vision critic to notice. Borrowed from earthtojake/text-to-cad `inspect diff`.
+if "--diff" in sys.argv:
+    di = sys.argv.index("--diff")
+    if di + 1 >= len(sys.argv):
+        print("ERROR: --diff needs a second STEP path (the OLD/before file)", file=sys.stderr)
+        sys.exit(1)
+    old_file = Path(sys.argv[di + 1]).resolve()
+    if not old_file.exists():
+        print(f"ERROR: diff file not found: {old_file}", file=sys.stderr)
+        sys.exit(1)
+
+    def _compact_facts(s):
+        try:
+            from build123d import GeomType
+            cyl = len(s.faces().filter_by(GeomType.CYLINDER))
+        except Exception:
+            cyl = -1
+        bb = s.bounding_box()
+        return {"solids": len(s.solids()), "faces": len(s.faces()), "cyl": cyl,
+                "vol": s.volume, "bbox": (bb.size.X, bb.size.Y, bb.size.Z)}
+
+    try:
+        a = _compact_facts(import_step(str(old_file)))   # OLD / before
+    except Exception as e:
+        print(f"ERROR: Failed to import OLD STEP: {e}", file=sys.stderr)
+        sys.exit(1)
+    b = _compact_facts(shape)                            # NEW / after (primary arg)
+    print(f"DIFF: {old_file.name} -> {step_file.name}")
+    print(f"ΔSolids: {b['solids'] - a['solids']:+d}  ({a['solids']} -> {b['solids']})")
+    print(f"ΔFaces:  {b['faces'] - a['faces']:+d}  ({a['faces']} -> {b['faces']})")
+    print(f"ΔCylindrical faces: {b['cyl'] - a['cyl']:+d}  ({a['cyl']} -> {b['cyl']})")
+    print(f"ΔVolume: {b['vol'] - a['vol']:+.3f} mm³  ({a['vol']:.1f} -> {b['vol']:.1f})")
+    print(f"ΔBbox:   {b['bbox'][0]-a['bbox'][0]:+.2f} x {b['bbox'][1]-a['bbox'][1]:+.2f} "
+          f"x {b['bbox'][2]-a['bbox'][2]:+.2f} mm")
+    print("OK")
+    sys.exit(0)
+
+# ── Checks ────────────────────────────────────────────────────────────────────
+
+solids  = shape.solids()
+shells  = shape.shells()
+faces   = shape.faces()
+edges   = shape.edges()
+volume  = shape.volume
+bbox    = shape.bounding_box()
+
+# Centre of mass — gives the model a sense of where material actually sits
+try:
+    from build123d import CenterOf
+    com = shape.center(CenterOf.MASS)
+    com_str = f"{com.X:.2f}, {com.Y:.2f}, {com.Z:.2f}"
+except Exception:
+    com_str = "unknown"
+
+# Classify curved faces so a deterministic gate can confirm holes/bores actually cut:
+# a through-hole leaves a cylindrical face; a countersink leaves a conical face. A no-op
+# subtraction that missed the solid leaves neither — caught without relying on the vision model.
+cyl_faces = cone_faces = -1   # -1 = couldn't classify (older build123d) → gate skips this check
+try:
+    from build123d import GeomType
+    cyl_faces  = len(faces.filter_by(GeomType.CYLINDER))
+    cone_faces = len(faces.filter_by(GeomType.CONE))
+except Exception:
+    pass
+
+# Classify each cylindrical HOLE as THROUGH or BLIND. A blind bore has a cylindrical face
+# exactly like a through hole, so a naive cyl-face count cannot tell them apart (a blind
+# 30mm bore passed the gate 3/3). Method, fully deterministic:
+#   1. hole vs outer wall — is there material just OUTSIDE the cylinder? (wall has none)
+#   2. through vs blind   — walk the cylinder axis across the part; a through hole has NO
+#      material on its axis, a blind hole's uncut remainder leaves material on the axis.
+through_holes = blind_holes = -1   # -1 = analysis unavailable → gate skips through-check
+hole_report = []
+try:
+    from build123d import Vertex, GeomType
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    def _inside(x, y, z, tol=1e-6):
+        return shape.distance_to(Vertex(x, y, z)) < tol
+
+    _corners = [(X, Y, Z) for X in (bbox.min.X, bbox.max.X)
+                          for Y in (bbox.min.Y, bbox.max.Y)
+                          for Z in (bbox.min.Z, bbox.max.Z)]
+    def _axis_extent(px, py, pz, dx, dy, dz):
+        ts = [(cx - px) * dx + (cy - py) * dy + (cz - pz) * dz for (cx, cy, cz) in _corners]
+        return min(ts), max(ts)
+
+    through = blind = 0
+    for f in faces.filter_by(GeomType.CYLINDER):
+        ad = BRepAdaptor_Surface(f.wrapped)
+        if ad.GetType() != GeomAbs_Cylinder:
+            continue
+        cyl = ad.Cylinder(); axis = cyl.Axis()
+        loc = axis.Location(); d = axis.Direction()
+        px, py, pz = loc.X(), loc.Y(), loc.Z()
+        dx, dy, dz = d.X(), d.Y(), d.Z()
+        r = cyl.Radius()
+        tmin, tmax = _axis_extent(px, py, pz, dx, dy, dz)
+        tmid = (tmin + tmax) / 2.0
+        mx, my, mz = px + dx * tmid, py + dy * tmid, pz + dz * tmid
+        # a unit vector perpendicular to the axis (Gram-Schmidt off a non-parallel seed)
+        seed = (1.0, 0.0, 0.0) if abs(dx) < 0.9 else (0.0, 1.0, 0.0)
+        dot = seed[0] * dx + seed[1] * dy + seed[2] * dz
+        ux, uy, uz = seed[0] - dot * dx, seed[1] - dot * dy, seed[2] - dot * dz
+        un = (ux * ux + uy * uy + uz * uz) ** 0.5 or 1.0
+        ux, uy, uz = ux / un, uy / un, uz / un
+        # step 1: material just OUTSIDE the cylinder? if not, this is the outer wall — skip
+        if not _inside(mx + ux * (r + 0.5), my + uy * (r + 0.5), mz + uz * (r + 0.5)):
+            continue
+        # step 2: walk the axis; any material on it ⇒ blind
+        mat = sum(1 for i in range(25)
+                  if _inside(px + dx * (t := tmin + (tmax - tmin) * i / 24.0),
+                             py + dy * t, pz + dz * t))
+        verdict = "THROUGH" if mat == 0 else "BLIND"
+        through += (mat == 0); blind += (mat != 0)
+        hole_report.append(f"r{r:.1f}@({px:.0f},{py:.0f},{pz:.0f}):{verdict}")
+    through_holes, blind_holes = through, blind
+except Exception as e:
+    hole_report = [f"(hole analysis unavailable: {str(e)[:80]})"]
+
+# ── Feature dimensions (measure) ────────────────────────────────────────────────
+# Deterministic readout of feature SIZES so the gate can check the brief's target dims (bore Ø,
+# wall thickness) — not just the overall bounding box. Catches "right overall size, wrong feature
+# size" (a Ø5.5 hole that came out Ø3, a 2mm wall that came out 1.2mm). Wall is an ESTIMATE and is
+# only ever used as an advisory. Discipline from earthtojake/text-to-cad `inspect measure`.
+bore_radii: list[float] = []
+wall_candidates: list[float] = []
+bore_orientations: list = []   # (diameter, "radial"|"axial") — feeds the general intent gate
+try:
+    from build123d import GeomType
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    cyl_axes = []   # (px,py,pz, dx,dy,dz, r) for every cylindrical face
+    for f in faces.filter_by(GeomType.CYLINDER):
+        ad = BRepAdaptor_Surface(f.wrapped)
+        if ad.GetType() != GeomAbs_Cylinder:
+            continue
+        cyl = ad.Cylinder(); ax = cyl.Axis(); loc = ax.Location(); d = ax.Direction()
+        cyl_axes.append((loc.X(), loc.Y(), loc.Z(), d.X(), d.Y(), d.Z(), cyl.Radius()))
+        bore_radii.append(cyl.Radius())
+
+    # ── Bore ORIENTATION (radial vs axial) — general, drives the geometry-matches-intent gate. ──
+    # The part's MAIN axis is the direction of its largest-radius cylindrical face (the outer body)
+    # when it's round, else the longest bbox edge. A bore is AXIAL if its axis is parallel to that,
+    # RADIAL if perpendicular (a hole through a side wall). No part-specific logic — the same rule
+    # answers "is this a side bore?" for a piston, a shaft, or a manifold.
+    _outer_r = max((c[6] for c in cyl_axes), default=0.0)
+    # The largest cylinder is "the outer body wall" only when it really IS a body (radius a big
+    # fraction of the part), not when the only cylinders are the holes themselves (a prismatic part
+    # like a bracket, where every cylinder is a bore).
+    _has_body = _outer_r > 0.4 * min(bbox.size.X, bbox.size.Y, bbox.size.Z)
+    if _has_body:
+        _main = max(cyl_axes, key=lambda c: c[6])      # round part → main axis = outer body axis
+        mdx, mdy, mdz = _main[3], _main[4], _main[5]
+    else:
+        mdx, mdy, mdz = max([(bbox.size.X, (1, 0, 0)), (bbox.size.Y, (0, 1, 0)),
+                             (bbox.size.Z, (0, 0, 1))])[1]   # prismatic → main axis = longest edge
+    for c in cyl_axes:
+        if _has_body and abs(c[6] - _outer_r) < 1e-6:
+            continue
+        dot = abs(c[3] * mdx + c[4] * mdy + c[5] * mdz)
+        # A tilted bore near the old 0.7 cutoff flipped radial<->axial and hard-failed correct
+        # parts; the middle band is now reported honestly so the gate can advise, not block.
+        orient = "axial" if dot > 0.85 else ("radial" if dot < 0.55 else "ambiguous")
+        bore_orientations.append((2 * c[6], orient))
+    # Group cylinders that share an axis LINE (same direction + same line), then take only the
+    # difference between CONSECUTIVE radii — that gap is the actual material wall between two
+    # nested cylindrical surfaces (tube/skirt/round-cavity). Non-adjacent pairs (e.g. outer vs
+    # cavity when a groove floor sits between) are NOT walls and would over-report thickness.
+    groups: list[list] = []   # each: [dir/anchor signature, [radii]]
+    for a in cyl_axes:
+        placed = False
+        for g in groups:
+            b = g[0]
+            parallel = abs(a[3]*b[3] + a[4]*b[4] + a[5]*b[5]) > 0.999
+            dxp, dyp, dzp = a[0]-b[0], a[1]-b[1], a[2]-b[2]
+            proj = dxp*b[3] + dyp*b[4] + dzp*b[5]
+            perp = ((dxp-proj*b[3])**2 + (dyp-proj*b[4])**2 + (dzp-proj*b[5])**2) ** 0.5
+            if parallel and perp < 0.5:
+                g[1].append(a[6]); placed = True; break
+        if not placed:
+            groups.append([a, [a[6]]])
+    for _, radii in groups:
+        rs = sorted(set(round(r, 3) for r in radii))
+        for k in range(1, len(rs)):
+            wall_candidates.append(rs[k] - rs[k-1])
+except Exception:
+    pass
+# Thin parallel planar pairs ⇒ box-wall / plate thickness. A wall's inner and outer faces are
+# anti-parallel (normals point opposite ways) and close together relative to their size.
+try:
+    from build123d import GeomType
+    pinfo = []
+    for f in faces.filter_by(GeomType.PLANE):
+        try:
+            n = f.normal_at(); c = f.center()
+            pinfo.append((n.X, n.Y, n.Z, c.X, c.Y, c.Z, f.area))
+        except Exception:
+            continue
+    for i in range(len(pinfo)):
+        for j in range(i + 1, len(pinfo)):
+            a, b = pinfo[i], pinfo[j]
+            if a[0]*b[0] + a[1]*b[1] + a[2]*b[2] > -0.999:   # not anti-parallel → not a wall pair
+                continue
+            if a[6] < 1.0 or b[6] < 1.0:                      # ignore slivers (groove-face noise)
+                continue
+            gap = abs((a[3]-b[3])*a[0] + (a[4]-b[4])*a[1] + (a[5]-b[5])*a[2])
+            extent = min(a[6], b[6]) ** 0.5                   # against the SMALLER face's size
+            if 0.1 < gap < 0.3 * extent:                      # thin relative to its own size
+                wall_candidates.append(gap)
+except Exception:
+    pass
+
+print(f"Solids:  {len(solids)}")
+# Per-part breakdown for assemblies (multi-solid compounds): label + size + volume of each body,
+# so the gate/critic can reason about the individual parts and their relative placement.
+if len(solids) > 1:
+    print(f"Parts ({len(solids)}):")
+    for idx, s in enumerate(sorted(solids, key=lambda s: -s.volume), 1):
+        try:
+            lbl = (getattr(s, "label", "") or "").strip()
+            sb = s.bounding_box()
+            cen = sb.center()
+            print(f"  [{idx}] {lbl or '(unlabeled)'}: "
+                  f"{sb.size.X:.1f} x {sb.size.Y:.1f} x {sb.size.Z:.1f} mm  "
+                  f"vol {s.volume:.0f} mm³  @ ({cen.X:.0f},{cen.Y:.0f},{cen.Z:.0f})")
+        except Exception:
+            continue
+print(f"Shells:  {len(shells)}")
+print(f"Faces:   {len(faces)}")
+print(f"Cylindrical faces: {cyl_faces}")
+print(f"Conical faces: {cone_faces}")
+print(f"Through-holes: {through_holes}")
+print(f"Blind-holes: {blind_holes}")
+if hole_report:
+    print(f"Hole detail: {'; '.join(hole_report)}")
+if bore_radii:
+    uniq_r = sorted({round(r, 2) for r in bore_radii})
+    print(f"Bore diameters: {', '.join(f'{2*r:.2f}' for r in uniq_r)} mm  "
+          f"(radii: {', '.join(f'{r:.2f}' for r in uniq_r)})")
+if wall_candidates:
+    uniq_w = sorted({round(w, 2) for w in wall_candidates})
+    print(f"Wall candidates (est): {', '.join(f'{w:.2f}' for w in uniq_w)} mm")
+if bore_orientations:
+    seen = sorted({(round(d, 1), o) for d, o in bore_orientations})
+    print("Bore axes: " + "; ".join(f"Ø{d:g} {o}" for d, o in seen))
+print(f"Edges:   {len(edges)}")
+print(f"Volume:  {volume:.3f} mm³")
+print(f"Bbox:    {bbox.size.X:.2f} x {bbox.size.Y:.2f} x {bbox.size.Z:.2f} mm  (X x Y x Z)")
+print(f"Centre of mass: ({com_str}) mm")
+print(f"File:    {step_file.stat().st_size // 1024} KB")
+
+errors = []
+
+if len(solids) == 0:
+    errors.append("No solid bodies — geometry is open or degenerate")
+
+if volume < 0.001:
+    errors.append(f"Volume is near-zero ({volume:.6f} mm³) — likely a surface, not a solid")
+
+if any(d < 0.001 for d in [bbox.size.X, bbox.size.Y, bbox.size.Z]):
+    errors.append(f"Bounding box has a near-zero dimension — check for collapsed geometry")
+
+if errors:
+    for err in errors:
+        print(f"ERROR: {err}", file=sys.stderr)
+    sys.exit(1)
+
+if volume < 1.0:
+    print(f"WARNING: Very small volume ({volume:.4f} mm³) — verify units are mm")
+
+print("OK")
