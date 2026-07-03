@@ -1,0 +1,234 @@
+{
+  "ran_at": "2026-07-03T16:29:46.103396+00:00",
+  "agent": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/cad_agent_v4.py",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 4,
+  "geometry": 5,
+  "total_time_s": 1504.1,
+  "acceptance_passed": 13,
+  "acceptance_total": 22,
+  "acceptance_score": 0.591,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 448.7,
+      "wall_time_s": 471.4,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 115157.6,
+      "solids": 1,
+      "faces": 22,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/01.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 330.3,
+      "wall_time_s": 340.6,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 42390.7,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 6,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 4,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/02.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/02.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 240.1,
+      "wall_time_s": 262.2,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 66050.5,
+      "solids": 1,
+      "faces": 31,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        90.0,
+        54.0,
+        50.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/03.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "wall_time_s": 146.2,
+      "url": "",
+      "warning": null,
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 114.3,
+      "wall_time_s": 117.5,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 65604.4,
+      "solids": 1,
+      "faces": 19,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 4,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/05.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 144.8,
+      "wall_time_s": 152.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 154715.1,
+      "solids": 1,
+      "faces": 21,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        126.0,
+        60.0,
+        52.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 1,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/06.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/06.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    }
+  ]
+}

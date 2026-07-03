@@ -1,0 +1,383 @@
+{
+  "ran_at": "2026-07-03T16:04:41.543539+00:00",
+  "agent": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/cad_agent_v4.py",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 10,
+  "converged": 7,
+  "geometry": 9,
+  "total_time_s": 7217.1,
+  "acceptance_passed": 21,
+  "acceptance_total": 31,
+  "acceptance_score": 0.677,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 913.4,
+      "wall_time_s": 917.0,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 115349.4,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/01.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/01.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 729.8,
+      "wall_time_s": 740.8,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 41259.8,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/02.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/02.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 714.8,
+      "wall_time_s": 738.7,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 34121.7,
+      "solids": 1,
+      "faces": 32,
+      "cyl_faces": 6,
+      "bbox_mm": [
+        80.0,
+        50.0,
+        38.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/03.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 799.9,
+      "wall_time_s": 803.3,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 86512.5,
+      "solids": 1,
+      "faces": 34,
+      "cyl_faces": 7,
+      "bbox_mm": [
+        120.0,
+        30.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/04.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/04.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 636.8,
+      "wall_time_s": 641.7,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 61126.4,
+      "solids": 1,
+      "faces": 39,
+      "cyl_faces": 16,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 8,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/05.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "wall_time_s": 482.5,
+      "url": "",
+      "warning": null,
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "07",
+      "name": "Radial engine cylinder",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 656.3,
+      "wall_time_s": 664.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 99976.4,
+      "solids": 1,
+      "faces": 20,
+      "cyl_faces": 10,
+      "bbox_mm": [
+        70.0,
+        70.0,
+        74.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 1,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/07.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/07.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "08",
+      "name": "Centrifugal impeller",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 713.8,
+      "wall_time_s": 720.8,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 46880.6,
+      "solids": 1,
+      "faces": 8,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        90.0,
+        90.0,
+        25.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/08.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/08.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "09",
+      "name": "Spiral staircase",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 891.1,
+      "wall_time_s": 897.1,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 96832.8,
+      "solids": 1,
+      "faces": 17,
+      "cyl_faces": 5,
+      "bbox_mm": [
+        124.0,
+        124.0,
+        140.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 3,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/09.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/09.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    },
+    {
+      "id": "10",
+      "name": "Planetary gear stage",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 583.1,
+      "wall_time_s": 586.9,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 34.3,
+      "solids": 1,
+      "faces": 15,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        2.9,
+        2.9,
+        8.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/10.png",
+      "step": "/tmp/claude-1000/-home-theultimatecunt/d85947fc-1b05-4fc9-94c7-556cdda052c5/scratchpad/baseline-snapshot/benchmarks/results/artifacts/10.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    }
+  ]
+}
