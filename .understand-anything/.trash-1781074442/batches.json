@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "louvain",
+  "totalFiles": 25,
+  "totalBatches": 4,
+  "exportsByPath": {
+    "b123d/__init__.py": [],
+    "b123d/conventions.py": [
+      "coarse_pitch"
+    ],
+    "b123d/domain.py": [
+      "structural_section",
+      "_apply_mitre_b123d",
+      "spur_gear",
+      "hex_bolt"
+    ],
+    "cad_agent_v4.py": [
+      "_setup_logging",
+      "_load_config",
+      "_creds",
+      "_public_uploads",
+      "_code_model",
+      "_tg_token",
+      "_ollama",
+      "preflight",
+      "_onshape",
+      "build_brief",
+      "spec_needs_strong_coder",
+      "distill_lesson",
+      "generate_code",
+      "_strip_fences",
+      "_patch_code",
+      "_check_syntax",
+      "revise_script",
+      "decide_or_edit",
+      "run_step",
+      "run_inspect",
+      "run_render",
+      "visual_critique",
+      "_onshape_multipart",
+      "import_step_to_onshape",
+      "_parse_onshape_url",
+      "_describe_document",
+      "_load_fewshots",
+      "_write_session",
+      "_read_session",
+      "build",
+      "store_feedback",
+      "_tg_send",
+      "_cmd_build",
+      "_cmd_rate",
+      "_cmd_session",
+      "_cmd_brief",
+      "_cmd_code",
+      "_cmd_inspect",
+      "_cmd_refine"
+    ],
+    "cad_retrieval.py": [
+      "_sha",
+      "_load_cache",
+      "_save_cache",
+      "embed",
+      "_cosine",
+      "load_corpus",
+      "_word_overlap",
+      "retrieve",
+      "load_lessons",
+      "store_lesson",
+      "retrieve_lessons"
+    ],
+    "fs-examples/bolt.fs": [],
+    "fs-examples/helix-thread.fs": [],
+    "fs-examples/loft.fs": [],
+    "fs-examples/revolve.fs": [],
+    "fs-examples/sweep.fs": [],
+    "fs-learnings/learned_chair.fs": [],
+    "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": [],
+    "fs-learnings/learned_spur_gear.fs": [],
+    "scripts/inspect": [],
+    "scripts/render": [],
+    "scripts/run_benchmarks.py": [
+      "derive_geometry",
+      "parse_result",
+      "run_one",
+      "main"
+    ],
+    "scripts/step": []
+  },
+  "batches": [
+    {
+      "batchIndex": 1,
+      "files": [
+        {
+          "path": "b123d/__init__.py",
+          "language": "python",
+          "sizeLines": 7,
+          "fileCategory": "code"
+        },
+        {
+          "path": "b123d/conventions.py",
+          "language": "python",
+          "sizeLines": 27,
+          "fileCategory": "code"
+        },
+        {
+          "path": "b123d/domain.py",
+          "language": "python",
+          "sizeLines": 311,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "b123d/__init__.py": [
+          "b123d/conventions.py",
+          "b123d/domain.py"
+        ],
+        "b123d/conventions.py": [],
+        "b123d/domain.py": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 2,
+      "files": [
+        {
+          "path": "BUILDS.md",
+          "language": "markdown",
+          "sizeLines": 66,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "PROJECT.md",
+          "language": "markdown",
+          "sizeLines": 187,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "SKILL.md",
+          "language": "markdown",
+          "sizeLines": 129,
+          "fileCategory": "docs"
+        }
+      ],
+      "batchImportData": {
+        "BUILDS.md": [],
+        "PROJECT.md": [],
+        "SKILL.md": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 3,
+      "files": [
+        {
+          "path": "capabilities/extrude_cut.md",
+          "language": "markdown",
+          "sizeLines": 69,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "capabilities/fillet_chamfer.md",
+          "language": "markdown",
+          "sizeLines": 89,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "capabilities/mirror.md",
+          "language": "markdown",
+          "sizeLines": 82,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "capabilities/thread_creation.md",
+          "language": "markdown",
+          "sizeLines": 67,
+          "fileCategory": "docs"
+        }
+      ],
+      "batchImportData": {
+        "capabilities/extrude_cut.md": [],
+        "capabilities/fillet_chamfer.md": [],
+        "capabilities/mirror.md": [],
+        "capabilities/thread_creation.md": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 4,
+      "files": [
+        {
+          "path": "benchmarks/text-to-cad/specs.json",
+          "language": "json",
+          "sizeLines": 46,
+          "fileCategory": "config"
+        },
+        {
+          "path": "cad_agent_v4.py",
+          "language": "python",
+          "sizeLines": 1186,
+          "fileCategory": "code"
+        },
+        {
+          "path": "cad_retrieval.py",
+          "language": "python",
+          "sizeLines": 185,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-examples/bolt.fs",
+          "language": "fs",
+          "sizeLines": 54,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-examples/helix-thread.fs",
+          "language": "fs",
+          "sizeLines": 90,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-examples/loft.fs",
+          "language": "fs",
+          "sizeLines": 69,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-examples/revolve.fs",
+          "language": "fs",
+          "sizeLines": 49,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-examples/sweep.fs",
+          "language": "fs",
+          "sizeLines": 61,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-learnings/learned_chair.fs",
+          "language": "fs",
+          "sizeLines": 131,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+          "language": "fs",
+          "sizeLines": 21,
+          "fileCategory": "code"
+        },
+        {
+          "path": "fs-learnings/learned_spur_gear.fs",
+          "language": "fs",
+          "sizeLines": 18,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/inspect",
+          "language": "unknown",
+          "sizeLines": 83,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/render",
+          "language": "unknown",
+          "sizeLines": 144,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/run_benchmarks.py",
+          "language": "python",
+          "sizeLines": 155,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/step",
+          "language": "unknown",
+          "sizeLines": 111,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "benchmarks/text-to-cad/specs.json": [],
+        "cad_agent_v4.py": [],
+        "cad_retrieval.py": [],
+        "fs-examples/bolt.fs": [],
+        "fs-examples/helix-thread.fs": [],
+        "fs-examples/loft.fs": [],
+        "fs-examples/revolve.fs": [],
+        "fs-examples/sweep.fs": [],
+        "fs-learnings/learned_chair.fs": [],
+        "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": [],
+        "fs-learnings/learned_spur_gear.fs": [],
+        "scripts/inspect": [],
+        "scripts/render": [],
+        "scripts/run_benchmarks.py": [],
+        "scripts/step": []
+      },
+      "neighborMap": {}
+    }
+  ]
+}

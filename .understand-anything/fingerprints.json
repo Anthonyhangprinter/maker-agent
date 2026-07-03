@@ -1,0 +1,1049 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "c0f9a358529789b271381a35b5a9394cbfd458f0",
+  "generatedAt": "2026-06-10T06:53:46.726Z",
+  "files": {
+    "b123d/__init__.py": {
+      "filePath": "b123d/__init__.py",
+      "contentHash": "b31b6308d36944163c23198614e7b65e591dc232e3506b05f5163b5e411916ae",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": ".domain",
+          "specifiers": [
+            "structural_section",
+            "spur_gear",
+            "hex_bolt"
+          ]
+        },
+        {
+          "source": ".conventions",
+          "specifiers": [
+            "MM",
+            "WALL_THICKNESS",
+            "COSMETIC_FILLET",
+            "CLEARANCE_M3",
+            "CLEARANCE_M4",
+            "CLEARANCE_M5",
+            "CLEARANCE_M6",
+            "THREAD_PITCH",
+            "coarse_pitch"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": true
+    },
+    "b123d/conventions.py": {
+      "filePath": "b123d/conventions.py",
+      "contentHash": "3749e5bd0c2d2f9591f87fd363e20b1cb210c4291d58e380d430ae8cffd8b17f",
+      "functions": [
+        {
+          "name": "coarse_pitch",
+          "params": [
+            "size_mm"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "coarse_pitch"
+      ],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "b123d/domain.py": {
+      "filePath": "b123d/domain.py",
+      "contentHash": "d3c08966f8a555dacda370633b76b2e5958408e7b0325da079ea870ee3e5fab0",
+      "functions": [
+        {
+          "name": "structural_section",
+          "params": [
+            "d_mm",
+            "bf_mm",
+            "tf_mm",
+            "tw_mm",
+            "length_mm",
+            "mitre",
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 70
+        },
+        {
+          "name": "_apply_mitre_b123d",
+          "params": [
+            "bp",
+            "h",
+            "fw",
+            "d_mm",
+            "bf_mm",
+            "length_mm"
+          ],
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "spur_gear",
+          "params": [
+            "teeth",
+            "module_mm",
+            "width_mm",
+            "bore_mm",
+            "pressure_angle",
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 150
+        },
+        {
+          "name": "hex_bolt",
+          "params": [
+            "size_mm",
+            "length_mm",
+            "pitch_mm",
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 45
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional"
+          ]
+        }
+      ],
+      "exports": [
+        "structural_section",
+        "_apply_mitre_b123d",
+        "spur_gear",
+        "hex_bolt"
+      ],
+      "totalLines": 312,
+      "hasStructuralAnalysis": true
+    },
+    "cad_agent_v4.py": {
+      "filePath": "cad_agent_v4.py",
+      "contentHash": "3a20705381758ae94caf203c6d82ccd7e645afa5c9d827887aa5b15cbbdb3e4e",
+      "functions": [
+        {
+          "name": "_setup_logging",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "_load_config",
+          "params": [],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "_creds",
+          "params": [],
+          "returnType": "tuple[str, str]",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "_public_uploads",
+          "params": [],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_code_model",
+          "params": [],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "_tg_token",
+          "params": [],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_ollama",
+          "params": [
+            "model",
+            "system",
+            "prompt",
+            "timeout",
+            "images",
+            "temperature"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 34
+        },
+        {
+          "name": "preflight",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "_onshape",
+          "params": [
+            "method",
+            "path",
+            "body"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "build_brief",
+          "params": [
+            "spec"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "spec_needs_strong_coder",
+          "params": [
+            "spec",
+            "brief"
+          ],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 18
+        },
+        {
+          "name": "distill_lesson",
+          "params": [
+            "spec",
+            "problem",
+            "final_code"
+          ],
+          "returnType": "Optional[str]",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "generate_code",
+          "params": [
+            "brief"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "_strip_fences",
+          "params": [
+            "text"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_patch_code",
+          "params": [
+            "code"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_check_syntax",
+          "params": [
+            "code"
+          ],
+          "returnType": "Optional[str]",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "revise_script",
+          "params": [
+            "spec",
+            "code",
+            "problem",
+            "state"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "decide_or_edit",
+          "params": [
+            "spec",
+            "code",
+            "state",
+            "warnings",
+            "critique"
+          ],
+          "returnType": "tuple[str, Optional[str]]",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "run_step",
+          "params": [
+            "code",
+            "work_dir"
+          ],
+          "returnType": "tuple[Path, str]",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "run_inspect",
+          "params": [
+            "step_path"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "run_render",
+          "params": [
+            "step_path",
+            "work_dir"
+          ],
+          "returnType": "Path",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "visual_critique",
+          "params": [
+            "step_path",
+            "spec",
+            "state",
+            "work_dir"
+          ],
+          "returnType": "Optional[str]",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "_onshape_multipart",
+          "params": [
+            "path",
+            "fields",
+            "file_path",
+            "filename"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "import_step_to_onshape",
+          "params": [
+            "step_path",
+            "name",
+            "public",
+            "upload_target"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 60
+        },
+        {
+          "name": "_parse_onshape_url",
+          "params": [
+            "url"
+          ],
+          "returnType": "tuple[str, str, str]",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_describe_document",
+          "params": [
+            "did",
+            "wid",
+            "eid"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 32
+        },
+        {
+          "name": "_load_fewshots",
+          "params": [
+            "spec",
+            "n"
+          ],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "_write_session",
+          "params": [
+            "data"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_read_session",
+          "params": [],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "build",
+          "params": [
+            "spec",
+            "chat_id",
+            "coder",
+            "use_fewshots"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 223
+        },
+        {
+          "name": "store_feedback",
+          "params": [
+            "result",
+            "rating",
+            "comment"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "_tg_send",
+          "params": [
+            "chat_id",
+            "text"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "_cmd_build",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 33
+        },
+        {
+          "name": "_cmd_rate",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "_cmd_session",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "_cmd_brief",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_cmd_code",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "_cmd_inspect",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "_cmd_refine",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 19
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "ast",
+          "specifiers": [
+            "ast"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "base64",
+          "specifiers": [
+            "base64"
+          ]
+        },
+        {
+          "source": "shutil",
+          "specifiers": [
+            "shutil"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        },
+        {
+          "source": "tempfile",
+          "specifiers": [
+            "tempfile"
+          ]
+        },
+        {
+          "source": "urllib.request",
+          "specifiers": [
+            "urllib.request"
+          ]
+        },
+        {
+          "source": "urllib.parse",
+          "specifiers": [
+            "urllib.parse"
+          ]
+        },
+        {
+          "source": "urllib.error",
+          "specifiers": [
+            "urllib.error"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional"
+          ]
+        }
+      ],
+      "exports": [
+        "_setup_logging",
+        "_load_config",
+        "_creds",
+        "_public_uploads",
+        "_code_model",
+        "_tg_token",
+        "_ollama",
+        "preflight",
+        "_onshape",
+        "build_brief",
+        "spec_needs_strong_coder",
+        "distill_lesson",
+        "generate_code",
+        "_strip_fences",
+        "_patch_code",
+        "_check_syntax",
+        "revise_script",
+        "decide_or_edit",
+        "run_step",
+        "run_inspect",
+        "run_render",
+        "visual_critique",
+        "_onshape_multipart",
+        "import_step_to_onshape",
+        "_parse_onshape_url",
+        "_describe_document",
+        "_load_fewshots",
+        "_write_session",
+        "_read_session",
+        "build",
+        "store_feedback",
+        "_tg_send",
+        "_cmd_build",
+        "_cmd_rate",
+        "_cmd_session",
+        "_cmd_brief",
+        "_cmd_code",
+        "_cmd_inspect",
+        "_cmd_refine"
+      ],
+      "totalLines": 1187,
+      "hasStructuralAnalysis": true
+    },
+    "cad_retrieval.py": {
+      "filePath": "cad_retrieval.py",
+      "contentHash": "9e57b052ba32351b485ae5963e254513bce4582eb53893df085ad3e91d997449",
+      "functions": [
+        {
+          "name": "_sha",
+          "params": [
+            "text"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_load_cache",
+          "params": [],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_save_cache",
+          "params": [
+            "cache"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "embed",
+          "params": [
+            "text",
+            "cache"
+          ],
+          "returnType": "Optional[list[float]]",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "_cosine",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "load_corpus",
+          "params": [],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "_word_overlap",
+          "params": [
+            "spec",
+            "rows",
+            "n"
+          ],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "retrieve",
+          "params": [
+            "spec",
+            "n",
+            "min_score"
+          ],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "load_lessons",
+          "params": [],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "store_lesson",
+          "params": [
+            "spec",
+            "lesson",
+            "problem",
+            "cap"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "retrieve_lessons",
+          "params": [
+            "spec",
+            "n",
+            "min_score"
+          ],
+          "returnType": "list[str]",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "urllib.request",
+          "specifiers": [
+            "urllib.request"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional"
+          ]
+        }
+      ],
+      "exports": [
+        "_sha",
+        "_load_cache",
+        "_save_cache",
+        "embed",
+        "_cosine",
+        "load_corpus",
+        "_word_overlap",
+        "retrieve",
+        "load_lessons",
+        "store_lesson",
+        "retrieve_lessons"
+      ],
+      "totalLines": 186,
+      "hasStructuralAnalysis": true
+    },
+    "fs-examples/bolt.fs": {
+      "filePath": "fs-examples/bolt.fs",
+      "contentHash": "003a00fb37820b68483c71bb87745248a5f8752dd911e8b2f913d308316f045a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 55,
+      "hasStructuralAnalysis": false
+    },
+    "fs-examples/helix-thread.fs": {
+      "filePath": "fs-examples/helix-thread.fs",
+      "contentHash": "1e97b48928a894518aea89e1549007310af7258a6d9b03769df4655a8749b39d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 91,
+      "hasStructuralAnalysis": false
+    },
+    "fs-examples/loft.fs": {
+      "filePath": "fs-examples/loft.fs",
+      "contentHash": "e9b4863bbea51bc6b1f7b6ac3cf64e27f97b12c24cfc53890ec5c464b56d5d1b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 70,
+      "hasStructuralAnalysis": false
+    },
+    "fs-examples/revolve.fs": {
+      "filePath": "fs-examples/revolve.fs",
+      "contentHash": "f6dbdd3d6a3dd974daa5d3dcca1ae9217757643756a37bae51427948e223f9e2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": false
+    },
+    "fs-examples/sweep.fs": {
+      "filePath": "fs-examples/sweep.fs",
+      "contentHash": "b025106ac2892502e4553c7f58a9eb638c5731451a83e4dd112b08f18e452cd4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 62,
+      "hasStructuralAnalysis": false
+    },
+    "fs-learnings/learned_chair.fs": {
+      "filePath": "fs-learnings/learned_chair.fs",
+      "contentHash": "b5c5243d0dfdd18d9324bfcc104eca46caa3d597ff072bcb5f99efd3567c66fb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 132,
+      "hasStructuralAnalysis": false
+    },
+    "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": {
+      "filePath": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "contentHash": "7980cac5454328ee8b45887420d1eeb0622bf76e2f2bc4981c1665e858d04710",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": false
+    },
+    "fs-learnings/learned_spur_gear.fs": {
+      "filePath": "fs-learnings/learned_spur_gear.fs",
+      "contentHash": "660ff1c5b11ff08954c3284c409fb323d71fc3ee0d547a510658616456ec61ee",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 19,
+      "hasStructuralAnalysis": false
+    },
+    "scripts/inspect": {
+      "filePath": "scripts/inspect",
+      "contentHash": "329bf4814681a8a0f31d0719174794283f8687a327f1bbaf92e745d9610111b8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 84,
+      "hasStructuralAnalysis": false
+    },
+    "scripts/render": {
+      "filePath": "scripts/render",
+      "contentHash": "5658bfeab89d101440bb57ed1691924dc5c0d1f8e6937b1478cc02b2d1494619",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 145,
+      "hasStructuralAnalysis": false
+    },
+    "scripts/run_benchmarks.py": {
+      "filePath": "scripts/run_benchmarks.py",
+      "contentHash": "f7975165699d3fccb4e2d79fd4d07b8db5ea9b8ae2c48aaeaf2528acee817414",
+      "functions": [
+        {
+          "name": "derive_geometry",
+          "params": [
+            "step_path"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "parse_result",
+          "params": [
+            "stdout"
+          ],
+          "returnType": "dict | None",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "run_one",
+          "params": [
+            "bm",
+            "coder",
+            "timeout",
+            "no_fewshots"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 38
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 50
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "derive_geometry",
+        "parse_result",
+        "run_one",
+        "main"
+      ],
+      "totalLines": 156,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/step": {
+      "filePath": "scripts/step",
+      "contentHash": "bdb338974da9ff65b089a7f885e0fe28d2d576cd954619ca7ea2d17136e95d38",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 112,
+      "hasStructuralAnalysis": false
+    }
+  }
+}

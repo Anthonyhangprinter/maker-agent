@@ -1,0 +1,206 @@
+{
+  "ran_at": "2026-06-26T08:32:53.047454+00:00",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 6,
+  "converged": 2,
+  "built": 0,
+  "total_time_s": 3715.0,
+  "acceptance_passed": 12,
+  "acceptance_total": 16,
+  "acceptance_score": 0.75,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 327.1,
+      "wall_time_s": 330.5,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 115349.4,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      }
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 559.1,
+      "wall_time_s": 568.9,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 40545.9,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      }
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 625.2,
+      "wall_time_s": 630.9,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 59660.4,
+      "solids": 1,
+      "faces": 60,
+      "cyl_faces": 26,
+      "bbox_mm": [
+        90.0,
+        50.0,
+        67.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 18,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      }
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "wall_time_s": 745.2,
+      "url": "",
+      "warning": null,
+      "rc": 1,
+      "acceptance": {
+        "score": null,
+        "checks": {},
+        "passed": 0,
+        "total": 0
+      }
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "wall_time_s": 702.7,
+      "url": "",
+      "warning": null,
+      "rc": 1,
+      "acceptance": {
+        "score": null,
+        "checks": {},
+        "passed": 0,
+        "total": 0
+      }
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 714.5,
+      "wall_time_s": 719.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 4401.2,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 5,
+      "bbox_mm": [
+        36.0,
+        6.0,
+        42.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 4,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      }
+    }
+  ]
+}

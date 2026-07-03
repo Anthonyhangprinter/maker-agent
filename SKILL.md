@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build Onshape CAD models from natural language specs. Two-stage pipeline: qwen2.5:14b planner → qwen2.5:14b executor with per-step validation, repair pass, and Telegram feedback. Handles: gears/assemblies, structural sections, airfoils, bolts, freeform FeatureScript shapes. Use when: user sends /cad <spec>, asks to build a part, modify a previous build, or check a CAD model."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed coder (qwen2.5-coder:7b ⇄ qwen3-coder:30b) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -11,149 +11,121 @@ metadata:
   }
 ---
 
-# CAD Builder Skill
+# CAD Builder Skill (v4.3 engine + v5 package)
 
-Build and iterate on Onshape CAD models from text specs. All inference runs locally via Ollama (qwen2.5-coder:7b). No Claude API calls.
+Build and iterate on Onshape CAD models from text specs. All inference runs locally via Ollama
+(qwen3:8b, qwen2.5-coder:7b / qwen3-coder:30b, gemma4:e4b). **No Claude API calls.**
+
+The agent writes **build123d** Python (algebra mode), runs it → STEP, inspects the geometry,
+renders a 2-panel PNG (isometric + top-down), has a multimodal critic judge it against the spec,
+then edits and re-observes until it converges (`###DONE###`) or hits the turn/time budget. It then
+translates the STEP into a real Onshape **Part Studio** (viewable/editable, not a blob).
 
 ## When to Use
 
-✅ **USE this skill when:**
-- `/cad <spec>` — build a new model
-- "make it longer/wider/heavier", "add mitre cuts", "resize to 250UC72.9" — modify the last build
-- "is the CAD model correct?", "verify the last build" — check for errors
+✅ **USE when:**
+- "make / build / create a 100x60x30 enclosure with 2mm walls" — new build
+- "make it 200mm longer", "add a lid", "3mm walls" — refine the last build
 - "what did we just build?", "show session" — recall last build state
+- "rate the last build 5" — save a good build as a future few-shot example
 
-❌ **DON'T use this skill when:**
-- User wants to open/view Onshape in browser (just give them the URL)
-- User wants to delete a document (Onshape UI only)
+❌ **DON'T use when:**
+- User just wants the Onshape URL opened in a browser (give them the URL)
+- Deleting an Onshape document (Onshape UI only)
 
 ## Scripts
 
 ```
-V2=~/.openclaw/skills/cad-builder/cad_agent_v2.py      # two-stage pipeline (default)
-V1=~/.openclaw/skills/cad-builder/onshape_cad_agent.py  # legacy fallback
+cad "<spec>"                                              # v5 interactive entry (local CAD Viewer)
+SCRIPT=~/.openclaw/skills/cad-builder/cad_agent_v4.py     # v4.3 ENGINE (also a standalone CLI)
+# Legacy / rollback only (moved to legacy/): cad_agent_v3.py, cad_agent_v2.py, onshape_cad_agent.py
 ```
 
-Credentials loaded from `~/.openclaw/openclaw.json` env section.
-Log: `~/.openclaw/cad-agent.log`
-Feedback: `~/.openclaw/cad-feedback.jsonl`
+Config & creds: `~/.openclaw/openclaw.json` (`env` ONSHAPE keys + telegram token) and
+**`~/.openclaw/cad.json`** (`cad.*` agent settings incl. the `code_model` pin — kept out of
+openclaw.json because the gateway's strict schema rejects unknown root keys).
+Log: `~/.openclaw/cad-agent.log`. Corpus: `~/.openclaw/cad-examples.jsonl` (gold + rated few-shots);
+lessons: `~/.openclaw/cad-lessons.jsonl` (semantic-deduped).
+Session: `~/.openclaw/cad-session.json`. Per-build artifacts: `~/.openclaw/cad-builds/<ts>-<slug>/`
+(last 20 kept); `~/.openclaw/cad-last-build.{step,stl,dxf}` are convenience copies of the latest.
 
-## Workflow: New Build (v2)
+## Commands
 
 ```bash
-# Dry-run planner only (no Onshape API calls)
-python3 $V2 plan "spur gear 20 teeth module 2 meshing pinion 3:1 ratio"
-
-# Full build — planner → executor → repair pass → Telegram feedback
-python3 $V2 build "W200x100 I-beam 2000mm long"
-python3 $V2 build "spur gear 20 teeth module 2" --chat-id 7788781234
-
-# Stress test (gear assembly)
-python3 $V2 test
+python3 $SCRIPT build "a 100x60x30mm enclosure with 2mm walls"        # → Onshape URL
+python3 $SCRIPT build "W200x100 I-beam 1500mm"                        # uses structural_section()
+python3 $SCRIPT build "<spec>" --coder strong                        # force the 30B coder
+python3 $SCRIPT build "<spec>" --coder fast                          # force the 7B coder
+python3 $SCRIPT session                                              # last build state (JSON)
+python3 $SCRIPT rate <1-5> [comment]                                 # store ≥4★ as a few-shot
+python3 $SCRIPT brief "<spec>"                                       # debug: structured brief only
+python3 $SCRIPT code  "<spec>"                                       # debug: generated code, no build
+python3 $SCRIPT refine "<orig>" "<feedback>" [history_json]          # Satine spec-merge helper
+python3 $SCRIPT inspect "<onshape_url>"                              # describe an existing doc
 ```
 
-### Pipeline stages
-1. **Planner** (qwen2.5:14b): NL → `{steps:[{tool,params,validates_after}], max_calls, timeout_s}`
-2. **Executor** (qwen2.5:14b): runs each step, validates after geometry steps, retries once with LLM-adjusted params on failure
-3. **Repair pass**: reads back mass + bounding box, rebuilds if >50% deviation from expected
-4. **Telegram feedback**: inline 1-5★ keyboard after every build; 4-5★ saved to feedback.jsonl for future few-shot context; 1-2★ prompts text description
+## The Loop (one build)
 
-### Fallback triggers (→ v1 agent)
-- Planner outputs invalid JSON
-- >2 consecutive tool failures
-- Any tool call exceeds 10s wall-clock budget
+1. **Brief** (`qwen3:8b`, temp 0.2) — NL spec → structured JSON `{name, dimensions, features,
+   notes, helper}`. Interprets intent: box/case/enclosure/container/tray/bin ⇒ **hollow, open-top,
+   ~2mm walls** unless "solid"/"block"/"plate" etc. is said.
+2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to start on the 30B coder.
+3. **Codegen** (auto-routed coder, temp 0.15) — build123d algebra-mode script.
+4. **Run → STEP** (`scripts/step`), **inspect** (`scripts/inspect`), **render** (`scripts/render`,
+   2 panels).
+5. **Visual critic** (`gemma4:e4b`) — describes BOTH panels; the top-down panel is where top-face
+   holes/pockets show.
+6. **Decide / edit** — `###DONE###` if every requested feature is genuinely present (verified
+   against code + geometry, not just the render), else edit and loop. Max `MAX_TURNS` (4) /
+   `BUILD_TIMEOUT` (1800s).
 
-### v1 build workflow (legacy)
+**Fast paths:** structural sections / gears / bolts come from `b123d/domain.py` helpers, are
+correct by construction, and **bypass codegen and the critic** (~60s).
+
+## Coder routing
+
+Default is the **fast** `qwen2.5-coder:7b-instruct-q5_k_m` (~16s/call). Triage starts hard specs
+on **`qwen3-coder:30b`** (~7min/call, CPU offload). The loop auto-escalates 7B→30B after
+`ESCALATE_AFTER` (2) failed/stuck turns and regenerates fresh.
+- Force per build: `--coder auto|fast|strong`.
+- Telegram (Satine): prefix the message `strong: <spec>` or `fast: <spec>`.
+- Pin permanently: set `cad.code_model` in `openclaw.json` (disables auto-switching).
+- The chosen model is recorded as `code_model` in the session/result.
+
+## Telegram (Satine — `~/.openclaw/cad-telegram.py`, `cad-telegram.service`)
+
+- Send a spec as plain text (or `/build <spec>`) to build; reply with changes to refine.
+- `strong:`/`fast:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
+- Satine shells out to `cad_agent_v4.py` per request, so agent edits are live without a restart;
+  **restart `cad-telegram.service` only after editing `cad-telegram.py` itself.**
+
+## Honesty & verification
+
+The loop NEVER reports `converged: true` unless the model confirmed the part. A non-converged
+build still uploads the last valid geometry but is flagged with `converged: false` + a `warning` +
+`last_critique`. Verify geometry against intent (volume / face counts / render) — don't assume a
+feature exists just because the code mentions it.
+
+## Learning loop (v4.2)
+
+Small-model quality comes from retrieval + memory, not parameters:
+- **Few-shot corpus** `~/.openclaw/cad-examples.jsonl` — `gold` (verified) + `rated` builds. Semantic
+  retrieval (`cad_retrieval.py`, `nomic-embed-text`) injects the closest known-good build123d code
+  into the brief. `rate ≥4★` adds the current build. Measured: it flipped a flange variant the 7B
+  couldn't build (`--no-fewshots`) into a clean converged build.
+- **Fail→fix memory** `~/.openclaw/cad-lessons.jsonl` — a recovered build auto-distills one concrete
+  pitfall (qwen3:8b), retrieved + injected as "PITFALLS to avoid" on similar future specs.
+- **Measure the lift:** `build --no-fewshots` (or the runner's `--no-fewshots`) disables retrieval so
+  any claimed improvement is A/B-checkable. If a piece shows no benchmark lift, remove it.
+
 ```bash
-python3 $V1 build "W200x100 I-beam 2000mm long"
-python3 $V1 verify <DID> <WID> <EID>
+python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retrieval returns
 ```
 
-## Workflow: Follow-up / Modification
+## Tuning knobs (see PROJECT.md for detail)
 
-```bash
-# Check last session (was anything built recently?)
-python3 $SCRIPT session
-# Output: JSON with spec, parsed params, did, wid, eid, url, built_at
-
-# Rebuild the same document with modified spec
-python3 $SCRIPT rebuild <DID> <WID> <EID> "W200x100 I-beam 2500mm long"
-# Clears all features and rebuilds in-place — same URL
-```
-
-## Workflow: Self-Correction
-
-When `verify` returns `feature_errors` or `ok=false`:
-1. Read `features` to see the full feature list and which ones errored
-2. Determine which parameter caused the error (e.g. wrong sketch plane, bad dimensions)
-3. `rebuild` with corrected parameters
-4. `verify` again to confirm fix
-
-```bash
-# Detailed feature list
-python3 $SCRIPT features <DID> <WID> <EID>
-# Output: JSON list of {featureId, name, type, suppressed, notices[]}
-```
-
-## Supported Shapes — BTM Path (fast, deterministic)
-
-| Shape | Key | Required params |
-|---|---|---|
-| Universal/wide-flange beam | `i_beam` | height_mm, flange_width_mm, flange_thickness_mm, web_thickness_mm, length_mm |
-| C/U channel | `c_channel` | same as i_beam |
-| Hollow rectangular section | `hollow_rect` | width_mm, height_mm, wall_thickness_mm, length_mm |
-| Flat plate | `plate` | width_mm, height_mm, length_mm |
-| Round bar | `round_bar` | diameter_mm, length_mm |
-| NACA airfoil | `naca_airfoil` | naca_digits (e.g. "2412"), chord_mm, span_mm |
-| ISO metric hex bolt | `bolt` | designation (e.g. "M18"), length_mm |
-
-Optional: `root_radius_mm` (i_beam fillet), `mitre_cuts: true` (45° mitre both ends).
-Bolt designations M3–M48: head dimensions auto-looked up from ISO 4014/4017 table.
-
-## Supported Shapes — FeatureScript Path (arbitrary geometry)
-
-Any shape not in the BTM list routes to the FeatureScript pipeline:
-- **Revolved parts**: knobs, cups, discs, stepped shafts (`revolve.fs` example)
-- **Lofted shapes**: spoons, forks, tapered handles, organic forms (`loft.fs` example)
-- **Helix/threads**: threaded fasteners, springs, worm gears (`helix-thread.fs` example)
-- **Swept profiles**: pipes, bent rods, handles, hooks (`sweep.fs` example)
-
-FeatureScript workflow:
-```bash
-# Force FeatureScript path (bypasses shape detection)
-python3 $SCRIPT fs "a wooden spoon with 80mm oval bowl and 180mm handle"
-
-# Preview generated code without uploading
-python3 $SCRIPT fs-preview "M18 bolt with threaded shank"
-```
-
-## Standard Section Designations
-
-The LLM knows these — just pass the designation string:
-- `W200x100` → h=210, bf=206, tf=14.5, tw=9.0
-- `250UC72.9` → h=250, bf=254, tf=14.2, tw=8.6
-- `UB203x102x23` → h=203, bf=102, tf=9.3, tw=5.4
-
-## Replying to the User
-
-After a successful build, reply with:
-1. The Onshape URL
-2. Key dimensions (from parsed params)
-3. Mass and volume (from verify output)
-4. Any warnings (from feature_errors)
-
-If errors occurred and self-correction failed, explain what went wrong and ask for clarification.
-
-## Session Continuity
-
-The session file at `~/.openclaw/cad-session.json` persists the last build. Check it at the start of every `/cad` interaction to detect follow-ups vs new builds.
-
-A message is a **follow-up** if:
-- It doesn't describe a brand new part
-- It references a previous build ("make it", "change the", "add to it")
-- A session file exists and was written recently
-
-A message is a **new build** if:
-- It contains a full part specification
-- User says "new" or "start fresh"
-- No session file exists
+- **`openclaw.json` `cad.*`**: `code_model` (pin coder), `public_uploads`; `env.ONSHAPE_*` creds.
+- **Constants** (top of `cad_agent_v4.py`): models, `MAX_TURNS`, `ESCALATE_AFTER`, `*_TIMEOUT`.
+- **Prompts** (highest leverage): `_BRIEF_SYSTEM` (intent), `_CODE_SYSTEM` (coordinate rules +
+  examples), `_COMPLEXITY_SYSTEM` (triage), `_CRITIC_SYSTEM`/`_DECIDE_SYSTEM`. Sampling temps are
+  inline (codegen/revise/decide 0.15, brief 0.2, triage 0.0).

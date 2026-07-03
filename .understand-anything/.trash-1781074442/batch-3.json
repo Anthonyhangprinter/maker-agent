@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "id": "document:capabilities/extrude_cut.md",
+      "type": "document",
+      "name": "extrude_cut.md",
+      "filePath": "capabilities/extrude_cut.md",
+      "summary": "Capability reference describing how to subtract material via extrude-cut operations (pockets, through-holes, slots, hollow shells), including the BTM JSON pattern and common cut patterns the CAD agent can apply.",
+      "tags": ["documentation", "cad", "capability-reference", "extrude", "geometry"],
+      "complexity": "moderate",
+      "languageNotes": "Reference note structured around a single CAD operation with BTM JSON snippets and gotchas; consumed as context by the codegen model rather than rendered for humans."
+    },
+    {
+      "id": "document:capabilities/fillet_chamfer.md",
+      "type": "document",
+      "name": "fillet_chamfer.md",
+      "filePath": "capabilities/fillet_chamfer.md",
+      "summary": "Capability reference for edge-break operations (fillet and chamfer), covering BTM JSON patterns, edge-selection strategies, and common rounding/beveling patterns used when finishing CAD parts.",
+      "tags": ["documentation", "cad", "capability-reference", "fillet-chamfer", "edge-selection"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:capabilities/mirror.md",
+      "type": "document",
+      "name": "mirror.md",
+      "filePath": "capabilities/mirror.md",
+      "summary": "Capability reference for the Mirror feature, explaining its two modes (mirror feature vs mirror part), standard mirror planes, and BTM JSON patterns for building symmetric brackets, gear pairs, and mirrored cuts.",
+      "tags": ["documentation", "cad", "capability-reference", "mirror", "symmetry"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:capabilities/thread_creation.md",
+      "type": "document",
+      "name": "thread_creation.md",
+      "filePath": "capabilities/thread_creation.md",
+      "summary": "Capability reference for adding threads to a cylindrical face, covering prerequisites, the Onshape built-in Thread feature BTM JSON pattern, a ThreadCreator FeatureScript alternative, and the threaded-lid container pattern.",
+      "tags": ["documentation", "cad", "capability-reference", "threads", "featurescript"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:capabilities/extrude_cut.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/fillet_chamfer.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/mirror.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/thread_creation.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

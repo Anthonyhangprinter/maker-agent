@@ -14,7 +14,7 @@ from .config import log, STEP_OUT, STL_OUT, DXF_OUT, _OPENCLAW
 
 _PREV_STEP = _OPENCLAW / "cad-prev-build.step"   # kept so each refine can be diffed against the last
 
-_PROMPT = "\nFeedback?  (describe a change · done · rate N · onshape · show) > "
+_PROMPT = "\nFeedback?  (describe a change · undo · done · rate N · onshape · show) > "
 
 
 def _summary(facts: dict) -> str:
@@ -60,6 +60,7 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
     history: list[dict] = []
     last: dict | None = None
     have_prev = False
+    prev_spec: str | None = None   # spec that produced _PREV_STEP — restored by `undo`
 
     while True:
         print(f"\n… building ({coder} coder: brief → code → check → view) …")
@@ -144,6 +145,27 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
             if low in ("show", "view"):
                 print(f"  {view.get('url') or step}")
                 continue
+            if low == "undo":
+                # Instant revert to the previous build — no rebuild, no LLM.
+                if not (have_prev and _PREV_STEP.exists() and prev_spec is not None):
+                    print("  (nothing to undo — this is the first build)")
+                    continue
+                spec = prev_spec
+                if history:
+                    history.pop()
+                step = _PREV_STEP
+                facts = _facts_for(step)
+                try:
+                    shutil.copy(step, STEP_OUT)               # keep last-build convention honest
+                    engine.run_stl(STEP_OUT, STL_OUT)         # refresh the sliceable mesh too
+                except Exception as e:
+                    log.warning("[v5] undo artifact refresh: %s", e)
+                view = targets.resolve_target(target_name)(step, _name_of(result, spec))
+                print(f"  ↩ reverted to previous build.  {_summary(facts)}")
+                if view.get("url"):
+                    print(f"  Viewer: {view['url']}")
+                have_prev = False   # only one step of history is kept
+                continue
             # Anything else is a description of a change → leave the prompt loop and rebuild.
             change = fb
             break
@@ -151,11 +173,15 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
         if change is None:   # done / EOF
             break
 
-        # Snapshot this build for the next diff, then merge the feedback and rebuild.
+        # Snapshot this build (geometry + spec) for the next diff and for `undo`, then
+        # merge the feedback and rebuild.
         try:
-            shutil.copy(step, _PREV_STEP)
+            if step != _PREV_STEP:
+                shutil.copy(step, _PREV_STEP)
+            prev_spec = spec
             have_prev = True
-        except Exception:
+        except Exception as e:
+            log.warning("[v5] prev-build snapshot failed: %s", e)
             have_prev = False
         spec = engine.merge_spec(spec, change, history)
         history.append({"role": "user", "content": change})

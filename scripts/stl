@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""
+Export a STEP/STL file to a watertight binary STL mesh — ready for slicing/printing.
+
+Usage:
+    python3 scripts/stl <file.step|file.stl> [out.stl]
+
+build123d works in millimetres and STL is unitless, so slicers (Bambu Studio,
+Cura, PrusaSlicer) read the output as mm directly. Binary STL by default (compact).
+A fine linear deflection (0.01 mm) keeps curved walls/holes smooth at print scale.
+Prints  STL: <path>  on success; exits 1 on error.
+"""
+import sys
+import math
+from pathlib import Path
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/stl <file.step|file.stl> [out.stl]", file=sys.stderr)
+    sys.exit(1)
+
+in_path = Path(sys.argv[1]).resolve()
+out_path = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else in_path.with_suffix(".stl")
+
+if not in_path.exists():
+    print(f"ERROR: File not found: {in_path}", file=sys.stderr)
+    sys.exit(1)
+
+# ── b123d library importable (mirrors scripts/step) ────────────────────────────
+_scripts_dir = Path(__file__).parent
+_cad_builder = _scripts_dir.parent
+for _p in [str(_cad_builder)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# ── Load shape ──────────────────────────────────────────────────────────────--
+try:
+    ext = in_path.suffix.lower()
+    if ext in (".step", ".stp"):
+        from build123d import import_step
+        shape = import_step(str(in_path))
+    elif ext == ".stl":
+        from build123d import import_stl
+        shape = import_stl(str(in_path))
+    else:
+        print(f"ERROR: Unsupported extension {ext!r} (need .step/.stp/.stl)", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"ERROR: Failed to load {in_path.name}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Export STL (print-grade deflection, binary) ────────────────────────────────
+try:
+    from build123d import export_stl
+    ok = export_stl(shape, str(out_path),
+                    tolerance=0.01, angular_tolerance=0.1, ascii_format=False)
+    if ok is False or not out_path.exists():
+        print("ERROR: export_stl reported failure — no mesh written.", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"ERROR: export_stl failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Report ────────────────────────────────────────────────────────────────────
+try:
+    bbox = shape.bounding_box()
+    size_kb = out_path.stat().st_size / 1024.0
+    print(f"STL:    {out_path}")
+    print(f"Bbox:   {bbox.size.X:.2f} x {bbox.size.Y:.2f} x {bbox.size.Z:.2f} mm")
+    print(f"Size:   {size_kb:.1f} KB")
+except Exception:
+    print(f"STL: {out_path}")

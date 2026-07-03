@@ -1,0 +1,15 @@
+{
+  "projectRoot": "/home/theultimatecunt/.openclaw/skills/cad-builder",
+  "batchFiles": [
+    {"path": "capabilities/extrude_cut.md", "language": "markdown", "sizeLines": 69, "fileCategory": "docs"},
+    {"path": "capabilities/fillet_chamfer.md", "language": "markdown", "sizeLines": 89, "fileCategory": "docs"},
+    {"path": "capabilities/mirror.md", "language": "markdown", "sizeLines": 82, "fileCategory": "docs"},
+    {"path": "capabilities/thread_creation.md", "language": "markdown", "sizeLines": 67, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    "capabilities/extrude_cut.md": [],
+    "capabilities/fillet_chamfer.md": [],
+    "capabilities/mirror.md": [],
+    "capabilities/thread_creation.md": []
+  }
+}

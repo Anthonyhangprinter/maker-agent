@@ -148,9 +148,32 @@ def load_lessons() -> list[dict]:
     return rows
 
 
+DEDUP_SIM = 0.90   # cosine similarity above which two lessons teach the same thing
+
+
+def _near_duplicates(lesson: str, rows: list[dict]) -> set[int]:
+    """Indices of rows whose lesson is semantically the same point in different words
+    (exact-text dedup alone let 4 rewordings of one flange-fillet lesson pile up and be
+    retrieved together as noise). Graceful: no embeddings → no semantic dedup."""
+    cache = _load_cache()
+    qvec = embed(lesson, cache)
+    if qvec is None:
+        return set()
+    dupes = set()
+    for i, r in enumerate(rows):
+        rvec = embed(r.get("lesson", ""), cache)
+        if rvec is not None and _cosine(qvec, rvec) >= DEDUP_SIM:
+            dupes.add(i)
+    _save_cache(cache)
+    return dupes
+
+
 def store_lesson(spec: str, lesson: str, problem: str = "", cap: int = 100) -> None:
-    """Append a concrete fail->fix lesson. Deduped by lesson text; capped."""
+    """Append a concrete fail->fix lesson. Deduped exactly AND semantically (the newest
+    wording of a repeated lesson replaces the old ones); capped."""
     rows = [r for r in load_lessons() if r.get("lesson", "").strip() != lesson.strip()]
+    dupes = _near_duplicates(lesson, rows)
+    rows = [r for i, r in enumerate(rows) if i not in dupes]
     rows.append({"spec": spec, "lesson": lesson, "problem": problem[:300],
                  "timestamp": __import__("datetime").datetime.now().isoformat()})
     rows = rows[-cap:]

@@ -1,0 +1,38 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 25,
+    "filesWithImports": 1,
+    "totalEdges": 2
+  },
+  "importMap": {
+    "b123d/__init__.py": [
+      "b123d/conventions.py",
+      "b123d/domain.py"
+    ],
+    "b123d/conventions.py": [],
+    "b123d/domain.py": [],
+    "benchmarks/text-to-cad/specs.json": [],
+    "BUILDS.md": [],
+    "cad_agent_v4.py": [],
+    "cad_retrieval.py": [],
+    "capabilities/extrude_cut.md": [],
+    "capabilities/fillet_chamfer.md": [],
+    "capabilities/mirror.md": [],
+    "capabilities/thread_creation.md": [],
+    "fs-examples/bolt.fs": [],
+    "fs-examples/helix-thread.fs": [],
+    "fs-examples/loft.fs": [],
+    "fs-examples/revolve.fs": [],
+    "fs-examples/sweep.fs": [],
+    "fs-learnings/learned_chair.fs": [],
+    "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": [],
+    "fs-learnings/learned_spur_gear.fs": [],
+    "PROJECT.md": [],
+    "scripts/inspect": [],
+    "scripts/render": [],
+    "scripts/run_benchmarks.py": [],
+    "scripts/step": [],
+    "SKILL.md": []
+  }
+}

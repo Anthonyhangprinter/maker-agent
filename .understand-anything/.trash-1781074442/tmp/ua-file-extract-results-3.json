@@ -1,0 +1,296 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 4,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "capabilities/extrude_cut.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 69,
+      "nonEmptyLines": 59,
+      "sections": [
+        {
+          "heading": "CAPABILITY: Extrude Cut (Subtract Material / Make Pockets, Holes, Slots)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "What it does",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "The ONE difference from an additive extrude",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Tool to use",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "BTM JSON pattern — extrude cut (REMOVE)",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Common patterns",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Through-hole",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "Blind pocket (fixed depth)",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "Hollow container (shell via extrude cut)",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "Slot / groove",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "Key gotchas",
+          "level": 2,
+          "line": 63
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 11
+      }
+    },
+    {
+      "path": "capabilities/fillet_chamfer.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 89,
+      "nonEmptyLines": 74,
+      "sections": [
+        {
+          "heading": "CAPABILITY: Fillet and Chamfer (Edge Breaks)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "What they do",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Tool to use",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "BTM JSON pattern — fillet",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "BTM JSON pattern — chamfer (equal distance)",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "Edge selection patterns",
+          "level": 2,
+          "line": 53
+        },
+        {
+          "heading": "All edges of a body",
+          "level": 3,
+          "line": 55
+        },
+        {
+          "heading": "Only top face edges",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "Specific edge by index (when you need one edge, not all)",
+          "level": 3,
+          "line": 61
+        },
+        {
+          "heading": "Edges of a specific face",
+          "level": 3,
+          "line": 64
+        },
+        {
+          "heading": "Common patterns",
+          "level": 2,
+          "line": 67
+        },
+        {
+          "heading": "Round all edges after extrude (cosmetic fillet)",
+          "level": 3,
+          "line": 69
+        },
+        {
+          "heading": "Sharp structural part — chamfer only the entry edges",
+          "level": 3,
+          "line": 74
+        },
+        {
+          "heading": "Container lid — fillet outer top edge for ergonomics",
+          "level": 3,
+          "line": 79
+        },
+        {
+          "heading": "Key gotchas",
+          "level": 2,
+          "line": 84
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 15
+      }
+    },
+    {
+      "path": "capabilities/mirror.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 82,
+      "nonEmptyLines": 71,
+      "sections": [
+        {
+          "heading": "CAPABILITY: Mirror Feature / Mirror Part",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "What it does",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Two modes",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Tool to use",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "BTM JSON pattern — mirror body about a standard plane",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Standard mirror planes",
+          "level": 2,
+          "line": 37
+        },
+        {
+          "heading": "Common patterns",
+          "level": 2,
+          "line": 47
+        },
+        {
+          "heading": "Symmetric bracket (build half, mirror)",
+          "level": 3,
+          "line": 49
+        },
+        {
+          "heading": "Symmetric gear pair (already handled by create_gear, but if custom)",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "Mirror a cut feature (both sides simultaneously)",
+          "level": 3,
+          "line": 66
+        },
+        {
+          "heading": "Key gotchas",
+          "level": 2,
+          "line": 74
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 11
+      }
+    },
+    {
+      "path": "capabilities/thread_creation.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 67,
+      "nonEmptyLines": 60,
+      "sections": [
+        {
+          "heading": "CAPABILITY: Thread Creation on a Cylindrical Face",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "What it does",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Prerequisites",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Tool sequence",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Thread BTM JSON pattern (Onshape built-in Thread feature)",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "ThreadCreator plugin (custom FeatureScript alternative)",
+          "level": 2,
+          "line": 43
+        },
+        {
+          "heading": "Threading a lid (container + threaded lid pattern)",
+          "level": 2,
+          "line": 51
+        },
+        {
+          "heading": "Key gotchas",
+          "level": 2,
+          "line": 62
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 8
+      }
+    }
+  ]
+}

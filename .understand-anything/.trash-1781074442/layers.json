@@ -1,0 +1,76 @@
+[
+  {
+    "id": "layer:agent",
+    "name": "Agent & Orchestration",
+    "description": "The central CAD agent driving the build123d observe-edit loop (brief, coder triage/routing, codegen, run/inspect/render, gemma visual critique, edit), plus Onshape STEP upload and the CLI/Telegram command surface.",
+    "nodeIds": [
+      "file:cad_agent_v4.py"
+    ]
+  },
+  {
+    "id": "layer:learning",
+    "name": "Learning & Retrieval",
+    "description": "The learning loop that retrieves semantically-similar few-shot build123d examples via nomic-embed and stores/retrieves fail-to-fix lessons, with a SHA-keyed embedding cache and word-overlap fallback.",
+    "nodeIds": [
+      "file:cad_retrieval.py"
+    ]
+  },
+  {
+    "id": "layer:domain",
+    "name": "Domain Geometry Helpers",
+    "description": "Deterministic build123d geometry factories (structural_section beams, involute spur_gear, hex_bolt) plus shared thread-pitch conventions, imported and trusted directly by the agent without visual critique.",
+    "nodeIds": [
+      "file:b123d/__init__.py",
+      "file:b123d/conventions.py",
+      "file:b123d/domain.py"
+    ]
+  },
+  {
+    "id": "layer:tooling",
+    "name": "Geometry Runners & Tooling",
+    "description": "Standalone subprocess runners the agent shells out to per loop iteration: step (build123d source to STEP), inspect (geometry validation), and render (STEP to two-panel critic PNG).",
+    "nodeIds": [
+      "file:scripts/step",
+      "file:scripts/inspect",
+      "file:scripts/render"
+    ]
+  },
+  {
+    "id": "layer:evaluation",
+    "name": "Evaluation & Benchmarks",
+    "description": "The text-to-CAD benchmark harness that runs each spec through cad_agent_v4 as a subprocess and scores the derived STEP geometry, driven by the 10-spec benchmark suite.",
+    "nodeIds": [
+      "file:scripts/run_benchmarks.py",
+      "config:benchmarks/text-to-cad/specs.json"
+    ]
+  },
+  {
+    "id": "layer:reference",
+    "name": "Reference & Capability Data",
+    "description": "Read-only context for codegen: build123d capability notes (extrude-cut, fillet/chamfer, mirror, threads) and legacy Onshape FeatureScript example and learned snippets carried over from the v1 pipeline.",
+    "nodeIds": [
+      "document:capabilities/extrude_cut.md",
+      "document:capabilities/fillet_chamfer.md",
+      "document:capabilities/mirror.md",
+      "document:capabilities/thread_creation.md",
+      "file:fs-examples/bolt.fs",
+      "file:fs-examples/helix-thread.fs",
+      "file:fs-examples/loft.fs",
+      "file:fs-examples/revolve.fs",
+      "file:fs-examples/sweep.fs",
+      "file:fs-learnings/learned_chair.fs",
+      "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "file:fs-learnings/learned_spur_gear.fs"
+    ]
+  },
+  {
+    "id": "layer:documentation",
+    "name": "Documentation",
+    "description": "Top-level project documentation for CAD Agent v4.2: the PROJECT design doc, the operator-facing SKILL guide, and the BUILDS verification checklist.",
+    "nodeIds": [
+      "document:BUILDS.md",
+      "document:PROJECT.md",
+      "document:SKILL.md"
+    ]
+  }
+]

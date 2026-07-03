@@ -1,0 +1,667 @@
+{
+  "scriptCompleted": true,
+  "entryPointCandidates": [
+    {
+      "id": "file:b123d/__init__.py",
+      "score": 2,
+      "name": "__init__.py",
+      "summary": "Package barrel for the b123d helper module, re-exporting the deterministic build123d domain helpers and shared conventions so the CAD agent loop can import them from a single namespace."
+    },
+    {
+      "id": "file:b123d/domain.py",
+      "score": 2,
+      "name": "domain.py",
+      "summary": "Provides deterministic build123d geometry helpers (structural_section for I/H/C beams, spur_gear with true involute teeth, hex_bolt) that the CAD agent loop calls directly and trusts without visual critique."
+    },
+    {
+      "id": "document:BUILDS.md",
+      "score": 2,
+      "name": "BUILDS.md",
+      "summary": "Build-verification checklist for CAD Agent v4.2, listing Tier 0 smoke tests expected to converge on the 7B coder, the text-to-cad benchmark suite invocation, and the workflow for rating good builds into the few-shot store."
+    },
+    {
+      "id": "document:PROJECT.md",
+      "score": 2,
+      "name": "PROJECT.md",
+      "summary": "Authoritative design document for CAD Agent v4.2 covering architecture, the build123d agentic observe-edit loop, coder routing, learning loop, hardware/model routing, and the tuning surface for changing behavior."
+    },
+    {
+      "id": "document:SKILL.md",
+      "score": 2,
+      "name": "SKILL.md",
+      "summary": "Operator-facing skill guide for CAD Agent v4.2 documenting when to use it, available scripts and commands, the per-build loop, coder routing, the Telegram (Satine) frontend, and verification/learning-loop behavior."
+    }
+  ],
+  "fanInRanking": [
+    {
+      "id": "file:cad_agent_v4.py",
+      "fanIn": 8,
+      "name": "cad_agent_v4.py"
+    },
+    {
+      "id": "file:b123d/domain.py",
+      "fanIn": 4,
+      "name": "domain.py"
+    },
+    {
+      "id": "file:scripts/run_benchmarks.py",
+      "fanIn": 4,
+      "name": "run_benchmarks.py"
+    },
+    {
+      "id": "file:cad_retrieval.py",
+      "fanIn": 3,
+      "name": "cad_retrieval.py"
+    },
+    {
+      "id": "function:b123d/conventions.py:coarse_pitch",
+      "fanIn": 2,
+      "name": "coarse_pitch"
+    },
+    {
+      "id": "function:b123d/domain.py:_apply_mitre_b123d",
+      "fanIn": 2,
+      "name": "_apply_mitre_b123d"
+    },
+    {
+      "id": "document:PROJECT.md",
+      "fanIn": 2,
+      "name": "PROJECT.md"
+    },
+    {
+      "id": "function:cad_agent_v4.py:build",
+      "fanIn": 2,
+      "name": "build"
+    },
+    {
+      "id": "function:cad_retrieval.py:retrieve",
+      "fanIn": 2,
+      "name": "retrieve"
+    },
+    {
+      "id": "function:cad_retrieval.py:retrieve_lessons",
+      "fanIn": 2,
+      "name": "retrieve_lessons"
+    },
+    {
+      "id": "function:cad_retrieval.py:store_lesson",
+      "fanIn": 2,
+      "name": "store_lesson"
+    },
+    {
+      "id": "file:b123d/conventions.py",
+      "fanIn": 1,
+      "name": "conventions.py"
+    },
+    {
+      "id": "function:b123d/domain.py:structural_section",
+      "fanIn": 1,
+      "name": "structural_section"
+    },
+    {
+      "id": "function:b123d/domain.py:spur_gear",
+      "fanIn": 1,
+      "name": "spur_gear"
+    },
+    {
+      "id": "function:b123d/domain.py:hex_bolt",
+      "fanIn": 1,
+      "name": "hex_bolt"
+    },
+    {
+      "id": "file:scripts/step",
+      "fanIn": 1,
+      "name": "step"
+    },
+    {
+      "id": "file:scripts/inspect",
+      "fanIn": 1,
+      "name": "inspect"
+    },
+    {
+      "id": "file:scripts/render",
+      "fanIn": 1,
+      "name": "render"
+    },
+    {
+      "id": "function:cad_agent_v4.py:build_brief",
+      "fanIn": 1,
+      "name": "build_brief"
+    },
+    {
+      "id": "function:cad_agent_v4.py:spec_needs_strong_coder",
+      "fanIn": 1,
+      "name": "spec_needs_strong_coder"
+    }
+  ],
+  "fanOutRanking": [
+    {
+      "id": "file:cad_agent_v4.py",
+      "fanOut": 24,
+      "name": "cad_agent_v4.py"
+    },
+    {
+      "id": "file:cad_retrieval.py",
+      "fanOut": 6,
+      "name": "cad_retrieval.py"
+    },
+    {
+      "id": "file:scripts/run_benchmarks.py",
+      "fanOut": 5,
+      "name": "run_benchmarks.py"
+    },
+    {
+      "id": "file:b123d/domain.py",
+      "fanOut": 4,
+      "name": "domain.py"
+    },
+    {
+      "id": "document:PROJECT.md",
+      "fanOut": 4,
+      "name": "PROJECT.md"
+    },
+    {
+      "id": "document:SKILL.md",
+      "fanOut": 4,
+      "name": "SKILL.md"
+    },
+    {
+      "id": "document:BUILDS.md",
+      "fanOut": 3,
+      "name": "BUILDS.md"
+    },
+    {
+      "id": "file:b123d/__init__.py",
+      "fanOut": 2,
+      "name": "__init__.py"
+    },
+    {
+      "id": "function:cad_agent_v4.py:build",
+      "fanOut": 2,
+      "name": "build"
+    },
+    {
+      "id": "file:b123d/conventions.py",
+      "fanOut": 1,
+      "name": "conventions.py"
+    },
+    {
+      "id": "function:b123d/domain.py:structural_section",
+      "fanOut": 1,
+      "name": "structural_section"
+    },
+    {
+      "id": "function:b123d/domain.py:hex_bolt",
+      "fanOut": 1,
+      "name": "hex_bolt"
+    },
+    {
+      "id": "document:capabilities/extrude_cut.md",
+      "fanOut": 1,
+      "name": "extrude_cut.md"
+    },
+    {
+      "id": "document:capabilities/fillet_chamfer.md",
+      "fanOut": 1,
+      "name": "fillet_chamfer.md"
+    },
+    {
+      "id": "document:capabilities/mirror.md",
+      "fanOut": 1,
+      "name": "mirror.md"
+    },
+    {
+      "id": "document:capabilities/thread_creation.md",
+      "fanOut": 1,
+      "name": "thread_creation.md"
+    },
+    {
+      "id": "config:benchmarks/text-to-cad/specs.json",
+      "fanOut": 1,
+      "name": "specs.json"
+    },
+    {
+      "id": "function:cad_agent_v4.py:run_step",
+      "fanOut": 1,
+      "name": "run_step"
+    },
+    {
+      "id": "function:cad_agent_v4.py:run_inspect",
+      "fanOut": 1,
+      "name": "run_inspect"
+    },
+    {
+      "id": "function:cad_agent_v4.py:run_render",
+      "fanOut": 1,
+      "name": "run_render"
+    }
+  ],
+  "bfsTraversal": {
+    "startNode": "file:b123d/__init__.py",
+    "order": [
+      "file:b123d/__init__.py",
+      "file:b123d/conventions.py",
+      "file:b123d/domain.py"
+    ],
+    "depthMap": {
+      "file:b123d/__init__.py": 0,
+      "file:b123d/conventions.py": 1,
+      "file:b123d/domain.py": 1
+    },
+    "byDepth": {
+      "0": [
+        "file:b123d/__init__.py"
+      ],
+      "1": [
+        "file:b123d/conventions.py",
+        "file:b123d/domain.py"
+      ]
+    }
+  },
+  "nonCodeFiles": {
+    "documentation": [
+      {
+        "id": "document:BUILDS.md",
+        "name": "BUILDS.md",
+        "type": "document",
+        "summary": "Build-verification checklist for CAD Agent v4.2, listing Tier 0 smoke tests expected to converge on the 7B coder, the text-to-cad benchmark suite invocation, and the workflow for rating good builds into the few-shot store."
+      },
+      {
+        "id": "document:PROJECT.md",
+        "name": "PROJECT.md",
+        "type": "document",
+        "summary": "Authoritative design document for CAD Agent v4.2 covering architecture, the build123d agentic observe-edit loop, coder routing, learning loop, hardware/model routing, and the tuning surface for changing behavior."
+      },
+      {
+        "id": "document:SKILL.md",
+        "name": "SKILL.md",
+        "type": "document",
+        "summary": "Operator-facing skill guide for CAD Agent v4.2 documenting when to use it, available scripts and commands, the per-build loop, coder routing, the Telegram (Satine) frontend, and verification/learning-loop behavior."
+      },
+      {
+        "id": "document:capabilities/extrude_cut.md",
+        "name": "extrude_cut.md",
+        "type": "document",
+        "summary": "Capability reference describing how to subtract material via extrude-cut operations (pockets, through-holes, slots, hollow shells), including the BTM JSON pattern and common cut patterns the CAD agent can apply."
+      },
+      {
+        "id": "document:capabilities/fillet_chamfer.md",
+        "name": "fillet_chamfer.md",
+        "type": "document",
+        "summary": "Capability reference for edge-break operations (fillet and chamfer), covering BTM JSON patterns, edge-selection strategies, and common rounding/beveling patterns used when finishing CAD parts."
+      },
+      {
+        "id": "document:capabilities/mirror.md",
+        "name": "mirror.md",
+        "type": "document",
+        "summary": "Capability reference for the Mirror feature, explaining its two modes (mirror feature vs mirror part), standard mirror planes, and BTM JSON patterns for building symmetric brackets, gear pairs, and mirrored cuts."
+      },
+      {
+        "id": "document:capabilities/thread_creation.md",
+        "name": "thread_creation.md",
+        "type": "document",
+        "summary": "Capability reference for adding threads to a cylindrical face, covering prerequisites, the Onshape built-in Thread feature BTM JSON pattern, a ThreadCreator FeatureScript alternative, and the threaded-lid container pattern."
+      }
+    ],
+    "infrastructure": [],
+    "data": [],
+    "config": [
+      {
+        "id": "config:benchmarks/text-to-cad/specs.json",
+        "name": "specs.json",
+        "type": "config",
+        "summary": "Text-to-CAD benchmark suite: 10 natural-language part specs with expected geometry hints, used by run_benchmarks.py to score the agent end-to-end."
+      }
+    ]
+  },
+  "clusters": [],
+  "layers": {
+    "count": 7,
+    "list": [
+      {
+        "id": "layer:agent",
+        "name": "Agent & Orchestration",
+        "description": "The central CAD agent driving the build123d observe-edit loop (brief, coder triage/routing, codegen, run/inspect/render, gemma visual critique, edit), plus Onshape STEP upload and the CLI/Telegram command surface."
+      },
+      {
+        "id": "layer:learning",
+        "name": "Learning & Retrieval",
+        "description": "The learning loop that retrieves semantically-similar few-shot build123d examples via nomic-embed and stores/retrieves fail-to-fix lessons, with a SHA-keyed embedding cache and word-overlap fallback."
+      },
+      {
+        "id": "layer:domain",
+        "name": "Domain Geometry Helpers",
+        "description": "Deterministic build123d geometry factories (structural_section beams, involute spur_gear, hex_bolt) plus shared thread-pitch conventions, imported and trusted directly by the agent without visual critique."
+      },
+      {
+        "id": "layer:tooling",
+        "name": "Geometry Runners & Tooling",
+        "description": "Standalone subprocess runners the agent shells out to per loop iteration: step (build123d source to STEP), inspect (geometry validation), and render (STEP to two-panel critic PNG)."
+      },
+      {
+        "id": "layer:evaluation",
+        "name": "Evaluation & Benchmarks",
+        "description": "The text-to-CAD benchmark harness that runs each spec through cad_agent_v4 as a subprocess and scores the derived STEP geometry, driven by the 10-spec benchmark suite."
+      },
+      {
+        "id": "layer:reference",
+        "name": "Reference & Capability Data",
+        "description": "Read-only context for codegen: build123d capability notes (extrude-cut, fillet/chamfer, mirror, threads) and legacy Onshape FeatureScript example and learned snippets carried over from the v1 pipeline."
+      },
+      {
+        "id": "layer:documentation",
+        "name": "Documentation",
+        "description": "Top-level project documentation for CAD Agent v4.2: the PROJECT design doc, the operator-facing SKILL guide, and the BUILDS verification checklist."
+      }
+    ]
+  },
+  "nodeSummaryIndex": {
+    "file:b123d/__init__.py": {
+      "name": "__init__.py",
+      "type": "file",
+      "summary": "Package barrel for the b123d helper module, re-exporting the deterministic build123d domain helpers and shared conventions so the CAD agent loop can import them from a single namespace."
+    },
+    "file:b123d/conventions.py": {
+      "name": "conventions.py",
+      "type": "file",
+      "summary": "Holds shared build123d conventions, notably a metric coarse-thread pitch table and a coarse_pitch() lookup used by the bolt helper."
+    },
+    "file:b123d/domain.py": {
+      "name": "domain.py",
+      "type": "file",
+      "summary": "Provides deterministic build123d geometry helpers (structural_section for I/H/C beams, spur_gear with true involute teeth, hex_bolt) that the CAD agent loop calls directly and trusts without visual critique."
+    },
+    "function:b123d/conventions.py:coarse_pitch": {
+      "name": "coarse_pitch",
+      "type": "function",
+      "summary": "Returns the ISO metric coarse-thread pitch in mm for a given nominal bolt size, falling back to an approximation when the size is not in the lookup table."
+    },
+    "function:b123d/domain.py:structural_section": {
+      "name": "structural_section",
+      "type": "function",
+      "summary": "Builds an extruded structural steel section (I/H/C beam) from web/flange dimensions using a build123d polyline cross-section, with optional mitre end cuts."
+    },
+    "function:b123d/domain.py:_apply_mitre_b123d": {
+      "name": "_apply_mitre_b123d",
+      "type": "function",
+      "summary": "Applies angled mitre cuts to the ends of a structural section by extruding and subtracting wedge solids at the part extremities."
+    },
+    "function:b123d/domain.py:spur_gear": {
+      "name": "spur_gear",
+      "type": "function",
+      "summary": "Generates a parametric involute spur gear from teeth count, module, width and bore, computing the true involute tooth profile via trigonometric strips before extruding the swept polyline."
+    },
+    "function:b123d/domain.py:hex_bolt": {
+      "name": "hex_bolt",
+      "type": "function",
+      "summary": "Builds a hex-head bolt solid from nominal size and length, deriving thread pitch via coarse_pitch and extruding a regular-hexagon head atop a cylindrical shank."
+    },
+    "document:BUILDS.md": {
+      "name": "BUILDS.md",
+      "type": "document",
+      "summary": "Build-verification checklist for CAD Agent v4.2, listing Tier 0 smoke tests expected to converge on the 7B coder, the text-to-cad benchmark suite invocation, and the workflow for rating good builds into the few-shot store."
+    },
+    "document:PROJECT.md": {
+      "name": "PROJECT.md",
+      "type": "document",
+      "summary": "Authoritative design document for CAD Agent v4.2 covering architecture, the build123d agentic observe-edit loop, coder routing, learning loop, hardware/model routing, and the tuning surface for changing behavior."
+    },
+    "document:SKILL.md": {
+      "name": "SKILL.md",
+      "type": "document",
+      "summary": "Operator-facing skill guide for CAD Agent v4.2 documenting when to use it, available scripts and commands, the per-build loop, coder routing, the Telegram (Satine) frontend, and verification/learning-loop behavior."
+    },
+    "document:capabilities/extrude_cut.md": {
+      "name": "extrude_cut.md",
+      "type": "document",
+      "summary": "Capability reference describing how to subtract material via extrude-cut operations (pockets, through-holes, slots, hollow shells), including the BTM JSON pattern and common cut patterns the CAD agent can apply."
+    },
+    "document:capabilities/fillet_chamfer.md": {
+      "name": "fillet_chamfer.md",
+      "type": "document",
+      "summary": "Capability reference for edge-break operations (fillet and chamfer), covering BTM JSON patterns, edge-selection strategies, and common rounding/beveling patterns used when finishing CAD parts."
+    },
+    "document:capabilities/mirror.md": {
+      "name": "mirror.md",
+      "type": "document",
+      "summary": "Capability reference for the Mirror feature, explaining its two modes (mirror feature vs mirror part), standard mirror planes, and BTM JSON patterns for building symmetric brackets, gear pairs, and mirrored cuts."
+    },
+    "document:capabilities/thread_creation.md": {
+      "name": "thread_creation.md",
+      "type": "document",
+      "summary": "Capability reference for adding threads to a cylindrical face, covering prerequisites, the Onshape built-in Thread feature BTM JSON pattern, a ThreadCreator FeatureScript alternative, and the threaded-lid container pattern."
+    },
+    "config:benchmarks/text-to-cad/specs.json": {
+      "name": "specs.json",
+      "type": "config",
+      "summary": "Text-to-CAD benchmark suite: 10 natural-language part specs with expected geometry hints, used by run_benchmarks.py to score the agent end-to-end."
+    },
+    "file:cad_agent_v4.py": {
+      "name": "cad_agent_v4.py",
+      "type": "file",
+      "summary": "The central CAD agent: drives the full build123d observe-edit loop (brief -> coder-triage -> codegen -> run/inspect/render -> gemma visual critic -> edit), handles coder model routing (7B<->30B), Onshape STEP upload, and the CLI/Telegram command surface."
+    },
+    "file:cad_retrieval.py": {
+      "name": "cad_retrieval.py",
+      "type": "file",
+      "summary": "The learning-loop retrieval layer: nomic-embed semantic few-shot retrieval over the rated build123d corpus plus fail->fix lesson storage/retrieval, with a cached embedding store and word-overlap fallback."
+    },
+    "file:scripts/run_benchmarks.py": {
+      "name": "run_benchmarks.py",
+      "type": "file",
+      "summary": "Benchmark harness that runs each text-to-cad spec through cad_agent_v4 as a subprocess, derives geometry from the produced STEP, and writes timestamped pass/fail results."
+    },
+    "file:scripts/step": {
+      "name": "step",
+      "type": "file",
+      "summary": "Runner script that executes generated build123d source in an isolated namespace and exports the resulting solid to a STEP file; invoked as a subprocess by the agent's run_step."
+    },
+    "file:scripts/inspect": {
+      "name": "inspect",
+      "type": "file",
+      "summary": "Geometry validation runner that loads a STEP file and reports bounding box, face/solid counts and validity, feeding the agent's inspect-and-revise step."
+    },
+    "file:scripts/render": {
+      "name": "render",
+      "type": "file",
+      "summary": "Headless STEP-to-PNG renderer producing a two-panel (isometric + top-down) shaded image for the multimodal critic, drawn with matplotlib Agg and edge-less flat-shaded faces."
+    },
+    "file:fs-examples/bolt.fs": {
+      "name": "bolt.fs",
+      "type": "file",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a bolt; standalone read-only example data, not part of the v4 build123d pipeline."
+    },
+    "file:fs-examples/helix-thread.fs": {
+      "name": "helix-thread.fs",
+      "type": "file",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a helical thread; standalone read-only example data."
+    },
+    "file:fs-examples/loft.fs": {
+      "name": "loft.fs",
+      "type": "file",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a loft operation; standalone read-only example data."
+    },
+    "file:fs-examples/revolve.fs": {
+      "name": "revolve.fs",
+      "type": "file",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a revolve operation; standalone read-only example data."
+    },
+    "file:fs-examples/sweep.fs": {
+      "name": "sweep.fs",
+      "type": "file",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a sweep operation; standalone read-only example data."
+    },
+    "file:fs-learnings/learned_chair.fs": {
+      "name": "learned_chair.fs",
+      "type": "file",
+      "summary": "Legacy learned FeatureScript artifact for a chair build, captured from an earlier v1 FeatureScript run; standalone read-only reference."
+    },
+    "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": {
+      "name": "learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "type": "file",
+      "summary": "Legacy learned FeatureScript artifact for a 20-tooth module-2 meshing spur gear pair; standalone read-only reference."
+    },
+    "file:fs-learnings/learned_spur_gear.fs": {
+      "name": "learned_spur_gear.fs",
+      "type": "file",
+      "summary": "Legacy learned FeatureScript artifact for a single spur gear; standalone read-only reference."
+    },
+    "function:cad_agent_v4.py:build": {
+      "name": "build",
+      "type": "function",
+      "summary": "The core orchestrator: builds the brief, loads few-shots and lessons, routes the coder, then runs the generate -> step -> inspect -> render -> critique -> edit loop until DONE, finally uploading the STEP to Onshape and persisting session state."
+    },
+    "function:cad_agent_v4.py:build_brief": {
+      "name": "build_brief",
+      "type": "function",
+      "summary": "Calls the brief model (qwen3:8b) to turn a free-text spec into a structured JSON build brief (dimensions, operations, optional helper hint)."
+    },
+    "function:cad_agent_v4.py:spec_needs_strong_coder": {
+      "name": "spec_needs_strong_coder",
+      "type": "function",
+      "summary": "LLM triage that decides whether a spec is hard enough to start on the strong 30B coder instead of the fast 7B, parsing a JSON verdict from the brief model."
+    },
+    "function:cad_agent_v4.py:generate_code": {
+      "name": "generate_code",
+      "type": "function",
+      "summary": "Generates build123d Python from the brief: either emits a deterministic domain-helper call (bolt/gear/section) or prompts the routed coder model, then strips fences and patches the code."
+    },
+    "function:cad_agent_v4.py:revise_script": {
+      "name": "revise_script",
+      "type": "function",
+      "summary": "Asks the coder model to repair failing build123d code given the error/problem and current state, returning patched and fence-stripped source."
+    },
+    "function:cad_agent_v4.py:decide_or_edit": {
+      "name": "decide_or_edit",
+      "type": "function",
+      "summary": "Given warnings and the visual critique, asks the coder model to either reply DONE or return an edited script, driving loop termination."
+    },
+    "function:cad_agent_v4.py:visual_critique": {
+      "name": "visual_critique",
+      "type": "function",
+      "summary": "Renders the STEP to a PNG and sends it with the spec to the multimodal critic model (gemma4:e4b) to judge whether the geometry matches intent."
+    },
+    "function:cad_agent_v4.py:run_step": {
+      "name": "run_step",
+      "type": "function",
+      "summary": "Writes the generated source to disk and invokes the scripts/step runner as a subprocess to produce a STEP file, raising on failure."
+    },
+    "function:cad_agent_v4.py:run_inspect": {
+      "name": "run_inspect",
+      "type": "function",
+      "summary": "Invokes the scripts/inspect runner as a subprocess and parses its WARN/ERROR lines into geometry warnings."
+    },
+    "function:cad_agent_v4.py:run_render": {
+      "name": "run_render",
+      "type": "function",
+      "summary": "Invokes the scripts/render runner as a subprocess to turn a STEP file into the two-panel critic PNG."
+    },
+    "function:cad_agent_v4.py:import_step_to_onshape": {
+      "name": "import_step_to_onshape",
+      "type": "function",
+      "summary": "Uploads a STEP file to Onshape via multipart, translating it into a real editable Part Studio and polling the translation job, with private-default and auto-public fallback."
+    },
+    "function:cad_agent_v4.py:_describe_document": {
+      "name": "_describe_document",
+      "type": "function",
+      "summary": "Fetches Onshape document metadata, features and mass properties, then summarizes them via the brief model for the inspect command."
+    },
+    "function:cad_agent_v4.py:_load_fewshots": {
+      "name": "_load_fewshots",
+      "type": "function",
+      "summary": "Pulls semantically-similar few-shot examples via cad_retrieval, falling back to keyword-matched rated feedback rows from the feedback JSONL."
+    },
+    "function:cad_agent_v4.py:store_feedback": {
+      "name": "store_feedback",
+      "type": "function",
+      "summary": "Persists a user rating and the build result into the feedback JSONL, separating gold from rated rows for later few-shot retrieval."
+    },
+    "function:cad_agent_v4.py:_ollama": {
+      "name": "_ollama",
+      "type": "function",
+      "summary": "Low-level Ollama generate client with retry, optional images (multimodal) and temperature; the single chokepoint all model calls go through."
+    },
+    "function:cad_agent_v4.py:preflight": {
+      "name": "preflight",
+      "type": "function",
+      "summary": "Pre-run check that Ollama is reachable and the configured brief/coder/critic models are pulled, raising a helpful error otherwise."
+    },
+    "function:cad_agent_v4.py:_onshape": {
+      "name": "_onshape",
+      "type": "function",
+      "summary": "Authenticated JSON request helper against the Onshape REST API using basic-auth from configured credentials."
+    },
+    "function:cad_agent_v4.py:distill_lesson": {
+      "name": "distill_lesson",
+      "type": "function",
+      "summary": "Uses the brief model to distill a one-line fail->fix lesson from a build problem and its final code, feeding the lesson store."
+    },
+    "function:cad_agent_v4.py:_cmd_build": {
+      "name": "_cmd_build",
+      "type": "function",
+      "summary": "CLI entry for the build subcommand: parses args (coder mode, fewshots, chat id), runs build, and reports success/failure to stdout and Telegram."
+    },
+    "function:cad_agent_v4.py:_cmd_inspect": {
+      "name": "_cmd_inspect",
+      "type": "function",
+      "summary": "CLI entry for the inspect subcommand: parses an Onshape URL and prints an LLM summary of the document's geometry."
+    },
+    "function:cad_agent_v4.py:_cmd_refine": {
+      "name": "_cmd_refine",
+      "type": "function",
+      "summary": "CLI entry for the refine subcommand (Satine convention): merges an original spec with feedback/history into a refined spec via the brief model."
+    },
+    "function:cad_retrieval.py:retrieve": {
+      "name": "retrieve",
+      "type": "function",
+      "summary": "Semantic few-shot retrieval: embeds the spec, scores corpus rows by cosine similarity (word-overlap prefilter), caches embeddings, and returns the top-n above a score threshold."
+    },
+    "function:cad_retrieval.py:retrieve_lessons": {
+      "name": "retrieve_lessons",
+      "type": "function",
+      "summary": "Retrieves the most relevant fail->fix lessons for a spec by cosine similarity over the lessons store, to inject as pitfalls-to-avoid into the prompt."
+    },
+    "function:cad_retrieval.py:embed": {
+      "name": "embed",
+      "type": "function",
+      "summary": "Returns the nomic-embed embedding for a text, served from a SHA-keyed cache and falling back gracefully when the embed model is unavailable."
+    },
+    "function:cad_retrieval.py:load_corpus": {
+      "name": "load_corpus",
+      "type": "function",
+      "summary": "Loads the rated/gold build123d few-shot corpus from JSONL, skipping malformed rows."
+    },
+    "function:cad_retrieval.py:store_lesson": {
+      "name": "store_lesson",
+      "type": "function",
+      "summary": "Appends a distilled fail->fix lesson to the lessons JSONL, deduping against existing lessons and capping the store size."
+    },
+    "function:cad_retrieval.py:_word_overlap": {
+      "name": "_word_overlap",
+      "type": "function",
+      "summary": "Lexical prefilter/fallback that scores corpus rows by token-set overlap with the spec when embeddings are unavailable or to narrow candidates."
+    },
+    "function:scripts/run_benchmarks.py:run_one": {
+      "name": "run_one",
+      "type": "function",
+      "summary": "Runs a single benchmark spec through cad_agent_v4 as a subprocess, parses the JSON result, derives geometry from any produced STEP, and records pass/fail with timing."
+    },
+    "function:scripts/run_benchmarks.py:main": {
+      "name": "main",
+      "type": "function",
+      "summary": "Benchmark CLI entry: parses tiers/filters, loads specs.json, runs each spec, aggregates pass counts, and writes timestamped plus latest result files."
+    },
+    "function:scripts/run_benchmarks.py:derive_geometry": {
+      "name": "derive_geometry",
+      "type": "function",
+      "summary": "Loads a produced STEP file with build123d and extracts bounding-box, face count and volume for benchmark scoring."
+    },
+    "function:scripts/run_benchmarks.py:parse_result": {
+      "name": "parse_result",
+      "type": "function",
+      "summary": "Extracts the agent's JSON result object from its subprocess stdout, tolerating surrounding log noise."
+    }
+  },
+  "totalNodes": 61,
+  "totalEdges": 79
+}

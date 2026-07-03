@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""
+Export a STEP file's flat pattern to a 2D DXF — for laser cutting / sheet metal / SendCutSend.
+
+Usage:
+    python3 scripts/dxf <file.step> [out.dxf]
+
+Picks the LARGEST planar face of the solid (the natural flat pattern of a plate/sheet part),
+orients that face into the XY plane, and writes its outline + any interior holes as a DXF.
+Secondary export — STEP stays the primary CAD artifact. Prints  DXF: <path>  on success.
+
+Discipline/secondary-workflow shape borrowed from earthtojake/text-to-cad `scripts/dxf` (MIT).
+"""
+import sys
+from pathlib import Path
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/dxf <file.step> [out.dxf]", file=sys.stderr)
+    sys.exit(1)
+
+in_path = Path(sys.argv[1]).resolve()
+out_path = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else in_path.with_suffix(".dxf")
+
+if not in_path.exists():
+    print(f"ERROR: File not found: {in_path}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    from build123d import import_step, Plane, ExportDXF, GeomType, Unit
+except ImportError as e:
+    print(f"ERROR: build123d not available: {e}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    shape = import_step(str(in_path))
+except Exception as e:
+    print(f"ERROR: Failed to import STEP: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Pick the largest PLANAR face — the flat pattern of a sheet/plate part ────────
+planar = [f for f in shape.faces() if f.geom_type == GeomType.PLANE]
+if not planar:
+    print("ERROR: no planar face found — DXF flat-pattern needs a flat face (this part looks "
+          "fully curved). STEP/STL remain available.", file=sys.stderr)
+    sys.exit(2)
+
+face = max(planar, key=lambda f: f.area)
+
+# Orient that face into XY so the DXF lands in a 2D drawing plane, holes preserved.
+try:
+    local_face = Plane(face).to_local_coords(face)
+except Exception as e:
+    print(f"ERROR: could not flatten face to XY: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Write DXF (outline + interior hole wires) ───────────────────────────────────
+try:
+    exporter = ExportDXF(unit=Unit.MM)
+    exporter.add_layer("profile")
+    exporter.add_shape(local_face, layer="profile")
+    exporter.write(str(out_path))
+except Exception as e:
+    print(f"ERROR: DXF export failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not out_path.exists():
+    print("ERROR: DXF writer produced no file", file=sys.stderr)
+    sys.exit(1)
+
+bb = local_face.bounding_box()
+print(f"Flat pattern: {bb.size.X:.1f} x {bb.size.Y:.1f} mm  from largest face "
+      f"(area {face.area:.0f} mm²)")
+print(f"DXF: {out_path}")

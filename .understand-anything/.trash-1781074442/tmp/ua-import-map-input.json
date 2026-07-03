@@ -1,0 +1,30 @@
+{
+  "projectRoot": "/home/theultimatecunt/.openclaw/skills/cad-builder",
+  "files": [
+    {"path": "b123d/__init__.py", "language": "python", "fileCategory": "code"},
+    {"path": "b123d/conventions.py", "language": "python", "fileCategory": "code"},
+    {"path": "b123d/domain.py", "language": "python", "fileCategory": "code"},
+    {"path": "benchmarks/text-to-cad/specs.json", "language": "json", "fileCategory": "config"},
+    {"path": "BUILDS.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "cad_agent_v4.py", "language": "python", "fileCategory": "code"},
+    {"path": "cad_retrieval.py", "language": "python", "fileCategory": "code"},
+    {"path": "capabilities/extrude_cut.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "capabilities/fillet_chamfer.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "capabilities/mirror.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "capabilities/thread_creation.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "fs-examples/bolt.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-examples/helix-thread.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-examples/loft.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-examples/revolve.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-examples/sweep.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-learnings/learned_chair.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "fs-learnings/learned_spur_gear.fs", "language": "fs", "fileCategory": "code"},
+    {"path": "PROJECT.md", "language": "markdown", "fileCategory": "docs"},
+    {"path": "scripts/inspect", "language": "unknown", "fileCategory": "code"},
+    {"path": "scripts/render", "language": "unknown", "fileCategory": "code"},
+    {"path": "scripts/run_benchmarks.py", "language": "python", "fileCategory": "code"},
+    {"path": "scripts/step", "language": "unknown", "fileCategory": "code"},
+    {"path": "SKILL.md", "language": "markdown", "fileCategory": "docs"}
+  ]
+}

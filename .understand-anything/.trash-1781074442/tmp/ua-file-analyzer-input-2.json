@@ -1,0 +1,13 @@
+{
+  "projectRoot": "/home/theultimatecunt/.openclaw/skills/cad-builder",
+  "batchFiles": [
+    {"path": "BUILDS.md", "language": "markdown", "sizeLines": 66, "fileCategory": "docs"},
+    {"path": "PROJECT.md", "language": "markdown", "sizeLines": 187, "fileCategory": "docs"},
+    {"path": "SKILL.md", "language": "markdown", "sizeLines": 129, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    "BUILDS.md": [],
+    "PROJECT.md": [],
+    "SKILL.md": []
+  }
+}

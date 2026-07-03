@@ -1,0 +1,110 @@
+{
+  "nodes": [
+    {
+      "id": "document:BUILDS.md",
+      "type": "document",
+      "name": "BUILDS.md",
+      "filePath": "BUILDS.md",
+      "summary": "Build-verification checklist for CAD Agent v4.2, listing Tier 0 smoke tests expected to converge on the 7B coder, the text-to-cad benchmark suite invocation, and the workflow for rating good builds into the few-shot store.",
+      "tags": ["documentation", "testing", "verification", "benchmark"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:PROJECT.md",
+      "type": "document",
+      "name": "PROJECT.md",
+      "filePath": "PROJECT.md",
+      "summary": "Authoritative design document for CAD Agent v4.2 covering architecture, the build123d agentic observe-edit loop, coder routing, learning loop, hardware/model routing, and the tuning surface for changing behavior.",
+      "tags": ["documentation", "architecture", "design-doc", "entry-point"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:SKILL.md",
+      "type": "document",
+      "name": "SKILL.md",
+      "filePath": "SKILL.md",
+      "summary": "Operator-facing skill guide for CAD Agent v4.2 documenting when to use it, available scripts and commands, the per-build loop, coder routing, the Telegram (Satine) frontend, and verification/learning-loop behavior.",
+      "tags": ["documentation", "usage", "operations", "entry-point"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:cad_retrieval.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:b123d/domain.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:cad_retrieval.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:b123d/domain.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "document:PROJECT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "document:PROJECT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

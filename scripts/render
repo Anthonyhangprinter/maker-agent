@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""
+Render a STEP/STL file to an isometric shaded PNG — headless (matplotlib Agg).
+
+Usage:
+    python3 scripts/render <file.step|file.stl> [out.png]
+
+Used by the v4 agentic loop to give the (text-only) coder model "sight" via a
+multimodal critic. Tessellates the solid with build123d (no trimesh dependency),
+shades each triangle with a simple Lambert term, and writes a single isometric view.
+Prints  PNG: <path>  on success; exits 1 on error.
+"""
+import sys
+import math
+from pathlib import Path
+
+_argv = sys.argv[1:]
+_flags = {a for a in _argv if a.startswith("--")}
+_pos = [a for a in _argv if not a.startswith("--")]
+want_section = "--section" in _flags   # add a 3rd panel: a real mid-plane cross-section cut
+
+if not _pos:
+    print("Usage: python3 scripts/render <file.step|file.stl> [out.png] [--section]", file=sys.stderr)
+    sys.exit(1)
+
+in_path = Path(_pos[0]).resolve()
+out_path = Path(_pos[1]).resolve() if len(_pos) > 1 else in_path.with_suffix(".png")
+
+if not in_path.exists():
+    print(f"ERROR: File not found: {in_path}", file=sys.stderr)
+    sys.exit(1)
+
+# ── b123d library importable (mirrors scripts/step) ────────────────────────────
+_scripts_dir = Path(__file__).parent
+_cad_builder = _scripts_dir.parent
+for _p in [str(_cad_builder)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# ── Load shape ──────────────────────────────────────────────────────────────--
+try:
+    ext = in_path.suffix.lower()
+    if ext in (".step", ".stp"):
+        from build123d import import_step
+        shape = import_step(str(in_path))
+    elif ext == ".stl":
+        from build123d import import_stl
+        shape = import_stl(str(in_path))
+    else:
+        print(f"ERROR: Unsupported extension {ext!r} (need .step/.stp/.stl)", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"ERROR: Failed to load {in_path.name}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Tessellate (tolerance scaled to part size so tris stay bounded) ─────────────
+try:
+    bbox = shape.bounding_box()
+    diag = math.sqrt(bbox.size.X ** 2 + bbox.size.Y ** 2 + bbox.size.Z ** 2)
+    tol = min(5.0, max(0.1, diag / 150.0))
+    verts, tris = shape.tessellate(tol)
+except Exception as e:
+    print(f"ERROR: Tessellation failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not tris:
+    print("ERROR: No triangles produced — geometry may be empty.", file=sys.stderr)
+    sys.exit(1)
+
+import numpy as np
+
+# ── Lambert shading per triangle → (polys, facecolors) ──────────────────────────
+light = np.array([0.5, -0.6, 0.8])
+light = light / np.linalg.norm(light)
+base = np.array([0.30, 0.55, 0.85])   # steel-blue
+cut_base = np.array([0.90, 0.55, 0.30])  # warm tint for an exposed section face
+
+
+def _shade(verts, tris, color=base):
+    """Tessellated (verts, tris) → (list-of-triangles, per-tri RGBA) with simple Lambert shading."""
+    Vv = np.array([(v.X, v.Y, v.Z) for v in verts], dtype=float)
+    out_polys, out_cols = [], []
+    for a, b, c in tris:
+        p0, p1, p2 = Vv[a], Vv[b], Vv[c]
+        n = np.cross(p1 - p0, p2 - p0)
+        ln = np.linalg.norm(n)
+        if ln < 1e-12:
+            continue
+        n = n / ln
+        s = 0.35 + 0.65 * max(0.0, abs(float(np.dot(n, light))))
+        out_polys.append([p0, p1, p2])
+        out_cols.append(tuple((color * s).clip(0, 1)) + (1.0,))
+    return out_polys, out_cols
+
+
+polys, facecolors = _shade(verts, tris)
+if not polys:
+    print("ERROR: All triangles degenerate.", file=sys.stderr)
+    sys.exit(1)
+
+# ── Optional section: cut the solid at its mid-Y plane and tessellate the half ──
+# A real geometric cross-section exposes walls, cavities, bores, and internal bosses that are
+# edge-on invisible in the iso/top views — so the multimodal critic can actually judge them.
+section = None
+if want_section:
+    try:
+        from build123d import Box, Pos
+        cx = (bbox.min.X + bbox.max.X) / 2.0
+        cy = (bbox.min.Y + bbox.max.Y) / 2.0
+        cz = (bbox.min.Z + bbox.max.Z) / 2.0
+        sx, sz = bbox.size.X * 2 + 10, bbox.size.Z * 2 + 10
+        sy = bbox.size.Y + 10
+        keep = Pos(cx, cy - sy / 2.0, cz) * Box(sx, sy, sz)   # keep the Y ≤ centre half
+        cut = shape & keep
+        sv, st = cut.tessellate(tol)
+        section = _shade(sv, st, color=cut_base) if st else None
+    except Exception as e:
+        print(f"(section cut skipped: {str(e)[:80]})", file=sys.stderr)
+        section = None
+
+# ── Render (Agg, no display / GL) ──────────────────────────────────────────────
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+# Equal aspect: fit a cube around the FULL bounding box (so every panel shares one scale)
+mins = np.array([bbox.min.X, bbox.min.Y, bbox.min.Z])
+maxs = np.array([bbox.max.X, bbox.max.Y, bbox.max.Z])
+center = (mins + maxs) / 2.0
+span = float((maxs - mins).max()) or 1.0
+halfspan = span / 2.0 * 1.05
+
+
+def _draw(ax, draw_polys, draw_cols, elev, azim, title):
+    # A fresh Poly3DCollection per axes (a collection belongs to one axes).
+    # No edge lines: internal triangulation of flat faces must not show, or a multimodal
+    # critic mistakes the tessellation fan for real facets. Coplanar tris share a normal,
+    # so flat faces shade as one seamless surface.
+    coll = Poly3DCollection(draw_polys, facecolors=draw_cols, edgecolors="none",
+                            linewidths=0, shade=False)
+    ax.add_collection3d(coll)
+    ax.set_xlim(center[0] - halfspan, center[0] + halfspan)
+    ax.set_ylim(center[1] - halfspan, center[1] + halfspan)
+    ax.set_zlim(center[2] - halfspan, center[2] + halfspan)
+    try:
+        ax.set_box_aspect((1, 1, 1))
+    except Exception:
+        pass
+    ax.view_init(elev=elev, azim=azim)
+    ax.set_xlabel("X", fontsize=6)
+    ax.set_ylabel("Y", fontsize=6)
+    ax.set_zlabel("Z", fontsize=6)
+    ax.tick_params(labelsize=5)
+    ax.set_title(title, fontsize=8)
+
+
+# Two (or three) views: the critic sees overall form AND top-face features (holes/pockets are
+# invisible in a single isometric view — that gap let a no-op hole slip through before), plus an
+# optional mid-plane section that reveals walls/cavities/bores.
+n_panels = 3 if section else 2
+fig = plt.figure(figsize=(5.5 * n_panels, 5.5), dpi=110)
+_draw(fig.add_subplot(1, n_panels, 1, projection="3d"), polys, facecolors, 28, -58, "isometric")
+_draw(fig.add_subplot(1, n_panels, 2, projection="3d"), polys, facecolors, 89, -90,
+      "top view (looking down −Z)")
+if section:
+    _draw(fig.add_subplot(1, n_panels, 3, projection="3d"), section[0], section[1], 18, 122,
+          "section (cut at mid-Y — see walls/cavity)")
+fig.suptitle(
+    f"{bbox.size.X:.0f} x {bbox.size.Y:.0f} x {bbox.size.Z:.0f} mm   ({len(polys)} tris)",
+    fontsize=10,
+)
+try:
+    fig.savefig(str(out_path), bbox_inches="tight")
+finally:
+    plt.close(fig)
+
+print(f"PNG: {out_path}")

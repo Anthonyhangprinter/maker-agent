@@ -1,0 +1,637 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "b123d/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 7,
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "b123d/conventions.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 27,
+      "nonEmptyLines": 22,
+      "functions": [
+        {
+          "name": "coarse_pitch",
+          "startLine": 25,
+          "endLine": 27,
+          "params": [
+            "size_mm"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "coarse_pitch",
+          "line": 25,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "coarse_pitch",
+          "callee": "THREAD_PITCH.get",
+          "lineNumber": 27
+        },
+        {
+          "caller": "coarse_pitch",
+          "callee": "float",
+          "lineNumber": 27
+        },
+        {
+          "caller": "coarse_pitch",
+          "callee": "int",
+          "lineNumber": 27
+        },
+        {
+          "caller": "coarse_pitch",
+          "callee": "round",
+          "lineNumber": 27
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "b123d/domain.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 311,
+      "nonEmptyLines": 264,
+      "functions": [
+        {
+          "name": "structural_section",
+          "startLine": 15,
+          "endLine": 84,
+          "params": [
+            "d_mm",
+            "bf_mm",
+            "tf_mm",
+            "tw_mm",
+            "length_mm",
+            "mitre",
+            "name"
+          ]
+        },
+        {
+          "name": "_apply_mitre_b123d",
+          "startLine": 87,
+          "endLine": 112,
+          "params": [
+            "bp",
+            "h",
+            "fw",
+            "d_mm",
+            "bf_mm",
+            "length_mm"
+          ]
+        },
+        {
+          "name": "spur_gear",
+          "startLine": 115,
+          "endLine": 264,
+          "params": [
+            "teeth",
+            "module_mm",
+            "width_mm",
+            "bore_mm",
+            "pressure_angle",
+            "name"
+          ]
+        },
+        {
+          "name": "hex_bolt",
+          "startLine": 267,
+          "endLine": 311,
+          "params": [
+            "size_mm",
+            "length_mm",
+            "pitch_mm",
+            "name"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "structural_section",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "_apply_mitre_b123d",
+          "line": 87,
+          "isDefault": false
+        },
+        {
+          "name": "spur_gear",
+          "line": 115,
+          "isDefault": false
+        },
+        {
+          "name": "hex_bolt",
+          "line": 267,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "structural_section",
+          "callee": "ValueError",
+          "lineNumber": 37
+        },
+        {
+          "caller": "structural_section",
+          "callee": "ValueError",
+          "lineNumber": 39
+        },
+        {
+          "caller": "structural_section",
+          "callee": "ValueError",
+          "lineNumber": 43
+        },
+        {
+          "caller": "structural_section",
+          "callee": "BuildPart",
+          "lineNumber": 74
+        },
+        {
+          "caller": "structural_section",
+          "callee": "BuildSketch",
+          "lineNumber": 75
+        },
+        {
+          "caller": "structural_section",
+          "callee": "BuildLine",
+          "lineNumber": 76
+        },
+        {
+          "caller": "structural_section",
+          "callee": "Polyline",
+          "lineNumber": 77
+        },
+        {
+          "caller": "structural_section",
+          "callee": "make_face",
+          "lineNumber": 78
+        },
+        {
+          "caller": "structural_section",
+          "callee": "extrude",
+          "lineNumber": 79
+        },
+        {
+          "caller": "structural_section",
+          "callee": "_apply_mitre_b123d",
+          "lineNumber": 82
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "BuildSketch",
+          "lineNumber": 97
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "BuildLine",
+          "lineNumber": 98
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "Polyline",
+          "lineNumber": 99
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "make_face",
+          "lineNumber": 102
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "extrude",
+          "lineNumber": 103
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "BuildSketch",
+          "lineNumber": 106
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "Plane.YZ.offset",
+          "lineNumber": 106
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "BuildLine",
+          "lineNumber": 107
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "Polyline",
+          "lineNumber": 108
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "make_face",
+          "lineNumber": 111
+        },
+        {
+          "caller": "_apply_mitre_b123d",
+          "callee": "extrude",
+          "lineNumber": 112
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "int",
+          "lineNumber": 132
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 133
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 135
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 139
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 141
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "max",
+          "lineNumber": 150
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "int",
+          "lineNumber": 150
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.radians",
+          "lineNumber": 151
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "max",
+          "lineNumber": 156
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.cos",
+          "lineNumber": 157
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 160
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "ValueError",
+          "lineNumber": 166
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "max",
+          "lineNumber": 171
+        },
+        {
+          "caller": "inv",
+          "callee": "math.cos",
+          "lineNumber": 175
+        },
+        {
+          "caller": "inv",
+          "callee": "math.sin",
+          "lineNumber": 175
+        },
+        {
+          "caller": "inv",
+          "callee": "math.sin",
+          "lineNumber": 176
+        },
+        {
+          "caller": "inv",
+          "callee": "math.cos",
+          "lineNumber": 176
+        },
+        {
+          "caller": "t_at",
+          "callee": "math.sqrt",
+          "lineNumber": 179
+        },
+        {
+          "caller": "t_at",
+          "callee": "max",
+          "lineNumber": 179
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "t_at",
+          "lineNumber": 181
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "t_at",
+          "lineNumber": 182
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "t_at",
+          "lineNumber": 183
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "inv",
+          "lineNumber": 184
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.atan2",
+          "lineNumber": 185
+        },
+        {
+          "caller": "rot2d",
+          "callee": "math.cos",
+          "lineNumber": 192
+        },
+        {
+          "caller": "rot2d",
+          "callee": "math.sin",
+          "lineNumber": 192
+        },
+        {
+          "caller": "involute_strip",
+          "callee": "range",
+          "lineNumber": 200
+        },
+        {
+          "caller": "involute_strip",
+          "callee": "inv",
+          "lineNumber": 202
+        },
+        {
+          "caller": "involute_strip",
+          "callee": "pts.append",
+          "lineNumber": 205
+        },
+        {
+          "caller": "involute_strip",
+          "callee": "rot2d",
+          "lineNumber": 205
+        },
+        {
+          "caller": "arc_strip",
+          "callee": "range",
+          "lineNumber": 210
+        },
+        {
+          "caller": "arc_strip",
+          "callee": "pts.append",
+          "lineNumber": 212
+        },
+        {
+          "caller": "arc_strip",
+          "callee": "math.cos",
+          "lineNumber": 212
+        },
+        {
+          "caller": "arc_strip",
+          "callee": "math.sin",
+          "lineNumber": 212
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "involute_strip",
+          "lineNumber": 215
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "involute_strip",
+          "lineNumber": 216
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.atan2",
+          "lineNumber": 218
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.atan2",
+          "lineNumber": 219
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.atan2",
+          "lineNumber": 220
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.atan2",
+          "lineNumber": 221
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "range",
+          "lineNumber": 224
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "all_pts.append",
+          "lineNumber": 227
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "rot2d",
+          "lineNumber": 227
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "arc_strip",
+          "lineNumber": 233
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "all_pts.append",
+          "lineNumber": 234
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "all_pts.append",
+          "lineNumber": 237
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "rot2d",
+          "lineNumber": 237
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "arc_strip",
+          "lineNumber": 243
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "all_pts.append",
+          "lineNumber": 244
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.hypot",
+          "lineNumber": 250
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "clean.append",
+          "lineNumber": 251
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "math.hypot",
+          "lineNumber": 252
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "clean.pop",
+          "lineNumber": 253
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "BuildPart",
+          "lineNumber": 255
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "BuildSketch",
+          "lineNumber": 256
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "BuildLine",
+          "lineNumber": 257
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "Polyline",
+          "lineNumber": 258
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "make_face",
+          "lineNumber": 259
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "Circle",
+          "lineNumber": 261
+        },
+        {
+          "caller": "spur_gear",
+          "callee": "extrude",
+          "lineNumber": 262
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "ValueError",
+          "lineNumber": 281
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "ValueError",
+          "lineNumber": 283
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "coarse_pitch",
+          "lineNumber": 293
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "round",
+          "lineNumber": 296
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "round",
+          "lineNumber": 297
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "math.cos",
+          "lineNumber": 298
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "math.radians",
+          "lineNumber": 298
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "BuildPart",
+          "lineNumber": 300
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "BuildSketch",
+          "lineNumber": 302
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "RegularPolygon",
+          "lineNumber": 303
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "extrude",
+          "lineNumber": 304
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "BuildSketch",
+          "lineNumber": 307
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "Circle",
+          "lineNumber": 308
+        },
+        {
+          "caller": "hex_bolt",
+          "callee": "extrude",
+          "lineNumber": 309
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    }
+  ]
+}

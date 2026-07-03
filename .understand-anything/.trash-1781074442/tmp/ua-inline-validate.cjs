@@ -1,0 +1,10 @@
+const fs=require('fs');const g=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const issues=[],warnings=[];
+const ids=new Set();const seen=new Map();
+(g.nodes||[]).forEach((n,i)=>{if(!n.id){issues.push(`Node[${i}] no id`);return;}if(!n.type)issues.push(`${n.id} no type`);if(!n.name)issues.push(`${n.id} no name`);if(!n.summary)issues.push(`${n.id} no summary`);if(!n.tags||!n.tags.length)issues.push(`${n.id} no tags`);if(seen.has(n.id))issues.push(`dup ${n.id}`);else seen.set(n.id,i);ids.add(n.id);});
+(g.edges||[]).forEach((e,i)=>{if(!ids.has(e.source))issues.push(`edge[${i}] src ${e.source} missing`);if(!ids.has(e.target))issues.push(`edge[${i}] tgt ${e.target} missing`);});
+const ft=new Set(['file','config','document','service','pipeline','table','schema','resource','endpoint']);
+const assigned=new Map();
+(g.layers||[]).forEach(L=>(L.nodeIds||[]).forEach(id=>{if(!ids.has(id))issues.push(`layer ${L.id} ref ${id} missing`);if(assigned.has(id))issues.push(`${id} in 2 layers`);assigned.set(id,L.id);}));
+g.nodes.filter(n=>ft.has(n.type)).forEach(n=>{if(!assigned.has(n.id))issues.push(`file node ${n.id} not in any layer`);});
+(g.tour||[]).forEach((s,i)=>(s.nodeIds||[]).forEach(id=>{if(!ids.has(id))issues.push(`tour[${i}] ref ${id} missing`);}));
+console.log(JSON.stringify({issues,warnings:warnings.slice(0,5),stats:{nodes:g.nodes.length,edges:g.edges.length,layers:g.layers.length,tour:g.tour.length}},null,1));

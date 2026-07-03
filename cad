@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# CAD agent v5 launcher — describe a part, build it, refine it by chatting.
+#   cad "a 120x80x40mm enclosure with 2mm walls and a 20mm cable hole"
+#   cad --coder fast "a spur gear 20T module 2"   |   cad --once --onshape "..."
+SKILL="$(cd "$(dirname "$0")" && pwd)"
+exec env PYTHONPATH="$SKILL${PYTHONPATH:+:$PYTHONPATH}" python3 -m cad_v5 "$@"

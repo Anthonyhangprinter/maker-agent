@@ -1,0 +1,285 @@
+{
+  "scriptCompleted": true,
+  "commonPrefix": "",
+  "directoryGroups": {
+    "b123d": [
+      "file:b123d/__init__.py",
+      "file:b123d/conventions.py",
+      "file:b123d/domain.py"
+    ],
+    "(root)": [
+      "document:BUILDS.md",
+      "document:PROJECT.md",
+      "document:SKILL.md",
+      "file:cad_agent_v4.py",
+      "file:cad_retrieval.py"
+    ],
+    "capabilities": [
+      "document:capabilities/extrude_cut.md",
+      "document:capabilities/fillet_chamfer.md",
+      "document:capabilities/mirror.md",
+      "document:capabilities/thread_creation.md"
+    ],
+    "benchmarks": [
+      "config:benchmarks/text-to-cad/specs.json"
+    ],
+    "scripts": [
+      "file:scripts/run_benchmarks.py",
+      "file:scripts/step",
+      "file:scripts/inspect",
+      "file:scripts/render"
+    ],
+    "fs-examples": [
+      "file:fs-examples/bolt.fs",
+      "file:fs-examples/helix-thread.fs",
+      "file:fs-examples/loft.fs",
+      "file:fs-examples/revolve.fs",
+      "file:fs-examples/sweep.fs"
+    ],
+    "fs-learnings": [
+      "file:fs-learnings/learned_chair.fs",
+      "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "file:fs-learnings/learned_spur_gear.fs"
+    ]
+  },
+  "nodeTypeGroups": {
+    "file": [
+      "file:b123d/__init__.py",
+      "file:b123d/conventions.py",
+      "file:b123d/domain.py",
+      "file:cad_agent_v4.py",
+      "file:cad_retrieval.py",
+      "file:scripts/run_benchmarks.py",
+      "file:scripts/step",
+      "file:scripts/inspect",
+      "file:scripts/render",
+      "file:fs-examples/bolt.fs",
+      "file:fs-examples/helix-thread.fs",
+      "file:fs-examples/loft.fs",
+      "file:fs-examples/revolve.fs",
+      "file:fs-examples/sweep.fs",
+      "file:fs-learnings/learned_chair.fs",
+      "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "file:fs-learnings/learned_spur_gear.fs"
+    ],
+    "document": [
+      "document:BUILDS.md",
+      "document:PROJECT.md",
+      "document:SKILL.md",
+      "document:capabilities/extrude_cut.md",
+      "document:capabilities/fillet_chamfer.md",
+      "document:capabilities/mirror.md",
+      "document:capabilities/thread_creation.md"
+    ],
+    "config": [
+      "config:benchmarks/text-to-cad/specs.json"
+    ]
+  },
+  "crossCategoryEdges": [
+    {
+      "fromType": "document",
+      "toType": "file",
+      "edgeType": "documents",
+      "count": 13
+    },
+    {
+      "fromType": "config",
+      "toType": "file",
+      "edgeType": "configures",
+      "count": 1
+    }
+  ],
+  "interGroupImports": [
+    {
+      "from": "(root)",
+      "to": "b123d",
+      "count": 1
+    },
+    {
+      "from": "scripts",
+      "to": "(root)",
+      "count": 1
+    },
+    {
+      "from": "benchmarks",
+      "to": "scripts",
+      "count": 1
+    },
+    {
+      "from": "(root)",
+      "to": "scripts",
+      "count": 1
+    }
+  ],
+  "intraGroupDensity": {
+    "b123d": {
+      "internalEdges": 2,
+      "totalEdges": 3,
+      "density": 0.667
+    },
+    "(root)": {
+      "internalEdges": 1,
+      "totalEdges": 4,
+      "density": 0.25
+    },
+    "capabilities": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    },
+    "benchmarks": {
+      "internalEdges": 0,
+      "totalEdges": 1,
+      "density": 0
+    },
+    "scripts": {
+      "internalEdges": 0,
+      "totalEdges": 3,
+      "density": 0
+    },
+    "fs-examples": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    },
+    "fs-learnings": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    }
+  },
+  "patternMatches": {
+    "capabilities": "documentation",
+    "benchmarks": "test",
+    "scripts": "tooling"
+  },
+  "filePatternMatches": {
+    "file:b123d/__init__.py": "entry",
+    "document:BUILDS.md": "documentation",
+    "document:PROJECT.md": "documentation",
+    "document:SKILL.md": "documentation",
+    "document:capabilities/extrude_cut.md": "documentation",
+    "document:capabilities/fillet_chamfer.md": "documentation",
+    "document:capabilities/mirror.md": "documentation",
+    "document:capabilities/thread_creation.md": "documentation",
+    "file:fs-examples/bolt.fs": "reference",
+    "file:fs-examples/helix-thread.fs": "reference",
+    "file:fs-examples/loft.fs": "reference",
+    "file:fs-examples/revolve.fs": "reference",
+    "file:fs-examples/sweep.fs": "reference",
+    "file:fs-learnings/learned_chair.fs": "reference",
+    "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": "reference",
+    "file:fs-learnings/learned_spur_gear.fs": "reference"
+  },
+  "deploymentTopology": {
+    "hasDockerfile": false,
+    "hasCompose": false,
+    "hasK8s": false,
+    "hasTerraform": false,
+    "hasCI": false,
+    "infraFiles": []
+  },
+  "dataPipeline": {
+    "schemaFiles": [],
+    "migrationFiles": [],
+    "dataModelFiles": [],
+    "apiHandlerFiles": []
+  },
+  "docCoverage": {
+    "groupsWithDocs": 2,
+    "totalGroups": 7,
+    "coverageRatio": 0.29,
+    "undocumentedGroups": [
+      "b123d",
+      "benchmarks",
+      "scripts",
+      "fs-examples",
+      "fs-learnings"
+    ]
+  },
+  "dependencyDirection": [
+    {
+      "dependent": "(root)",
+      "dependsOn": "b123d"
+    },
+    {
+      "dependent": "scripts",
+      "dependsOn": "(root)"
+    },
+    {
+      "dependent": "benchmarks",
+      "dependsOn": "scripts"
+    }
+  ],
+  "fileStats": {
+    "totalFileNodes": 25,
+    "filesPerGroup": {
+      "b123d": 3,
+      "(root)": 5,
+      "capabilities": 4,
+      "benchmarks": 1,
+      "scripts": 4,
+      "fs-examples": 5,
+      "fs-learnings": 3
+    },
+    "nodeTypeCounts": {
+      "file": 17,
+      "document": 7,
+      "config": 1
+    }
+  },
+  "fileFanIn": {
+    "file:b123d/__init__.py": 0,
+    "file:b123d/conventions.py": 1,
+    "file:b123d/domain.py": 2,
+    "document:BUILDS.md": 0,
+    "document:PROJECT.md": 0,
+    "document:SKILL.md": 0,
+    "document:capabilities/extrude_cut.md": 0,
+    "document:capabilities/fillet_chamfer.md": 0,
+    "document:capabilities/mirror.md": 0,
+    "document:capabilities/thread_creation.md": 0,
+    "config:benchmarks/text-to-cad/specs.json": 0,
+    "file:cad_agent_v4.py": 0,
+    "file:cad_retrieval.py": 1,
+    "file:scripts/run_benchmarks.py": 0,
+    "file:scripts/step": 0,
+    "file:scripts/inspect": 0,
+    "file:scripts/render": 0,
+    "file:fs-examples/bolt.fs": 0,
+    "file:fs-examples/helix-thread.fs": 0,
+    "file:fs-examples/loft.fs": 0,
+    "file:fs-examples/revolve.fs": 0,
+    "file:fs-examples/sweep.fs": 0,
+    "file:fs-learnings/learned_chair.fs": 0,
+    "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": 0,
+    "file:fs-learnings/learned_spur_gear.fs": 0
+  },
+  "fileFanOut": {
+    "file:b123d/__init__.py": 2,
+    "file:b123d/conventions.py": 0,
+    "file:b123d/domain.py": 0,
+    "document:BUILDS.md": 0,
+    "document:PROJECT.md": 0,
+    "document:SKILL.md": 0,
+    "document:capabilities/extrude_cut.md": 0,
+    "document:capabilities/fillet_chamfer.md": 0,
+    "document:capabilities/mirror.md": 0,
+    "document:capabilities/thread_creation.md": 0,
+    "config:benchmarks/text-to-cad/specs.json": 0,
+    "file:cad_agent_v4.py": 2,
+    "file:cad_retrieval.py": 0,
+    "file:scripts/run_benchmarks.py": 0,
+    "file:scripts/step": 0,
+    "file:scripts/inspect": 0,
+    "file:scripts/render": 0,
+    "file:fs-examples/bolt.fs": 0,
+    "file:fs-examples/helix-thread.fs": 0,
+    "file:fs-examples/loft.fs": 0,
+    "file:fs-examples/revolve.fs": 0,
+    "file:fs-examples/sweep.fs": 0,
+    "file:fs-learnings/learned_chair.fs": 0,
+    "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": 0,
+    "file:fs-learnings/learned_spur_gear.fs": 0
+  }
+}

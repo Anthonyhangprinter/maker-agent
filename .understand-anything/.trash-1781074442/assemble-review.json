@@ -1,0 +1,15 @@
+{
+  "fixedSectionOk": true,
+  "nodesRecovered": 0,
+  "edgesRestored": 1,
+  "crossBatchEdgesAdded": 0,
+  "typesRemapped": 0,
+  "complexityRemapped": 0,
+  "notes": [
+    "Fixed section sane: report shows no ID/complexity corrections needed and 0 importMap edges recovered, which is correct because the only non-empty importMap entry (b123d/__init__.py -> b123d/conventions.py, b123d/domain.py) was already represented by existing imports edges. No upstream ID-quality concern.",
+    "Could-not-fix: the single dropped edge was file:cad_agent_v4.py -> file:scripts/run_benchmarks.py (type tested_by, weight 0.5) from batch-4. Both endpoint nodes exist, so it was not a true orphan; it was a valid testing relationship distinct from the existing reverse depends_on (run_benchmarks.py -> cad_agent_v4.py). Restored it.",
+    "Cross-batch import-edge audit complete: every importMap relationship has a matching imports edge. No speculative edges added.",
+    "All key relationships from the review brief verified present: cad_agent_v4.py->cad_retrieval.py (imports), cad_agent_v4.py->b123d/domain.py (imports), run_step/run_inspect/run_render->scripts/step|inspect|render (depends_on), run_benchmarks.py->cad_agent_v4.py (depends_on), and all 7 doc nodes (PROJECT.md/SKILL.md/BUILDS.md/capabilities/*) documenting code.",
+    "No nodes were missing an id, no unknown node types, and no unknown complexity values in the could-not-fix set. Final graph validated: 61 nodes, 79 edges, zero dangling references."
+  ]
+}

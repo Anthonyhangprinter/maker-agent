@@ -1,0 +1,46 @@
+{
+  "source": "earthtojake/text-to-cad benchmarks (MIT) — https://github.com/earthtojake/text-to-cad/tree/main/benchmarks",
+  "note": "Natural-language specs reproduced from the upstream benchmark design prompts + key dimensions, phrased for the local v4.2 build123d agent. Tiers: 1=simple, 2=moderate, 3=hard (mainly stress the 30B-escalation path on 8GB VRAM).",
+  "benchmarks": [
+    {
+      "id": "01", "name": "Rectangular calibration block", "tier": 1,
+      "spec": "A solid rectangular block 100mm long in X, 60mm wide in Y, and 20mm tall in Z, centred on the origin in X and Y. Four 8mm-diameter through-holes parallel to the Z axis at X=+/-35, Y=+/-20, going fully through the 20mm thickness. A 2mm chamfer on the top outer perimeter edges only (not the holes)."
+    },
+    {
+      "id": "02", "name": "Circular flange", "tier": 1,
+      "spec": "A solid circular flange: a cylinder of 80mm outside diameter and 10mm thickness, axis along Z, centred at the origin. A 30mm-diameter central through-bore. Six 6mm-diameter bolt holes equally spaced (60 degrees apart) on a 60mm bolt-circle diameter. A 1.5mm fillet on the top and bottom outside circular edges."
+    },
+    {
+      "id": "03", "name": "L-bracket", "tier": 1,
+      "spec": "A solid L-bracket. A horizontal base plate 80mm in X, 50mm in Y, 8mm thick in Z, centred on the XY origin with its bottom at Z=0. A vertical back plate 80mm in X, 8mm thick in Y, 50mm tall in Z rising from one long edge of the base. Two 6mm-diameter holes through the base at X=+/-25, and two 6mm-diameter holes through the back plate at X=+/-25, Z=30. Two right-triangle gussets 30x30mm and 8mm thick at X=+/-20 bracing the base-to-back transition. A 2mm fillet at the inner base/back transition."
+    },
+    {
+      "id": "04", "name": "Stepped shaft with keyway", "tier": 2,
+      "spec": "A solid stepped shaft with its axis along X, total length 120mm, left end centred at the origin. Left section 20mm diameter from X=0 to 30; middle section 30mm diameter from X=30 to 90; right section 20mm diameter from X=90 to 120. A 1mm chamfer at both ends. A keyway slot 6mm wide in Y and 3mm deep in Z cut into the top of the middle section, spanning X=40 to 80."
+    },
+    {
+      "id": "05", "name": "Open-top electronics enclosure with bosses", "tier": 2,
+      "spec": "A solid open-top electronics enclosure base. Outer box 100mm in X, 70mm in Y, 30mm tall in Z, centred on XY with its bottom at Z=0, with 3mm walls and a 3mm floor, hollow and open at the top. Four cylindrical mounting standoffs of 10mm outside diameter and 12mm height standing on the floor at X=+/-35, Y=+/-25, each with a centred 3mm-diameter blind hole 8mm deep measured from the standoff top (not through the floor). A 2mm fillet on the four outside vertical corners."
+    },
+    {
+      "id": "06", "name": "Clevis bracket with lightening cutouts", "tier": 2,
+      "spec": "A solid aerospace-style clevis bracket, symmetric about the XZ plane. Base plate 120mm in X, 60mm in Y, 10mm in Z, bottom at Z=0. Two parallel vertical lugs rising 42mm above the base, each 18mm thick in Y with a 16mm gap between them, 36mm extent in X, with semicircular tops of 18mm radius. A 14mm-diameter clevis through-hole along Y at X=0, Z=34. Four 7mm-diameter base mounting holes at X=+/-45, Y=+/-20. A 6mm-thick reinforcing rib, 3mm base-perimeter fillets and 2mm lug-to-base fillets."
+    },
+    {
+      "id": "07", "name": "Radial engine cylinder", "tier": 3,
+      "spec": "A solid radial-engine-style cylinder with its main axis vertical along Z, centred at the origin. Central barrel 36mm diameter, 70mm tall. Twelve cooling fins of 62mm outside diameter and 2mm thickness, spaced 5mm apart from Z=10 to 65. A base flange of 70mm diameter and 8mm thickness with six 5mm-diameter mounting holes on a 56mm bolt circle. A top cap 44mm diameter and 8mm tall from Z=70 to 78. A spark-plug boss 12mm diameter and 24mm long at 35 degrees from horizontal with a 5mm bore. 1mm fillets on the fin and flange edges."
+    },
+    {
+      "id": "08", "name": "Centrifugal impeller", "tier": 3,
+      "spec": "A solid centrifugal impeller with axis vertical along Z, centred at the origin. A circular backplate disk of 90mm outside diameter and 6mm thickness, bottom face at Z=0. A central hub cylinder on top of the backplate, 26mm diameter and 22mm tall. An 8mm-diameter vertical through-bore through the entire part. Twelve identical backward-curved blades on top of the backplate, equally spaced, each beginning at radius 18mm and ending at radius 43mm, 3mm thick and 16mm tall, curving backward about 45 degrees from root to tip. 1mm fillets at the blade roots and a 1.5mm fillet on the top and bottom outer circular edges of the backplate."
+    },
+    {
+      "id": "09", "name": "Spiral staircase", "tier": 3,
+      "spec": "A miniature spiral staircase. A central column 14mm diameter and 140mm tall with its base at Z=0, standing on a base disk of 90mm diameter and 5mm thickness. Twenty stair treads, each 4mm thick, inner radius 10mm, outer radius 62mm, 24-degree angular width; the first tread at Z=4mm, each subsequent tread rising 6mm and rotating 18 degrees about the column. A 5mm-diameter handrail tube at radius 66mm spiralling one full 360-degree revolution from Z=14 to 130. Twenty 3mm-diameter balusters connecting each tread outer edge up to the handrail."
+    },
+    {
+      "id": "10", "name": "Planetary gear stage", "tier": 3,
+      "spec": "A simplified planetary gear assembly lying flat in the XY plane with gear axes along Z. A sun gear with 24 external teeth (48mm pitch diameter, 54mm outside diameter, 42mm root diameter), 8mm thick, with a 10mm central bore. Three planet gears each with 18 external teeth (36mm pitch diameter, 41mm outside, 31mm root), 8mm thick, placed on a 42mm-radius circle 120 degrees apart. A ring gear with 60 internal teeth (120mm internal pitch diameter, 114mm tip diameter, 140mm outside diameter), 8mm thick. A carrier plate 105mm diameter and 4mm thick at Z=-5 to -1, and three 6mm-diameter planet pins 14mm tall aligned with the planet centres."
+    }
+  ]
+}

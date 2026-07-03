@@ -1,0 +1,37 @@
+{
+  "projectRoot": "/home/theultimatecunt/.openclaw/skills/cad-builder",
+  "batchFiles": [
+    {"path": "benchmarks/text-to-cad/specs.json", "language": "json", "sizeLines": 46, "fileCategory": "config"},
+    {"path": "cad_agent_v4.py", "language": "python", "sizeLines": 1186, "fileCategory": "code"},
+    {"path": "cad_retrieval.py", "language": "python", "sizeLines": 185, "fileCategory": "code"},
+    {"path": "fs-examples/bolt.fs", "language": "fs", "sizeLines": 54, "fileCategory": "code"},
+    {"path": "fs-examples/helix-thread.fs", "language": "fs", "sizeLines": 90, "fileCategory": "code"},
+    {"path": "fs-examples/loft.fs", "language": "fs", "sizeLines": 69, "fileCategory": "code"},
+    {"path": "fs-examples/revolve.fs", "language": "fs", "sizeLines": 49, "fileCategory": "code"},
+    {"path": "fs-examples/sweep.fs", "language": "fs", "sizeLines": 61, "fileCategory": "code"},
+    {"path": "fs-learnings/learned_chair.fs", "language": "fs", "sizeLines": 131, "fileCategory": "code"},
+    {"path": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs", "language": "fs", "sizeLines": 21, "fileCategory": "code"},
+    {"path": "fs-learnings/learned_spur_gear.fs", "language": "fs", "sizeLines": 18, "fileCategory": "code"},
+    {"path": "scripts/inspect", "language": "unknown", "sizeLines": 83, "fileCategory": "code"},
+    {"path": "scripts/render", "language": "unknown", "sizeLines": 144, "fileCategory": "code"},
+    {"path": "scripts/run_benchmarks.py", "language": "python", "sizeLines": 155, "fileCategory": "code"},
+    {"path": "scripts/step", "language": "unknown", "sizeLines": 111, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "benchmarks/text-to-cad/specs.json": [],
+    "cad_agent_v4.py": [],
+    "cad_retrieval.py": [],
+    "fs-examples/bolt.fs": [],
+    "fs-examples/helix-thread.fs": [],
+    "fs-examples/loft.fs": [],
+    "fs-examples/revolve.fs": [],
+    "fs-examples/sweep.fs": [],
+    "fs-learnings/learned_chair.fs": [],
+    "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs": [],
+    "fs-learnings/learned_spur_gear.fs": [],
+    "scripts/inspect": [],
+    "scripts/render": [],
+    "scripts/run_benchmarks.py": [],
+    "scripts/step": []
+  }
+}

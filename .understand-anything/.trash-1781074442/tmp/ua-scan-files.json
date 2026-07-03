@@ -1,0 +1,173 @@
+{
+  "scriptCompleted": true,
+  "files": [
+    {
+      "path": "b123d/__init__.py",
+      "language": "python",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "b123d/conventions.py",
+      "language": "python",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "b123d/domain.py",
+      "language": "python",
+      "sizeLines": 311,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benchmarks/text-to-cad/specs.json",
+      "language": "json",
+      "sizeLines": 46,
+      "fileCategory": "config"
+    },
+    {
+      "path": "BUILDS.md",
+      "language": "markdown",
+      "sizeLines": 66,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "cad_agent_v4.py",
+      "language": "python",
+      "sizeLines": 1186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "cad_retrieval.py",
+      "language": "python",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "capabilities/extrude_cut.md",
+      "language": "markdown",
+      "sizeLines": 69,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "capabilities/fillet_chamfer.md",
+      "language": "markdown",
+      "sizeLines": 89,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "capabilities/mirror.md",
+      "language": "markdown",
+      "sizeLines": 82,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "capabilities/thread_creation.md",
+      "language": "markdown",
+      "sizeLines": 67,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "fs-examples/bolt.fs",
+      "language": "fs",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-examples/helix-thread.fs",
+      "language": "fs",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-examples/loft.fs",
+      "language": "fs",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-examples/revolve.fs",
+      "language": "fs",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-examples/sweep.fs",
+      "language": "fs",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-learnings/learned_chair.fs",
+      "language": "fs",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "language": "fs",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fs-learnings/learned_spur_gear.fs",
+      "language": "fs",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "PROJECT.md",
+      "language": "markdown",
+      "sizeLines": 187,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "scripts/inspect",
+      "language": "unknown",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/render",
+      "language": "unknown",
+      "sizeLines": 144,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/run_benchmarks.py",
+      "language": "python",
+      "sizeLines": 155,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/step",
+      "language": "unknown",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "SKILL.md",
+      "language": "markdown",
+      "sizeLines": 129,
+      "fileCategory": "docs"
+    }
+  ],
+  "totalFiles": 25,
+  "filteredByIgnore": 6,
+  "estimatedComplexity": "small",
+  "stats": {
+    "filesScanned": 25,
+    "byCategory": {
+      "code": 17,
+      "config": 1,
+      "docs": 7
+    },
+    "byLanguage": {
+      "python": 6,
+      "json": 1,
+      "markdown": 7,
+      "fs": 8,
+      "unknown": 3
+    }
+  }
+}

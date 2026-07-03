@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "id": "file:b123d/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "b123d/__init__.py",
+      "summary": "Package barrel for the b123d helper module, re-exporting the deterministic build123d domain helpers and shared conventions so the CAD agent loop can import them from a single namespace.",
+      "tags": ["entry-point", "barrel", "cad", "build123d"],
+      "complexity": "simple",
+      "languageNotes": "Python package __init__ acting as a re-export barrel."
+    },
+    {
+      "id": "file:b123d/conventions.py",
+      "type": "file",
+      "name": "conventions.py",
+      "filePath": "b123d/conventions.py",
+      "summary": "Holds shared build123d conventions, notably a metric coarse-thread pitch table and a coarse_pitch() lookup used by the bolt helper.",
+      "tags": ["utility", "cad", "build123d", "constants", "thread"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:b123d/domain.py",
+      "type": "file",
+      "name": "domain.py",
+      "filePath": "b123d/domain.py",
+      "summary": "Provides deterministic build123d geometry helpers (structural_section for I/H/C beams, spur_gear with true involute teeth, hex_bolt) that the CAD agent loop calls directly and trusts without visual critique.",
+      "tags": ["cad", "build123d", "geometry", "domain-logic", "factory"],
+      "complexity": "complex",
+      "languageNotes": "Uses build123d BuildPart/BuildSketch context managers plus manual involute-curve math (math.cos/sin/atan2) to generate gear tooth profiles deterministically."
+    },
+    {
+      "id": "function:b123d/conventions.py:coarse_pitch",
+      "type": "function",
+      "name": "coarse_pitch",
+      "filePath": "b123d/conventions.py",
+      "lineRange": [25, 27],
+      "summary": "Returns the ISO metric coarse-thread pitch in mm for a given nominal bolt size, falling back to an approximation when the size is not in the lookup table.",
+      "tags": ["utility", "cad", "thread", "lookup"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:b123d/domain.py:structural_section",
+      "type": "function",
+      "name": "structural_section",
+      "filePath": "b123d/domain.py",
+      "lineRange": [15, 84],
+      "summary": "Builds an extruded structural steel section (I/H/C beam) from web/flange dimensions using a build123d polyline cross-section, with optional mitre end cuts.",
+      "tags": ["cad", "build123d", "geometry", "factory", "structural"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:b123d/domain.py:_apply_mitre_b123d",
+      "type": "function",
+      "name": "_apply_mitre_b123d",
+      "filePath": "b123d/domain.py",
+      "lineRange": [87, 112],
+      "summary": "Applies angled mitre cuts to the ends of a structural section by extruding and subtracting wedge solids at the part extremities.",
+      "tags": ["cad", "build123d", "geometry", "helper", "structural"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:b123d/domain.py:spur_gear",
+      "type": "function",
+      "name": "spur_gear",
+      "filePath": "b123d/domain.py",
+      "lineRange": [115, 264],
+      "summary": "Generates a parametric involute spur gear from teeth count, module, width and bore, computing the true involute tooth profile via trigonometric strips before extruding the swept polyline.",
+      "tags": ["cad", "build123d", "geometry", "factory", "gear"],
+      "complexity": "complex",
+      "languageNotes": "Defines nested helpers (inv, t_at, rot2d, involute_strip, arc_strip) to assemble the involute tooth polygon point-by-point."
+    },
+    {
+      "id": "function:b123d/domain.py:hex_bolt",
+      "type": "function",
+      "name": "hex_bolt",
+      "filePath": "b123d/domain.py",
+      "lineRange": [267, 311],
+      "summary": "Builds a hex-head bolt solid from nominal size and length, deriving thread pitch via coarse_pitch and extruding a regular-hexagon head atop a cylindrical shank.",
+      "tags": ["cad", "build123d", "geometry", "factory", "fastener"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/conventions.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:b123d/conventions.py",
+      "target": "function:b123d/conventions.py:coarse_pitch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:b123d/conventions.py",
+      "target": "function:b123d/conventions.py:coarse_pitch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:structural_section",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:structural_section",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:_apply_mitre_b123d",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:spur_gear",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:spur_gear",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:hex_bolt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:b123d/domain.py",
+      "target": "function:b123d/domain.py:hex_bolt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:b123d/domain.py:structural_section",
+      "target": "function:b123d/domain.py:_apply_mitre_b123d",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:b123d/domain.py:hex_bolt",
+      "target": "function:b123d/conventions.py:coarse_pitch",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

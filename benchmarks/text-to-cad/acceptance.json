@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "source": "earthtojake/text-to-cad benchmarks \u2014 the per-benchmark 'Test Cases' tables (MIT).",
+    "checks": "Auto-checkable subset only: solids (fused-body count), bbox_mm (overall size, tol=max(2mm,5%) per axis), min_holes (>= count of requested holes/bores, verified via cylindrical-face count). null = not deterministically checkable (skipped, not failed). Location/fillet/angular criteria from the upstream tables are NOT auto-scored here. | min_through_holes: holes that must pass fully through (blind bore detected via axis point-membership in scripts/inspect).",
+    "scoring": "score = passed_non_null_criteria / total_non_null_criteria, per benchmark and overall."
+  },
+  "01": {
+    "solids": 1,
+    "bbox_mm": [
+      100,
+      60,
+      20
+    ],
+    "min_holes": 4,
+    "min_through_holes": 4
+  },
+  "02": {
+    "solids": 1,
+    "bbox_mm": [
+      80,
+      80,
+      10
+    ],
+    "min_holes": 7,
+    "min_through_holes": 7
+  },
+  "03": {
+    "solids": 1,
+    "bbox_mm": [
+      80,
+      50,
+      58
+    ],
+    "min_holes": 4,
+    "min_through_holes": 4
+  },
+  "04": {
+    "solids": 1,
+    "bbox_mm": [
+      120,
+      30,
+      30
+    ],
+    "min_holes": 0,
+    "min_through_holes": 0
+  },
+  "05": {
+    "solids": 1,
+    "bbox_mm": [
+      100,
+      70,
+      30
+    ],
+    "min_holes": 4,
+    "min_through_holes": 0
+  },
+  "06": {
+    "solids": 1,
+    "bbox_mm": [
+      120,
+      60,
+      52
+    ],
+    "min_holes": 5,
+    "min_through_holes": 5
+  },
+  "07": {
+    "solids": 1,
+    "bbox_mm": null,
+    "min_holes": 6,
+    "min_through_holes": 6
+  },
+  "08": {
+    "solids": 1,
+    "bbox_mm": [
+      90,
+      90,
+      28
+    ],
+    "min_holes": 1,
+    "min_through_holes": 1
+  },
+  "09": {
+    "solids": null,
+    "bbox_mm": null,
+    "min_holes": 0,
+    "min_through_holes": 0
+  },
+  "10": {
+    "solids": null,
+    "bbox_mm": null,
+    "min_holes": 0,
+    "min_through_holes": 0
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "ran_at": "2026-06-12T13:09:03.299286+00:00",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 1,
+  "converged": 1,
+  "built": 0,
+  "total_time_s": 370.8,
+  "acceptance_passed": 3,
+  "acceptance_total": 3,
+  "acceptance_score": 1.0,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 333.6,
+      "wall_time_s": 368.7,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 115296.4,
+      "solids": 1,
+      "faces": 30,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      }
+    }
+  ]
+}

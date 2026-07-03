@@ -1,0 +1,535 @@
+{
+  "fileNodes": [
+    {
+      "id": "file:b123d/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "b123d/__init__.py",
+      "summary": "Package barrel for the b123d helper module, re-exporting the deterministic build123d domain helpers and shared conventions so the CAD agent loop can import them from a single namespace.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "cad",
+        "build123d"
+      ]
+    },
+    {
+      "id": "file:b123d/conventions.py",
+      "type": "file",
+      "name": "conventions.py",
+      "filePath": "b123d/conventions.py",
+      "summary": "Holds shared build123d conventions, notably a metric coarse-thread pitch table and a coarse_pitch() lookup used by the bolt helper.",
+      "tags": [
+        "utility",
+        "cad",
+        "build123d",
+        "constants",
+        "thread"
+      ]
+    },
+    {
+      "id": "file:b123d/domain.py",
+      "type": "file",
+      "name": "domain.py",
+      "filePath": "b123d/domain.py",
+      "summary": "Provides deterministic build123d geometry helpers (structural_section for I/H/C beams, spur_gear with true involute teeth, hex_bolt) that the CAD agent loop calls directly and trusts without visual critique.",
+      "tags": [
+        "cad",
+        "build123d",
+        "geometry",
+        "domain-logic",
+        "factory"
+      ]
+    },
+    {
+      "id": "document:BUILDS.md",
+      "type": "document",
+      "name": "BUILDS.md",
+      "filePath": "BUILDS.md",
+      "summary": "Build-verification checklist for CAD Agent v4.2, listing Tier 0 smoke tests expected to converge on the 7B coder, the text-to-cad benchmark suite invocation, and the workflow for rating good builds into the few-shot store.",
+      "tags": [
+        "documentation",
+        "testing",
+        "verification",
+        "benchmark"
+      ]
+    },
+    {
+      "id": "document:PROJECT.md",
+      "type": "document",
+      "name": "PROJECT.md",
+      "filePath": "PROJECT.md",
+      "summary": "Authoritative design document for CAD Agent v4.2 covering architecture, the build123d agentic observe-edit loop, coder routing, learning loop, hardware/model routing, and the tuning surface for changing behavior.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "design-doc",
+        "entry-point"
+      ]
+    },
+    {
+      "id": "document:SKILL.md",
+      "type": "document",
+      "name": "SKILL.md",
+      "filePath": "SKILL.md",
+      "summary": "Operator-facing skill guide for CAD Agent v4.2 documenting when to use it, available scripts and commands, the per-build loop, coder routing, the Telegram (Satine) frontend, and verification/learning-loop behavior.",
+      "tags": [
+        "documentation",
+        "usage",
+        "operations",
+        "entry-point"
+      ]
+    },
+    {
+      "id": "document:capabilities/extrude_cut.md",
+      "type": "document",
+      "name": "extrude_cut.md",
+      "filePath": "capabilities/extrude_cut.md",
+      "summary": "Capability reference describing how to subtract material via extrude-cut operations (pockets, through-holes, slots, hollow shells), including the BTM JSON pattern and common cut patterns the CAD agent can apply.",
+      "tags": [
+        "documentation",
+        "cad",
+        "capability-reference",
+        "extrude",
+        "geometry"
+      ]
+    },
+    {
+      "id": "document:capabilities/fillet_chamfer.md",
+      "type": "document",
+      "name": "fillet_chamfer.md",
+      "filePath": "capabilities/fillet_chamfer.md",
+      "summary": "Capability reference for edge-break operations (fillet and chamfer), covering BTM JSON patterns, edge-selection strategies, and common rounding/beveling patterns used when finishing CAD parts.",
+      "tags": [
+        "documentation",
+        "cad",
+        "capability-reference",
+        "fillet-chamfer",
+        "edge-selection"
+      ]
+    },
+    {
+      "id": "document:capabilities/mirror.md",
+      "type": "document",
+      "name": "mirror.md",
+      "filePath": "capabilities/mirror.md",
+      "summary": "Capability reference for the Mirror feature, explaining its two modes (mirror feature vs mirror part), standard mirror planes, and BTM JSON patterns for building symmetric brackets, gear pairs, and mirrored cuts.",
+      "tags": [
+        "documentation",
+        "cad",
+        "capability-reference",
+        "mirror",
+        "symmetry"
+      ]
+    },
+    {
+      "id": "document:capabilities/thread_creation.md",
+      "type": "document",
+      "name": "thread_creation.md",
+      "filePath": "capabilities/thread_creation.md",
+      "summary": "Capability reference for adding threads to a cylindrical face, covering prerequisites, the Onshape built-in Thread feature BTM JSON pattern, a ThreadCreator FeatureScript alternative, and the threaded-lid container pattern.",
+      "tags": [
+        "documentation",
+        "cad",
+        "capability-reference",
+        "threads",
+        "featurescript"
+      ]
+    },
+    {
+      "id": "config:benchmarks/text-to-cad/specs.json",
+      "type": "config",
+      "name": "specs.json",
+      "filePath": "benchmarks/text-to-cad/specs.json",
+      "summary": "Text-to-CAD benchmark suite: 10 natural-language part specs with expected geometry hints, used by run_benchmarks.py to score the agent end-to-end.",
+      "tags": [
+        "configuration",
+        "benchmark",
+        "test-data",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:cad_agent_v4.py",
+      "type": "file",
+      "name": "cad_agent_v4.py",
+      "filePath": "cad_agent_v4.py",
+      "summary": "The central CAD agent: drives the full build123d observe-edit loop (brief -> coder-triage -> codegen -> run/inspect/render -> gemma visual critic -> edit), handles coder model routing (7B<->30B), Onshape STEP upload, and the CLI/Telegram command surface.",
+      "tags": [
+        "entry-point",
+        "service",
+        "agent-loop",
+        "cad",
+        "llm-orchestration"
+      ]
+    },
+    {
+      "id": "file:cad_retrieval.py",
+      "type": "file",
+      "name": "cad_retrieval.py",
+      "filePath": "cad_retrieval.py",
+      "summary": "The learning-loop retrieval layer: nomic-embed semantic few-shot retrieval over the rated build123d corpus plus fail->fix lesson storage/retrieval, with a cached embedding store and word-overlap fallback.",
+      "tags": [
+        "service",
+        "retrieval",
+        "embeddings",
+        "learning-loop",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:scripts/run_benchmarks.py",
+      "type": "file",
+      "name": "run_benchmarks.py",
+      "filePath": "scripts/run_benchmarks.py",
+      "summary": "Benchmark harness that runs each text-to-cad spec through cad_agent_v4 as a subprocess, derives geometry from the produced STEP, and writes timestamped pass/fail results.",
+      "tags": [
+        "test",
+        "benchmark",
+        "harness",
+        "cli",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:scripts/step",
+      "type": "file",
+      "name": "step",
+      "filePath": "scripts/step",
+      "summary": "Runner script that executes generated build123d source in an isolated namespace and exports the resulting solid to a STEP file; invoked as a subprocess by the agent's run_step.",
+      "tags": [
+        "script",
+        "build123d",
+        "step-export",
+        "subprocess",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:scripts/inspect",
+      "type": "file",
+      "name": "inspect",
+      "filePath": "scripts/inspect",
+      "summary": "Geometry validation runner that loads a STEP file and reports bounding box, face/solid counts and validity, feeding the agent's inspect-and-revise step.",
+      "tags": [
+        "script",
+        "validation",
+        "geometry",
+        "subprocess",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:scripts/render",
+      "type": "file",
+      "name": "render",
+      "filePath": "scripts/render",
+      "summary": "Headless STEP-to-PNG renderer producing a two-panel (isometric + top-down) shaded image for the multimodal critic, drawn with matplotlib Agg and edge-less flat-shaded faces.",
+      "tags": [
+        "script",
+        "rendering",
+        "matplotlib",
+        "subprocess",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-examples/bolt.fs",
+      "type": "file",
+      "name": "bolt.fs",
+      "filePath": "fs-examples/bolt.fs",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a bolt; standalone read-only example data, not part of the v4 build123d pipeline.",
+      "tags": [
+        "featurescript",
+        "reference",
+        "example",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-examples/helix-thread.fs",
+      "type": "file",
+      "name": "helix-thread.fs",
+      "filePath": "fs-examples/helix-thread.fs",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a helical thread; standalone read-only example data.",
+      "tags": [
+        "featurescript",
+        "reference",
+        "example",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-examples/loft.fs",
+      "type": "file",
+      "name": "loft.fs",
+      "filePath": "fs-examples/loft.fs",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a loft operation; standalone read-only example data.",
+      "tags": [
+        "featurescript",
+        "reference",
+        "example",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-examples/revolve.fs",
+      "type": "file",
+      "name": "revolve.fs",
+      "filePath": "fs-examples/revolve.fs",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a revolve operation; standalone read-only example data.",
+      "tags": [
+        "featurescript",
+        "reference",
+        "example",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-examples/sweep.fs",
+      "type": "file",
+      "name": "sweep.fs",
+      "filePath": "fs-examples/sweep.fs",
+      "summary": "Legacy Onshape FeatureScript reference snippet demonstrating a sweep operation; standalone read-only example data.",
+      "tags": [
+        "featurescript",
+        "reference",
+        "example",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-learnings/learned_chair.fs",
+      "type": "file",
+      "name": "learned_chair.fs",
+      "filePath": "fs-learnings/learned_chair.fs",
+      "summary": "Legacy learned FeatureScript artifact for a chair build, captured from an earlier v1 FeatureScript run; standalone read-only reference.",
+      "tags": [
+        "featurescript",
+        "learned",
+        "reference",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "type": "file",
+      "name": "learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "filePath": "fs-learnings/learned_spur_gear_20_teeth__module_2__3_1_meshin.fs",
+      "summary": "Legacy learned FeatureScript artifact for a 20-tooth module-2 meshing spur gear pair; standalone read-only reference.",
+      "tags": [
+        "featurescript",
+        "learned",
+        "reference",
+        "legacy",
+        "cad"
+      ]
+    },
+    {
+      "id": "file:fs-learnings/learned_spur_gear.fs",
+      "type": "file",
+      "name": "learned_spur_gear.fs",
+      "filePath": "fs-learnings/learned_spur_gear.fs",
+      "summary": "Legacy learned FeatureScript artifact for a single spur gear; standalone read-only reference.",
+      "tags": [
+        "featurescript",
+        "learned",
+        "reference",
+        "legacy",
+        "cad"
+      ]
+    }
+  ],
+  "importEdges": [
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/conventions.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:cad_agent_v4.py",
+      "target": "file:cad_retrieval.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:cad_agent_v4.py",
+      "target": "file:b123d/domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ],
+  "allEdges": [
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/conventions.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:b123d/__init__.py",
+      "target": "file:b123d/domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:cad_retrieval.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:b123d/domain.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:PROJECT.md",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:cad_retrieval.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "file:b123d/domain.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:BUILDS.md",
+      "target": "document:PROJECT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:SKILL.md",
+      "target": "document:PROJECT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/extrude_cut.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/fillet_chamfer.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/mirror.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:capabilities/thread_creation.md",
+      "target": "file:cad_agent_v4.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:cad_agent_v4.py",
+      "target": "file:cad_retrieval.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:cad_agent_v4.py",
+      "target": "file:b123d/domain.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:scripts/run_benchmarks.py",
+      "target": "file:cad_agent_v4.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:benchmarks/text-to-cad/specs.json",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:cad_agent_v4.py",
+      "target": "file:scripts/run_benchmarks.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

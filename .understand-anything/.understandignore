@@ -1,0 +1,17 @@
+# .understandignore — exclude noise from the CAD agent analysis
+__pycache__/
+*.pyc
+.git/
+.understand-anything/
+# build artifacts / data, not source
+*.step
+*.png
+*.stl
+benchmarks/results/
+*.v2-archived
+# legacy/rollback agents (kept only as fallback — not the live v4.2 system)
+cad_agent_v2.py
+cad_agent_v3.py
+onshape_cad_agent.py
+cad_rag.py
+generate_teacher_data.py

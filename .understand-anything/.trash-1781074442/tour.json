@@ -1,0 +1,84 @@
+[
+  {
+    "order": 1,
+    "title": "What This System Is",
+    "description": "Start with PROJECT.md, the authoritative design document for CAD Agent v4.2. It explains the core idea: a local-first agent that turns a natural-language part spec into a real Onshape 3D model, with every inference call served by Ollama and no cloud dependency. Read this first to get the architecture, the build123d observe-edit loop, coder routing, and the learning loop as a mental map before touching any code.",
+    "nodeIds": ["document:PROJECT.md"]
+  },
+  {
+    "order": 2,
+    "title": "How Operators Use It",
+    "description": "SKILL.md is the operator-facing companion to the design doc: when to reach for the agent, which CLI subcommands exist (build, inspect, refine, rate), how the Telegram frontend Satine drives it, and what the per-build loop does at a high level. BUILDS.md adds the verification angle, listing the Tier 0 smoke tests expected to converge on the fast 7B coder and the benchmark suite used to check the whole pipeline. Together these frame the user-visible contract before we open the engine.",
+    "nodeIds": ["document:SKILL.md", "document:BUILDS.md"]
+  },
+  {
+    "order": 3,
+    "title": "The Heart: The Agent Loop",
+    "description": "cad_agent_v4.py is the center of gravity for the entire project, depended on by the runners, the benchmark harness, and every document. This single ~1000-LOC stdlib-only module orchestrates the whole pipeline and is auto-routed between a fast 7B coder and a strong 30B coder. The build() function inside it is the master control flow: assemble the brief, load few-shots and lessons, route the coder, then iterate generate to step to inspect to render to critique to edit until the model signals DONE, and finally upload to Onshape.",
+    "nodeIds": ["file:cad_agent_v4.py", "function:cad_agent_v4.py:build"],
+    "languageLesson": "This module talks to Ollama and Onshape using only the Python standard library (urllib, subprocess, ast, tempfile). _ollama() is a single chokepoint helper that every model call funnels through, which makes retries, multimodal images, and temperature uniform across the agent."
+  },
+  {
+    "order": 4,
+    "title": "Brief and Coder Triage",
+    "description": "Before any geometry exists, the spec becomes a structured plan. build_brief calls the brief model (qwen3:8b) to turn free text into a JSON build brief with dimensions, operations, and an optional helper hint. spec_needs_strong_coder is the routing decision: an LLM triage that judges whether a spec is hard enough to start directly on the 30B coder instead of the fast 7B. This is how the system spends GPU budget wisely, staying fast on easy parts and escalating only when needed.",
+    "nodeIds": ["function:cad_agent_v4.py:build_brief", "function:cad_agent_v4.py:spec_needs_strong_coder"]
+  },
+  {
+    "order": 5,
+    "title": "Codegen and the Edit Loop",
+    "description": "These functions are the inner loop the build() orchestrator drives each turn. generate_code either emits a deterministic domain-helper call (bolt/gear/section) or prompts the routed coder for build123d Python, then strips fences. revise_script repairs code that failed to run, while decide_or_edit takes the geometry warnings plus the visual critique and either returns an edited script or replies DONE to terminate the loop. This is the observe-edit cycle PROJECT.md describes, expressed as code.",
+    "nodeIds": ["function:cad_agent_v4.py:generate_code", "function:cad_agent_v4.py:revise_script", "function:cad_agent_v4.py:decide_or_edit"]
+  },
+  {
+    "order": 6,
+    "title": "The Geometry Runners",
+    "description": "Each loop turn shells out to three standalone subprocess runners that do the actual CAD work in isolation. scripts/step executes the generated build123d source and exports a STEP file; scripts/inspect loads that STEP and reports bounding box, face/solid counts, and validity as WARN/ERROR lines; scripts/render produces a two-panel isometric-plus-top-down PNG for the visual critic. Keeping them as separate executables means a crash in generated code never takes down the agent itself.",
+    "nodeIds": ["file:scripts/step", "file:scripts/inspect", "file:scripts/render"],
+    "languageLesson": "These are extension-less executable Python scripts run via subprocess, an isolation boundary. scripts/step auto-detects the result object by probing common variable names (result/part/shape/body/output); scripts/render deliberately suppresses matplotlib triangulation edges so the critic does not mistake the tessellation fan for real facets."
+  },
+  {
+    "order": 7,
+    "title": "Driving the Runners and the Visual Critic",
+    "description": "Building on the runners from Step 6, these agent methods are the bridge into them. run_step writes the source and invokes scripts/step; run_inspect parses the validation warnings; run_render produces the critic image. visual_critique then sends that PNG plus the original spec to the multimodal critic (gemma4:e4b) to judge whether the geometry actually matches intent. This closed perception loop is what lets a small local model self-correct without a human in the seat.",
+    "nodeIds": ["function:cad_agent_v4.py:run_step", "function:cad_agent_v4.py:run_inspect", "function:cad_agent_v4.py:run_render", "function:cad_agent_v4.py:visual_critique"]
+  },
+  {
+    "order": 8,
+    "title": "Trusted Deterministic Geometry",
+    "description": "Some shapes are too precise to leave to an LLM and a vision critic. b123d/domain.py provides deterministic build123d factories the agent calls directly and trusts without visual critique: structural_section for I/H/C beams, spur_gear with true involute teeth, and hex_bolt. When generate_code from Step 5 detects a bolt, gear, or beam, it emits one of these calls instead of prompting the coder, which is why those builds stay fast and correct every time.",
+    "nodeIds": ["file:b123d/domain.py", "function:b123d/domain.py:spur_gear", "function:b123d/domain.py:structural_section"],
+    "languageLesson": "domain.py uses build123d BuildPart/BuildSketch context managers plus hand-written involute-curve math (math.cos/sin/atan2). spur_gear defines nested helpers (inv, t_at, rot2d, involute_strip, arc_strip) to assemble the true involute tooth polygon point by point before extruding, geometry an LLM would struggle to get right."
+  },
+  {
+    "order": 9,
+    "title": "Domain Conventions and the Barrel",
+    "description": "The helpers from Step 8 lean on shared conventions and a clean import surface. b123d/conventions.py holds the metric coarse-thread pitch table exposed via coarse_pitch(), which hex_bolt calls to derive thread pitch from a nominal size. b123d/__init__.py is the package barrel that re-exports the domain helpers and conventions so the agent can import the whole trusted toolkit from one namespace.",
+    "nodeIds": ["file:b123d/__init__.py", "file:b123d/conventions.py", "function:b123d/conventions.py:coarse_pitch"]
+  },
+  {
+    "order": 10,
+    "title": "The Learning Loop",
+    "description": "cad_retrieval.py is how a small local model punches above its weight. It performs nomic-embed semantic few-shot retrieval over the corpus of rated build123d examples, and stores and retrieves fail-to-fix lessons that get injected into prompts as pitfalls to avoid. retrieve() embeds the spec and ranks the corpus by cosine similarity; retrieve_lessons() surfaces relevant past mistakes. Inside the agent, _load_fewshots and distill_lesson are the hooks that feed this loop on every build.",
+    "nodeIds": ["file:cad_retrieval.py", "function:cad_retrieval.py:retrieve", "function:cad_retrieval.py:retrieve_lessons", "function:cad_agent_v4.py:distill_lesson"],
+    "languageLesson": "Embeddings and cosine similarity are computed by hand against a JSONL corpus with a SHA-keyed embedding cache, and the layer degrades to lexical word-overlap when the embed model is unavailable, a graceful-fallback pattern that keeps the agent working offline even if nomic-embed is not loaded."
+  },
+  {
+    "order": 11,
+    "title": "Closing the Loop: Onshape Upload and Feedback",
+    "description": "Once the loop converges on a good STEP, import_step_to_onshape uploads it via multipart and translates it into a real editable Part Studio, polling the translation job with a private-default and auto-public fallback for free accounts. store_feedback then persists the user's rating into the feedback JSONL, separating gold from rated rows so the retrieval layer from Step 10 gets richer over time. This is where a build becomes a viewable model and also a future few-shot example.",
+    "nodeIds": ["function:cad_agent_v4.py:import_step_to_onshape", "function:cad_agent_v4.py:store_feedback"]
+  },
+  {
+    "order": 12,
+    "title": "Capability Reference Context",
+    "description": "The codegen model does not work from memory alone. These capability notes are read-only context injected to guide generation: extrude_cut covers pockets, through-holes and shells; fillet_chamfer covers edge breaks; mirror covers symmetry for brackets and gear pairs; thread_creation covers adding threads to cylindrical faces. They teach the model the operation patterns it needs without baking them into the agent code.",
+    "nodeIds": ["document:capabilities/extrude_cut.md", "document:capabilities/fillet_chamfer.md", "document:capabilities/mirror.md", "document:capabilities/thread_creation.md"]
+  },
+  {
+    "order": 13,
+    "title": "How It Gets Evaluated",
+    "description": "Finally, the capstone: how the whole pipeline is scored end-to-end. benchmarks/text-to-cad/specs.json holds 10 natural-language part specs with expected geometry hints, and scripts/run_benchmarks.py runs each one through cad_agent_v4 as a subprocess, derives geometry from the produced STEP, and writes timestamped pass/fail results. This is the objective measure behind the Tier 0 smoke tests promised in BUILDS.md from Step 2, closing the loop from design intent to verified output.",
+    "nodeIds": ["file:scripts/run_benchmarks.py", "config:benchmarks/text-to-cad/specs.json"]
+  }
+]

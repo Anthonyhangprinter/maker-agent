@@ -1,0 +1,185 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "BUILDS.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 66,
+      "nonEmptyLines": 51,
+      "sections": [
+        {
+          "heading": "CAD Agent v4.2 — Build Verification List",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Quick smoke tests (Tier 0 — should converge fast on the 7B)",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "Benchmark suite (text-to-cad) — `python3 scripts/run_benchmarks.py`",
+          "level": 2,
+          "line": 26
+        },
+        {
+          "heading": "Rating good builds (grows the few-shot store)",
+          "level": 2,
+          "line": 58
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": "PROJECT.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 187,
+      "nonEmptyLines": 150,
+      "sections": [
+        {
+          "heading": "CAD Agent v4.2 — Project Notes",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "What This Is",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Architecture",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "File Map",
+          "level": 2,
+          "line": 47
+        },
+        {
+          "heading": "Coder routing (v4.2)",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "Key Design Decisions (non-obvious)",
+          "level": 2,
+          "line": 79
+        },
+        {
+          "heading": "Hardware & Models",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "Tuning Surface (where to change behavior)",
+          "level": 2,
+          "line": 119
+        },
+        {
+          "heading": "Open Follow-ups",
+          "level": 2,
+          "line": 131
+        },
+        {
+          "heading": "Learning loop (v4.2) — make a small model punch above its weight",
+          "level": 2,
+          "line": 143
+        },
+        {
+          "heading": "Benchmark suite",
+          "level": 2,
+          "line": 167
+        },
+        {
+          "heading": "History",
+          "level": 2,
+          "line": 178
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 12
+      }
+    },
+    {
+      "path": "SKILL.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 129,
+      "nonEmptyLines": 104,
+      "sections": [
+        {
+          "heading": "CAD Builder Skill (v4.2)",
+          "level": 1,
+          "line": 14
+        },
+        {
+          "heading": "When to Use",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Scripts",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Commands",
+          "level": 2,
+          "line": 50
+        },
+        {
+          "heading": "The Loop (one build)",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "Coder routing",
+          "level": 2,
+          "line": 83
+        },
+        {
+          "heading": "Telegram (Satine — `~/.openclaw/cad-telegram.py`, `cad-telegram.service`)",
+          "level": 2,
+          "line": 93
+        },
+        {
+          "heading": "Honesty & verification",
+          "level": 2,
+          "line": 100
+        },
+        {
+          "heading": "Learning loop (v4.2)",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "Tuning knobs (see PROJECT.md for detail)",
+          "level": 2,
+          "line": 123
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 10
+      }
+    }
+  ]
+}
