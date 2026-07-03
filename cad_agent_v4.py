@@ -158,7 +158,7 @@ def _tg_token() -> str:
 
 def _ollama(model: str, system: str, prompt: str,
             timeout: int = OLLAMA_TIMEOUT, images: Optional[list[str]] = None,
-            temperature: Optional[float] = None) -> str:
+            temperature: Optional[float] = None, fmt: Optional[str] = None) -> str:
     options = {"num_ctx": 16384}
     if temperature is not None:
         options["temperature"] = temperature
@@ -170,6 +170,8 @@ def _ollama(model: str, system: str, prompt: str,
         "options": options,
         "think":  False,
     }
+    if fmt:
+        payload["format"] = fmt   # e.g. "json" — constrains decoding to valid JSON
     if images:
         payload["images"] = images
     data = json.dumps(payload).encode()
@@ -339,15 +341,38 @@ Use a helper ONLY when the entire requested object is that one component. For AN
 bracket, enclosure, plate, box, or part that merely CONTAINS holes/gears/threads as features
 (not IS one), leave "helper": "" and let the modeller build it."""
 
+def _extract_json(raw: str) -> Optional[dict]:
+    """Parse the first JSON object found anywhere in an LLM reply. raw_decode handles
+    braces inside strings and ignores trailing prose, so fenced or prose-wrapped JSON
+    (which defeated the old start-anchored fence-strip) is recovered."""
+    dec = json.JSONDecoder()
+    idx = raw.find("{")
+    while idx != -1:
+        try:
+            obj, _ = dec.raw_decode(raw[idx:])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+        idx = raw.find("{", idx + 1)
+    return None
+
 def build_brief(spec: str) -> dict:
     raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
                   timeout=OLLAMA_TIMEOUT, temperature=0.2)
-    text = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return {"name": spec[:40], "description": spec,
-                "dimensions": {}, "features": [], "notes": [], "helper": ""}
+    brief = _extract_json(raw)
+    if brief is None:
+        log.warning("[v4] Brief reply was not parseable JSON — retrying with format=json.")
+        raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt="json")
+        brief = _extract_json(raw)
+    if brief is None:
+        # Silent degradation here previously produced an unguided, feature-ungated build.
+        log.warning("[v4] Brief failed twice — building UNGUIDED from the raw spec "
+                    "(no dimensions/features/expected; gate limited to universal checks).")
+        brief = {"name": spec[:40], "description": spec,
+                 "dimensions": {}, "features": [], "notes": [], "helper": ""}
+    return brief
 
 # Words that signal a part legitimately HAS a hole/recess that stops part-way (a blind feature).
 # If a spec contains none of these, every hole it asks for is meant to pass fully through, and the
@@ -390,8 +415,7 @@ def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
                   f"Dimensions: {brief.get('dimensions', {})}\n\nDecide:")
         raw = _ollama(BRIEF_MODEL, _COMPLEXITY_SYSTEM, prompt,
                       timeout=OLLAMA_TIMEOUT, temperature=0.0)
-        m = re.search(r"\{.*\}", raw, re.S)
-        verdict = json.loads(m.group(0)) if m else {}
+        verdict = _extract_json(raw) or {}
         hard = bool(verdict.get("hard"))
         log.info("[v4] Complexity triage: hard=%s — %s", hard, str(verdict.get("reason", ""))[:140])
         return hard
