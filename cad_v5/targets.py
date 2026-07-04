@@ -191,6 +191,38 @@ def cad_viewer_target(step_path: Path, name: str) -> dict:
     return {"url": url, "uploaded": False, "viewer": True, "target": "cad-viewer",
             "step_local": str(step_path)}
 
+def freecad_target(step_path: Path, name: str) -> dict:
+    """E2 (in progress): native FreeCAD document with a real, clickable feature tree.
+    Requires FreeCAD's headless `freecadcmd` — not yet installed on this machine. Until the
+    feature-tree converter lands, this target imports the STEP into a .FCStd so the part at
+    least opens natively in FreeCAD (see ROADMAP.md Track E2 for the replay design)."""
+    import shutil as _sh
+    import subprocess as _sp
+    cmd = _sh.which("freecadcmd") or _sh.which("freecad.cmd")
+    if not cmd:
+        raise RuntimeError(
+            "FreeCAD is not installed. Install it (e.g. `sudo snap install freecad` or the "
+            "AppImage from freecad.org), then `cad --target freecad` will produce a native "
+            ".FCStd document.")
+    out = step_path.with_suffix(".FCStd")
+    script = (
+        "import FreeCAD, Import\n"
+        f"doc = FreeCAD.newDocument({name!r})\n"
+        f"Import.insert({str(step_path)!r}, doc.Name)\n"
+        f"doc.saveAs({str(out)!r})\n"
+    )
+    tmp = step_path.with_suffix(".fc_import.py")
+    tmp.write_text(script)
+    try:
+        r = _sp.run([cmd, str(tmp)], capture_output=True, text=True, timeout=180)
+        if r.returncode != 0 or not out.exists():
+            raise RuntimeError((r.stderr or r.stdout).strip()[-300:])
+    finally:
+        tmp.unlink(missing_ok=True)
+    log.info("[v5] FreeCAD document: %s", out)
+    return {"url": "", "uploaded": False, "target": "freecad", "fcstd_local": str(out),
+            "step_local": str(step_path)}
+
 # ── fstl / file ─────────────────────────────────────────────────────────────────
 
 def fstl_target(step_path: Path, name: str) -> dict:
@@ -218,6 +250,7 @@ _TARGETS: dict[str, TargetFn] = {
     "cad-viewer": cad_viewer_target,
     "viewer":     cad_viewer_target,
     "onshape":    lambda p, n: onshape_target(p, n, public=config.public_uploads()),
+    "freecad":    freecad_target,
     "fstl":       fstl_target,
     "file":       file_target,
 }

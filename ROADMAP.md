@@ -124,9 +124,15 @@ generated build123d script IS the parametric source — so:
   key dimension as a named constant at the top of the script (`wall = 2.0`). New commands:
   `cad params` (list them), `cad regen wall=3` (re-execute with overrides — seconds, no LLM,
   geometry re-verified by the same gate). The saved `build_source.py` per build-dir is the input.
-- **E2 (mid-term, M5): native FreeCAD document target.** Map the brief's feature list (base shape /
-  holes / pockets / fillets) to FreeCAD Part-Design operations via FreeCAD's Python API → a real
-  clickable feature tree in a local GUI. Slots into `cad_v5/targets.py` as a new output target.
+- **E2 (in progress): native FreeCAD document target.** `--target freecad` is REGISTERED in
+  `cad_v5/targets.py`: today it imports the STEP into a native `.FCStd` (requires `freecadcmd` —
+  not yet installed on this machine: `sudo snap install freecad` or the freecad.org AppImage; no
+  apt candidate on this distro). Next: the feature-tree replay — map the brief's feature list
+  (base shape / holes / pockets / fillets) plus the recipe's E1 named parameters to FreeCAD
+  Part-Design operations via `freecadcmd` scripting → a clickable feature tree with a Spreadsheet
+  of the parameters, so dimension edits in the GUI regenerate natively. Verification: re-export
+  STEP from the generated .FCStd and diff volume/bbox against the agent's own STEP (same honesty
+  gate as everything else).
 - **E3 (long-term): Onshape FeatureScript emission, revisited.** v1's approach, retired because
   small models couldn't write the niche language — worth revisiting only after Track D, and only as
   a post-verification EXPORT step (build+verify locally in build123d first, then emit FS).
