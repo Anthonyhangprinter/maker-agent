@@ -1206,6 +1206,63 @@ def run_dxf(step_path: Path, out_path: Path) -> tuple[Path, str]:
 
 # ── Visual critic (graceful) ────────────────────────────────────────────────--
 
+_QUESTIONS_SYSTEM = """\
+You are a CAD verification planner. From the part request, write 3-6 short YES/NO questions a
+reviewer can answer by LOOKING at renders of the finished part (isometric + top-down + optional
+cross-section). Each question must check one requested feature or proportion, be answerable
+visually, and be phrased so YES means correct. Do not ask about exact dimensions (cameras can't
+measure) — ask about presence, count, placement, and proportion.
+Examples: "Are there four holes near the corners of the top face?" · "Is the box hollow with an
+open top?" · "Does the vertical plate stand perpendicular to the base plate?"
+Reply ONLY JSON: {"questions": ["...", "..."]}"""
+
+_QUESTIONS_SCHEMA = {
+    "type": "object",
+    "properties": {"questions": {"type": "array", "items": {"type": "string"},
+                                 "minItems": 3, "maxItems": 6}},
+    "required": ["questions"],
+}
+
+def verify_questions(spec: str, brief: dict) -> list[str]:
+    """CADCodeVerify-style: binary verification questions generated ONCE per build, answered
+    by the critic against the renders. Best-effort — [] falls back to free-form critique."""
+    try:
+        raw = _ollama(BRIEF_MODEL, _QUESTIONS_SYSTEM,
+                      f"Part request: {spec}\nFeatures: {brief.get('features', [])}",
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_QUESTIONS_SCHEMA)
+        qs = (_extract_json(raw) or {}).get("questions") or []
+        qs = [q.strip() for q in qs if isinstance(q, str) and q.strip()][:6]
+        # Post-filter dimension questions the prompt forbids but small models still emit:
+        # a camera cannot verify "2mm" — such questions only ever answer UNCLEAR (noise).
+        qs = [q for q in qs if not re.search(r"\d+(?:\.\d+)?\s*mm", q, re.I)]
+        if qs:
+            log.info("[v4] %d verification questions: %s", len(qs), " | ".join(qs)[:200])
+        return qs
+    except Exception as e:
+        log.warning("[v4] Question generation failed (%s) — free-form critique.", e)
+        return []
+
+_ANSWERS_SCHEMA = {
+    "type": "object",
+    "properties": {"answers": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"question": {"type": "string"},
+                       "answer": {"type": "string", "enum": ["yes", "no", "unclear"]},
+                       "evidence": {"type": "string"}},
+        "required": ["question", "answer"]}}},
+    "required": ["answers"],
+}
+
+_CRITIC_QA_SYSTEM = (
+    "You are a CAD reviewer looking at a render with TWO panels — LEFT isometric (overall "
+    "shape), RIGHT top-down looking straight down -Z (top-face features show here as "
+    "dots/circles even when edge-on invisible in the isometric) — and possibly a THIRD "
+    "warm/orange panel: a real cross-section exposing walls, cavities, and bore depths. "
+    "Answer each verification question strictly from what the panels show: 'yes' only when "
+    "the render clearly confirms it, 'no' when it clearly contradicts it, 'unclear' when the "
+    "views cannot tell. One short evidence phrase each. Reply ONLY JSON."
+)
+
 _CRITIC_SYSTEM = (
     "You are a CAD reviewer looking at a render of a 3D part that has TWO panels: a LEFT "
     "isometric view (for overall shape and proportions) and a RIGHT top-down view looking "
@@ -1240,12 +1297,44 @@ def wants_section(spec: str, brief: dict) -> bool:
     return isinstance(exp, dict) and isinstance(exp.get("wall_mm"), (int, float))
 
 def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
-                    section: bool = False) -> Optional[str]:
-    """Render the part and ask the multimodal model to critique it. Returns None on any
-    failure so the loop degrades gracefully to numeric-state-only."""
+                    section: bool = False, questions: Optional[list[str]] = None) -> Optional[str]:
+    """Render the part and ask the multimodal model to judge it. With `questions`, runs the
+    CADCodeVerify-style pass: the critic answers each binary question from the panels and the
+    verdict is assembled deterministically (measured +7.3% geometric accuracy over free-form
+    critique in the paper). Falls back to free-form critique without questions, and returns
+    None on any failure so the loop degrades gracefully to numeric-state-only."""
     try:
         png = run_render(step_path, work_dir, section=section)
         img_b64 = base64.b64encode(png.read_bytes()).decode()
+        if questions:
+            try:
+                qlist = "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions))
+                raw = _ollama(CRITIC_MODEL, _CRITIC_QA_SYSTEM,
+                              f"Requested part: {spec}\n\nGeometry facts (authoritative for "
+                              f"hidden/through features):\n{state}\n\n"
+                              f"Verification questions:\n{qlist}\n\nAnswer each:",
+                              timeout=CRITIC_TIMEOUT, images=[img_b64], fmt=_ANSWERS_SCHEMA)
+                answers = (_extract_json(raw) or {}).get("answers") or []
+                if answers:
+                    # Only a hard NO blocks: UNCLEAR means the views can't tell, and
+                    # punishing that false-blocked correct parts in live testing.
+                    noes = [a for a in answers if str(a.get("answer", "")).lower() == "no"]
+                    unclear = [a for a in answers
+                               if str(a.get("answer", "")).lower() == "unclear"]
+                    if not noes:
+                        note = (" (unverifiable from renders: "
+                                + "; ".join(a.get("question", "")[:50] for a in unclear) + ")"
+                                if unclear else "")
+                        return ("PASS: verification questions confirmed" + note + " — "
+                                + "; ".join(a.get("question", "")[:60] for a in answers
+                                            if a not in unclear))
+                    lines = [f"{a.get('question','?')} -> NO"
+                             + (f" ({a.get('evidence','')})" if a.get("evidence") else "")
+                             for a in noes]
+                    return ("Verification questions FAILED:\n" + "\n".join(lines)
+                            + "\nFix these specific issues.")
+            except Exception as e:
+                log.warning("[v4] QA critique failed (%s) — free-form fallback.", e)
         prompt = (
             f"Requested part: {spec}\n\n"
             f"Geometry facts (authoritative for hidden/through features):\n{state}\n\n"
@@ -1466,6 +1555,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     brief    = build_brief(spec)
     reconcile_expected(brief, spec)   # deterministically harden the brief's expected block
     want_section = wants_section(spec, brief)   # render a cut-through panel for hollow/internal parts
+    questions = verify_questions(spec, brief)   # B5: binary checks the critic answers per turn
     if want_section:
         log.info("[v4] Section view ON — critic gets a mid-plane cut-through panel.")
     name     = brief.get("name", spec[:40])
@@ -1678,7 +1768,8 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 break
 
             # 4 + 5. Render + multimodal critique (graceful if unavailable)
-            critique = visual_critique(step_path, spec, last_state, work_dir, section=want_section)
+            critique = visual_critique(step_path, spec, last_state, work_dir,
+                                        section=want_section, questions=questions)
             if critique:
                 last_critique = critique
                 log.info("[v4] Critic: %s", critique.replace("\n", " ")[:300])

@@ -98,9 +98,12 @@ if not polys:
     print("ERROR: All triangles degenerate.", file=sys.stderr)
     sys.exit(1)
 
-# ── Optional section: cut the solid at its mid-Y plane and tessellate the half ──
+# ── Optional section: cut the solid at a mid-plane and tessellate the kept half ──
 # A real geometric cross-section exposes walls, cavities, bores, and internal bosses that are
 # edge-on invisible in the iso/top views — so the multimodal critic can actually judge them.
+# Cut plane: across the LONGER horizontal axis (X or Y) — a hardcoded mid-Y cut produced a
+# sliver (or missed features entirely) on parts lying along X. Z is never cut: the top-down
+# panel already reveals it.
 section = None
 if want_section:
     try:
@@ -108,9 +111,15 @@ if want_section:
         cx = (bbox.min.X + bbox.max.X) / 2.0
         cy = (bbox.min.Y + bbox.max.Y) / 2.0
         cz = (bbox.min.Z + bbox.max.Z) / 2.0
-        sx, sz = bbox.size.X * 2 + 10, bbox.size.Z * 2 + 10
-        sy = bbox.size.Y + 10
-        keep = Pos(cx, cy - sy / 2.0, cz) * Box(sx, sy, sz)   # keep the Y ≤ centre half
+        axis = "x" if bbox.size.X > bbox.size.Y else "y"
+        if axis == "x":
+            sy, sz = bbox.size.Y * 2 + 10, bbox.size.Z * 2 + 10
+            sx = bbox.size.X + 10
+            keep = Pos(cx - sx / 2.0, cy, cz) * Box(sx, sy, sz)   # keep the X ≤ centre half
+        else:
+            sx, sz = bbox.size.X * 2 + 10, bbox.size.Z * 2 + 10
+            sy = bbox.size.Y + 10
+            keep = Pos(cx, cy - sy / 2.0, cz) * Box(sx, sy, sz)   # keep the Y ≤ centre half
         cut = shape & keep
         sv, st = cut.tessellate(tol)
         section = _shade(sv, st, color=cut_base) if st else None
