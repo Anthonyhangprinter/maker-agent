@@ -83,7 +83,7 @@ structured hints are the cheapest way to make a 7B recover instead of flail.
 
 **B4. Cloud escalation rung** *(explicit user requirement)*
 `_llm()` provider dispatch: Ollama | OpenRouter | Anthropic (all plain HTTP chat calls, no SDKs).
-Routing becomes `fast → strong → cloud` with a per-build cloud-call cap; on low-VRAM machines the
+Routing becomes `fast → mid → strong → cloud` with a per-build cloud-call cap; on low-VRAM machines the
 30B rung is config-skipped so it's `7B → cloud` directly. Config: `cad.json → cloud: {provider,
 model, api_key_env, max_calls_per_build}`. This is the portability mechanism: the same agent runs
 on any low-end machine with the local rungs it can afford and a paid escape hatch it controls.
@@ -136,7 +136,7 @@ The tier model the codebase should encode explicitly (auto-detected, overridable
 | Tier | Hardware | Coder rungs | Critic | Notes |
 |---|---|---|---|---|
 | **T0 floor** | CPU-only / ≤4GB | 7B q4 (slow) → cloud | off (gate-only) | degraded but functional |
-| **T1 (now)** | 8GB VRAM | 7B GPU → 30B CPU† → cloud | gemma4:e4b | † 30B rung optional; ~7 min/call |
+| **T1 (now)** | 8GB VRAM | 7B GPU → 14B → 30B† → cloud | gemma4:e4b | ladder climbs one rung per escalation; † 30B = last resort, ~7 min/call |
 | **T2** | 16–24GB | fine-tuned 7B → 30B GPU → cloud | larger VLM | 30B becomes resident |
 | **T3** | 96–128GB | 70B-class local | large VLM | no cloud needed |
 | **Cloud burst** | any | OpenRouter/Claude | cloud VLM possible | per-build cost cap |

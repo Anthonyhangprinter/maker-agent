@@ -78,7 +78,8 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 # (previously duplicated here; the two copies drifted independently. Model/timeout/loop
 # tuning now happens in ONE place and both the v4 engine and the v5 package follow.)
 from cad_v5.config import (        # noqa: E402
-    BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_DEFAULT, CRITIC_MODEL,
+    BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_MID, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
+    CODE_MODEL_DEFAULT, CRITIC_MODEL,
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
@@ -161,6 +162,14 @@ def _code_model() -> str:
     if _ACTIVE_CODE_MODEL:
         return _ACTIVE_CODE_MODEL
     return _load_config().get("cad", {}).get("code_model") or CODE_MODEL_DEFAULT
+
+def _next_code_model(current: str):
+    """The next rung up the escalation ladder, or None at (or off) the top."""
+    try:
+        i = CODE_MODEL_LADDER.index(current)
+    except ValueError:
+        return None
+    return CODE_MODEL_LADDER[i + 1] if i + 1 < len(CODE_MODEL_LADDER) else None
 
 def _tg_token() -> str:
     cfg = _load_config()
@@ -1419,16 +1428,19 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     global _ACTIVE_CODE_MODEL
     pinned = (_load_config().get("cad", {}).get("code_model") or "").strip()
     auto_escalate = False
-    if coder in ("fast", "strong"):
-        _ACTIVE_CODE_MODEL = CODE_MODEL_FAST if coder == "fast" else CODE_MODEL_STRONG
+    if coder in ("fast", "mid", "strong"):
+        _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST, "mid": CODE_MODEL_MID,
+                              "strong": CODE_MODEL_STRONG}[coder]
         log.info("[v4] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
     elif pinned:
         _ACTIVE_CODE_MODEL = pinned
         log.info("[v4] Code model: %s (pinned via cad.code_model)", _ACTIVE_CODE_MODEL)
     else:
-        _ACTIVE_CODE_MODEL = (CODE_MODEL_STRONG if spec_needs_strong_coder(spec, brief)
+        # Hard specs skip the 7B and start on the MIDDLE rung; the 30B is only ever
+        # reached by escalation — it is the slowest rung by far on low-VRAM machines.
+        _ACTIVE_CODE_MODEL = (CODE_MODEL_MID if spec_needs_strong_coder(spec, brief)
                               else CODE_MODEL_FAST)
-        auto_escalate = (_ACTIVE_CODE_MODEL == CODE_MODEL_FAST)
+        auto_escalate = True
         log.info("[v4] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
                  ", may escalate" if auto_escalate else "")
 
@@ -1455,10 +1467,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 break
 
             # Auto-escalate to the stronger coder once the fast one has failed a few times.
-            if auto_escalate and _ACTIVE_CODE_MODEL == CODE_MODEL_FAST and fails >= ESCALATE_AFTER:
-                log.info("[v4] Escalating to strong coder %s after %d failed turn(s).",
-                         CODE_MODEL_STRONG, fails)
-                _ACTIVE_CODE_MODEL = CODE_MODEL_STRONG
+            nxt = _next_code_model(_ACTIVE_CODE_MODEL) if auto_escalate else None
+            if nxt and fails >= ESCALATE_AFTER:
+                log.info("[v4] Escalating one rung to %s after %d failed turn(s).", nxt, fails)
+                _ACTIVE_CODE_MODEL = nxt
                 code = generate_code(brief)   # fresh attempt with the stronger model
                 fails = 0
 
@@ -1626,10 +1638,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                     break
                 # Gate UNVERIFIED (geometry facts didn't parse) — there is no measurement to
                 # trust, so escalate to the strong coder for fresh code before giving up.
-                if auto_escalate and _ACTIVE_CODE_MODEL == CODE_MODEL_FAST and turn < MAX_TURNS:
-                    log.info("[v4] Fast coder stuck (gate unverified) — escalating to strong "
-                             "coder %s.", CODE_MODEL_STRONG)
-                    _ACTIVE_CODE_MODEL = CODE_MODEL_STRONG
+                nxt = _next_code_model(_ACTIVE_CODE_MODEL) if auto_escalate else None
+                if nxt and turn < MAX_TURNS:
+                    log.info("[v4] Coder stuck (gate unverified) — escalating one rung to %s.", nxt)
+                    _ACTIVE_CODE_MODEL = nxt
                     code = generate_code(brief)
                     fails = 0
                     continue
