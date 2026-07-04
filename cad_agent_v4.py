@@ -970,6 +970,18 @@ def parse_facts(inspect_output: str) -> dict:
         facts["bore_axes"] = axes
     return facts
 
+_RADIAL_TERMS = re.compile(r"\b(radial(?:ly)?|cross[- ]?(?:hole|bore|drill)|side (?:hole|bore)|"
+                           r"through (?:the )?(?:side|wall|skirt))\b", re.I)
+_AXIAL_TERMS = re.compile(r"\b(axial(?:ly)?|along (?:the|its) (?:long )?axis|central(?:ly)? "
+                          r"(?:bored|drilled)|down (?:the|its) (?:centre|center|length))\b", re.I)
+
+def _spec_states_orientation(spec: str, orient: str) -> bool:
+    """Does the spec TEXT actually claim this bore orientation? The brief labels orientations
+    and gets them wrong (a vertical blind standoff hole labelled 'radial' hard-failed every
+    turn AND told the coder to bore sideways). Only a user-stated orientation may steer."""
+    rx = _RADIAL_TERMS if orient == "radial" else _AXIAL_TERMS
+    return bool(rx.search(spec or ""))
+
 def _spec_mentions_dim(spec: str, d: float) -> bool:
     """Does the spec text corroborate dimension d (mm, as diameter or radius)? Guards the
     gate against brief-hallucinated feature dims: only a number the user actually wrote may
@@ -1122,14 +1134,19 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                 corroborated = _spec_mentions_dim(spec, d)
                 tol = max(0.6, 0.06 * d)
                 got = [o for (dd, o) in axes if abs(dd - d) <= tol]
+                # The brief's orientation label only counts when the SPEC states it —
+                # otherwise check presence only and never steer the coder directionally.
+                if orient in ("radial", "axial") and not _spec_states_orientation(spec, orient):
+                    orient = None
                 if not got:
                     # Distinguish "measured absent" from "couldn't measure": cylinders exist
                     # but none were orientation-classified → the detector is blind here, and
                     # absence of evidence must not hard-fail the build.
                     detector_blind = (not axes and facts.get("cyl_faces", 0) != 0)
                     msg = (f"the spec needs a {orient + ' ' if orient in ('radial', 'axial') else ''}"
-                           f"Ø{d:g}mm bore but no bore of that size was measured — add it.")
-                    if orient in ("radial", "axial") and corroborated and not detector_blind:
+                           f"Ø{d:g}mm bore but no bore of that size was measured — add it "
+                           f"(cut a Ø{d:g}mm cylinder into the part where the spec places it).")
+                    if corroborated and not detector_blind:
                         hard.append(msg)
                     else:
                         soft.append(msg)

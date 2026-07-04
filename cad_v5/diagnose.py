@@ -30,6 +30,14 @@ _TAXONOMY: list[tuple[str, re.Pattern, str]] = [
     ("syntax", re.compile(r"SyntaxError|invalid syntax|unexpected indent|unmatched", re.I),
      "Python syntax error — rewrite the whole script cleanly; do not patch around the broken line."),
 
+    ("edge_selection", re.compile(
+        r"is not a Circle|GeomAdaptor|Standard_NoSuchObject|no edges (?:selected|found)|"
+        r"empty (?:edge|face) (?:list|selection)", re.I),
+     "An edge/face selection touched a property some edges don't have (e.g. .radius on a "
+     "straight edge). Filter FIRST: edges().filter_by(GeomType.CIRCLE) before radius-based "
+     "selection, or group_by(Axis.Z)[-1] for a face's edges — and wrap the whole "
+     "fillet/chamfer in try/except so a failed selection can't kill the part."),
+
     ("api_misuse", re.compile(
         r"has no attribute|unexpected keyword|not defined|cannot import|No module named|"
         r"missing \d+ required|takes \d+ positional|NameError|AttributeError|TypeError", re.I),
