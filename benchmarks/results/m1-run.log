@@ -9,3 +9,84 @@ Running 6 benchmark(s): 01, 02, 03, 04, 05, 06  (--coder fast, per-build timeout
 ======================================================================
 [02] Circular flange  (tier 1, --coder fast)
 ======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=472.5s | acc 2/4 solids=✓,bbox=✓,holes_cut=✗,through=✗ | solids=1 cyl=2 bbox=[80.0, 80.0, 10.0] | 
+
+======================================================================
+[03] L-bracket  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=326.0s | acc 2/4 solids=✓,bbox=✗,holes_cut=✓,through=✗ | solids=1 cyl=4 bbox=[90.0, 54.0, 51.0] | 
+
+======================================================================
+[04] Stepped shaft with keyway  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=142.5s | acc 2/3 solids=✓,bbox=✗,holes_cut=✓ | solids=1 cyl=5 bbox=[50.0, 30.0, 180.0] | 
+
+======================================================================
+[05] Open-top electronics enclosure with bosses  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=131.1s | acc 3/3 solids=✓,bbox=✓,holes_cut=✓ | solids=1 cyl=12 bbox=[100.0, 70.0, 30.0] | 
+
+======================================================================
+[06] Clevis bracket with lightening cutouts  (tier 2, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=170.8s | acc 3/4 solids=✓,bbox=✗,holes_cut=✓,through=✓ | solids=1 cyl=11 bbox=[125.0, 60.0, 120.0] | 
+
+==============================================================================
+SUMMARY  —  5/6 converged, 6/6 produced geometry, acceptance 16/22 (73%), 1524.6s total
+==============================================================================
+id  tier status         acc     model                      wall_s  name
+01  1    converged      4/4     qwen2.5-coder:7b-instruct-q5_k_m 265.1   Rectangular calibration block
+02  1    converged      2/4     qwen2.5-coder:7b-instruct-q5_k_m 472.5   Circular flange
+03  1    converged      2/4     qwen2.5-coder:7b-instruct-q5_k_m 326.0   L-bracket
+04  2    converged      2/3     qwen2.5-coder:7b-instruct-q5_k_m 142.5   Stepped shaft with keyway
+05  2    converged      3/3     qwen2.5-coder:7b-instruct-q5_k_m 131.1   Open-top electronics enclosure with bosses
+06  2    not-converged  3/4     qwen2.5-coder:7b-instruct-q5_k_m 170.8   Clevis bracket with lightening cutouts
+
+Full results: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/run_20260704_204843.json
+
+=== 14B RUNG FIRST MEASUREMENT: tiers 1+2 --coder mid ===
+Running 6 benchmark(s): 01, 02, 03, 04, 05, 06  (--coder mid, per-build timeout 2100s)
+
+======================================================================
+[01] Rectangular calibration block  (tier 1, --coder mid)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:14b-instruct-q4_k_m | wall=803.8s | acc 4/4 solids=✓,bbox=✓,holes_cut=✓,through=✓ | solids=1 cyl=4 bbox=[100.0, 60.0, 20.0] | 
+
+======================================================================
+[02] Circular flange  (tier 1, --coder mid)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:14b-instruct-q4_k_m | wall=709.9s | acc 4/4 solids=✓,bbox=✓,holes_cut=✓,through=✓ | solids=1 cyl=8 bbox=[80.0, 80.0, 10.0] | 
+
+======================================================================
+[03] L-bracket  (tier 1, --coder mid)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:14b-instruct-q4_k_m | wall=753.1s | acc 2/4 solids=✓,bbox=✗,holes_cut=✓,through=✗ | solids=1 cyl=4 bbox=[90.0, 50.0, 50.0] | 
+
+======================================================================
+[04] Stepped shaft with keyway  (tier 2, --coder mid)
+======================================================================
+--> ❌ failed  | model=None | wall=350.5s | acc 0/3 solids=✗,bbox=✗,holes_cut=✗ | solids=? cyl=? bbox=? | 
+
+======================================================================
+[05] Open-top electronics enclosure with bosses  (tier 2, --coder mid)
+======================================================================
+--> ❌ failed  | model=None | wall=393.8s | acc 0/3 solids=✗,bbox=✗,holes_cut=✗ | solids=? cyl=? bbox=? | 
+
+======================================================================
+[06] Clevis bracket with lightening cutouts  (tier 2, --coder mid)
+======================================================================
+--> ⚠️ geometry, not converged  | model=qwen2.5-coder:14b-instruct-q4_k_m | wall=582.9s | acc 1/4 solids=✓,bbox=✗,holes_cut=✗,through=✗ | solids=1 cyl=4 bbox=[120.0, 60.0, 42.0] | 
+
+==============================================================================
+SUMMARY  —  3/6 converged, 4/6 produced geometry, acceptance 11/22 (50%), 3609.1s total
+==============================================================================
+id  tier status         acc     model                      wall_s  name
+01  1    converged      4/4     qwen2.5-coder:14b-instruct-q4_k_m 803.8   Rectangular calibration block
+02  1    converged      4/4     qwen2.5-coder:14b-instruct-q4_k_m 709.9   Circular flange
+03  1    converged      2/4     qwen2.5-coder:14b-instruct-q4_k_m 753.1   L-bracket
+04  2    failed         0/3     -                          350.5   Stepped shaft with keyway
+05  2    failed         0/3     -                          393.8   Open-top electronics enclosure with bosses
+06  2    not-converged  1/4     qwen2.5-coder:14b-instruct-q4_k_m 582.9   Clevis bracket with lightening cutouts
+
+Full results: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/run_20260704_214852.json
+=== ALL DONE ===

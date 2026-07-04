@@ -124,9 +124,10 @@ escalation — deliberately the LAST resort on 8GB VRAM.
 - **Machine:** HP Z2 Tower G4 · AMD RX 6600 8GB VRAM (ROCm) · `OLLAMA_MAX_LOADED_MODELS=1`.
 - **brief / triage / refine:** `qwen3:8b` (~35 tok/s GPU).
 - **coder:** `qwen2.5-coder:7b-instruct-q5_k_m` (default, full GPU ~16s) ⇄ `qwen3-coder:30b`
-  (30.5B MoE, CPU offload ~7min/call). `qwen2.5-coder:14b` was once rejected (~217s, no clear
-  win over the 7B in early tests) — now reinstated as the ladder's MID rung and being
-  re-benchmarked with the post-M1 engine; the measurement decides whether it keeps the slot.
+  (30.5B MoE, CPU offload ~7min/call). `qwen2.5-coder:14b`: rejected TWICE by measurement —
+  early tests (~217s, no win) and the 2026-07-04 re-benchmark (m1_14b_tiers12.json: 3/6 converged
+  at 583–804s/build — slower than the 30B MoE, since a dense 14B offloads worse than a 3B-active
+  MoE, and weaker than the 7B's 5/6 at ~250s). Off the auto ladder; `--coder mid` stays manual.
 - **critic:** `gemma4:e4b` (multimodal; text on GPU, vision encoder on CPU).
 - One model in VRAM at a time → model swaps cost cold-load time; the helper bypass and fast-coder
   default keep common builds quick.
