@@ -100,7 +100,7 @@ def _word_overlap(spec: str, rows: list[dict], n: int) -> list[dict]:
     return [r for _, r in scored[:n]]
 
 
-def retrieve(spec: str, n: int = 2, min_score: float = 0.55) -> list[dict]:
+def retrieve(spec: str, n: int = 2, min_score: float = 0.65) -> list[dict]:
     """Top-n corpus examples for spec. Semantic (cosine) if embeddings work, else word-overlap.
     Each returned row gets a `_score` and `_how` ('cosine' or 'overlap') for transparency/logging."""
     rows = load_corpus()
@@ -183,8 +183,10 @@ def store_lesson(spec: str, lesson: str, problem: str = "", cap: int = 100) -> N
     os.replace(tmp, LESSONS_FILE)
 
 
-def retrieve_lessons(spec: str, n: int = 3, min_score: float = 0.5) -> list[str]:
-    """Return up to n pitfalls (lesson strings) most relevant to spec. Semantic, graceful."""
+def retrieve_lessons(spec: str, n: int = 3, min_score: float = 0.6) -> list[str]:
+    """Return up to n pitfalls (lesson strings) most relevant to spec. Semantic, graceful.
+    Thresholds set from measured score distributions (2026-07-04): genuine matches >=0.77,
+    irrelevant-but-CAD noise 0.58-0.61, far-off ~0.51 — floors of 0.65/0.6 cut the noise."""
     rows = load_lessons()
     if not rows:
         return []

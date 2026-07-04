@@ -95,10 +95,12 @@ through-hole in the top face?"), (2) answer each from the render panels → JSON
 `{question, answer, evidence}` list. Converts gemma's vague prose into per-feature signals the
 decide step can act on. Prompt-level change; same render pipeline.
 
-**B6. Retrieval hygiene** *(SeekCAD-style RAG discipline; the anti-vaporware contract)*
-Semantic lesson dedup is live (Phase 1). Remaining: spot-check corpus similarity scores and raise
-`min_score` 0.55 → ~0.62; cap injected lessons at 3; re-measure the few-shot lift with
-`--no-fewshots` after B1 lands (the lift must stay measurable or retrieval gets cut).
+**B6. Retrieval hygiene — DONE (2026-07-04, measured)** *(SeekCAD-style RAG discipline)*
+Semantic lesson dedup live; thresholds set from measured score distributions (genuine ≥0.77,
+CAD-noise 0.58–0.61 → floors raised to 0.65 examples / 0.6 lessons); lessons capped at 3.
+**Few-shot lift re-measured on the M1 engine (m2_7b_nofewshots.json): WITH retrieval 5/6 conv
+16/22 acc vs WITHOUT 3/6 conv 12/22 acc — the learning loop decisively earns its keep** (the
+flange fails outright without its gold example; the L-bracket loses its vertical arm).
 
 **B7. v5 migration completion** *(strangler pattern)*
 `--json` result output on the v5 CLI → benchmark `--agent` default flips to v5 → Satine switches
@@ -186,7 +188,7 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 |---|---|---|
 | M0 (done) | Phase-1 reliability, honest baselines | 9 commits; baselines recorded |
 | M1 | B1 structured outputs + B2 contracts + E1 params/regen | 0 parse-failure fallbacks in a full suite run; 7B tiers 1–2 ≥ 5/6; `cad regen wall=3` round-trips |
-| M2 | B3 taxonomy + B6 retrieval hygiene | failure-category histogram exists; few-shot lift re-measured |
+| M2 | B3 taxonomy + B6 retrieval hygiene | **DONE** — histogram in every result; lift measured: retrieval = +2 converged, +4 acc points |
 | M3 | B4 cloud rung | hard spec builds on an 8GB box via `7B→cloud`; cost cap enforced |
 | M4 | B5 question critique + B8 interim render | critic false-block rate on tier-1 = 0 |
 | M5 | B7 v5 migration + E2 FreeCAD target | benchmark + Satine on v5 entry; upload single-sourced; feature tree opens in FreeCAD |
