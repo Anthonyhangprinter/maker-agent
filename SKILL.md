@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed coder (qwen2.5-coder:7b ⇄ qwen3-coder:30b) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed coder ladder (qwen2.5-coder:7b → 14b → qwen3-coder:30b) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -14,7 +14,7 @@ metadata:
 # CAD Builder Skill (v4.3 engine + v5 package)
 
 Build and iterate on Onshape CAD models from text specs. All inference runs locally via Ollama
-(qwen3:8b, qwen2.5-coder:7b / qwen3-coder:30b, gemma4:e4b). **No Claude API calls.**
+(qwen3:8b, qwen2.5-coder:7b/14b / qwen3-coder:30b, gemma4:e4b). **No Claude API calls.**
 
 The agent writes **build123d** Python (algebra mode), runs it → STEP, inspects the geometry,
 renders a 2-panel PNG (isometric + top-down), has a multimodal critic judge it against the spec,
@@ -69,7 +69,7 @@ python3 $SCRIPT inspect "<onshape_url>"                              # describe 
 1. **Brief** (`qwen3:8b`, temp 0.2) — NL spec → structured JSON `{name, dimensions, features,
    notes, helper}`. Interprets intent: box/case/enclosure/container/tray/bin ⇒ **hollow, open-top,
    ~2mm walls** unless "solid"/"block"/"plate" etc. is said.
-2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to start on the 30B coder.
+2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to start on the mid 14B rung.
 3. **Codegen** (auto-routed coder, temp 0.15) — build123d algebra-mode script.
 4. **Run → STEP** (`scripts/step`), **inspect** (`scripts/inspect`), **render** (`scripts/render`,
    2 panels).
@@ -84,18 +84,18 @@ correct by construction, and **bypass codegen and the critic** (~60s).
 
 ## Coder routing
 
-Default is the **fast** `qwen2.5-coder:7b-instruct-q5_k_m` (~16s/call). Triage starts hard specs
-on **`qwen3-coder:30b`** (~7min/call, CPU offload). The loop auto-escalates 7B→30B after
-`ESCALATE_AFTER` (2) failed/stuck turns and regenerates fresh.
-- Force per build: `--coder auto|fast|strong`.
-- Telegram (Satine): prefix the message `strong: <spec>` or `fast: <spec>`.
-- Pin permanently: set `cad.code_model` in `openclaw.json` (disables auto-switching).
+Escalation ladder **7B → 14B → 30B** (`CODE_MODEL_LADDER`, weakest first, one rung per
+escalation). Default is the fast `qwen2.5-coder:7b` (~16s/call, GPU); triage starts hard specs on
+the mid `qwen2.5-coder:14b`; the 30B (~7min/call, CPU offload) is the last resort only.
+- Force per build: `--coder auto|fast|mid|strong`.
+- Telegram (Satine): prefix the message `fast: <spec>`, `mid: <spec>` or `strong: <spec>`.
+- Pin permanently: set `cad.code_model` in `~/.openclaw/cad.json` (disables auto-climbing).
 - The chosen model is recorded as `code_model` in the session/result.
 
 ## Telegram (Satine — `~/.openclaw/cad-telegram.py`, `cad-telegram.service`)
 
 - Send a spec as plain text (or `/build <spec>`) to build; reply with changes to refine.
-- `strong:`/`fast:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
+- `fast:`/`mid:`/`strong:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
 - Satine shells out to `cad_agent_v4.py` per request, so agent edits are live without a restart;
   **restart `cad-telegram.service` only after editing `cad-telegram.py` itself.**
 
@@ -124,7 +124,7 @@ python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retri
 
 ## Tuning knobs (see PROJECT.md for detail)
 
-- **`openclaw.json` `cad.*`**: `code_model` (pin coder), `public_uploads`; `env.ONSHAPE_*` creds.
+- **`~/.openclaw/cad.json`**: `code_model` (pin coder), `public_uploads`. Creds: openclaw.json `env.ONSHAPE_*`.
 - **Constants** (top of `cad_agent_v4.py`): models, `MAX_TURNS`, `ESCALATE_AFTER`, `*_TIMEOUT`.
 - **Prompts** (highest leverage): `_BRIEF_SYSTEM` (intent), `_CODE_SYSTEM` (coordinate rules +
   examples), `_COMPLEXITY_SYSTEM` (triage), `_CRITIC_SYSTEM`/`_DECIDE_SYSTEM`. Sampling temps are

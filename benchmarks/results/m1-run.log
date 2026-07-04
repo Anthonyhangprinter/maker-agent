@@ -4,3 +4,8 @@ Running 6 benchmark(s): 01, 02, 03, 04, 05, 06  (--coder fast, per-build timeout
 ======================================================================
 [01] Rectangular calibration block  (tier 1, --coder fast)
 ======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q5_k_m | wall=265.1s | acc 4/4 solids=✓,bbox=✓,holes_cut=✓,through=✓ | solids=1 cyl=4 bbox=[100.0, 60.0, 20.0] | 
+
+======================================================================
+[02] Circular flange  (tier 1, --coder fast)
+======================================================================

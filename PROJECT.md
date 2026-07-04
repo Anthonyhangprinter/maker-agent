@@ -36,14 +36,14 @@ spec
  ▼  brief — qwen3:8b (temp 0.2)
 {name, dimensions, features, notes, helper}   ← interprets intent (box ⇒ hollow container)
  │
- ▼  coder triage — qwen3:8b  →  start FAST (7B) or STRONG (30B)?
+ ▼  coder triage — qwen3:8b  →  start FAST (7B) or MID (14B)?  (30B only via escalation)
  │
  ▼  codegen — auto-routed coder (temp 0.15), build123d ALGEBRA mode
  │
  ▼  ── per-turn observe-edit loop (≤ MAX_TURNS / BUILD_TIMEOUT) ──────────────
  │   run (scripts/step → STEP) → inspect (scripts/inspect) → render (scripts/render, 2 panels)
  │      → visual critic (gemma4:e4b, sees isometric + top-down) → decide_or_edit
- │      • DONE  → finalize          • edit → next turn          • stuck on 7B → escalate to 30B
+ │      • DONE  → finalize          • edit → next turn          • stuck → climb one ladder rung
  ▼
 STEP → translate → Onshape Part Studio (URL)   [public fallback on free accounts]
 ```
@@ -67,19 +67,24 @@ false-negatives otherwise). ~60s vs ~150s+ for freeform.
 | `~/.openclaw/cad-embeddings.json` | nomic-embed cache for retrieval |
 | `~/.openclaw/cad-session.json` | Last build result (for `rate`, `session`) |
 | `~/.openclaw/cad-last-build.step` | Last STEP — recoverable if upload fails |
-| `~/.openclaw/openclaw.json` | `env` creds (ONSHAPE_*, Telegram token) + `cad.*` config |
+| `~/.openclaw/openclaw.json` | `env` creds (ONSHAPE_*, Telegram token) — schema-validated |
+| `~/.openclaw/cad.json` | `cad.*` agent settings (`code_model` pin, `public_uploads`) |
 | `~/.openclaw/cad-telegram.py` | Satine — Telegram frontend (shells out to this agent) |
 
 ---
 
-## Coder routing (v4.2)
+## Coder routing (escalation ladder, 2026-07-04)
 
-Default **fast** `qwen2.5-coder:7b-instruct-q5_k_m`. Triage (`spec_needs_strong_coder`, an LLM
-call via qwen3:8b — **not** keyword rules) starts hard specs on **`qwen3-coder:30b`**. The loop
-auto-escalates 7B→30B after `ESCALATE_AFTER` (2) failed/stuck turns and regenerates fresh.
+`CODE_MODEL_LADDER` in `cad_v5/config.py`: **7B → 14B → 30B**, weakest first. Default rung is
+the fast `qwen2.5-coder:7b` (GPU, ~16s/call); escalation climbs ONE rung per trigger
+(`ESCALATE_AFTER` = 2 failed/stuck turns, or stuck-with-gate-unverified) and regenerates fresh.
+Triage (`spec_needs_strong_coder`, an LLM call via qwen3:8b — **not** keyword rules) starts hard
+specs on the MID `qwen2.5-coder:14b`; the 30B (~7min/call, CPU offload) is only ever reached by
+escalation — deliberately the LAST resort on 8GB VRAM.
 
-- **Manual:** `build --coder auto|fast|strong`; Satine accepts a `strong:`/`fast:` prefix.
-- **Pin:** `cad.code_model` in `openclaw.json` disables auto-switching.
+- **Manual:** `build --coder auto|fast|mid|strong`; Satine accepts `fast:`/`mid:`/`strong:` prefixes.
+- **Pin:** `cad.code_model` in `~/.openclaw/cad.json` disables auto-climbing (currently UNPINNED
+  — the ladder is live routing).
 - **Recorded:** chosen model stored as `code_model` in the session/result.
 - Implemented via a module-global `_ACTIVE_CODE_MODEL` read by `_code_model()` (safe: one build
   per process; Satine shells out per request).
@@ -119,7 +124,9 @@ auto-escalates 7B→30B after `ESCALATE_AFTER` (2) failed/stuck turns and regene
 - **Machine:** HP Z2 Tower G4 · AMD RX 6600 8GB VRAM (ROCm) · `OLLAMA_MAX_LOADED_MODELS=1`.
 - **brief / triage / refine:** `qwen3:8b` (~35 tok/s GPU).
 - **coder:** `qwen2.5-coder:7b-instruct-q5_k_m` (default, full GPU ~16s) ⇄ `qwen3-coder:30b`
-  (30.5B MoE, CPU offload ~7min/call). `qwen2.5-coder:14b` rejected (slow ~217s, not better).
+  (30.5B MoE, CPU offload ~7min/call). `qwen2.5-coder:14b` was once rejected (~217s, no clear
+  win over the 7B in early tests) — now reinstated as the ladder's MID rung and being
+  re-benchmarked with the post-M1 engine; the measurement decides whether it keeps the slot.
 - **critic:** `gemma4:e4b` (multimodal; text on GPU, vision encoder on CPU).
 - One model in VRAM at a time → model swaps cost cold-load time; the helper bypass and fast-coder
   default keep common builds quick.
@@ -128,7 +135,7 @@ auto-escalates 7B→30B after `ESCALATE_AFTER` (2) failed/stuck turns and regene
 
 ## Tuning Surface (where to change behavior)
 
-1. **`openclaw.json` `cad.*`** — `code_model` (pin coder), `public_uploads`; `env.ONSHAPE_*`.
+1. **`~/.openclaw/cad.json`** — `code_model` (pin coder), `public_uploads`; creds stay in openclaw.json `env.ONSHAPE_*`.
 2. **Constants** (top of `cad_agent_v4.py`) — model names, `MAX_TURNS`, `ESCALATE_AFTER`,
    `BUILD_TIMEOUT`, `CODE_TIMEOUT`, `CRITIC_TIMEOUT`, etc.
 3. **Prompts** (highest leverage) — `_BRIEF_SYSTEM`, `_CODE_SYSTEM`, `_COMPLEXITY_SYSTEM`,
