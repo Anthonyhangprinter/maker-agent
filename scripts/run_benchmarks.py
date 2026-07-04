@@ -200,7 +200,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tiers", help="comma list of tiers to run, e.g. 1,2")
     ap.add_argument("--only", help="comma list of benchmark ids, e.g. 01,05")
-    ap.add_argument("--coder", choices=["auto", "fast", "mid", "strong"], default="auto")
+    ap.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto")
     ap.add_argument("--no-fewshots", action="store_true",
                     help="disable retrieval — run the baseline to measure the few-shot lift")
     ap.add_argument("--timeout", type=int, default=2100, help="per-build wall-clock cap (s)")

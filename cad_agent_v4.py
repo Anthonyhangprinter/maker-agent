@@ -85,6 +85,7 @@ from cad_v5.config import (        # noqa: E402
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
 )
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
+from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -164,13 +165,75 @@ def _code_model() -> str:
         return _ACTIVE_CODE_MODEL
     return _load_config().get("cad", {}).get("code_model") or CODE_MODEL_DEFAULT
 
+CLOUD_PREFIX = "cloud/"
+_CLOUD_CALLS_LEFT = 0   # per-build cost cap, reset by build() from cad.json cloud.max_calls_per_build
+
+def _ladder() -> list:
+    """The live escalation ladder: local rungs + a paid cloud rung when configured."""
+    rungs = list(CODE_MODEL_LADDER)
+    cc = cloud_config()
+    if cc:
+        rungs.append(CLOUD_PREFIX + cc["model"])
+    return rungs
+
 def _next_code_model(current: str):
     """The next rung up the escalation ladder, or None at (or off) the top."""
+    ladder = _ladder()
     try:
-        i = CODE_MODEL_LADDER.index(current)
+        i = ladder.index(current)
     except ValueError:
         return None
-    return CODE_MODEL_LADDER[i + 1] if i + 1 < len(CODE_MODEL_LADDER) else None
+    return ladder[i + 1] if i + 1 < len(ladder) else None
+
+def _cloud_key(cc: dict) -> str:
+    env_name = cc.get("api_key_env") or ("ANTHROPIC_API_KEY" if cc["provider"] == "anthropic"
+                                         else "OPENROUTER_API_KEY")
+    return (os.environ.get(env_name)
+            or _load_config().get("env", {}).get(env_name, ""))
+
+def _cloud_chat(model: str, system: str, prompt: str,
+                timeout: int = 120, temperature: Optional[float] = None) -> str:
+    """One chat call to the configured cloud provider. Plain HTTP, no SDKs. Budget-capped
+    per build so a stuck loop can never run up a bill."""
+    global _CLOUD_CALLS_LEFT
+    if _CLOUD_CALLS_LEFT <= 0:
+        # Budget exhausted must never crash a build (or run up a bill): an empty reply
+        # flows through the normal stuck-handling, which keeps the best verified build.
+        log.warning("[v4] Cloud call budget exhausted — returning empty reply "
+                    "(raise cad.json cloud.max_calls_per_build to allow more).")
+        return ""
+    cc = cloud_config()
+    key = _cloud_key(cc)
+    if not key:
+        raise RuntimeError(f"cloud rung configured but no API key found "
+                           f"({cc.get('api_key_env') or 'default env'} unset)")
+    _CLOUD_CALLS_LEFT -= 1
+    if cc["provider"] == "anthropic":
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps({
+                "model": model, "max_tokens": 4096, "system": system,
+                "messages": [{"role": "user", "content": prompt}],
+                **({"temperature": temperature} if temperature is not None else {}),
+            }).encode(),
+            headers={"Content-Type": "application/json", "x-api-key": key,
+                     "anthropic-version": "2023-06-01"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            resp = json.loads(r.read())
+        return "".join(b.get("text", "") for b in resp.get("content", [])).strip()
+    # openrouter (OpenAI-schema chat completions)
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps({
+            "model": model,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": prompt}],
+            **({"temperature": temperature} if temperature is not None else {}),
+        }).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        resp = json.loads(r.read())
+    return resp["choices"][0]["message"]["content"].strip()
 
 def _tg_token() -> str:
     cfg = _load_config()
@@ -183,6 +246,11 @@ def _ollama(model: str, system: str, prompt: str,
             timeout: int = OLLAMA_TIMEOUT, images: Optional[list[str]] = None,
             temperature: Optional[float] = None, fmt=None) -> str:
     # fmt: "json" or a JSON-schema dict — Ollama enforces the output grammar server-side.
+    if model.startswith(CLOUD_PREFIX):
+        # The paid rung rides the same seam every local call uses — nothing upstream
+        # knows or cares which provider answered. fmt is ignored (cloud rung = coder only).
+        return _cloud_chat(model[len(CLOUD_PREFIX):], system, prompt,
+                           timeout=min(timeout, 300), temperature=temperature)
     options = {"num_ctx": 16384}
     if temperature is not None:
         options["temperature"] = temperature
@@ -230,7 +298,8 @@ def preflight() -> None:
             f"Ollama not reachable at {OLLAMA_HOST} ({e}). Is `ollama serve` running?"
         )
     have = {m.get("name", "") for m in tags.get("models", [])}
-    missing = [m for m in (BRIEF_MODEL, _code_model()) if m not in have]
+    missing = [m for m in (BRIEF_MODEL, _code_model())
+               if m not in have and not m.startswith(CLOUD_PREFIX)]
     if missing:
         raise RuntimeError(
             "Missing required Ollama model(s): " + ", ".join(missing) +
@@ -1429,7 +1498,17 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     global _ACTIVE_CODE_MODEL
     pinned = (_load_config().get("cad", {}).get("code_model") or "").strip()
     auto_escalate = False
-    if coder in ("fast", "mid", "strong"):
+    global _CLOUD_CALLS_LEFT
+    _CLOUD_CALLS_LEFT = int(cloud_config().get("max_calls_per_build", 4)) if cloud_config() else 0
+    if coder == "cloud":
+        cc = cloud_config()
+        if not cc:
+            raise RuntimeError("--coder cloud requires a cad.json `cloud` block "
+                               "({provider, model, api_key_env?, max_calls_per_build?})")
+        _ACTIVE_CODE_MODEL = CLOUD_PREFIX + cc["model"]
+        log.info("[v4] Code model: %s (manual --coder cloud, budget %d calls)",
+                 _ACTIVE_CODE_MODEL, _CLOUD_CALLS_LEFT)
+    elif coder in ("fast", "mid", "strong"):
         _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST, "mid": CODE_MODEL_MID,
                               "strong": CODE_MODEL_STRONG}[coder]
         log.info("[v4] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
@@ -1863,7 +1942,7 @@ def _cmd_build(argv):
     p = argparse.ArgumentParser(prog="build")
     p.add_argument("spec", nargs="+")
     p.add_argument("--chat-id", default=None)
-    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong"], default="auto",
+    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto",
                    help="auto=triage spec + escalate on failure (default); "
                         "fast=force the 7B coder; strong=force the 30B coder")
     p.add_argument("--no-fewshots", action="store_true",
@@ -1979,7 +2058,7 @@ def _cmd_chat(argv):
     saves STEP+STL+PNG locally, and shows the result. Type feedback to refine; /commands below."""
     import argparse
     p = argparse.ArgumentParser(prog="chat", add_help=False)
-    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong"], default="auto")
+    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto")
     p.add_argument("--no-fewshots", action="store_true")
     p.add_argument("opening", nargs="*", help="optional first spec; otherwise you'll be prompted")
     a = p.parse_args(argv)

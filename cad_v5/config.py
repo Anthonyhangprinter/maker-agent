@@ -120,6 +120,14 @@ def public_uploads() -> bool:
     # Free Onshape accounts can ONLY create public documents, so public is the default.
     return bool(load_config().get("cad", {}).get("public_uploads", True))
 
+def cloud_config() -> dict:
+    """cad.json `cloud` block — the paid escalation rung above the local ladder:
+      {"provider": "anthropic"|"openrouter", "model": "...",
+       "api_key_env": "ANTHROPIC_API_KEY", "max_calls_per_build": 4}
+    Returns {} (rung disabled) unless provider+model are both set."""
+    c = load_config().get("cad", {}).get("cloud") or {}
+    return c if c.get("model") and c.get("provider") in ("anthropic", "openrouter") else {}
+
 def tg_token() -> str:
     cfg = load_config()
     return (cfg.get("channels", {}).get("telegram", {})
