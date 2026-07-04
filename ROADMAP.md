@@ -190,8 +190,8 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 | M1 | B1 structured outputs + B2 contracts + E1 params/regen | 0 parse-failure fallbacks in a full suite run; 7B tiers 1–2 ≥ 5/6; `cad regen wall=3` round-trips |
 | M2 | B3 taxonomy + B6 retrieval hygiene | **DONE** — histogram in every result; lift measured: retrieval = +2 converged, +4 acc points |
 | M3 | B4 cloud rung | **BUILT** (offline-verified both providers; live validation deferred — no API credit). Enable: add `cloud` block to cad.json |
-| M4 | B5 question critique + B8 interim render | **merged, validating** — live-verified: good enclosure passes its questions, solid-block imposter rejected with evidence; UNCLEAR never blocks |
-| M5 | B7 v5 migration + E2 FreeCAD target | benchmark + Satine on v5 entry; upload single-sourced; feature tree opens in FreeCAD |
+| M4 | B5 question critique + B8 interim render | **DONE (as M4.1)** — first validation regressed 2/6 and the postmortem found two real bugs (brief-hallucinated bore orientation steering the coder wrong; unclassified edge-selection crashes); fixed, re-validated 4/6 with ZERO critic false-blocks. The gate is now stricter AND honest: unmet spec-corroborated features block, hallucinated ones cannot |
+| M5 | B7 v5 migration + E2 FreeCAD target | **B7 DONE**: benchmark defaults to the v5 --json entry, Satine parses one JSON line (no stdout scraping), Onshape upload single-sourced (66 dup lines gone), results carry target URLs/errors. E2 FreeCAD target = next open item |
 | M6 | Track D fine-tune | fine-tuned 7B ≥ 7/10 full suite; 30B pin retired |
 | M7+ | Horizon items 1→4 | each gets its own benchmark spec before code |
 
