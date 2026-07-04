@@ -40,10 +40,26 @@ def main(argv: list[str] | None = None) -> None:
                    help="disable few-shot retrieval (A/B the learning lift)")
     p.add_argument("--once", action="store_true",
                    help="build once and exit — skip the interactive refine prompt")
+    p.add_argument("--json", action="store_true",
+                   help="with --once: print the result dict as one JSON line on stdout "
+                        "(machine consumers — Satine, the benchmark runner)")
     a = p.parse_args(argv)
 
     target_name = "onshape" if a.onshape else (a.target or targets.default_target_name())
     spec = " ".join(a.spec).strip() or None
+
+    if a.json and not a.once:
+        p.error("--json requires --once (interactive sessions have no single result)")
+    if a.json:
+        # Machine mode: the human progress output goes to stderr; stdout carries exactly
+        # ONE JSON line — consumers parse it instead of scraping.
+        import contextlib
+        import json as _json
+        with contextlib.redirect_stdout(sys.stderr):
+            result = loop.run(spec=spec, coder=a.coder, target_name=target_name,
+                              use_fewshots=not a.no_fewshots, interactive=False)
+        print(_json.dumps(result or {"ok": False, "error": "build produced no result"}))
+        raise SystemExit(0 if result else 1)
 
     print(f"CAD agent v{config.VERSION}  (engine v{engine.ENGINE_VERSION})"
           f" · output: {target_name} · coder: {a.coder}")

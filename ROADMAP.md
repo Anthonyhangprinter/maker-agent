@@ -136,7 +136,7 @@ The tier model the codebase should encode explicitly (auto-detected, overridable
 | Tier | Hardware | Coder rungs | Critic | Notes |
 |---|---|---|---|---|
 | **T0 floor** | CPU-only / ≤4GB | 7B q4 (slow) → cloud | off (gate-only) | degraded but functional |
-| **T1 (now)** | 8GB VRAM | 7B GPU → 14B → 30B† → cloud | gemma4:e4b | ladder climbs one rung per escalation; † 30B = last resort, ~7 min/call |
+| **T1 (now)** | 8GB VRAM | 7B GPU → 30B† → cloud | gemma4:e4b | 14B measured out (3/6 at 583–804s — slower than the 30B MoE, weaker than the 7B); † 30B = last resort |
 | **T2** | 16–24GB | fine-tuned 7B → 30B GPU → cloud | larger VLM | 30B becomes resident |
 | **T3** | 96–128GB | 70B-class local | large VLM | no cloud needed |
 | **Cloud burst** | any | OpenRouter/Claude | cloud VLM possible | per-build cost cap |

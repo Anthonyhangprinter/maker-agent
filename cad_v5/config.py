@@ -45,12 +45,14 @@ except Exception:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 BRIEF_MODEL        = "qwen3:8b"
-CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q5_k_m"   # tier 1: ~16s/call, fully on GPU
-CODE_MODEL_MID     = "qwen2.5-coder:14b-instruct-q4_k_m"  # tier 2: partial offload, middle rung
-CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # tier 3: CPU offload, ~7min/call — last resort
-# Escalation ladder, weakest first. Failures step UP one rung at a time, so the slow 30B is
-# only reached when the 14B also failed (or triage judged the spec hard, which starts at MID).
-CODE_MODEL_LADDER  = [CODE_MODEL_FAST, CODE_MODEL_MID, CODE_MODEL_STRONG]
+CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q5_k_m"   # ~16s/call, fully on GPU
+CODE_MODEL_MID     = "qwen2.5-coder:14b-instruct-q4_k_m"  # manual --coder mid only, NOT on the ladder
+CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # CPU offload, ~7min/call — last resort
+# Escalation ladder, weakest first; failures climb one rung per trigger. The 14B was MEASURED
+# OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged at 583-804s/build —
+# slower than the 30B MoE (dense 14B offloads worse than a 3B-active MoE) with worse results
+# than the 7B (5/6 at ~250s). The right middle rung for weak hardware is the cloud (B4/M3).
+CODE_MODEL_LADDER  = [CODE_MODEL_FAST, CODE_MODEL_STRONG]
 CODE_MODEL_DEFAULT = CODE_MODEL_FAST
 CRITIC_MODEL       = "gemma4:e4b"
 OLLAMA_HOST    = "http://localhost:11434"
