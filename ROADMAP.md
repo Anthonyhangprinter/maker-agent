@@ -112,6 +112,23 @@ plane (not hardcoded mid-Y) + finer subdivision. Full: optional pyrender/EGL off
 with matplotlib kept as the guaranteed software fallback — **no GPU/GL hard dependency**, ever
 (portability rule).
 
+## 4b. Track E — Editable models (feature-tree handoff)
+
+*User requirement (2026-07-04): adjust a finished model in CAD software without re-running the
+agent.* Constraint: STEP cannot carry a feature tree (all history formats are proprietary). But the
+generated build123d script IS the parametric source — so:
+
+- **E1 (near-term, rides with B1/M1): named parameters + `regen`.** Codegen contract requires every
+  key dimension as a named constant at the top of the script (`wall = 2.0`). New commands:
+  `cad params` (list them), `cad regen wall=3` (re-execute with overrides — seconds, no LLM,
+  geometry re-verified by the same gate). The saved `build_source.py` per build-dir is the input.
+- **E2 (mid-term, M5): native FreeCAD document target.** Map the brief's feature list (base shape /
+  holes / pockets / fillets) to FreeCAD Part-Design operations via FreeCAD's Python API → a real
+  clickable feature tree in a local GUI. Slots into `cad_v5/targets.py` as a new output target.
+- **E3 (long-term): Onshape FeatureScript emission, revisited.** v1's approach, retired because
+  small models couldn't write the niche language — worth revisiting only after Track D, and only as
+  a post-verification EXPORT step (build+verify locally in build123d first, then emit FS).
+
 ## 5. Track C — Portability tiers
 
 The tier model the codebase should encode explicitly (auto-detected, overridable in `cad.json`):
@@ -168,11 +185,11 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 | Milestone | Items | Exit criterion (measured) |
 |---|---|---|
 | M0 (done) | Phase-1 reliability, honest baselines | 9 commits; baselines recorded |
-| M1 | B1 structured outputs + B2 contracts | 0 parse-failure fallbacks in a full suite run; 7B tiers 1–2 ≥ 5/6 |
+| M1 | B1 structured outputs + B2 contracts + E1 params/regen | 0 parse-failure fallbacks in a full suite run; 7B tiers 1–2 ≥ 5/6; `cad regen wall=3` round-trips |
 | M2 | B3 taxonomy + B6 retrieval hygiene | failure-category histogram exists; few-shot lift re-measured |
 | M3 | B4 cloud rung | hard spec builds on an 8GB box via `7B→cloud`; cost cap enforced |
 | M4 | B5 question critique + B8 interim render | critic false-block rate on tier-1 = 0 |
-| M5 | B7 v5 migration | benchmark + Satine on v5 entry; upload logic single-sourced |
+| M5 | B7 v5 migration + E2 FreeCAD target | benchmark + Satine on v5 entry; upload single-sourced; feature tree opens in FreeCAD |
 | M6 | Track D fine-tune | fine-tuned 7B ≥ 7/10 full suite; 30B pin retired |
 | M7+ | Horizon items 1→4 | each gets its own benchmark spec before code |
 
