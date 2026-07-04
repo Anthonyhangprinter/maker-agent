@@ -1,14 +1,15 @@
 {
-  "ran_at": "2026-06-26T08:32:53.047454+00:00",
-  "coder": "auto",
+  "ran_at": "2026-07-04T07:34:25.906405+00:00",
+  "agent": "/home/theultimatecunt/.openclaw/skills/cad-builder/cad_agent_v4.py",
+  "coder": "fast",
   "fewshots": true,
   "count": 6,
-  "converged": 2,
-  "built": 0,
-  "total_time_s": 3715.0,
+  "converged": 3,
+  "geometry": 5,
+  "total_time_s": 1273.5,
   "acceptance_passed": 12,
-  "acceptance_total": 16,
-  "acceptance_score": 0.75,
+  "acceptance_total": 22,
+  "acceptance_score": 0.545,
   "results": [
     {
       "id": "01",
@@ -16,10 +17,10 @@
       "tier": 1,
       "ok": true,
       "converged": true,
-      "accepted_via": "critic",
+      "accepted_via": "gate",
       "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
-      "agent_build_time_s": 327.1,
-      "wall_time_s": 330.5,
+      "agent_build_time_s": 371.6,
+      "wall_time_s": 375.0,
       "url": "",
       "warning": null,
       "rc": 0,
@@ -46,83 +47,86 @@
         },
         "passed": 4,
         "total": 4
-      }
+      },
+      "geometry": true
     },
     {
       "id": "02",
       "name": "Circular flange",
       "tier": 1,
       "ok": true,
-      "converged": true,
-      "accepted_via": "critic",
+      "converged": false,
+      "accepted_via": null,
       "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
-      "agent_build_time_s": 559.1,
-      "wall_time_s": 568.9,
+      "agent_build_time_s": 89.5,
+      "wall_time_s": 98.8,
       "url": "",
-      "warning": null,
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
       "rc": 0,
-      "volume_mm3": 40545.9,
-      "solids": 1,
-      "faces": 12,
-      "cyl_faces": 8,
+      "volume_mm3": 6211.6,
+      "solids": 12,
+      "faces": 72,
+      "cyl_faces": 36,
       "bbox_mm": [
-        80.0,
+        75.8,
         80.0,
         10.0
       ],
-      "through_holes": 7,
+      "through_holes": 0,
       "blind_holes": 0,
       "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.png",
       "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.step",
       "acceptance": {
-        "score": 1.0,
+        "score": 0.25,
         "checks": {
-          "solids": true,
-          "bbox": true,
+          "solids": false,
+          "bbox": false,
           "holes_cut": true,
-          "through": true
+          "through": false
         },
-        "passed": 4,
+        "passed": 1,
         "total": 4
-      }
+      },
+      "geometry": true
     },
     {
       "id": "03",
       "name": "L-bracket",
       "tier": 1,
       "ok": true,
-      "converged": false,
-      "accepted_via": null,
-      "code_model": "qwen3-coder:30b",
-      "agent_build_time_s": 625.2,
-      "wall_time_s": 630.9,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 339.7,
+      "wall_time_s": 362.3,
       "url": "",
-      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "warning": null,
       "rc": 0,
-      "volume_mm3": 59660.4,
+      "volume_mm3": 65720.3,
       "solids": 1,
-      "faces": 60,
-      "cyl_faces": 26,
+      "faces": 38,
+      "cyl_faces": 5,
       "bbox_mm": [
-        90.0,
-        50.0,
-        67.0
+        105.0,
+        65.0,
+        50.0
       ],
-      "through_holes": 0,
-      "blind_holes": 18,
+      "through_holes": 4,
+      "blind_holes": 1,
       "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.png",
       "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.step",
       "acceptance": {
-        "score": 0.5,
+        "score": 0.75,
         "checks": {
           "solids": true,
           "bbox": false,
           "holes_cut": true,
-          "through": false
+          "through": true
         },
-        "passed": 2,
+        "passed": 3,
         "total": 4
-      }
+      },
+      "geometry": true
     },
     {
       "id": "04",
@@ -133,36 +137,59 @@
       "accepted_via": null,
       "code_model": null,
       "agent_build_time_s": null,
-      "wall_time_s": 745.2,
+      "wall_time_s": 100.9,
       "url": "",
       "warning": null,
       "rc": 1,
       "acceptance": {
-        "score": null,
-        "checks": {},
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
         "passed": 0,
-        "total": 0
-      }
+        "total": 3
+      },
+      "geometry": false
     },
     {
       "id": "05",
       "name": "Open-top electronics enclosure with bosses",
       "tier": 2,
-      "ok": false,
-      "converged": false,
-      "accepted_via": null,
-      "code_model": null,
-      "agent_build_time_s": null,
-      "wall_time_s": 702.7,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 141.9,
+      "wall_time_s": 146.0,
       "url": "",
       "warning": null,
-      "rc": 1,
+      "rc": 0,
+      "volume_mm3": 65399.4,
+      "solids": 1,
+      "faces": 29,
+      "cyl_faces": 13,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 4,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/05.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/05.step",
       "acceptance": {
-        "score": null,
-        "checks": {},
-        "passed": 0,
-        "total": 0
-      }
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
     },
     {
       "id": "06",
@@ -171,36 +198,37 @@
       "ok": true,
       "converged": false,
       "accepted_via": null,
-      "code_model": "qwen3-coder:30b",
-      "agent_build_time_s": 714.5,
-      "wall_time_s": 719.6,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 171.4,
+      "wall_time_s": 175.4,
       "url": "",
       "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
       "rc": 0,
-      "volume_mm3": 4401.2,
-      "solids": 1,
-      "faces": 12,
-      "cyl_faces": 5,
+      "volume_mm3": 108663.1,
+      "solids": 2,
+      "faces": 30,
+      "cyl_faces": 10,
       "bbox_mm": [
-        36.0,
-        6.0,
-        42.0
+        120.0,
+        60.0,
+        56.0
       ],
       "through_holes": 0,
-      "blind_holes": 4,
+      "blind_holes": 0,
       "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.png",
       "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.step",
       "acceptance": {
-        "score": 0.5,
+        "score": 0.25,
         "checks": {
-          "solids": true,
+          "solids": false,
           "bbox": false,
           "holes_cut": true,
           "through": false
         },
-        "passed": 2,
+        "passed": 1,
         "total": 4
-      }
+      },
+      "geometry": true
     }
   ]
 }

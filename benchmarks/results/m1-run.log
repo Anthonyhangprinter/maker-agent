@@ -1,0 +1,6 @@
+=== M1 VALIDATION: tiers 1+2 --coder fast (schema/contracts engine) ===
+Running 6 benchmark(s): 01, 02, 03, 04, 05, 06  (--coder fast, per-build timeout 2100s)
+
+======================================================================
+[01] Rectangular calibration block  (tier 1, --coder fast)
+======================================================================

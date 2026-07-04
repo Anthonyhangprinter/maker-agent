@@ -1,0 +1,396 @@
+{
+  "ran_at": "2026-07-04T07:13:11.991172+00:00",
+  "agent": "/home/theultimatecunt/.openclaw/skills/cad-builder/cad_agent_v4.py",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 10,
+  "converged": 7,
+  "geometry": 10,
+  "total_time_s": 6686.1,
+  "acceptance_passed": 22,
+  "acceptance_total": 31,
+  "acceptance_score": 0.71,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 719.7,
+      "wall_time_s": 723.5,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 115349.4,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 609.3,
+      "wall_time_s": 619.9,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 41259.8,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 663.5,
+      "wall_time_s": 687.1,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 34777.7,
+      "solids": 1,
+      "faces": 37,
+      "cyl_faces": 6,
+      "bbox_mm": [
+        90.0,
+        50.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 626.1,
+      "wall_time_s": 629.8,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 124628.3,
+      "solids": 1,
+      "faces": 38,
+      "cyl_faces": 6,
+      "bbox_mm": [
+        120.0,
+        30.0,
+        45.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 6,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/04.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/04.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 632.7,
+      "wall_time_s": 637.7,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 58286.7,
+      "solids": 1,
+      "faces": 31,
+      "cyl_faces": 16,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 4,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/05.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 558.4,
+      "wall_time_s": 562.3,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 119421.3,
+      "solids": 1,
+      "faces": 50,
+      "cyl_faces": 17,
+      "bbox_mm": [
+        126.0,
+        60.0,
+        57.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/06.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "07",
+      "name": "Radial engine cylinder",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 604.2,
+      "wall_time_s": 611.9,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 67337.4,
+      "solids": 1,
+      "faces": 9,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        70.0,
+        70.0,
+        44.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/07.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/07.step",
+      "acceptance": {
+        "score": 0.333,
+        "checks": {
+          "solids": true,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 1,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "08",
+      "name": "Centrifugal impeller",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 645.7,
+      "wall_time_s": 652.4,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 30050.1,
+      "solids": 1,
+      "faces": 35,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        90.0,
+        90.0,
+        6.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/08.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/08.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "09",
+      "name": "Spiral staircase",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 665.3,
+      "wall_time_s": 668.7,
+      "url": "",
+      "warning": null,
+      "rc": 0,
+      "volume_mm3": 985.9,
+      "solids": 1,
+      "faces": 4,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        3.0,
+        3.0,
+        140.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/09.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/09.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    },
+    {
+      "id": "10",
+      "name": "Planetary gear stage",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 796.1,
+      "wall_time_s": 814.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "rc": 0,
+      "volume_mm3": 111182.9,
+      "solids": 1,
+      "faces": 3096,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        124.0,
+        124.0,
+        18.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 3,
+      "render": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/10.png",
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/10.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    }
+  ]
+}

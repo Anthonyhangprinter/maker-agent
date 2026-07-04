@@ -1855,7 +1855,7 @@ def _cmd_build(argv):
     p = argparse.ArgumentParser(prog="build")
     p.add_argument("spec", nargs="+")
     p.add_argument("--chat-id", default=None)
-    p.add_argument("--coder", choices=["auto", "fast", "strong"], default="auto",
+    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong"], default="auto",
                    help="auto=triage spec + escalate on failure (default); "
                         "fast=force the 7B coder; strong=force the 30B coder")
     p.add_argument("--no-fewshots", action="store_true",
@@ -1971,7 +1971,7 @@ def _cmd_chat(argv):
     saves STEP+STL+PNG locally, and shows the result. Type feedback to refine; /commands below."""
     import argparse
     p = argparse.ArgumentParser(prog="chat", add_help=False)
-    p.add_argument("--coder", choices=["auto", "fast", "strong"], default="auto")
+    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong"], default="auto")
     p.add_argument("--no-fewshots", action="store_true")
     p.add_argument("opening", nargs="*", help="optional first spec; otherwise you'll be prompted")
     a = p.parse_args(argv)
