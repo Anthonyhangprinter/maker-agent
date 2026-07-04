@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HERE        = Path(__file__).resolve().parent.parent          # .../cad-builder
-DEFAULT_AGENT = HERE / "cad_agent_v4.py"
+DEFAULT_AGENT = "v5"   # the cad_v5 --json entry; pass --agent <path/to/script.py> for legacy v4
 SPECS_FILE  = HERE / "benchmarks" / "text-to-cad" / "specs.json"
 ACCEPT_FILE = HERE / "benchmarks" / "text-to-cad" / "acceptance.json"
 RESULTS_DIR = HERE / "benchmarks" / "results"
@@ -133,12 +133,17 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
     spec = bm["spec"]
     print(f"\n{'='*70}\n[{bm['id']}] {bm['name']}  (tier {bm['tier']}, --coder {coder}"
           f"{', no-fewshots' if no_fewshots else ''})\n{'='*70}", flush=True)
-    cmd = [sys.executable, str(agent), "build", spec, "--coder", coder, "--no-upload"]
+    if str(agent) == "v5":
+        # v5 contract: exactly one JSON line on stdout; file target keeps benchmarks headless.
+        cmd = [sys.executable, "-m", "cad_v5", spec, "--once", "--json",
+               "--coder", coder, "--target", "file"]
+    else:
+        cmd = [sys.executable, str(agent), "build", spec, "--coder", coder, "--no-upload"]
     if no_fewshots:
         cmd.append("--no-fewshots")
     t0 = time.monotonic()
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE)
         stdout, stderr, rc = proc.stdout, proc.stderr, proc.returncode
     except subprocess.TimeoutExpired:
         stdout, stderr, rc = "", f"timed out after {timeout}s", 124
@@ -204,10 +209,11 @@ def main():
     ap.add_argument("--no-fewshots", action="store_true",
                     help="disable retrieval — run the baseline to measure the few-shot lift")
     ap.add_argument("--timeout", type=int, default=2100, help="per-build wall-clock cap (s)")
-    ap.add_argument("--agent", type=Path, default=DEFAULT_AGENT,
-                    help="agent script to benchmark (must accept: build <spec> --coder X --no-upload)")
+    ap.add_argument("--agent", default=DEFAULT_AGENT,
+                    help='"v5" (default, the cad_v5 --json entry) or a path to a legacy agent '
+                         'script accepting: build <spec> --coder X --no-upload')
     a = ap.parse_args()
-    if not a.agent.exists():
+    if str(a.agent) != "v5" and not Path(a.agent).exists():
         print(f"Agent not found: {a.agent}"); sys.exit(1)
 
     data = json.loads(SPECS_FILE.read_text())

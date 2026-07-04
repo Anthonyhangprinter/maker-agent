@@ -1389,79 +1389,13 @@ def _onshape_multipart(path: str, fields: dict, file_path: Path, filename: str) 
 
 def import_step_to_onshape(step_path: Path, name: str,
                            public: bool = False, upload_target=None) -> dict:
-    """Upload the STEP and TRANSLATE it into a real Onshape Part Studio (a plain blob
-    element is only a downloadable file — not a viewable/editable model).
-    `upload_target` is a seam for a future local target (e.g. FreeCAD / file drop):
-    a callable(step_path, name) -> result dict. Never reports a fake success."""
+    """Upload/translate a STEP into an Onshape Part Studio. The implementation lives in
+    cad_v5/targets.py (single source — this was duplicated verbatim in both files until B7);
+    `upload_target` remains the pluggable seam: any callable(step_path, name) -> dict wins."""
     if upload_target is not None:
         return upload_target(step_path, name)
-
-    try:
-        doc = _onshape("POST", "/api/v9/documents", {"name": name, "isPublic": public})
-    except RuntimeError as e:
-        # Free Onshape accounts can only create PUBLIC documents — fall back with a warning
-        # rather than failing, but never silently downgrade a paid account's privacy choice.
-        if "409" in str(e) and "public" in str(e).lower() and not public:
-            log.warning("[v4] Onshape rejected a private document (free account) — "
-                        "creating a PUBLIC document instead.")
-            doc = _onshape("POST", "/api/v9/documents", {"name": name, "isPublic": True})
-            public = True
-        else:
-            raise
-    did = doc["id"]
-    wid = doc["defaultWorkspace"]["id"]
-    doc_url = f"{BASE_URL}/documents/{did}/w/{wid}"
-
-    # Upload + translate STEP → Part Studio
-    try:
-        resp = _onshape_multipart(
-            f"/api/blobelements/d/{did}/w/{wid}",
-            {"translate": "true", "storeInDocument": "true",
-             "flattenAssemblies": "false", "yAxisIsUp": "false"},
-            step_path, step_path.name)
-    except Exception as e:
-        raise RuntimeError(f"Onshape upload failed ({e}). Empty document at {doc_url}")
-
-    tid = resp.get("translationId")
-    if not tid:
-        raise RuntimeError(f"Onshape did not start a STEP translation: {str(resp)[:200]}. "
-                           f"Empty document at {doc_url}")
-
-    # Poll the translation job until the Part Studio is ready
-    deadline = time.monotonic() + TRANSLATE_TIMEOUT
-    state = None
-    while time.monotonic() < deadline:
-        t = _onshape("GET", f"/api/translations/{tid}")
-        state = t.get("requestState")
-        if state == "DONE":
-            eids = t.get("resultElementIds") or []
-            if not eids:
-                raise RuntimeError(f"Translation finished with no Part Studio. Document at {doc_url}")
-            eid = eids[0]
-            # Onshape reports a translation DONE even when the STEP yields ZERO geometry
-            # (e.g. a self-intersecting fillet OCCT tolerates but the importer silently drops).
-            # A URL to an empty Part Studio is a fake success — verify a real body landed.
-            try:
-                bd = _onshape("GET", f"/api/partstudios/d/{did}/w/{wid}/e/{eid}/bodydetails")
-                n_bodies = len(bd.get("bodies", []))
-            except Exception as e:
-                n_bodies = -1
-                log.warning("[v4] Could not verify imported bodies (%s)", e)
-            if n_bodies == 0:
-                raise RuntimeError(
-                    f"Onshape translation produced an EMPTY Part Studio (0 bodies) — the STEP "
-                    f"imported with no geometry. This usually means an invalid feature in the "
-                    f"build123d output (commonly a fillet/chamfer on a hole rim or a "
-                    f"self-intersecting blend). Fix the geometry and re-export. Document at {doc_url}")
-            log.info("[v4] Translated STEP → Part Studio %s (%s body/ies)", eid, n_bodies)
-            return {"url": f"{doc_url}/e/{eid}", "did": did, "wid": wid,
-                    "eid": eid, "uploaded": True, "public": public, "bodies": n_bodies}
-        if state == "FAILED":
-            raise RuntimeError(f"Onshape translation failed: {t.get('failureReason')}. "
-                               f"STEP stored locally; document at {doc_url}")
-        time.sleep(2)
-    raise RuntimeError(f"Onshape translation timed out after {TRANSLATE_TIMEOUT}s "
-                       f"(last state {state}). Document at {doc_url}")
+    from cad_v5 import targets as _targets
+    return _targets.onshape_target(Path(step_path), name, public=public)
 
 # ── Onshape URL / document inspect (unchanged from v3) ─────────────────────────
 

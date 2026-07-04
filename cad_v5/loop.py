@@ -92,8 +92,18 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
             if d:
                 delta = "  Δ vs previous:\n    " + d.replace("\n", "\n    ")
 
-        # Route to the output target (default: local CAD Viewer, auto-opened)
-        view = targets.resolve_target(target_name)(step, _name_of(result, spec))
+        # Route to the output target (default: local CAD Viewer, auto-opened). The target's
+        # outcome belongs IN the result — machine consumers (--json) need the URL or the error.
+        try:
+            view = targets.resolve_target(target_name)(step, _name_of(result, spec))
+        except Exception as e:
+            log.warning("[v5] output target %s failed: %s", target_name, e)
+            view = {"url": "", "target": target_name, "target_error": str(e)[:300]}
+        result["target"] = target_name
+        if view.get("url"):
+            result["url"] = view["url"]
+        if view.get("target_error"):
+            result["target_error"] = view["target_error"]
 
         print(f"\n✓ Built.  {_summary(facts)}")
         if view.get("url"):
