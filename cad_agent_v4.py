@@ -1437,10 +1437,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         _ACTIVE_CODE_MODEL = pinned
         log.info("[v4] Code model: %s (pinned via cad.code_model)", _ACTIVE_CODE_MODEL)
     else:
-        # Hard specs skip the 7B and start on the MIDDLE rung; the 30B is only ever
-        # reached by escalation — it is the slowest rung by far on low-VRAM machines.
-        _ACTIVE_CODE_MODEL = (CODE_MODEL_MID if spec_needs_strong_coder(spec, brief)
-                              else CODE_MODEL_FAST)
+        # Hard specs skip the first rung and start one step up the ladder; whatever the
+        # ladder's top is stays escalation-only.
+        _ACTIVE_CODE_MODEL = (CODE_MODEL_LADDER[1] if spec_needs_strong_coder(spec, brief)
+                              and len(CODE_MODEL_LADDER) > 1 else CODE_MODEL_FAST)
         auto_escalate = True
         log.info("[v4] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
                  ", may escalate" if auto_escalate else "")
