@@ -171,7 +171,8 @@ def _tg_token() -> str:
 
 def _ollama(model: str, system: str, prompt: str,
             timeout: int = OLLAMA_TIMEOUT, images: Optional[list[str]] = None,
-            temperature: Optional[float] = None, fmt: Optional[str] = None) -> str:
+            temperature: Optional[float] = None, fmt=None) -> str:
+    # fmt: "json" or a JSON-schema dict — Ollama enforces the output grammar server-side.
     options = {"num_ctx": 16384}
     if temperature is not None:
         options["temperature"] = temperature
@@ -354,6 +355,41 @@ Use a helper ONLY when the entire requested object is that one component. For AN
 bracket, enclosure, plate, box, or part that merely CONTAINS holes/gears/threads as features
 (not IS one), leave "helper": "" and let the modeller build it."""
 
+# JSON schemas for Ollama's grammar-constrained decoding (`format`). Enforcing the shape
+# server-side frees a small model from spending capacity on formatting — it can only emit
+# valid JSON matching the schema. Content quality is still the model's job.
+_BRIEF_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "dimensions": {"type": "object"},
+        "features": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}},
+        "helper": {"type": "string"},
+        "expected": {
+            "type": "object",
+            "properties": {
+                "bbox_mm": {"type": ["array", "null"], "items": {"type": "number"}},
+                "solids": {"type": "integer"},
+                "min_holes": {"type": "integer"},
+                "min_through_holes": {"type": "integer"},
+                "bores_mm": {"type": "array", "items": {"type": "number"}},
+                "wall_mm": {"type": ["number", "null"]},
+                "feature_checks": {"type": "array", "items": {"type": "object"}},
+            },
+            "required": ["solids", "min_holes", "min_through_holes"],
+        },
+    },
+    "required": ["name", "description", "dimensions", "features", "notes", "helper", "expected"],
+}
+
+_TRIAGE_SCHEMA = {
+    "type": "object",
+    "properties": {"hard": {"type": "boolean"}, "reason": {"type": "string"}},
+    "required": ["hard", "reason"],
+}
+
 def _extract_json(raw: str) -> Optional[dict]:
     """Parse the first JSON object found anywhere in an LLM reply. raw_decode handles
     braces inside strings and ignores trailing prose, so fenced or prose-wrapped JSON
@@ -371,13 +407,17 @@ def _extract_json(raw: str) -> Optional[dict]:
     return None
 
 def build_brief(spec: str) -> dict:
-    raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                  timeout=OLLAMA_TIMEOUT, temperature=0.2)
-    brief = _extract_json(raw)
-    if brief is None:
-        log.warning("[v4] Brief reply was not parseable JSON — retrying with format=json.")
+    # Primary path: schema-constrained decoding — the server guarantees shape-valid JSON.
+    brief = None
+    try:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt="json")
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA)
+        brief = _extract_json(raw)
+    except Exception as e:
+        log.warning("[v4] Schema-constrained brief failed (%s) — falling back to free-form.", e)
+    if brief is None:
+        raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2)
         brief = _extract_json(raw)
     if brief is None:
         # Silent degradation here previously produced an unguided, feature-ungated build.
@@ -427,7 +467,7 @@ def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
         prompt = (f"Spec: {spec}\nFeatures: {brief.get('features', [])}\n"
                   f"Dimensions: {brief.get('dimensions', {})}\n\nDecide:")
         raw = _ollama(BRIEF_MODEL, _COMPLEXITY_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.0)
+                      timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_TRIAGE_SCHEMA)
         verdict = _extract_json(raw) or {}
         hard = bool(verdict.get("hard"))
         log.info("[v4] Complexity triage: hard=%s — %s", hard, str(verdict.get("reason", ""))[:140])
@@ -474,6 +514,10 @@ RULES:
 3. Build solids, combine them, and assign the final solid to `result`.
 4. Do NOT call export_step() — the runner exports `result`.
 5. Return ONLY Python code — no prose, no markdown fences.
+6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,
+   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those
+   names in the geometry. This makes the part editable without an AI: the user can change
+   a number and regenerate. Plain numeric assignments only — no expressions on those lines.
 
 COORDINATE SYSTEM — CRITICAL: every primitive is CENTRED on the origin.
   Box(120, 80, 40) spans X −60..+60, Y −40..+40, Z −20..+20 — it does NOT start at 0.
@@ -807,7 +851,17 @@ _FACT_VOL_RE  = re.compile(r"^Volume:\s*([\d.]+)", re.M)
 _FACT_BBOX_RE = re.compile(r"^Bbox:\s*([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)", re.M)
 
 def parse_facts(inspect_output: str) -> dict:
-    """Pull the structured geometry facts out of scripts/inspect's text report."""
+    """Pull the structured geometry facts out of scripts/inspect's report. Prefers the
+    FACTS_JSON machine block (exact, wording-independent); falls back to the regex scrape
+    of the human-readable lines for older inspect outputs."""
+    m = re.search(r"^FACTS_JSON:\s*(\{.*\})\s*$", inspect_output, re.M)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            data["bore_axes"] = [(float(d), str(o)) for d, o in data.get("bore_axes", [])]
+            return data
+        except Exception as e:
+            log.warning("[v4] FACTS_JSON parse failed (%s) — using regex fallback.", e)
     facts: dict = {}
     for key, rx in _FACT_INT_RES.items():
         m = rx.search(inspect_output)
@@ -1628,6 +1682,12 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         stl_out  = build_dir / "build.stl"
         dxf_out  = build_dir / "build.dxf"
         shutil.copy(step_path, step_out)
+        # The recipe IS the parametric model — persist it so `cad params`/`cad regen`
+        # can edit dimensions and rebuild without an LLM.
+        try:
+            (build_dir / "build_source.py").write_text(code)
+        except Exception as e:
+            log.warning("[v4] could not save build_source.py: %s", e)
         # Always export a sliceable STL alongside the STEP (printable mesh, mm units).
         try:
             run_stl(step_out, stl_out)

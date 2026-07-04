@@ -289,6 +289,19 @@ print(f"Edges:   {len(edges)}")
 print(f"Volume:  {volume:.3f} mm³")
 print(f"Bbox:    {bbox.size.X:.2f} x {bbox.size.Y:.2f} x {bbox.size.Z:.2f} mm  (X x Y x Z)")
 print(f"Centre of mass: ({com_str}) mm")
+# Machine-readable copy of everything above — the agent's parse_facts prefers this line,
+# so the gate no longer depends on the exact wording of the human-readable prints.
+import json as _json
+print("FACTS_JSON: " + _json.dumps({
+    "solids": len(solids), "shells": len(shells), "faces": len(faces),
+    "cyl_faces": cyl_faces, "cone_faces": cone_faces,
+    "through_holes": through_holes, "blind_holes": blind_holes,
+    "bores": sorted({round(2 * r, 2) for r in bore_radii}),
+    "walls": sorted({round(w, 2) for w in wall_candidates}),
+    "bore_axes": sorted({(round(d, 1), o) for d, o in bore_orientations}),
+    "volume": round(volume, 3),
+    "bbox": [round(bbox.size.X, 2), round(bbox.size.Y, 2), round(bbox.size.Z, 2)],
+}, separators=(",", ":"), default=list))
 print(f"File:    {step_file.stat().st_size // 1024} KB")
 
 errors = []

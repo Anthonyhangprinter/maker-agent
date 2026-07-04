@@ -68,30 +68,22 @@ for name in ['result', 'part', 'shape', 'body', 'output']:
         found_as = name
         break
 
-if result is None:
-    # Suffix scan
-    for suffix in ['_part', '_body', '_shape']:
-        for var, obj in ns.items():
-            if var.endswith(suffix) and _is_exportable(obj):
-                result = obj
-                found_as = var
-                break
-        if result:
-            break
-
-if result is None:
-    # Full scan — skip builtins and private vars
-    for var, obj in ns.items():
-        if not var.startswith('_') and _is_exportable(obj):
-            result = obj
-            found_as = var
-            break
-
 if result is not None and found_as != 'result':
-    # Discovery picked something in namespace order — it may be an INTERMEDIATE solid,
-    # not the finished part. Loud so the agent's revise loop sees it in the step log.
-    print(f"WARNING: no 'result' variable — exported '{found_as}' found by discovery scan, "
-          f"which can pick an intermediate solid. Set:  result = <final_shape>")
+    print(f"NOTE: exported '{found_as}' — prefer the canonical name:  result = <final_shape>")
+
+if result is None:
+    # No blind namespace scan: it picked intermediate solids (or even classes) by dict
+    # order. The error names every candidate so the revise loop can fix it in one edit.
+    candidates = [v for v, o in ns.items() if not v.startswith('_') and _is_exportable(o)]
+    if candidates:
+        print(
+            "ERROR: the script builds geometry but never assigns it to `result`.\n"
+            f"Solid variables found: {', '.join(candidates)}.\n"
+            f"Fix: add a final line  result = {candidates[-1]}  (the FINISHED part, "
+            "after all boolean cuts/joins).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 if result is None:
     # Check if the source already exported the file directly

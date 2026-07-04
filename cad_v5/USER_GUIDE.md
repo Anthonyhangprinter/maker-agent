@@ -56,6 +56,22 @@ same loop applies: send a description, then reply with changes.)
 
 ---
 
+## Editing dimensions without the AI (`params` / `regen`)
+
+Every build saves its recipe with the key dimensions as named values at the top. You can change
+a number and rebuild in seconds — no model, no waiting, and the result is re-verified:
+
+```bash
+cad params            # list the editable dimensions of the last build
+cad regen wall=3      # rebuild with a new value (several at once works too)
+```
+
+`regen` writes a fresh build folder and updates `cad-last-build.*`; if the new values produce
+broken geometry it says so and leaves your previous files untouched. Use `--source <folder>` to
+regenerate an older build from `~/.openclaw/cad-builds/`.
+
+---
+
 ## Where your model goes (output targets)
 
 By default everything is **local** — no cloud round-trip:

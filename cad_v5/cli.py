@@ -12,6 +12,20 @@ from . import loop, targets, config, engine
 
 def main(argv: list[str] | None = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
+
+    # No-LLM parametric commands (E1): `cad params` / `cad regen wall=3 [--source PATH]`.
+    if argv and argv[0] in ("params", "regen"):
+        from . import params as params_mod
+        rest = argv[1:]
+        source = None
+        if "--source" in rest:
+            i = rest.index("--source")
+            source = rest[i + 1] if i + 1 < len(rest) else None
+            rest = rest[:i] + rest[i + 2:]
+        if argv[0] == "params":
+            raise SystemExit(params_mod.cmd_params(source))
+        raise SystemExit(params_mod.cmd_regen(rest, source))
+
     p = argparse.ArgumentParser(
         prog="cad",
         description="build123d CAD agent v5 — describe a part, build it, refine it by chatting.")
