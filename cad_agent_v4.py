@@ -84,6 +84,7 @@ from cad_v5.config import (        # noqa: E402
     MAX_TURNS, ESCALATE_AFTER, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
 )
+from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -1459,6 +1460,12 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         gate_passed = False  # did the build currently held in step_path pass the deterministic gate?
         accepted_via: Optional[str] = None  # 'critic' | 'gate' | 'helper' — how convergence was reached
         fails = 0   # failed/stuck turns on the current coder (drives auto-escalation)
+        failure_categories: dict = {}   # B3: per-build failure histogram (feeds the fine-tune track)
+        def _note_failure(err_text: str) -> str:
+            cat, hint = diagnose(err_text)
+            failure_categories[cat] = failure_categories.get(cat, 0) + 1
+            log.info("[v4] failure category: %s", cat)
+            return hint
         recovered_problem: Optional[str] = None   # first failure overcome (drives Stage B lessons)
 
         for turn in range(1, MAX_TURNS + 1):
@@ -1480,6 +1487,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             syn = _check_syntax(code)
             if syn:
                 log.warning("[v4] %s", syn)
+                _note_failure("SyntaxError: " + syn)
                 last_errors = [syn]
                 fails += 1
                 recovered_problem = recovered_problem or f"syntax error: {syn}"
@@ -1498,13 +1506,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 step_path = None
                 fails += 1
                 recovered_problem = recovered_problem or f"runtime error: {err[:200]}"
-                hint = ""
-                if re.search(r"fillet|chamfer|no suitable edges", err, re.I):
-                    hint = ("\n\nThis is a FILLET/CHAMFER failure — it is cosmetic and must not "
-                            "fail the part. Wrap EVERY fillet/chamfer in try/except and keep the "
-                            "unfilleted solid on failure, OR remove the fillet entirely, OR use a "
-                            "much smaller radius on a specific edge set (filter_by/group_by). Do "
-                            "NOT repeat the same fillet call that just failed.")
+                # B3: classify the failure and use the category's targeted repair hint (the old
+                # ad-hoc fillet hint is now one row of the taxonomy table in cad_v5/diagnose.py).
+                cat_hint = _note_failure(err)
+                hint = ("\n\n" + cat_hint) if cat_hint else ""
                 if turn < MAX_TURNS:
                     code = revise_script(spec, code, f"The script failed to run:\n{err}{hint}")
                 continue
@@ -1516,6 +1521,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             if not inspection["valid"]:
                 last_errors = inspection["errors"]
                 step_path = None  # don't upload invalid geometry
+                _note_failure("; ".join(inspection["errors"]))
                 fails += 1
                 recovered_problem = recovered_problem or ("invalid geometry: " + "; ".join(inspection["errors"])[:200])
                 if turn < MAX_TURNS:
@@ -1546,6 +1552,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 gate_passed = False
                 msg = "; ".join(gate_fails)
                 log.warning("[v4] Verification gate FAILED: %s", msg)
+                _note_failure(msg)
                 last_errors = gate_fails
                 fails += 1
                 recovered_problem = recovered_problem or ("verification failed: " + msg[:200])
@@ -1753,6 +1760,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "accepted_via": accepted_via,
         "code_model":   _ACTIVE_CODE_MODEL,
         "fewshots_used": [fs["spec"] for fs in fewshots],
+        "failure_categories": failure_categories,
         "last_critique": last_critique,
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),

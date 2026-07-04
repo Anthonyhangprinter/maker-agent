@@ -155,6 +155,7 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
         "wall_time_s": wall,
         "url": res.get("url", ""),
         "warning": res.get("warning"),
+        "failures": res.get("failure_categories") or {},
         "rc": rc,
     }
     step_local = res.get("step_local")
