@@ -91,3 +91,13 @@ visible "updated" label in the eyebrow — the user checks that to confirm fresh
 - Model gallery: https://claude.ai/code/artifact/f65369c2-4c79-49f5-9a5b-de2a97d37da1
 (Artifacts are private by default — the user must flip the share toggle on each page before
 emailing the links.)
+
+## Artifact republishing note (added post-reboot)
+
+The artifact HTML sources lived in the /tmp scratchpad and were wiped by the Jul-5 reboot.
+The published pages are fine, but to update them: rebuild the page from repo truth
+(`ROADMAP.md` for the roadmap; regenerate the gallery per the spec above; history/user-guide
+only if content changed), then publish with the Artifact tool's `url` parameter pointing at
+the EXISTING URL so it redeploys in place. Known staleness right now: the roadmap page (Rev G)
+shows M5 as "half done" — E2 completed 2026-07-06, so bump it to done + Rev H on next publish.
+Keep favicons stable: 🔩 roadmap, 📜 history, 📖 guide, 🖼️ gallery.
