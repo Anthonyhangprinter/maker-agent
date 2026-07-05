@@ -192,40 +192,14 @@ def cad_viewer_target(step_path: Path, name: str) -> dict:
             "step_local": str(step_path)}
 
 def freecad_target(step_path: Path, name: str) -> dict:
-    """E2 (in progress): native FreeCAD document with a real, clickable feature tree.
-    Requires FreeCAD's headless `freecadcmd` — not yet installed on this machine. Until the
-    feature-tree converter lands, this target imports the STEP into a .FCStd so the part at
-    least opens natively in FreeCAD (see ROADMAP.md Track E2 for the replay design)."""
-    import shutil as _sh
-    import subprocess as _sp
-    cmd = _sh.which("freecadcmd") or _sh.which("freecad.cmd")
-    invoke = [cmd] if cmd else None
-    if not invoke:
-        apps = sorted(Path.home().glob("Applications/FreeCAD*.AppImage"))
-        if apps:
-            invoke = [str(apps[-1]), "-c"]   # AppImage console mode
-    if not invoke:
-        raise RuntimeError(
-            "FreeCAD is not installed. Install it (snap/AppImage from freecad.org), then "
-            "`cad --target freecad` will produce a native .FCStd document.")
-    out = step_path.with_suffix(".FCStd")
-    script = (
-        "import FreeCAD, Import\n"
-        f"doc = FreeCAD.newDocument({name!r})\n"
-        f"Import.insert({str(step_path)!r}, doc.Name)\n"
-        f"doc.saveAs({str(out)!r})\n"
-    )
-    tmp = step_path.with_suffix(".fc_import.py")
-    tmp.write_text(script)
-    try:
-        r = _sp.run(invoke + [str(tmp)], capture_output=True, text=True, timeout=300)
-        if r.returncode != 0 or not out.exists():
-            raise RuntimeError((r.stderr or r.stdout).strip()[-300:])
-    finally:
-        tmp.unlink(missing_ok=True)
-    log.info("[v5] FreeCAD document: %s", out)
-    return {"url": "", "uploaded": False, "target": "freecad", "fcstd_local": str(out),
-            "step_local": str(step_path)}
+    """E2: native FreeCAD document. Verified parametric feature tree (Params spreadsheet +
+    Part primitives/booleans) when the part fits the reconstructor's grammar; plain native
+    import otherwise — result carries `parametric` so nothing overclaims."""
+    from . import freecad_export
+    r = freecad_export.convert(step_path, name)
+    r.update({"url": "", "uploaded": False, "target": "freecad",
+              "step_local": str(step_path)})
+    return r
 
 # ── fstl / file ─────────────────────────────────────────────────────────────────
 
