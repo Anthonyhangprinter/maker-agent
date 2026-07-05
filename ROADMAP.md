@@ -124,7 +124,7 @@ generated build123d script IS the parametric source — so:
   key dimension as a named constant at the top of the script (`wall = 2.0`). New commands:
   `cad params` (list them), `cad regen wall=3` (re-execute with overrides — seconds, no LLM,
   geometry re-verified by the same gate). The saved `build_source.py` per build-dir is the input.
-- **E2 (in progress): native FreeCAD document target.** `--target freecad` is REGISTERED in
+- **E2 v1 DONE (2026-07-06, live-verified): native FreeCAD document target.** `--target freecad` is REGISTERED in
   `cad_v5/targets.py`: today it imports the STEP into a native `.FCStd` (requires `freecadcmd` —
   not yet installed on this machine: `sudo snap install freecad` or the freecad.org AppImage; no
   apt candidate on this distro). Next: the feature-tree replay — map the brief's feature list
