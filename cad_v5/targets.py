@@ -199,11 +199,15 @@ def freecad_target(step_path: Path, name: str) -> dict:
     import shutil as _sh
     import subprocess as _sp
     cmd = _sh.which("freecadcmd") or _sh.which("freecad.cmd")
-    if not cmd:
+    invoke = [cmd] if cmd else None
+    if not invoke:
+        apps = sorted(Path.home().glob("Applications/FreeCAD*.AppImage"))
+        if apps:
+            invoke = [str(apps[-1]), "-c"]   # AppImage console mode
+    if not invoke:
         raise RuntimeError(
-            "FreeCAD is not installed. Install it (e.g. `sudo snap install freecad` or the "
-            "AppImage from freecad.org), then `cad --target freecad` will produce a native "
-            ".FCStd document.")
+            "FreeCAD is not installed. Install it (snap/AppImage from freecad.org), then "
+            "`cad --target freecad` will produce a native .FCStd document.")
     out = step_path.with_suffix(".FCStd")
     script = (
         "import FreeCAD, Import\n"
@@ -214,7 +218,7 @@ def freecad_target(step_path: Path, name: str) -> dict:
     tmp = step_path.with_suffix(".fc_import.py")
     tmp.write_text(script)
     try:
-        r = _sp.run([cmd, str(tmp)], capture_output=True, text=True, timeout=180)
+        r = _sp.run(invoke + [str(tmp)], capture_output=True, text=True, timeout=300)
         if r.returncode != 0 or not out.exists():
             raise RuntimeError((r.stderr or r.stdout).strip()[-300:])
     finally:

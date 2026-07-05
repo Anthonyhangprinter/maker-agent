@@ -127,7 +127,8 @@ def _load_config() -> dict:
     return cfg
 
 BUILDS_DIR = _OPENCLAW / "cad-builds"
-KEEP_BUILDS = 20   # retention: prune oldest per-build artifact dirs beyond this
+KEEP_BUILDS = 200  # retention: benchmark days create dozens of builds; 20 rotated out
+                   # every model the user wanted to see (gallery lesson, 2026-07-05)
 
 def _new_build_dir(spec: str) -> Path:
     """Per-build artifact dir — concurrent builds must never clobber each other's output."""

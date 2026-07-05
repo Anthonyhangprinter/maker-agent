@@ -129,7 +129,7 @@ def parse_result(stdout: str) -> dict | None:
 
 
 def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dict | None = None,
-            agent: Path = DEFAULT_AGENT) -> dict:
+            agent=DEFAULT_AGENT, run_tag: str = "") -> dict:
     spec = bm["spec"]
     print(f"\n{'='*70}\n[{bm['id']}] {bm['name']}  (tier {bm['tier']}, --coder {coder}"
           f"{', no-fewshots' if no_fewshots else ''})\n{'='*70}", flush=True)
@@ -169,7 +169,9 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
         geom = derive_geometry(step_local)
         row.update(geom)
         # Preserve this build's STEP + render so the models can be viewed after the run.
-        art = RESULTS_DIR / "artifacts"
+        # Per-run subdir: successive runs used to OVERWRITE each other's artifacts, which is
+        # why the gallery lost every older model.
+        art = RESULTS_DIR / "artifacts" / (run_tag or "untagged")
         art.mkdir(parents=True, exist_ok=True)
         try:
             import shutil
@@ -234,8 +236,9 @@ def main():
     print(f"Running {len(benches)} benchmark(s): {', '.join(b['id'] for b in benches)}  "
           f"(--coder {a.coder}, per-build timeout {a.timeout}s)")
     t0 = time.monotonic()
-    rows = [run_one(b, a.coder, a.timeout, a.no_fewshots, acceptance.get(b["id"]), agent=a.agent)
-            for b in benches]
+    run_tag = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{a.coder}"
+    rows = [run_one(b, a.coder, a.timeout, a.no_fewshots, acceptance.get(b["id"]),
+                    agent=a.agent, run_tag=run_tag) for b in benches]
     total = round(time.monotonic() - t0, 1)
 
     n_conv = sum(r["converged"] for r in rows)
