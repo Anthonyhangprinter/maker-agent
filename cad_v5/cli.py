@@ -9,6 +9,25 @@ import argparse
 
 from . import loop, targets, config, engine
 
+# N6 — printpal-style prompting rubric, shown in --help so a good spec is written up front
+# (reduces how often the N2 ambiguity gate even triggers). Kept in one place; USER_GUIDE.md and
+# SKILL.md carry the same content in doc form, and Satine's /help carries a compact version.
+_PROMPT_RUBRIC = """\
+GOOD PROMPTS — the 4 S's
+  Size      overall envelope in mm, e.g. "120x80x40mm"
+  Specs     counts + diameters, e.g. "4x M3 through-holes", "a 20mm bore"
+  Surfaces  which faces features live on, e.g. "holes in the floor", "a groove on the outside"
+  Symmetry  patterns/spacing, e.g. "6 holes equally spaced on a 60mm bolt circle"
+
+Clearances: push-fit 0.0-0.1mm  ·  slip-fit 0.2mm  ·  loose-fit 0.5-1.0mm
+Named hardware is understood — say "M3", "608ZZ bearing", "2020 V-slot" and it just works.
+
+Examples:
+  cad "a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor"
+  cad "a flange: 80mm OD, 10mm thick, 30mm through-bore, 6x M6 bolt holes on a 60mm bolt circle"
+  cad "a shaft 12mm dia x 100mm long with a 4mm cross-hole 20mm from one end"
+"""
+
 
 def main(argv: list[str] | None = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -28,7 +47,9 @@ def main(argv: list[str] | None = None) -> None:
 
     p = argparse.ArgumentParser(
         prog="cad",
-        description="build123d CAD agent v5 — describe a part, build it, refine it by chatting.")
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="build123d CAD agent v5 — describe a part, build it, refine it by chatting.",
+        epilog=_PROMPT_RUBRIC)
     p.add_argument("spec", nargs="*", help="what to build (omit to be prompted)")
     p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto",
                    help="coder model strategy (default: auto — fast, escalate on failure)")
@@ -43,6 +64,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--json", action="store_true",
                    help="with --once: print the result dict as one JSON line on stdout "
                         "(machine consumers — Satine, the benchmark runner)")
+    p.add_argument("--ask", action="store_true",
+                   help="N2 ambiguity gate: pre-check the spec for a missing critical dimension "
+                        "or basic form before building. Interactive sessions always run this "
+                        "check; with --json this flag is what turns it on, and a non-empty "
+                        "result prints one JSON line {needs_clarification, questions, spec} and "
+                        "exits instead of building.")
     a = p.parse_args(argv)
 
     target_name = "onshape" if a.onshape else (a.target or targets.default_target_name())
@@ -55,6 +82,14 @@ def main(argv: list[str] | None = None) -> None:
         # ONE JSON line — consumers parse it instead of scraping.
         import contextlib
         import json as _json
+        if a.ask and spec:
+            # N2 in machine mode is opt-in (--ask) so the benchmark runner and any other --json
+            # caller that doesn't pass it sees ZERO behavior change (load-bearing for scoring).
+            questions = engine.triage_ambiguity(spec)
+            if questions:
+                print(_json.dumps({"needs_clarification": True, "questions": questions,
+                                   "spec": spec}))
+                raise SystemExit(0)
         with contextlib.redirect_stdout(sys.stderr):
             result = loop.run(spec=spec, coder=a.coder, target_name=target_name,
                               use_fewshots=not a.no_fewshots, interactive=False)
