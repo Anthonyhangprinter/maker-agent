@@ -31,6 +31,7 @@ import sys
 import json
 import re
 import ast
+import copy
 import time
 import math
 import base64
@@ -58,6 +59,8 @@ SESSION_FILE  = _OPENCLAW / "cad-session.json"
 CONFIG_FILE     = _OPENCLAW / "openclaw.json"
 CAD_CONFIG_FILE = _OPENCLAW / "cad.json"   # agent settings (cad.*) — separate file because the
                                            # OpenClaw gateway's strict schema rejects unknown keys
+CONTRACT_FILE = _OPENCLAW / "cad-contract.json"   # N3: the brief as a persistent, patchable
+                                                  # contract — frontends (Satine/CLI) read it directly
 SCRIPTS_DIR   = _HERE / "scripts"
 
 # Semantic few-shot retrieval (graceful — any failure here must never break a build).
@@ -81,7 +84,7 @@ from cad_v5.config import (        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_MID, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
-    MAX_TURNS, ESCALATE_AFTER, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
+    MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
 )
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
@@ -555,6 +558,169 @@ def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
     except Exception as e:
         log.warning("[v4] Complexity triage failed (%s) — staying on fast coder.", e)
         return False
+
+# ── N2: ambiguity gate — ask, don't guess ──────────────────────────────────────
+
+_AMBIGUITY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "buildable":  {"type": "boolean"},
+        "questions":  {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["buildable", "questions"],
+}
+
+_AMBIGUITY_SYSTEM = """\
+You decide whether a CAD spec carries enough concrete information for a competent FIRST DRAFT:
+overall envelope dimensions (or a size unambiguously inferable from context or a standard size),
+and the part's basic form (what shape/kind of object it is). You are NOT judging whether every
+detail is specified — small features can take a sensible default and get refined later.
+BE CONSERVATIVE: if a reasonable first version can be built using stated defaults (e.g. ~2mm
+walls for an enclosure that doesn't give a thickness, a generic mounting-hole size), reply
+buildable=true with questions=[]. Only when a CRITICAL dimension or the part's basic form is
+genuinely unknowable — not merely unstated, but with no sensible default — reply buildable=false
+with 2-3 SHORT bounded questions, each offering a sensible default in parentheses, e.g. "What
+overall width and height? (e.g. 120x80mm)". Never ask more than 3 questions, and never ask about
+something a reasonable default already covers.
+Reply with ONLY JSON: {"buildable": true|false, "questions": ["...", ...]}"""
+
+def triage_ambiguity(spec: str) -> list[str]:
+    """N2: a cheap pre-brief gate that asks 2-3 bounded questions instead of silently guessing
+    when a spec is missing its basic size/form — one chat turn costs seconds, a wrong build cycle
+    costs minutes. Conservative by design (a buildable-with-defaults spec always passes through
+    untouched) and gracefully degrades to [] on any failure — triage must never block a build."""
+    try:
+        raw = _ollama(BRIEF_MODEL, _AMBIGUITY_SYSTEM, f"Spec: {spec}",
+                      timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_AMBIGUITY_SCHEMA)
+        verdict = _extract_json(raw) or {}
+        if verdict.get("buildable", True):
+            return []
+        questions = [q.strip() for q in (verdict.get("questions") or [])
+                     if isinstance(q, str) and q.strip()]
+        return questions[:3]
+    except Exception as e:
+        log.warning("[v4] Ambiguity triage failed (%s) — proceeding without questions.", e)
+        return []
+
+# ── N3: brief as a diffable contract ───────────────────────────────────────────
+
+_PATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "changes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"field": {"type": "string"}, "value": {"type": "string"}},
+                "required": ["field", "value"],
+            },
+        },
+        "features_add":    {"type": "array", "items": {"type": "string"}},
+        "features_remove": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["changes", "features_add", "features_remove"],
+}
+
+_PATCH_SYSTEM = """\
+You are patching a CAD build's contract (its name/dimensions/features/expected) to honor a
+user's feedback on the last build, WITHOUT restating anything the feedback doesn't touch. Given
+the current contract and the user's feedback, output ONLY the fields that must change.
+Reply with ONLY JSON:
+{"changes": [{"field": "name"|"description"|"dimensions.<key>"|"expected.<key>", "value": "<new value as a string>"}],
+ "features_add": ["<new feature phrase>", ...],
+ "features_remove": ["<substring identifying an existing feature to drop>", ...]}
+Use "dimensions.<key>" for a dimension value (e.g. "dimensions.wall" for wall thickness) and
+"expected.<key>" for a target/acceptance value (e.g. "expected.wall_mm"). Leave a list empty ([])
+when the feedback doesn't touch it. Only patch what the feedback explicitly asks to change —
+do not invent unrelated edits."""
+
+def apply_brief_patch(brief: dict, changes: list[dict], features_add: list[str],
+                       features_remove: list[str]) -> tuple[dict, list[str]]:
+    """N3: deterministic (no LLM) patch of the brief contract. The ORIGINAL dict is never
+    mutated — this returns a deep copy with only the addressed leaves changed, so untouched
+    fields are byte-identical. `changes` entries address name/description/dimensions.<key>/
+    expected.<key> (dotted paths, creating the key if new, coercing numeric-looking string
+    values to int/float); features_add/features_remove edit the features list (removal matches
+    case-insensitively by substring). Returns (new_brief, human-readable delta lines); unknown or
+    malformed fields are skipped and reported in the delta as '(?) <field> ignored'."""
+    new_brief = copy.deepcopy(brief)
+    delta: list[str] = []
+
+    def _coerce(v):
+        if not isinstance(v, str):
+            return v
+        s = v.strip()
+        try:
+            return int(s) if re.fullmatch(r"-?\d+", s) else float(s)
+        except ValueError:
+            return v
+
+    for ch in (changes or []):
+        field = str((ch or {}).get("field", "")).strip()
+        value = _coerce((ch or {}).get("value"))
+        try:
+            if field in ("name", "description"):
+                old = new_brief.get(field)
+                new_brief[field] = value
+                delta.append(f"{field}: {old} → {value}")
+            elif "." in field and field.split(".", 1)[0] in ("dimensions", "expected") \
+                    and field.split(".", 1)[1]:
+                top, key = field.split(".", 1)
+                bucket = new_brief.setdefault(top, {})
+                if not isinstance(bucket, dict):
+                    raise ValueError(f"{top} is not an object")
+                old = bucket.get(key)
+                bucket[key] = value
+                delta.append(f"{key}: {old} → {value}")
+            else:
+                raise ValueError("unrecognised field")
+        except Exception as e:
+            log.warning("[v4] apply_brief_patch: skipping malformed field %r (%s)", field, e)
+            delta.append(f"(?) {field} ignored")
+
+    features = list(new_brief.get("features") or [])
+    for add in (features_add or []):
+        add = str(add).strip()
+        if add and not any(add.lower() == f.lower() for f in features):
+            features.append(add)
+            delta.append(f"features: +{add}")
+    for rem in (features_remove or []):
+        rem = str(rem).strip()
+        if not rem:
+            continue
+        for m in [f for f in features if rem.lower() in f.lower()]:
+            features.remove(m)
+            delta.append(f"features: −{m}")
+    new_brief["features"] = features
+
+    return new_brief, delta
+
+def patch_brief(brief: dict, feedback: str) -> tuple[Optional[dict], list[str]]:
+    """LLM step of N3: turn plain-English refine feedback into a MINIMAL field-level patch of
+    the brief contract (not a full brief regeneration), then apply it deterministically via
+    apply_brief_patch. On any exception or an empty patch, returns (None, []) — the caller falls
+    back to full regeneration and logs '[v5] intent patch failed — regenerating brief'."""
+    try:
+        contract = {
+            "name":        brief.get("name"),
+            "dimensions":  brief.get("dimensions", {}),
+            "features":    brief.get("features", []),
+            "expected":    brief.get("expected", {}),
+        }
+        prompt = (f"Current contract:\n{json.dumps(contract, indent=2)}\n\n"
+                  f"User feedback: {feedback}\n\nPatch:")
+        raw = _ollama(BRIEF_MODEL, _PATCH_SYSTEM, prompt,
+                      timeout=OLLAMA_TIMEOUT, temperature=0.1, fmt=_PATCH_SCHEMA)
+        verdict = _extract_json(raw) or {}
+        changes         = verdict.get("changes") or []
+        features_add    = verdict.get("features_add") or []
+        features_remove = verdict.get("features_remove") or []
+        if not (changes or features_add or features_remove):
+            return None, []
+        return apply_brief_patch(brief, changes, features_add, features_remove)
+    except Exception as e:
+        log.warning("[v4] patch_brief failed (%s) — full regeneration will be used.", e)
+        return None, []
 
 # ── Stage B: distil a fail->fix lesson from a build that recovered ─────────────
 
@@ -1481,6 +1647,22 @@ def _load_fewshots(spec: str, n: int = 2) -> list[dict]:
 def _write_session(data: dict) -> None:
     SESSION_FILE.write_text(json.dumps(data, indent=2))
 
+def _write_contract(brief: dict, spec: str) -> None:
+    """N3: persist the brief as a diffable contract after a successful build — frontends
+    (Satine, the CLI) read this directly, and the next refine's patch_brief() reads it back
+    in as the base to patch. Best-effort: a write failure must never fail the build."""
+    try:
+        CONTRACT_FILE.write_text(json.dumps({
+            "spec":       spec,
+            "name":       brief.get("name"),
+            "dimensions": brief.get("dimensions", {}),
+            "features":   brief.get("features", []),
+            "expected":   brief.get("expected", {}),
+            "ts":         datetime.now(timezone.utc).isoformat(),
+        }, indent=2))
+    except Exception as e:
+        log.warning("[v4] contract persist failed: %s", e)
+
 def _read_session() -> dict:
     try:
         return json.loads(SESSION_FILE.read_text())
@@ -1491,20 +1673,22 @@ def _read_session() -> dict:
 
 def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
           use_fewshots: bool = True, do_upload: bool = True,
-          final_render: bool = True) -> dict:
+          final_render: bool = True, brief_override: Optional[dict] = None) -> dict:
     """Returns result dict with at least: url, path, spec, has_bodies, build_time_s.
 
     coder: "auto" (triage the spec + escalate on failure, default), "fast" (force the 7B),
     or "strong" (force the 30B). An explicit cad.code_model pin also disables auto-switching.
     use_fewshots: inject retrieved known-good examples into codegen (set False to A/B the lift).
     do_upload: when False, render the final STEP to a local PNG and skip Onshape (used for
-    benchmarking / when no Onshape creds are configured) — result carries render_local, url=""."""
+    benchmarking / when no Onshape creds are configured) — result carries render_local, url="".
+    brief_override: N3 — a pre-patched brief contract (from patch_brief) to use verbatim instead
+    of calling build_brief() again, so a refine turn changes only what the user asked."""
     log.info("=" * 60)
     log.info("[v4.%s] build: %s", VERSION.split('.')[-1], spec)
     preflight()
     t0 = time.monotonic()
 
-    brief    = build_brief(spec)
+    brief    = brief_override if brief_override is not None else build_brief(spec)
     reconcile_expected(brief, spec)   # deterministically harden the brief's expected block
     want_section = wants_section(spec, brief)   # render a cut-through panel for hollow/internal parts
     questions = verify_questions(spec, brief)   # B5: binary checks the critic answers per turn
@@ -1581,6 +1765,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         gate_passed = False  # did the build currently held in step_path pass the deterministic gate?
         accepted_via: Optional[str] = None  # 'critic' | 'gate' | 'helper' — how convergence was reached
         fails = 0   # failed/stuck turns on the current coder (drives auto-escalation)
+        n1_autofixes = 0   # N1: inline same-turn auto-fix retries consumed across the whole build
         failure_categories: dict = {}   # B3: per-build failure histogram (feeds the fine-tune track)
         def _note_failure(err_text: str) -> str:
             cat, hint = diagnose(err_text)
@@ -1604,36 +1789,61 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
 
             log.info("[v4] ── Turn %d/%d (%s) ──", turn, MAX_TURNS, _ACTIVE_CODE_MODEL)
 
-            # 1. Syntax pre-flight (cheap — avoids burning a subprocess on a typo)
-            syn = _check_syntax(code)
-            if syn:
-                log.warning("[v4] %s", syn)
-                _note_failure("SyntaxError: " + syn)
-                last_errors = [syn]
-                fails += 1
-                recovered_problem = recovered_problem or f"syntax error: {syn}"
-                if turn < MAX_TURNS:
-                    code = revise_script(spec, code, syn)
-                continue
+            # 1+2. Syntax pre-flight + run build123d, with an INLINE auto-fix micro-loop (N1):
+            # a syntax error or run exception is the 7B's dominant failure mode and needs zero
+            # visual judgment, so re-prompt the SAME coder with the raw error up to N1_RETRIES
+            # times INSIDE this turn before it burns a full turn / touches the escalation ladder.
+            # If a retry produces code that runs, we fall through to step 3 in this same turn
+            # (fails is NOT incremented); only exhausting every inline retry counts as this
+            # turn's one failure, exactly as a bare failure did before N1.
+            step_ok = False
+            fail_msg: Optional[str] = None       # raw problem text fed to the next revise_script
+            first_fail: Optional[str] = None     # first failure this turn (drives Stage B lessons)
+            for attempt in range(N1_RETRIES + 1):
+                syn = _check_syntax(code)
+                if syn:
+                    log.warning("[v4] %s", syn)
+                    _note_failure("SyntaxError: " + syn)
+                    last_errors = [syn]
+                    fail_msg = syn
+                    first_fail = first_fail or f"syntax error: {syn}"
+                else:
+                    try:
+                        step_path, step_log = run_step(code, work_dir)
+                        log.info("[v4] build123d OK: %s", step_log.strip().replace("\n", " | "))
+                        step_ok = True
+                        break
+                    except Exception as e:
+                        err = str(e)
+                        log.warning("[v4] Run failed: %s", err[:300])
+                        last_errors = [err]
+                        step_path = None
+                        # B3: classify the failure and use the category's targeted repair hint
+                        # (the old ad-hoc fillet hint is now one row of the taxonomy table in
+                        # cad_v5/diagnose.py).
+                        cat_hint = _note_failure(err)
+                        hint = ("\n\n" + cat_hint) if cat_hint else ""
+                        fail_msg = f"The script failed to run:\n{err}{hint}"
+                        first_fail = first_fail or f"runtime error: {err[:200]}"
 
-            # 2. Run build123d
-            try:
-                step_path, step_log = run_step(code, work_dir)
-                log.info("[v4] build123d OK: %s", step_log.strip().replace("\n", " | "))
-            except Exception as e:
-                err = str(e)
-                log.warning("[v4] Run failed: %s", err[:300])
-                last_errors = [err]
-                step_path = None
+                if attempt >= N1_RETRIES:
+                    break
+                if time.monotonic() - t0 > BUILD_TIMEOUT:
+                    break   # budget blown — re-running identical code can't help; let the turn fail
+                n1_autofixes += 1
+                log.info("[v4] N1 auto-fix retry %d/%d: %s",
+                         attempt + 1, N1_RETRIES, fail_msg.replace("\n", " ")[:200])
+                code = revise_script(spec, code, fail_msg)
+
+            if not step_ok:
                 fails += 1
-                recovered_problem = recovered_problem or f"runtime error: {err[:200]}"
-                # B3: classify the failure and use the category's targeted repair hint (the old
-                # ad-hoc fillet hint is now one row of the taxonomy table in cad_v5/diagnose.py).
-                cat_hint = _note_failure(err)
-                hint = ("\n\n" + cat_hint) if cat_hint else ""
+                recovered_problem = recovered_problem or first_fail
                 if turn < MAX_TURNS:
-                    code = revise_script(spec, code, f"The script failed to run:\n{err}{hint}")
+                    code = revise_script(spec, code, fail_msg)
                 continue
+            # Recovered inline this turn (attempt > 0) — record the first failure the same way
+            # a cross-turn recovery would, for Stage B's fail→fix lesson distillation.
+            recovered_problem = recovered_problem or first_fail
 
             # 3. Inspect geometry
             inspection = run_inspect(step_path)
@@ -1883,6 +2093,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "code_model":   _ACTIVE_CODE_MODEL,
         "fewshots_used": [fs["spec"] for fs in fewshots],
         "failure_categories": failure_categories,
+        "n1_autofixes": n1_autofixes,
         "last_critique": last_critique,
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),
@@ -1894,6 +2105,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             f"wrong. Last critique: {last_critique or 'n/a'}"
         )
         log.warning("[v4] Not converged — uploading last valid build as best effort.")
+
+    # N3: persist the brief as a diffable contract now that the build has valid geometry
+    # (frontends read it directly; the next refine's patch_brief() reads it back as the base).
+    _write_contract(brief, spec)
 
     if not do_upload:
         render_local = ""

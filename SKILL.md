@@ -127,6 +127,15 @@ Small-model quality comes from retrieval + memory, not parameters:
 python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retrieval returns
 ```
 
+## Writing good prompts
+
+State the **4 S's** — Size (overall envelope, mm), Specs (counts + diameters, "4x M3"),
+Surfaces (which face a feature is on), Symmetry (patterns/spacing) — plus a clearance word
+(push-fit 0.0-0.1mm / slip-fit 0.2mm / loose-fit 0.5-1.0mm) when it matters. Named hardware (M3,
+608ZZ bearing, 2020 V-slot) is understood as-is. Full rubric + examples: `cad --help` or
+`cad_v5/USER_GUIDE.md`. A spec missing a critical dimension or basic form gets asked about
+(2-3 short questions with defaults) instead of silently guessed.
+
 ## Tuning knobs (see PROJECT.md for detail)
 
 - **`~/.openclaw/cad.json`**: `code_model` (pin coder), `public_uploads`. Creds: openclaw.json `env.ONSHAPE_*`.

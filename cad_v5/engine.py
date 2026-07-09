@@ -13,9 +13,15 @@ from . import config  # noqa: F401  (ensures sys.path + logging are set up befor
 _engine = importlib.import_module("cad_agent_v4")
 
 # Core loop + refine
-build          = _engine.build            # (spec, coder, use_fewshots, do_upload, final_render) -> result
+build          = _engine.build            # (spec, coder, use_fewshots, do_upload, final_render,
+                                          #  brief_override) -> result
 merge_spec     = _engine.merge_spec       # (original, feedback, history) -> new spec
 store_feedback = _engine.store_feedback   # (result, rating, comment)
+
+# N2 (ambiguity gate) / N3 (brief-as-contract) — see cad_agent_v4 for the full contracts.
+triage_ambiguity  = _engine.triage_ambiguity     # (spec) -> [questions] ([] if buildable/failed)
+patch_brief       = _engine.patch_brief          # (brief, feedback) -> (patched_brief|None, delta)
+apply_brief_patch = _engine.apply_brief_patch    # (brief, changes, +features, -features) -> (brief, delta)
 
 # Geometry/inspection (used by the v5 loop for summaries + diffs + undo)
 run_inspect    = _engine.run_inspect

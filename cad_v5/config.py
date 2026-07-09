@@ -65,6 +65,10 @@ CRITIC_TIMEOUT = 200
 # ── Loop config ─────────────────────────────────────────────────────────────--
 MAX_TURNS      = 4
 ESCALATE_AFTER = 2
+# N1 (2026-07-09): a syntax error or run exception is the 7B's dominant failure mode and needs
+# zero visual judgment, so it gets an inline auto-fix micro-loop INSIDE the turn (same coder,
+# raw error re-prompt) before the failure burns a full turn / touches the escalation ladder.
+N1_RETRIES     = 2
 BUILD_TIMEOUT  = 1800
 STEP_TIMEOUT   = 120
 RENDER_TIMEOUT = 120
