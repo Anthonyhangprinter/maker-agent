@@ -6,8 +6,11 @@ Studio; polysolid.ai turned out to be an empty shell publicly). ROADMAP.md remai
 of what shipped; this file is the wishlist, direction, and sequencing for what's next.*
 
 **North star:** a local-first *maker agent* — from plain-English idea to a made object across
-processes (3D print, laser, CNC), with today's verified-parametric pipeline as the trust core.
-New capabilities are added AROUND that pipeline, never by replacing it.
+processes (3D print, laser, CNC). ONE agent base (brief → codegen → verify → critique → refine)
+with MULTIPLE modelling backends as peer options: mesh modelling when the user wants a mesh,
+parametric B-rep when they want an engineering part that can be produced. The backends don't
+converge on one output type, and that's the point — the user is never limited to one kind of
+model. The verification religion applies to every backend equally.
 
 **The strongest external validation:** Zoo publicly tried direct text-to-geometry generation
 and *abandoned it* for "LLM writes code, code executes, tools verify" — exactly this
@@ -89,9 +92,13 @@ product on OpenSCAD-WASM + BOSL2, proving LLM+OpenSCAD viability at scale. Enter
   rounding), (b) RESCUE rung when build123d codegen fails on CSG-expressible parts (is
   7B+OpenSCAD better than escalating to 30B+build123d? measure speed AND quality), (c) or
   rejected with the numbers recorded.
-**Boundary unchanged:** functional/toleranced parts stay on build123d/OCCT (real B-rep) —
-kernel replacement would be a regression (research verdict). SDF/implicit stays a later
-sub-option for true lattices/TPMS organics.
+**Framing (per the owner, 2026-07-09):** backends are PEER OPTIONS on the shared agent base,
+not a hierarchy. The router picks a sensible default from intent (toleranced/production part →
+build123d B-rep; mesh/sculptural ask → mesh backend), but **an explicit user choice of output
+type always wins** — never limit. The one hard rule is honest labeling: a mesh deliverable is
+never presented as tolerance-grade parametric output, and vice versa. Each backend carries its
+own verification (B-rep: gate+STEP; mesh: watertight/volume/bbox) and its own benchmark.
+SDF/implicit remains a future third backend for lattices/TPMS.
 
 **X2. CAM — close the loop from model to machine.**
 - **X2a Print:** the gcode skill (slicer CLIs) + Bambu LAN skill already exist in the plugin
