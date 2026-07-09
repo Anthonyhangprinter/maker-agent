@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""
+scripts/scad — headless OpenSCAD runner (M8 spike).
+
+Usage:
+    scripts/scad <in.scad> -o <out.{stl,csg,png}> [-D key=val ...] \\
+                 [--camera iso|top] [--imgsize W,H] [--timeout N]
+
+Locates the OpenSCAD binary, in order:
+  1. $OPENSCAD_BIN env var (explicit path)
+  2. `openscad` on PATH
+  3. the newest ~/Applications/OpenSCAD-*.AppImage (glob, sorted, last wins)
+Errors clearly (exit 1, message on stderr) if none of the three resolve.
+
+Output format is picked from the -o extension:
+  .stl / .csg  — plain OpenSCAD export, `-D key=val` passthrough gives free
+                 params/regen parity (same source, different -D values, no
+                 re-authoring — mirrors the params/regen contract cad_v5/params.py
+                 gives the build123d path).
+  .png         — a still render. Always orthographic (--projection=o),
+                 --autocenter --viewall (frame the WHOLE model regardless of
+                 where it sits relative to the origin), --colorscheme=Tomorrow.
+                 --camera iso|top selects a verified rotation preset (below);
+                 omit --camera for OpenSCAD's own default view (empirically
+                 identical to the iso preset — see verification note).
+
+Camera presets (EMPIRICALLY VERIFIED, not assumed from docs — see
+benchmarks/scad-goldens/ and SCAD_SPIKE.md for the probe methodology):
+  iso  -> --camera=0,0,0,55,0,25,0   (gimbal rotate 55°/0°/25° — classic
+          isometric: Z up, X and Y both receding at an angle)
+  top  -> --camera=0,0,0,0,0,0,0     (NO rotation — OpenSCAD's gimbal camera
+          at zero rotation looks straight down -Z; a plain-english "top view"
+          is the UNROTATED gimbal camera, not a 90 rotation about X as the
+          docs' phrasing might suggest. Verified with an asymmetric marker
+          part: an unrotated render puts a corner marker exactly where its
+          X/Y position predicts, while a 90,0,0 rotation instead produces a
+          FRONT elevation (X horizontal, Z vertical) and misplaces it.)
+With --autocenter --viewall, the translate/distance fields of --camera are
+recomputed by OpenSCAD itself — only the three rotation angles matter, which
+is why both presets can leave them at 0.
+
+Exit contract: a nonzero OpenSCAD exit code, OR a zero exit with a missing/
+empty output file, is reported as a nonzero exit from this script with
+OpenSCAD's own stderr (or a synthesized message) on stderr. Success prints
+`SCAD: <out_path>` on stdout.
+"""
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+_CAMERA_PRESETS = {
+    "iso": "0,0,0,55,0,25,0",
+    "top": "0,0,0,0,0,0,0",
+}
+
+DEFAULT_TIMEOUT = 120
+
+
+def find_openscad() -> str:
+    env = os.environ.get("OPENSCAD_BIN")
+    if env:
+        if Path(env).exists() or shutil.which(env):
+            return env
+        print(f"ERROR: $OPENSCAD_BIN={env!r} does not exist.", file=sys.stderr)
+        sys.exit(1)
+    on_path = shutil.which("openscad")
+    if on_path:
+        return on_path
+    apps = sorted(Path.home().glob("Applications/OpenSCAD-*.AppImage"))
+    if apps:
+        return str(apps[-1])
+    print(
+        "ERROR: no OpenSCAD binary found. Tried: $OPENSCAD_BIN, `openscad` on PATH, "
+        "~/Applications/OpenSCAD-*.AppImage. Set $OPENSCAD_BIN or install one.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+def _parse_args(argv: list[str]) -> dict:
+    if not argv:
+        print(__doc__, file=sys.stderr)
+        sys.exit(1)
+    a = {"in": None, "out": None, "defines": [], "camera": None, "imgsize": None,
+         "timeout": DEFAULT_TIMEOUT}
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
+        if tok == "-o":
+            i += 1
+            a["out"] = argv[i]
+        elif tok == "-D":
+            i += 1
+            a["defines"].append(argv[i])
+        elif tok == "--camera":
+            i += 1
+            a["camera"] = argv[i]
+        elif tok == "--imgsize":
+            i += 1
+            a["imgsize"] = argv[i]
+        elif tok == "--timeout":
+            i += 1
+            a["timeout"] = int(argv[i])
+        elif tok.startswith("-"):
+            print(f"ERROR: unrecognized flag {tok!r}", file=sys.stderr)
+            sys.exit(1)
+        elif a["in"] is None:
+            a["in"] = tok
+        else:
+            print(f"ERROR: unexpected positional arg {tok!r}", file=sys.stderr)
+            sys.exit(1)
+        i += 1
+    if not a["in"] or not a["out"]:
+        print("ERROR: need an input .scad file and -o <output>", file=sys.stderr)
+        sys.exit(1)
+    return a
+
+
+def main(argv: list[str]) -> int:
+    a = _parse_args(argv)
+    in_path = Path(a["in"]).resolve()
+    out_path = Path(a["out"]).resolve()
+    if not in_path.exists():
+        print(f"ERROR: input not found: {in_path}", file=sys.stderr)
+        return 1
+    if a["camera"] is not None and a["camera"] not in _CAMERA_PRESETS:
+        print(f"ERROR: --camera must be one of {list(_CAMERA_PRESETS)}, got {a['camera']!r}",
+              file=sys.stderr)
+        return 1
+
+    binary = find_openscad()
+    cmd = [binary, "-o", str(out_path)]
+    for d in a["defines"]:
+        cmd += ["-D", d]
+
+    ext = out_path.suffix.lower()
+    if ext == ".png":
+        cmd += ["--projection=o", "--autocenter", "--viewall",
+                "--colorscheme=Tomorrow"]
+        rot = _CAMERA_PRESETS[a["camera"]] if a["camera"] else _CAMERA_PRESETS["iso"]
+        cmd += [f"--camera={rot}"]
+        imgsize = a["imgsize"] or "800,600"
+        cmd += [f"--imgsize={imgsize}"]
+    cmd += [str(in_path)]
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        out_path.unlink()
+    except FileNotFoundError:
+        pass
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=a["timeout"])
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: openscad timed out after {a['timeout']}s: {' '.join(cmd)}",
+              file=sys.stderr)
+        return 1
+
+    if proc.returncode != 0:
+        print(f"ERROR: openscad exited {proc.returncode}\n{proc.stderr or proc.stdout}",
+              file=sys.stderr)
+        return 1
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        print(f"ERROR: openscad exited 0 but produced no/empty output at {out_path}\n"
+              f"{proc.stderr or proc.stdout}", file=sys.stderr)
+        return 1
+
+    print(f"SCAD: {out_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
