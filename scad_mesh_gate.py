@@ -47,15 +47,16 @@ def _genus_of_body(body: "trimesh.Trimesh") -> int:
 
 
 def _bbox_ok(got: list[float], expected: list[float]) -> bool:
-    """Axis-order-invariant bbox compare, tolerance max(2.0mm, 5%) per axis — identical rule to
-    scripts/run_benchmarks.py's score_acceptance() and cad_agent_v4.verify_expected(), so a part
-    re-oriented on a different axis is still scored correct."""
+    """Axis-order-invariant bbox compare, tolerance max(5.0mm, 10%) per axis — identical rule to
+    cad_agent_v4.verify_expected()'s ADVISORY size check (the brief routinely mis-derives
+    dimensions, so the in-loop gate only hints; the external run_benchmarks scorer still applies
+    its own tighter max(2mm, 5%) acceptance rule to the final geometry)."""
     if len(got) != 3 or len(expected) != 3:
         return False
     for e, g in zip(sorted(expected), sorted(got)):
         if not (isinstance(e, (int, float)) and e > 0):
             continue
-        if abs(g - e) > max(2.0, 0.05 * e):
+        if abs(g - e) > max(5.0, 0.10 * e):
             return False
     return True
 
@@ -136,14 +137,19 @@ def gate(stl_path, expected: Optional[dict] = None) -> tuple[list[str], list[str
                         f"the mesh split into {body_count} watertight body/bodies — features "
                         f"are not unioned, or an assembly part fused/fragmented incorrectly.")
 
+        # Advisory, not a hard fail — mirrors verify_expected(): the brief's bbox is a guess
+        # (qwen3:8b routinely mis-derives dimensions), so a mismatch guides the coder/critic
+        # instead of blocking convergence. Hard-failing here would bias the spike's A/B against
+        # OpenSCAD relative to the B-rep gate's demoted-size rule (2026-06-26 gate redesign).
         exp_bbox = expected.get("bbox_mm")
         if isinstance(exp_bbox, list) and len(exp_bbox) == 3:
             if not _bbox_ok(bbox_mm, exp_bbox):
-                hard.append(
+                soft.append(
                     f"overall size {'×'.join(f'{d:.1f}' for d in sorted(bbox_mm, reverse=True))}mm "
-                    f"is outside tolerance of the expected "
+                    f"differs from the brief's expected "
                     f"{'×'.join(f'{d:.1f}' for d in sorted(exp_bbox, reverse=True))}mm "
-                    f"(tol = max(2mm, 5%) per axis).")
+                    f"(tol = max(5mm, 10%) per axis) — confirm the dimensions against the actual "
+                    f"spec (the brief's size guess is often wrong).")
 
         exp_holes = expected.get("min_holes")
         if isinstance(exp_holes, int) and exp_holes > 0:

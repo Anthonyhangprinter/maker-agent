@@ -98,10 +98,14 @@ topology — so a part with ten blind pockets and zero through-holes still measu
 is why `scad_mesh_gate.gate()` treats a genus shortfall vs. a spec's `min_holes` as an **advisory,
 always**, never a hard fail (`test_min_holes_shortfall_is_advisory_only` asserts exactly this).
 Everything else the gate measures — loadability, non-emptiness, non-zero volume, watertightness,
-volume, bbox, and body count — is EXACT from the mesh, and (unlike the B-rep gate, where bbox is
-advisory because the *brief's guess* is the unreliable part) bbox and body-count mismatches are
-hard fails here, because the caller passes in the spec's own numbers and a mismatch means the
-*geometry* is wrong, not the guess.
+volume, bbox, and body count — is EXACT from the mesh. But exact *measurement* doesn't make the
+*target* reliable: the `expected` block fed to the gate comes from the brief (`brief["expected"]`,
+a qwen3:8b guess), exactly as in the B-rep agent. So the gate mirrors `verify_expected()`'s
+2026-06-26 redesign: **body-count mismatch is a hard fail** (structural integrity — unfused or
+fragmented geometry), while a **bbox mismatch is an advisory** at the same max(5mm, 10%) tolerance
+the B-rep gate uses. Hard-failing bbox here would have biased the spike's A/B against OpenSCAD.
+The external `run_benchmarks.py` scorer still applies its tighter max(2mm, 5%) acceptance rule to
+the final geometry, so honesty of the *scoring* is unaffected.
 
 ## STEP recovery — what it proves and what it doesn't
 

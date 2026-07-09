@@ -91,17 +91,20 @@ def test_flange_gate_clean(stl_paths):
     assert facts["genus_sum"] == 7
 
 
-# ── 2. bbox tolerance check — deliberately wrong expected bbox => hard fail ─────
+# ── 2. bbox tolerance check — wrong expected bbox => ADVISORY (mirrors verify_expected(),
+# where size is a demoted hint because the brief's bbox is a guess; 2026-06-26 gate redesign) ──
 
-def test_bbox_mismatch_is_hard_fail(stl_paths):
+def test_bbox_mismatch_is_advisory(stl_paths):
     # block.scad is 100x60x20mm; ask for something wildly different.
     hard, soft, facts = mesh_gate(stl_paths["block"], expected={"bbox_mm": [10, 10, 10]})
-    assert any("overall size" in h for h in hard), hard
+    assert not any("overall size" in h for h in hard), hard
+    assert any("overall size" in s for s in soft), soft
 
     # Sanity: the CORRECT expected bbox (any axis order — the check is axis-invariant, same
-    # rule as scripts/run_benchmarks.py's score_acceptance()) produces no hard fail.
-    hard_ok, _, _ = mesh_gate(stl_paths["block"], expected={"bbox_mm": [60, 20, 100]})
+    # rule as the B-rep gate's advisory) produces neither a hard fail nor a size advisory.
+    hard_ok, soft_ok, _ = mesh_gate(stl_paths["block"], expected={"bbox_mm": [60, 20, 100]})
     assert hard_ok == []
+    assert not any("overall size" in s for s in soft_ok), soft_ok
 
 
 def test_body_count_mismatch_is_hard_fail(stl_paths):
