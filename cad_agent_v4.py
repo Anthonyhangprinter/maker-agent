@@ -1826,11 +1826,14 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                         fail_msg = f"The script failed to run:\n{err}{hint}"
                         first_fail = first_fail or f"runtime error: {err[:200]}"
 
-                if attempt < N1_RETRIES and time.monotonic() - t0 <= BUILD_TIMEOUT:
-                    n1_autofixes += 1
-                    log.info("[v4] N1 auto-fix retry %d/%d: %s",
-                             attempt + 1, N1_RETRIES, fail_msg.replace("\n", " ")[:200])
-                    code = revise_script(spec, code, fail_msg)
+                if attempt >= N1_RETRIES:
+                    break
+                if time.monotonic() - t0 > BUILD_TIMEOUT:
+                    break   # budget blown — re-running identical code can't help; let the turn fail
+                n1_autofixes += 1
+                log.info("[v4] N1 auto-fix retry %d/%d: %s",
+                         attempt + 1, N1_RETRIES, fail_msg.replace("\n", " ")[:200])
+                code = revise_script(spec, code, fail_msg)
 
             if not step_ok:
                 fails += 1
