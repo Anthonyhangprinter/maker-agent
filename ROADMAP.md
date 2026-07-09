@@ -202,7 +202,7 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 | M4 | B5 question critique + B8 interim render | **DONE (as M4.1)** — first validation regressed 2/6 and the postmortem found two real bugs (brief-hallucinated bore orientation steering the coder wrong; unclassified edge-selection crashes); fixed, re-validated 4/6 with ZERO critic false-blocks. The gate is now stricter AND honest: unmet spec-corroborated features block, hallucinated ones cannot |
 | M5 | B7 v5 migration + E2 FreeCAD target | **DONE**: B7 — benchmark defaults to the v5 --json entry, Satine parses one JSON line (no stdout scraping), Onshape upload single-sourced in `cad_v5/targets.py` (66 dup lines gone), results carry target URLs/errors. E2 v1 — box-grammar parametric `.FCStd`, verified by STEP re-export (E2 v2 = cylinder parts/blind holes/fillets, open) |
 | M6 | Track D fine-tune | fine-tuned 7B ≥ 7/10 full suite; 30B pin retired |
-| M7+ | Horizon items 1→4 | each gets its own benchmark spec before code |
+| M7–M10 | superseded — see `DIRECTION.md` Part 4 | N1–N3 interaction/reliability → CAM print+laser → mesh backend → CNC; each item carries its own exit criterion |
 
 Standing rule: every milestone ends with a full honest benchmark run committed to
 `benchmarks/results/`, compared against `baseline_*.json`. No claimed improvement without a

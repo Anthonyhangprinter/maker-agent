@@ -77,6 +77,32 @@ Two more hard-won rules (violating them cost real time):
 
 ---
 
+## POST-CHANGE SOP — run after EVERY merged milestone or user-visible change
+
+Docs and artifacts drift unless this is mechanical. In order, skipping only lines that
+genuinely don't apply, and say so when skipping:
+
+1. **ROADMAP.md** — flip the milestone row to DONE with its measured evidence (file name of
+   the benchmark json). DIRECTION.md rows likewise once its items start landing.
+2. **PROJECT.md** — add a History entry if behavior/architecture changed; fix any section the
+   change made stale (grep for the old constant/model/path you just changed).
+3. **SKILL.md + cad_v5/USER_GUIDE.md** — update if the change is user-facing (new command,
+   flag, target, output file). The USER_GUIDE is what a human reads; never let it lie.
+4. **BUILDS.md** — add new benchmark numbers to the results table.
+5. **Gallery** — if new models were built: regenerate via `~/Documents/cad-agent-docs/gen_gallery.py`
+   (extend its SECTIONS list with the new run json + artifacts dir), then republish the gallery
+   artifact to its EXISTING URL (Artifact tool `url` param, favicon 🖼️, bump the visible
+   "updated" date in the eyebrow).
+6. **Roadmap/history/guide artifacts** — if their content changed, rebuild from the HTML
+   sources in `~/Documents/cad-agent-docs/` (edit those files — they are the sources now),
+   republish to the existing URLs (🔩 📜 📖), bump the visible rev label.
+7. **PDFs** — regenerate any changed doc: `cd ~/Documents/cad-agent-docs && python3 -c
+   "from weasyprint import HTML; HTML('<name>.html').write_pdf('<name>.pdf')"`.
+8. **This file (HANDOFF.md)** — update "Where the project stands" and "Open work".
+9. **Memory** — one-line update to the project memory file so fresh sessions know.
+10. **Commit** — docs+artifacts changes in the same or an immediately following commit as the
+    code, never left for "later".
+
 ## Where the project stands (measured)
 
 | Milestone | State | Proof |
