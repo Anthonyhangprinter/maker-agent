@@ -2094,6 +2094,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "fewshots_used": [fs["spec"] for fs in fewshots],
         "failure_categories": failure_categories,
         "n1_autofixes": n1_autofixes,
+        "turns":        turn,   # loop turns entered — with n1_autofixes, N1's exit metric
         "last_critique": last_critique,
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),
