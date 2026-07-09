@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed coder ladder (qwen2.5-coder:7b → 14b → qwen3-coder:30b) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen2.5-coder:7b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -13,8 +13,10 @@ metadata:
 
 # CAD Builder Skill (v4.3 engine + v5 package)
 
-Build and iterate on Onshape CAD models from text specs. All inference runs locally via Ollama
-(qwen3:8b, qwen2.5-coder:7b/14b / qwen3-coder:30b, gemma4:e4b). **No Claude API calls.**
+Build and iterate on CAD models from text specs. All inference runs locally via Ollama
+(qwen3:8b, qwen2.5-coder:7b + qwen3-coder:30b on the auto ladder, 14b manual-only, gemma4:e4b).
+**No Claude API calls.** Default output target is the local CAD Viewer (via the `cad` launcher);
+Onshape is opt-in.
 
 The agent writes **build123d** Python (algebra mode), runs it → STEP, inspects the geometry,
 renders a 2-panel PNG (isometric + top-down), has a multimodal critic judge it against the spec,
@@ -47,7 +49,7 @@ openclaw.json because the gateway's strict schema rejects unknown root keys).
 Log: `~/.openclaw/cad-agent.log`. Corpus: `~/.openclaw/cad-examples.jsonl` (gold + rated few-shots);
 lessons: `~/.openclaw/cad-lessons.jsonl` (semantic-deduped).
 Session: `~/.openclaw/cad-session.json`. Per-build artifacts: `~/.openclaw/cad-builds/<ts>-<slug>/`
-(last 20 kept); `~/.openclaw/cad-last-build.{step,stl,dxf}` are convenience copies of the latest.
+(last `KEEP_BUILDS` = 200 kept); `~/.openclaw/cad-last-build.{step,stl,dxf}` are convenience copies of the latest.
 
 ## Commands
 
@@ -69,7 +71,8 @@ python3 $SCRIPT inspect "<onshape_url>"                              # describe 
 1. **Brief** (`qwen3:8b`, temp 0.2) — NL spec → structured JSON `{name, dimensions, features,
    notes, helper}`. Interprets intent: box/case/enclosure/container/tray/bin ⇒ **hollow, open-top,
    ~2mm walls** unless "solid"/"block"/"plate" etc. is said.
-2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to start on the mid 14B rung.
+2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to SKIP the fast 7B and start
+   directly on the strong 30B rung.
 3. **Codegen** (auto-routed coder, temp 0.15) — build123d algebra-mode script.
 4. **Run → STEP** (`scripts/step`), **inspect** (`scripts/inspect`), **render** (`scripts/render`,
    2 panels).
@@ -84,9 +87,11 @@ correct by construction, and **bypass codegen and the critic** (~60s).
 
 ## Coder routing
 
-Escalation ladder **7B → 14B → 30B** (`CODE_MODEL_LADDER`, weakest first, one rung per
-escalation). Default is the fast `qwen2.5-coder:7b` (~16s/call, GPU); triage starts hard specs on
-the mid `qwen2.5-coder:14b`; the 30B (~7min/call, CPU offload) is the last resort only.
+Escalation ladder is **2 rungs: 7B → 30B** (`CODE_MODEL_LADDER = [CODE_MODEL_FAST,
+CODE_MODEL_STRONG]`, weakest first, one rung per escalation). Default is the fast `qwen2.5-coder:7b`
+(~16s/call, GPU); triage makes hard specs SKIP the 7B and start on the strong `qwen3-coder:30b`
+(~7min/call, CPU offload) — the last resort, reached by triage or escalation. The `qwen2.5-coder:14b`
+is OFF the auto ladder (measured out twice) and reachable only via manual `--coder mid`.
 - Force per build: `--coder auto|fast|mid|strong`.
 - Telegram (Satine): prefix the message `fast: <spec>`, `mid: <spec>` or `strong: <spec>`.
 - Pin permanently: set `cad.code_model` in `~/.openclaw/cad.json` (disables auto-climbing).

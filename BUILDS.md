@@ -44,8 +44,18 @@ Status from the 2026-07-04 honest baselines (`benchmarks/results/baseline_30b_fu
 | 09 | Spiral staircase | 3 | 20 rotated treads + helical handrail + balusters | ✅ 1/1 | — |
 | 10 | Planetary gear stage | 3 | sun + 3 planets + internal-tooth ring + carrier | ⚠️ 1/1 | — |
 
-Headline: 30B full suite **7/10 converged, 21/31 acceptance (68%)**; 7B tiers 1–2 **4/6, 13/22
-(59%)** at 3–6× the speed. (⚠️ = geometry produced but not converged.)
+Headline (baselines, pre-bug-fix engine): 30B full suite **7/10 converged, 21/31 acceptance (68%)**;
+7B tiers 1–2 **4/6, 13/22 (59%)** at 3–6× the speed. (⚠️ = geometry produced but not converged.)
+
+### Current measured numbers (2026-07-06, stricter honest engine)
+
+| Run | Config | Suite | Converged | Acceptance | Result json |
+|---|---|---|---|---|---|
+| M4.1 | `--coder fast` (7B) | tiers 1–2 (6) | **4/6** | 13/22 (59%) | `m41_7b_tiers12.json` |
+| Showcase | `--coder strong` (30B) | all 10 | **6/10** | 22/31 (71%) | `showcase_30b_full.json` |
+
+The showcase's 6/10 vs the baseline 7/10 reflects the stricter honest gate shipped in M4.1, not a
+regression (acceptance rose 21→22). Artifacts: `benchmarks/results/artifacts/20260706_085550_strong/`.
 
 ```bash
 SCRIPT=~/.openclaw/skills/cad-builder

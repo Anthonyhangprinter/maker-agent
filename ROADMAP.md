@@ -124,15 +124,18 @@ generated build123d script IS the parametric source — so:
   key dimension as a named constant at the top of the script (`wall = 2.0`). New commands:
   `cad params` (list them), `cad regen wall=3` (re-execute with overrides — seconds, no LLM,
   geometry re-verified by the same gate). The saved `build_source.py` per build-dir is the input.
-- **E2 v1 DONE (2026-07-06, live-verified): native FreeCAD document target.** `--target freecad` is REGISTERED in
-  `cad_v5/targets.py`: today it imports the STEP into a native `.FCStd` (requires `freecadcmd` —
-  not yet installed on this machine: `sudo snap install freecad` or the freecad.org AppImage; no
-  apt candidate on this distro). Next: the feature-tree replay — map the brief's feature list
-  (base shape / holes / pockets / fillets) plus the recipe's E1 named parameters to FreeCAD
-  Part-Design operations via `freecadcmd` scripting → a clickable feature tree with a Spreadsheet
-  of the parameters, so dimension edits in the GUI regenerate natively. Verification: re-export
-  STEP from the generated .FCStd and diff volume/bbox against the agent's own STEP (same honesty
-  gate as everything else).
+- **E2 v1 DONE (2026-07-06, live-verified): native parametric FreeCAD document target.**
+  `--target freecad` is REGISTERED in `cad_v5/targets.py` and implemented in
+  `cad_v5/freecad_export.py`. For **box-grammar parts** it builds a genuine parametric `.FCStd`: a
+  `Params` spreadsheet holds the key dimensions (length/width/height/wall/hole diameters) and the
+  outer box, inner cavity, and hole cutters bind to those cells by expression, so editing a number
+  in the FreeCAD GUI regenerates the model. Non-box parts fall back to a plain STEP import into a
+  native `.FCStd` (still opens/edits, no feature tree). It runs via the **FreeCAD 1.1.1 AppImage** at
+  `~/Applications` — `_freecad_invoke()` locates it (there is no `freecadcmd` on PATH). Verification
+  is the same honesty gate as everything else: `convert()` re-exports STEP from the generated `.FCStd`
+  and diffs volume/bbox against the agent's own STEP (verified ΔV ~0.71% on the calibration block).
+  E2 v2 (open): extend the grammar to cylinder-based parts (flanges, shafts), blind holes/pockets,
+  and fillet/chamfer as real Part-Design features.
 - **E3 (long-term): Onshape FeatureScript emission, revisited.** v1's approach, retired because
   small models couldn't write the niche language — worth revisiting only after Track D, and only as
   a post-verification EXPORT step (build+verify locally in build123d first, then emit FS).
@@ -197,7 +200,7 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 | M2 | B3 taxonomy + B6 retrieval hygiene | **DONE** — histogram in every result; lift measured: retrieval = +2 converged, +4 acc points |
 | M3 | B4 cloud rung | **BUILT** (offline-verified both providers; live validation deferred — no API credit). Enable: add `cloud` block to cad.json |
 | M4 | B5 question critique + B8 interim render | **DONE (as M4.1)** — first validation regressed 2/6 and the postmortem found two real bugs (brief-hallucinated bore orientation steering the coder wrong; unclassified edge-selection crashes); fixed, re-validated 4/6 with ZERO critic false-blocks. The gate is now stricter AND honest: unmet spec-corroborated features block, hallucinated ones cannot |
-| M5 | B7 v5 migration + E2 FreeCAD target | **B7 DONE**: benchmark defaults to the v5 --json entry, Satine parses one JSON line (no stdout scraping), Onshape upload single-sourced (66 dup lines gone), results carry target URLs/errors. E2 FreeCAD target = next open item |
+| M5 | B7 v5 migration + E2 FreeCAD target | **DONE**: B7 — benchmark defaults to the v5 --json entry, Satine parses one JSON line (no stdout scraping), Onshape upload single-sourced in `cad_v5/targets.py` (66 dup lines gone), results carry target URLs/errors. E2 v1 — box-grammar parametric `.FCStd`, verified by STEP re-export (E2 v2 = cylinder parts/blind holes/fillets, open) |
 | M6 | Track D fine-tune | fine-tuned 7B ≥ 7/10 full suite; 30B pin retired |
 | M7+ | Horizon items 1→4 | each gets its own benchmark spec before code |
 

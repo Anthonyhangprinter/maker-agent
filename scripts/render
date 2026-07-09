@@ -174,7 +174,7 @@ _draw(fig.add_subplot(1, n_panels, 2, projection="3d"), polys, facecolors, 89, -
       "top view (looking down −Z)")
 if section:
     _draw(fig.add_subplot(1, n_panels, 3, projection="3d"), section[0], section[1], 18, 122,
-          "section (cut at mid-Y — see walls/cavity)")
+          "section (cut across longer X/Y axis — see walls/cavity)")
 fig.suptitle(
     f"{bbox.size.X:.0f} x {bbox.size.Y:.0f} x {bbox.size.Z:.0f} mm   ({len(polys)} tris)",
     fontsize=10,

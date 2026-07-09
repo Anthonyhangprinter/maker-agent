@@ -62,7 +62,7 @@ v5 takes the right-hand column. It's the same philosophy the deterministic **gat
        ▼
  ┌───────────┐   composes correct-by-construction helpers
  │  CODEGEN  │   result -= Pos(0,0,22) * cross_bore(20, 200)
- │(qwen3-30b)│   for z in (...): result -= Pos(0,0,z) * ring_groove(40,3,3)
+ │(7B→30B)   │   for z in (...): result -= Pos(0,0,z) * ring_groove(40,3,3)
  └─────┬─────┘
        ▼
  ┌───────────┐   real OCCT kernel → exact STEP solid

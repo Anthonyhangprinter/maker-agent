@@ -7,7 +7,7 @@
 > launcher runs `python3 -m cad_v5`; Satine still shells the v4 CLI directly. Agent settings
 > (`cad.*` incl. the `code_model` pin) live in **`~/.openclaw/cad.json`** — NOT openclaw.json,
 > whose strict gateway schema rejects unknown root keys. Per-build artifacts land in
-> `~/.openclaw/cad-builds/<ts>-<slug>/` (last 20 kept) with `cad-last-build.*` as convenience
+> `~/.openclaw/cad-builds/<ts>-<slug>/` (last `KEEP_BUILDS` = 200 kept) with `cad-last-build.*` as convenience
 > copies. Legacy v1/v2/v3 agents live in `legacy/`.
 
 ## What This Is
@@ -36,7 +36,7 @@ spec
  ▼  brief — qwen3:8b (temp 0.2)
 {name, dimensions, features, notes, helper}   ← interprets intent (box ⇒ hollow container)
  │
- ▼  coder triage — qwen3:8b  →  start FAST (7B) or MID (14B)?  (30B only via escalation)
+ ▼  coder triage — qwen3:8b  →  start FAST (7B) or STRONG (30B)?  (14B is off the ladder)
  │
  ▼  codegen — auto-routed coder (temp 0.15), build123d ALGEBRA mode
  │
@@ -75,12 +75,17 @@ false-negatives otherwise). ~60s vs ~150s+ for freeform.
 
 ## Coder routing (escalation ladder, 2026-07-04)
 
-`CODE_MODEL_LADDER` in `cad_v5/config.py`: **7B → 14B → 30B**, weakest first. Default rung is
-the fast `qwen2.5-coder:7b` (GPU, ~16s/call); escalation climbs ONE rung per trigger
-(`ESCALATE_AFTER` = 2 failed/stuck turns, or stuck-with-gate-unverified) and regenerates fresh.
-Triage (`spec_needs_strong_coder`, an LLM call via qwen3:8b — **not** keyword rules) starts hard
-specs on the MID `qwen2.5-coder:14b`; the 30B (~7min/call, CPU offload) is only ever reached by
-escalation — deliberately the LAST resort on 8GB VRAM.
+`CODE_MODEL_LADDER` in `cad_v5/config.py` is **2 rungs: 7B → 30B** (`[CODE_MODEL_FAST,
+CODE_MODEL_STRONG]`), weakest first. Default rung is the fast `qwen2.5-coder:7b` (GPU, ~16s/call);
+escalation climbs ONE rung per trigger (`ESCALATE_AFTER` = 2 failed/stuck turns, or
+stuck-with-gate-unverified) and regenerates fresh. Triage (`spec_needs_strong_coder`, an LLM call
+via qwen3:8b — **not** keyword rules) makes hard specs SKIP the fast rung and start directly on
+`CODE_MODEL_LADDER[1]` = the STRONG 30B (~7min/call, CPU offload) — deliberately the last resort on
+8GB VRAM, reached either by triage or by escalation.
+
+The **14B (`CODE_MODEL_MID`) is OFF the auto ladder** — measured out twice (`m1_14b_tiers12.json`:
+3/6 converged at 583–804s/build, slower than the 30B MoE and weaker than the 7B). It remains
+reachable only via manual `--coder mid` / the `mid:` Telegram prefix.
 
 - **Manual:** `build --coder auto|fast|mid|strong`; Satine accepts `fast:`/`mid:`/`strong:` prefixes.
 - **Pin:** `cad.code_model` in `~/.openclaw/cad.json` disables auto-climbing (currently UNPINNED
@@ -212,6 +217,26 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-06 — M4.1 / M5 / E2 shipped (see `ROADMAP.md` §8 for milestone detail):**
+  1. *M4.1 question-based critique:* `verify_questions` + `_CRITIC_QA_SYSTEM` in `cad_agent_v4.py`
+     turn the critic into per-feature binary Q&A (CADCodeVerify pattern); the gate never asserts a
+     bore orientation the spec text doesn't state (`_spec_states_orientation`); `edge_selection`
+     failure category added to `cad_v5/diagnose.py`; `scripts/render --section` cuts across the
+     LONGER of X/Y (a hardcoded mid-Y cut slivered parts lying along X). Result:
+     `m41_7b_tiers12.json` 4/6 converged, 13/22 acceptance, zero critic false-blocks.
+  2. *M5 v5 migration (B7):* `scripts/run_benchmarks.py` defaults to the v5 `--json` entry
+     (`DEFAULT_AGENT="v5"`); Satine (`~/.openclaw/cad-telegram.py`) uses `run_v5_build()`
+     single-JSON-line parsing and `send_build_files()` to send the render photo + STEP/STL in-chat;
+     Onshape upload is single-sourced in `cad_v5/targets.py` (v4's `import_step_to_onshape`
+     delegates to it).
+  3. *E2 FreeCAD target:* `cad_v5/freecad_export.py` produces a verified parametric `.FCStd` for
+     box-grammar parts (Params spreadsheet + Cut tree), verified by re-exporting STEP and diffing
+     volume/bbox; `freecad` target registered in `targets.py`; runs via the FreeCAD 1.1.1 AppImage
+     at `~/Applications` (no `freecadcmd` on PATH).
+  4. *Retention:* `KEEP_BUILDS = 200`; benchmark artifacts persist per-run under
+     `benchmarks/results/artifacts/<run_tag>/`.
+  5. *Showcase:* full 30B run (`--coder strong`, current stricter engine) —
+     `showcase_30b_full.json`: 6/10 converged, 9/10 geometry, 22/31 acceptance (71%).
 - **2026-07-04 — reliability pass (9 commits, from a 3-way adversarial code audit):**
   1. *Benchmark honesty:* failed builds score 0/N not 0/0; dead `built` metric removed;
      `--agent` flag; axis-invariant bbox scoring. Honest baselines recorded (30B 7/10; 7B floor 4/6 on tiers 1–2).

@@ -1,0 +1,393 @@
+{
+  "ran_at": "2026-07-06T00:55:38.915011+00:00",
+  "agent": "v5",
+  "coder": "strong",
+  "fewshots": true,
+  "count": 10,
+  "converged": 6,
+  "geometry": 9,
+  "total_time_s": 7188.8,
+  "acceptance_passed": 22,
+  "acceptance_total": 31,
+  "acceptance_score": 0.71,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 719.8,
+      "wall_time_s": 722.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 115349.4,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 690.9,
+      "wall_time_s": 693.4,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 41393.2,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/02.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 705.3,
+      "wall_time_s": 707.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 51554.8,
+      "solids": 1,
+      "faces": 25,
+      "cyl_faces": 6,
+      "bbox_mm": [
+        90.0,
+        50.0,
+        50.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "wall_time_s": 434.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 547.9,
+      "wall_time_s": 550.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "failures": {
+        "gate_feature": 4
+      },
+      "rc": 0,
+      "volume_mm3": 47233.1,
+      "solids": 1,
+      "faces": 35,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 4,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 933.7,
+      "wall_time_s": 936.1,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "degenerate_input": 1
+      },
+      "rc": 0,
+      "volume_mm3": 128330.2,
+      "solids": 1,
+      "faces": 29,
+      "cyl_faces": 5,
+      "bbox_mm": [
+        120.0,
+        60.0,
+        52.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/06.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "07",
+      "name": "Radial engine cylinder",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 705.0,
+      "wall_time_s": 707.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "failures": {
+        "gate_feature": 4
+      },
+      "rc": 0,
+      "volume_mm3": 104552.7,
+      "solids": 1,
+      "faces": 20,
+      "cyl_faces": 11,
+      "bbox_mm": [
+        70.0,
+        70.0,
+        78.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 1,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/07.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "08",
+      "name": "Centrifugal impeller",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 726.3,
+      "wall_time_s": 728.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 45172.4,
+      "solids": 1,
+      "faces": 38,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        90.0,
+        90.0,
+        22.0
+      ],
+      "through_holes": 3,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/08.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "09",
+      "name": "Spiral staircase",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 739.3,
+      "wall_time_s": 745.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 476581.4,
+      "solids": 1,
+      "faces": 259,
+      "cyl_faces": 13,
+      "bbox_mm": [
+        132.0,
+        132.0,
+        203.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 11,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/09.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    },
+    {
+      "id": "10",
+      "name": "Planetary gear stage",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3-coder:30b",
+      "agent_build_time_s": 919.7,
+      "wall_time_s": 927.4,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "failures": {
+        "gate_feature": 2,
+        "gate_structural": 2
+      },
+      "rc": 0,
+      "volume_mm3": 83560.9,
+      "solids": 14,
+      "faces": 1862,
+      "cyl_faces": 34,
+      "bbox_mm": [
+        124.0,
+        124.0,
+        15.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260706_085550_strong/10.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    }
+  ]
+}

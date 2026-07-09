@@ -83,22 +83,27 @@ By default everything is **local** — no cloud round-trip:
   - `cad-last-build.dxf` — flat pattern for laser / sheet metal (when the part has a flat face)
 
 **Onshape is opt-in.** Type `onshape` at the prompt (or run with `--onshape`) to also get a cloud
-Part Studio. Change the default permanently in `~/.openclaw/openclaw.json`:
+Part Studio. **FreeCAD is opt-in too** — `--target freecad` writes a parametric `.FCStd` (a Params
+spreadsheet you can edit in the FreeCAD GUI to regenerate; box-grammar parts only, else a plain STEP
+import). Change the default target permanently in `~/.openclaw/cad.json` (NOT `openclaw.json` — the
+gateway's strict schema rejects a top-level `cad` key):
 
 ```json
-{ "cad": { "output_target": "cad-viewer" } }   // or "onshape", "fstl", "file"
+{ "cad": { "output_target": "cad-viewer" } }   // or "onshape", "freecad", "fstl", "file"
 ```
 
 ---
 
 ## Speed & quality controls
 
-- **The default coder is now `qwen3-coder:30b`** (pinned in `~/.openclaw/openclaw.json` →
-  `cad.code_model`). It's the strongest local coder; the trade-off is **minutes per turn** (it
-  offloads to CPU on the 8GB box) even for simple parts. To go fast on easy parts, pass
-  **`--coder fast`** (the 7B, ~seconds/turn). Remove the `cad.code_model` pin to restore the old
-  auto-escalation behaviour.
-- From Telegram, prefix the spec with `fast:` or `strong:`.
+- **The default is auto-routing** (`--coder auto`): it starts on the fast `qwen2.5-coder:7b`
+  (~seconds/turn, GPU) and only escalates to the strong `qwen3-coder:30b` (minutes/turn, CPU
+  offload) after repeated failures — or immediately when the triage step judges the spec hard. No
+  coder is pinned right now, so the ladder is live.
+- Force it per build: **`--coder fast`** (always the 7B, quick) or **`--coder strong`** (always the
+  30B, for hard parts). `--coder mid` is the 14B, manual-only (it's off the auto ladder).
+- Pin a coder permanently with `cad.code_model` in `~/.openclaw/cad.json` (disables auto-escalation).
+- From Telegram (Satine), prefix the spec with `fast:`, `mid:`, or `strong:`.
 
 ---
 
