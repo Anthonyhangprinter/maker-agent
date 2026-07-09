@@ -57,18 +57,48 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
             print("Nothing to build.")
             return None
 
+    # N2 — ask, don't guess: BEFORE the first build only (never on a refine round), and only
+    # in an interactive session, check whether the spec is missing a critical dimension or the
+    # part's basic form. Conservative by design — a buildable-with-defaults spec returns []
+    # and this is a no-op.
+    if interactive:
+        questions = engine.triage_ambiguity(spec)
+        if questions:
+            print("\nThis spec is missing details — answer briefly "
+                  "(or press Enter to build with defaults):")
+            for i, q in enumerate(questions, 1):
+                print(f"  {i}. {q}")
+            try:
+                answer = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                answer = ""
+            if answer:
+                spec = engine.merge_spec(spec, "Clarifications: " + answer)
+
     history: list[dict] = []
     last: dict | None = None
     have_prev = False
     prev_spec: str | None = None   # spec that produced _PREV_STEP — restored by `undo`
+    # N3 — set by the refine path below from a successful patch_brief(); consumed by the NEXT
+    # build() call only (single-use), so a refine turn changes only what the user asked instead
+    # of regenerating the whole brief from scratch.
+    next_brief_override: dict | None = None
+    next_intent_delta: list[str] = []
 
     while True:
         print(f"\n… building ({coder} coder: brief → code → check → view) …")
         try:
             result = engine.build(spec, coder=coder, use_fewshots=use_fewshots,
-                                  do_upload=False, final_render=False)
+                                  do_upload=False, final_render=False,
+                                  brief_override=next_brief_override)
+            if next_intent_delta:
+                result["intent_delta"] = next_intent_delta
+            next_brief_override = None
+            next_intent_delta = []
         except Exception as e:
             print(f"\n✗ Build failed: {e}")
+            next_brief_override = None   # a failed build's override was never consumed — drop it
+            next_intent_delta = []
             if not interactive:
                 return last
             try:
@@ -193,6 +223,21 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
         except Exception as e:
             log.warning("[v5] prev-build snapshot failed: %s", e)
             have_prev = False
+
+        # N3 — try to PATCH the brief contract from this feedback (field-level, e.g. "wall: 2 →
+        # 3") instead of regenerating it from scratch; the next build() call consumes the patch
+        # via brief_override so unrelated fields provably don't churn. patch_brief() already
+        # degrades to (None, []) on any failure — full brief regeneration is the fallback.
+        contract = (last or {}).get("brief")
+        if contract:
+            patched, delta = engine.patch_brief(contract, change)
+            if patched:
+                print("  Δ intent: " + "; ".join(delta))
+                next_brief_override = patched
+                next_intent_delta = delta
+            else:
+                log.warning("[v5] intent patch failed — regenerating brief")
+
         spec = engine.merge_spec(spec, change, history)
         history.append({"role": "user", "content": change})
 
