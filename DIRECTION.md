@@ -71,17 +71,27 @@ feature (geometry diff proves it).*
 
 ## Part 2 — Capability expansion (the maker tracks)
 
-**X1. Mesh/organic backend — a second codegen target, not a replacement.**
-LLMs are genuinely stronger at mesh-style modelling (CSG trees, signed-distance fields,
-procedural scripts) for organic/sculptural/artistic parts where B-rep is weak. Design: the
-brief gains a backend router — *mechanical/toleranced → build123d (unchanged); organic/
-freeform → mesh backend* (SDF/implicit code or trimesh/CSG scripts; the installed text-to-cad
-plugin's implicit-CAD skill is a local precedent). Same religion applies: run the code,
-measure the mesh (watertight, volume, bbox, min wall), gate, render, critique.
-**Boundary (from Zoo's abandonment + printpal's separate lossy image-to-3D product): never
-route functional/dimensioned parts to the mesh backend** — it can't hold tolerances, and
-that's the system's core promise. *Exit: 5-spec organic mini-benchmark (vase, knurled grip,
-low-poly figure, lattice panel, filleted blob) with its own honest scorer.*
+**X1. OpenSCAD second backend — the training-data play.** *(revised 2026-07-09)*
+OpenSCAD is the most abundant code-CAD language in LLM training data (Thingiverse customizer
+culture); a small local coder writes it more fluently than build123d — the v1 lesson ("meet
+the model where its training data is") pointing the other way. printpal runs an entire
+product on OpenSCAD-WASM + BOSL2, proving LLM+OpenSCAD viability at scale. Enters via a
+**measured spike, exactly like the 14B did** (which was measured OUT — same rules):
+- Runner: `scripts/scad` (headless `openscad -o out.stl -D k=v file.scad`; apt has 2021.01;
+  BOSL2 vendored). `-D` overrides = params/regen parity for free.
+- Verification: same religion — mesh gate (watertight, volume, bbox, hole count via trimesh/
+  admesh), same critic renders, honest scorer on the SAME tier-1/2 specs with a 7B coder.
+- STEP recovery test: FreeCAD's OpenSCAD workbench converts pure-CSG .scad → B-rep → STEP
+  (the E2 bridge makes this cheap to try). If it holds for simple parts, OpenSCAD builds keep
+  the parametric-FCStd/STEP deliverables; if not, OpenSCAD output is mesh-only (fine for
+  print, not for tolerance exchange) and is labeled so.
+- Verdict decides its roles: (a) organic/pattern/artistic backend (BOSL2 gears/threads/
+  rounding), (b) RESCUE rung when build123d codegen fails on CSG-expressible parts (is
+  7B+OpenSCAD better than escalating to 30B+build123d? measure speed AND quality), (c) or
+  rejected with the numbers recorded.
+**Boundary unchanged:** functional/toleranced parts stay on build123d/OCCT (real B-rep) —
+kernel replacement would be a regression (research verdict). SDF/implicit stays a later
+sub-option for true lattices/TPMS organics.
 
 **X2. CAM — close the loop from model to machine.**
 - **X2a Print:** the gcode skill (slicer CLIs) + Bambu LAN skill already exist in the plugin
@@ -121,11 +131,12 @@ free deterministic ops) around our CAD Viewer. UX multiplier, deliberately after
 
 | Milestone | Contents | Rationale |
 |---|---|---|
+| M6′ | fine-tune (whenever budget approved) | parallel track; **data-mix decision (build123d vs .scad vs both) waits for M8's verdict** |
 | M7 | N1 + N2 + N3 (+N6 docs) | reliability + interaction; all small-model leverage, no new deps |
-| M8 | X2a print + X2b laser kerf | completes idea→object for the two processes users have today |
-| M6′ | fine-tune (whenever budget approved) | unchanged keystone; histogram data keeps accruing |
-| M9 | X1 mesh backend + its mini-benchmark | first genuinely new modelling domain |
-| M10 | X2c CNC via FreeCAD Path; then X3/X4/X5 | deepest capability, builds on E2 |
+| M8 | X1 OpenSCAD backend spike → benchmark verdict | cheap, decides the second backend + rescue rung + informs M6 data mix |
+| M9 | X2a print + X2b laser kerf | completes idea→object for the two processes users have today |
+| M10 | organic expansion on M8's winner (BOSL2 patterns; SDF for lattices) + organic mini-benchmark | first new modelling domain, on measured footing |
+| M11 | X2c CNC via FreeCAD Path; then X3/X4/X5 | deepest capability, builds on E2 |
 
 N4/N5/N7 slot into whichever milestone touches their files (N5 naturally with X5's photo work).
 

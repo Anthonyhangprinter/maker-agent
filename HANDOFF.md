@@ -182,4 +182,4 @@ then publish with the Artifact tool's `url` parameter pointing at the EXISTING U
 place. Known staleness: the roadmap page (Rev G) shows M5 as half-done — E2 completed 2026-07-06, so
 bump it to done on the next publish. Keep favicons stable across redeploys.
 
-> **Direction beyond the roadmap:** see `DIRECTION.md` (2026-07-09) — maker-agent charter: methodology upgrades N1-N7 (traceback auto-fix, ambiguity gate, brief-as-contract...), expansion tracks X1-X6 (mesh backend, CAM for print/laser/CNC), bright lines, sequencing M7-M10, and the delegate-safe vs judgment split.
+> **Direction beyond the roadmap:** see `DIRECTION.md` (2026-07-09) — maker-agent charter: methodology upgrades N1-N7, expansion tracks X1-X6 (X1 = OpenSCAD second backend spike — training-data play, benchmark-gated like the 14B; CAM print/laser/CNC), bright lines, sequencing M6'-M11, delegate-safe vs judgment split. OpenSCAD not yet installed: `sudo apt install openscad` (2021.01) — user runs this.
