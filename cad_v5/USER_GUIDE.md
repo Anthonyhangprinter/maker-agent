@@ -56,6 +56,46 @@ same loop applies: send a description, then reply with changes.)
 
 ---
 
+## Writing good prompts
+
+The more of these four things a spec states, the better the first draft — and the less often
+the agent has to stop and ask (see "If your spec is missing something" below).
+
+| The 4 S's | What it means | Example |
+|---|---|---|
+| **Size** | overall envelope in mm | "120x80x40mm" |
+| **Specs** | counts + diameters | "4x M3 through-holes", "a 20mm bore" |
+| **Surfaces** | which faces features live on | "holes in the floor", "a groove on the outside" |
+| **Symmetry** | patterns/spacing | "6 holes equally spaced on a 60mm bolt circle" |
+
+**Clearances** — say which fit you want and the agent applies the right offset:
+
+| Fit | Clearance |
+|---|---|
+| Push-fit | 0.0–0.1mm |
+| Slip-fit | 0.2mm |
+| Loose-fit | 0.5–1.0mm |
+
+**Named hardware is understood** — "M3", "608ZZ bearing", "2020 V-slot extrusion" and similar
+standard designations resolve to their real dimensions without you spelling them out.
+
+Example prompts (copy/adapt these):
+```
+cad "a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor"
+cad "a flange: 80mm OD, 10mm thick, 30mm through-bore, 6x M6 bolt holes on a 60mm bolt circle"
+cad "a shaft 12mm dia x 100mm long with a 4mm cross-hole 20mm from one end"
+```
+
+### If your spec is missing something
+
+Before the first build, the agent runs a quick check: does this carry enough (an overall size,
+and the part's basic shape) for a competent first draft? If a reasonable default covers what's
+missing (e.g. wall thickness defaults to ~2mm), it just builds — no interruption. Only when a
+dimension or the basic form is genuinely unknowable does it stop and ask 2–3 short questions,
+each with a suggested default; press Enter to accept the defaults and build anyway.
+
+---
+
 ## Editing dimensions without the AI (`params` / `regen`)
 
 Every build saves its recipe with the key dimensions as named values at the top. You can change
