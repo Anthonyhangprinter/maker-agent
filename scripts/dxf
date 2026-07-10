@@ -3,30 +3,97 @@
 Export a STEP file's flat pattern to a 2D DXF — for laser cutting / sheet metal / SendCutSend.
 
 Usage:
-    python3 scripts/dxf <file.step> [out.dxf]
+    python3 scripts/dxf <file.step> [out.dxf] [--kerf <mm>] [--material <name>]
 
 Picks the LARGEST planar face of the solid (the natural flat pattern of a plate/sheet part),
 orients that face into the XY plane, and writes its outline + any interior holes as a DXF.
 Secondary export — STEP stays the primary CAD artifact. Prints  DXF: <path>  on success.
 
 Discipline/secondary-workflow shape borrowed from earthtojake/text-to-cad `scripts/dxf` (MIT).
+
+── Kerf compensation (M9/X2b) ───────────────────────────────────────────────────
+A laser beam removes a `kerf`-wide strip of material CENTRED on the cut path. To get a part that
+MEASURES right once cut, the drawn geometry must be pre-distorted the opposite way:
+  - the OUTER boundary is drawn kerf/2 further OUT (the cut then eats kerf/2 back inward,
+    landing exactly on the true outer edge)
+  - every interior HOLE is drawn kerf/2 SMALLER (the cut eats kerf/2 outward into the hole,
+    landing exactly on the true hole edge)
+A single build123d `offset(face, amount=kerf/2)` does both in one call — it grows the outer wire
+and shrinks every inner wire by the same amount simultaneously (verified empirically: an 80x50mm
+plate with two Ø5mm holes at kerf=0.3mm offsets to 80.3x50.3mm outer / Ø4.7mm holes).
+
+--kerf <mm>        explicit kerf width in mm. Wins over --material if both are given.
+--material <name>  a kerf-width preset (below). Ignored if --kerf is also given.
+
+Material presets (typical CO2/fiber laser kerf, mm — tune per your machine/settings):
+    acrylic-3mm      0.20      plywood-3mm      0.30      mdf-3mm          0.30
+    acrylic-6mm      0.30      plywood-6mm      0.40      steel-1mm-fiber  0.15
+
+Kerf=0 (the default, no flag) reproduces the exact pre-M9 geometry path byte-for-byte — no offset
+call is made at all.
 """
 import sys
 from pathlib import Path
 
+MATERIAL_KERF_MM = {
+    "acrylic-3mm":     0.20,
+    "acrylic-6mm":     0.30,
+    "plywood-3mm":     0.30,
+    "plywood-6mm":     0.40,
+    "mdf-3mm":         0.30,
+    "steel-1mm-fiber": 0.15,
+}
+
+
+def _parse_args(argv: list[str]) -> tuple[float | None, str | None, list[str]]:
+    """Pull --kerf/--material out of argv; everything else stays positional (in/out paths),
+    same as the pre-M9 script — no argparse dependency, no behavior change when unused."""
+    kerf = None
+    material = None
+    rest: list[str] = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--kerf" and i + 1 < len(argv):
+            kerf = float(argv[i + 1]); i += 2; continue
+        if a == "--material" and i + 1 < len(argv):
+            material = argv[i + 1]; i += 2; continue
+        rest.append(a); i += 1
+    return kerf, material, rest
+
+
 if len(sys.argv) < 2:
-    print("Usage: python3 scripts/dxf <file.step> [out.dxf]", file=sys.stderr)
+    print("Usage: python3 scripts/dxf <file.step> [out.dxf] [--kerf <mm>] [--material <name>]",
+          file=sys.stderr)
     sys.exit(1)
 
-in_path = Path(sys.argv[1]).resolve()
-out_path = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else in_path.with_suffix(".dxf")
+kerf, material, positional = _parse_args(sys.argv[1:])
+
+if kerf is None and material is not None:
+    if material not in MATERIAL_KERF_MM:
+        print(f"ERROR: unknown --material {material!r}. Known presets: "
+              f"{', '.join(sorted(MATERIAL_KERF_MM))}", file=sys.stderr)
+        sys.exit(1)
+    kerf = MATERIAL_KERF_MM[material]
+
+if kerf is not None and kerf <= 0:
+    print(f"ERROR: --kerf must be positive (got {kerf})", file=sys.stderr)
+    sys.exit(1)
+
+if not positional:
+    print("Usage: python3 scripts/dxf <file.step> [out.dxf] [--kerf <mm>] [--material <name>]",
+          file=sys.stderr)
+    sys.exit(1)
+
+in_path = Path(positional[0]).resolve()
+out_path = Path(positional[1]).resolve() if len(positional) > 1 else in_path.with_suffix(".dxf")
 
 if not in_path.exists():
     print(f"ERROR: File not found: {in_path}", file=sys.stderr)
     sys.exit(1)
 
 try:
-    from build123d import import_step, Plane, ExportDXF, GeomType, Unit
+    from build123d import import_step, Plane, ExportDXF, GeomType, Unit, offset, Kind
 except ImportError as e:
     print(f"ERROR: build123d not available: {e}", file=sys.stderr)
     sys.exit(1)
@@ -53,11 +120,31 @@ except Exception as e:
     print(f"ERROR: could not flatten face to XY: {e}", file=sys.stderr)
     sys.exit(1)
 
+# ── Kerf compensation (optional — skipped entirely at kerf=0 for byte-identical output) ────────
+cut_face = local_face
+if kerf:
+    try:
+        offset_result = offset(local_face, amount=kerf / 2, kind=Kind.INTERSECTION)
+        cut_face = offset_result.faces()[0]
+    except Exception as e:
+        print(f"ERROR: kerf offset failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
 # ── Write DXF (outline + interior hole wires) ───────────────────────────────────
 try:
     exporter = ExportDXF(unit=Unit.MM)
-    exporter.add_layer("profile")
-    exporter.add_shape(local_face, layer="profile")
+    if kerf:
+        # Separate cut-outer / cut-holes layers so a laser operator can tell the two offset
+        # directions apart at a glance (outer grew, holes shrank).
+        exporter.add_layer("cut-outer")
+        exporter.add_shape(cut_face.outer_wire(), layer="cut-outer")
+        inner = cut_face.inner_wires()
+        if inner:
+            exporter.add_layer("cut-holes")
+            exporter.add_shape(inner, layer="cut-holes")
+    else:
+        exporter.add_layer("profile")
+        exporter.add_shape(cut_face, layer="profile")
     exporter.write(str(out_path))
 except Exception as e:
     print(f"ERROR: DXF export failed: {e}", file=sys.stderr)
@@ -67,7 +154,26 @@ if not out_path.exists():
     print("ERROR: DXF writer produced no file", file=sys.stderr)
     sys.exit(1)
 
-bb = local_face.bounding_box()
+# Record the kerf as a visible note in the DXF itself (best-effort — never fails the export;
+# the printed summary line below is the authoritative record either way).
+if kerf:
+    try:
+        import ezdxf
+        doc = ezdxf.readfile(str(out_path))
+        msp = doc.modelspace()
+        bb = cut_face.bounding_box()
+        note = (f"KERF {kerf:.2f}mm applied: outer +{kerf / 2:.2f}, holes -{kerf / 2:.2f}"
+                + (f"  material={material}" if material else ""))
+        msp.add_text(note, height=max(bb.size.X, bb.size.Y) * 0.02 or 2.0,
+                      dxfattribs={"layer": "kerf-note", "insert": (bb.min.X, bb.min.Y - 5)})
+        doc.saveas(str(out_path))
+    except Exception as e:
+        print(f"WARNING: could not write kerf annotation into DXF ({e})", file=sys.stderr)
+
+bb = cut_face.bounding_box()
 print(f"Flat pattern: {bb.size.X:.1f} x {bb.size.Y:.1f} mm  from largest face "
       f"(area {face.area:.0f} mm²)")
+if kerf:
+    print(f"kerf {kerf:.2f}mm applied: outer +{kerf / 2:.2f}, holes -{kerf / 2:.2f}"
+          + (f"  (material preset: {material})" if material else ""))
 print(f"DXF: {out_path}")
