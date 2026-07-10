@@ -127,6 +127,25 @@ Small-model quality comes from retrieval + memory, not parameters:
 python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retrieval returns
 ```
 
+## CAM — from model to machine (M9)
+
+```bash
+cad --target print "<spec>"                       # slice STL → dry-run-validated gcode (OrcaSlicer,
+                                                  # Bambu A1 profiles; result: print_ok/print_fails/
+                                                  # print_facts; gcode in <build>/print/)
+python3 scripts/dxf <part.step> --kerf 0.3        # laser-ready DXF: outer +kerf/2, holes −kerf/2
+python3 scripts/dxf <part.step> --material acrylic-3mm   # kerf preset (see scripts/dxf header)
+```
+
+Print target config: `print` block in `~/.openclaw/cad.json` ({machine, process, filament} — bare
+names resolve in `~/.openclaw/cam-profiles/BBL/`, auto-extracted from the OrcaSlicer AppImage on
+first use). Needs `xvfb-run` + an OrcaSlicer AppImage in `~/Applications/` (or `$ORCA_SLICER`).
+Validation is deterministic (no LLM): slicer return_code/warnings, gcode header (layers/time),
+and a motion scan — extruding moves must stay on the bed, positive extrusion required. Kerf
+semantics: the beam removes kerf-width centred on the path, so the drawn outer boundary GROWS by
+kerf/2 and holes SHRINK by kerf/2 — the cut part then measures true (verified: 80×50 plate +
+2×Ø5 holes at kerf 0.3 → DXF 80.30×50.30, holes Ø4.70). Tests: `tests/test_m9_cam.py`.
+
 ## Writing good prompts
 
 State the **4 S's** — Size (overall envelope, mm), Specs (counts + diameters, "4x M3"),

@@ -78,6 +78,26 @@ TRANSLATE_TIMEOUT = 120
 BASE_URL       = "https://cad.onshape.com"
 DONE_SENTINEL  = "###DONE###"
 
+# ── CAM: print target (M9/X2a) ─────────────────────────────────────────────────
+# Bambu system slicer profiles, extracted ONCE from the OrcaSlicer AppImage on first use
+# (see cad_v5/cam_print.py::ensure_profiles) and cached here — this dir is the install path
+# for a fresh machine, not just this session's scratch.
+CAM_PROFILES_DIR       = _OPENCLAW / "cam-profiles"          # …/BBL/{machine,process,filament}/*.json
+PRINT_MACHINE_DEFAULT  = "Bambu Lab A1 0.4 nozzle.json"
+PRINT_PROCESS_DEFAULT  = "0.20mm Standard @BBL A1.json"
+PRINT_FILAMENT_DEFAULT = "Bambu PLA Basic @BBL A1.json"
+SLICE_TIMEOUT          = 300
+
+def print_config() -> dict:
+    """cad.json `print` block — CAM print-target overrides (same file/pattern as `public_uploads()`
+    and `cloud_config()` above — NEVER put this in openclaw.json, only cad.json):
+      {"machine": "Bambu Lab A1 0.4 nozzle.json", "process": "0.20mm Standard @BBL A1.json",
+       "filament": "Bambu PLA Basic @BBL A1.json"}
+    Bare names resolve inside the extracted BBL profile tree's machine/process/filament
+    subdirs; absolute paths pass straight through. Missing block or missing keys fall back to
+    the PRINT_*_DEFAULT trio above (measured to slice a test cube to 75 layers, return_code 0)."""
+    return load_config().get("cad", {}).get("print") or {}
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 def _setup_logging() -> None:
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

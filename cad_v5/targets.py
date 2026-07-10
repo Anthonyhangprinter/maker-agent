@@ -222,6 +222,49 @@ def file_target(step_path: Path, name: str) -> dict:
     """No viewer — just report where the artifacts landed on disk."""
     return {"url": "", "uploaded": False, "target": "file", "step_local": str(step_path)}
 
+# ── print (M9/X2a) ────────────────────────────────────────────────────────────
+
+def print_target(step_path: Path, name: str) -> dict:
+    """Slice the build into dry-run-validated FDM gcode (OrcaSlicer CLI, Bambu profiles).
+    Deterministic, no LLM. Graceful like every other target: infra failures (no slicer, no
+    xvfb-run, unresolvable profile) set `target_error` and return; geometry/dry-run failures
+    (bad mesh, out-of-bed, no extrusion) are NOT exceptions — they come back as a normal result
+    with `print_ok: false` + `print_fails` so the caller can show them like any other advisory."""
+    result = {"url": "", "uploaded": False, "target": "print", "step_local": str(step_path)}
+    stl_path = STL_OUT if STL_OUT.exists() and step_path.resolve() == STEP_OUT.resolve() \
+        else step_path.with_suffix(".stl")
+    try:
+        if not stl_path.exists():
+            from . import engine
+            stl_path = engine.run_stl(step_path, step_path.with_suffix(".stl"))
+    except Exception as e:
+        result["target_error"] = f"STL export failed (needed to slice): {e}"[:300]
+        return result
+
+    from . import cam_print
+    pc = config.print_config()
+    out_dir = step_path.parent / "print"
+    try:
+        sliced = cam_print.slice_stl(stl_path, out_dir, machine=pc.get("machine"),
+                                      process=pc.get("process"), filament=pc.get("filament"))
+    except Exception as e:
+        result["target_error"] = f"slicing failed: {e}"[:300]
+        return result
+
+    machine_name = sliced.get("machine") or pc.get("machine") or config.PRINT_MACHINE_DEFAULT
+    gcode = sliced.get("gcode")
+    fails, notes, facts = cam_print.validate_gcode(gcode, sliced.get("result"), machine_name)
+    result.update({
+        "gcode_local": str(gcode) if gcode else "",
+        "print_ok": not fails,
+        "print_fails": fails,
+        "print_notes": notes,
+        "print_facts": facts,
+    })
+    if sliced.get("stderr_tail"):
+        result["stderr_tail"] = sliced["stderr_tail"]
+    return result
+
 # ── Resolver ────────────────────────────────────────────────────────────────────
 
 _TARGETS: dict[str, TargetFn] = {
@@ -231,6 +274,7 @@ _TARGETS: dict[str, TargetFn] = {
     "freecad":    freecad_target,
     "fstl":       fstl_target,
     "file":       file_target,
+    "print":      print_target,
 }
 
 def resolve_target(name: str) -> TargetFn:

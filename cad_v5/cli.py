@@ -54,7 +54,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto",
                    help="coder model strategy (default: auto — fast, escalate on failure)")
     p.add_argument("--target", default=None,
-                   help="output target: cad-viewer (default) | onshape | fstl | file")
+                   help="output target: cad-viewer (default) | onshape | freecad | print | fstl | file"
+                        " ('print' slices the STL and dry-run-validates the gcode via OrcaSlicer)")
     p.add_argument("--onshape", action="store_true",
                    help="use Onshape as the output target (shortcut for --target onshape)")
     p.add_argument("--no-fewshots", action="store_true",
