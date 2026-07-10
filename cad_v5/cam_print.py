@@ -122,7 +122,10 @@ def slice_stl(stl_path: Path, out_dir: Path, machine: str | None = None,
            "--slice", "0", "--arrange", "1",
            "--outputdir", str(out_dir), str(stl_path)]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # cwd=out_dir: on a failed slice OrcaSlicer drops a stray `00000.log` into the process
+        # cwd — keep it with the rest of the slice artifacts instead of polluting the caller's.
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                              cwd=str(out_dir))
     except subprocess.TimeoutExpired:
         return {"gcode": None, "result": None,
                 "stderr_tail": f"slice timed out after {timeout}s",
