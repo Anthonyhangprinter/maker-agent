@@ -136,7 +136,7 @@ an honest reading of "did this backend build the part" is `ok`/`converged`, not 
 acceptance score. A future iteration could teach the benchmark scorer to fall back to
 `scad_mesh_gate` facts when `step_local` is absent; out of scope for this add-only spike.
 
-## Decision rubric (DIRECTION.md X1) — verdict: **pending measurement**
+## Decision rubric (DIRECTION.md X1) — verdict: **(c) REJECTED, with numbers** (2026-07-10)
 
 The benchmark run above has not been executed as part of this spike (running it means burning the
 single GPU on `qwen2.5-coder:7b` for real builds, which this task's hard rules reserve for the
@@ -153,9 +153,27 @@ from the run's numbers:
   ladder, the same way the 14B coder was measured OUT (`m1_14b_tiers12.json`) rather than kept
   around unused.
 
-**Verdict: PENDING — awaiting the supervisor's benchmark run.** Fill in the acceptance/converged
-numbers here (and in `HANDOFF.md`'s "Where the project stands" table) once `run_benchmarks.py
---agent scad_agent.py` has actually been executed.
+**Verdict: (c) REJECTED — measured out exactly like the 14B.**
+`m8_scad_7b_tiers12.json` (2026-07-10, tiers 1–2, `--coder fast`, same specs/scorer as the
+build123d runs): **0/6 converged, 0/6 geometry, 0/22 acceptance** vs build123d-7B's bracketing
+runs of 2/6–5/6 (baseline 4/6). Not an infrastructure failure — verified by hand: the runner,
+mesh gate, genus counting, renders, and CSG→STEP recovery all pass on hand-written .scad goldens
+(a hand-unioned stepped shaft gates clean at 1 body). The failure is the coder itself:
+qwen2.5-coder:7b writes **Python-shaped pseudo-OpenSCAD** — `block = cube(...);`,
+`result = difference() { ... };`, a bare `result;` — assignments that instantiate no geometry,
+leaving only loose cutter cylinders as real bodies (hence the repeated "3 watertight bodies"
+gate failures), plus wrong dimensions (Ø3 holes for a Ø8 spec). Reproduced deterministically
+outside the benchmark with the exact spike prompt. The v1 lesson stands after all: this model's
+build123d-Python is far stronger than its OpenSCAD, *despite* OpenSCAD's training-data abundance
+— fluency in a language's syntax is not fluency in producing valid geometry with it.
+
+Consequences: **(b) rescue rung is answered NO** (0/6 can't rescue anything); **M10's "winner"
+is build123d** (organic/pattern expansion happens there, not on BOSL2); the **M6′ fine-tune data
+mix** question is answered — build123d-only. The OpenSCAD infrastructure (runner, mesh gate,
+STEP recovery) is kept: it is verified, tested, and reusable for any future coder that actually
+writes valid OpenSCAD (e.g. a fine-tuned model or a stronger base), and the mesh-gate machinery
+is backend-agnostic groundwork for any future mesh backend. Re-opening the verdict requires a
+NEW measured run, not enthusiasm.
 
 ## Spec deviations (and why)
 
