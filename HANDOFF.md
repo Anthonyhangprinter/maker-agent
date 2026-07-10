@@ -116,7 +116,8 @@ genuinely don't apply, and say so when skipping:
 | M5 E2 FreeCAD target | done v1, live-verified | box-grammar STEP → parametric `.FCStd` (Params spreadsheet + Cut tree), verified by STEP re-export |
 | M6′ fine-tune (QLoRA 7B) | blocked on budget | needs user go-ahead (rented GPU cost); data mix waits on M8 verdict |
 | M7 N1+N2+N3+N6 (DIRECTION) | done 2026-07-10 | `m7_7b_tiers12_run1/2.json` 2/6→5/6 (baseline 4/6, variance-dominated); N2 behavioral 6/6; N3 offline 13/13; Satine updated live (backup `cad-telegram.py.bak-m7`) |
-| M8 OpenSCAD spike (X1) | code done; verdict PENDING | 14/14 deterministic tests; STEP recovery ≤2% on 3 goldens; benchmark `m8_scad_7b_tiers12` decides backend/rescue/reject |
+| M8 OpenSCAD spike (X1) | done — REJECTED w/ numbers | `m8_scad_7b_tiers12.json` **0/6, 0/22** (7B writes pseudo-OpenSCAD — see `SCAD_SPIKE.md` verdict); infra kept + tested; M6′ data mix ⇒ build123d-only |
+| M11 CNC 2.5D (X2c) | done 2026-07-10 | pocket+drill toolpath on the gate plate, exact drill centres, envelope verified, simulated not cut (`test_m11_cnc.py` 3/3) |
 | M9 CAM print + laser kerf (X2a/b) | done 2026-07-10 | enclosure → 150-layer in-bed validated gcode (OrcaSlicer 2.4.2 AppImage + xvfb-run, profiles at `~/.openclaw/cam-profiles/`); kerf DXF exact (80.30×50.30/Ø4.70 @0.3), 7/7 tests |
 
 **Coder ladder: 7B → 30B (2 rungs).** The 14B was measured OUT twice (`m1_14b_tiers12.json`: 3/6
@@ -132,16 +133,15 @@ The 6/10 vs the older 7/10 baseline reflects a stricter honest gate, not a regre
 
 ## Open work, in order
 
-1. **M8 verdict** — `m8_scad_7b_tiers12` benchmark (running/latest) decides the OpenSCAD backend's
-   role per `SCAD_SPIKE.md`'s rubric: organic backend / rescue rung / rejected-with-numbers. Then
-   the rescue-rung A/B analysis (7B+OpenSCAD vs 30B+build123d escalation on the specs the 7B+b123d
-   failed) and M10 unblocks on the winner.
+1. **M10 organic mini-benchmark measurement** — implementation in flight on build123d (M8's
+   winner); run `benchmarks/organic` when it lands and record the honest numbers.
 2. **Gallery rebuild** — the published model gallery (Artifact URL below) is stale. Regenerate via
    `~/Documents/cad-agent-docs/gen_gallery.py` extended with the new run jsons
    (`m7_7b_tiers12_run1/2`, `m8_scad_7b_tiers12`, `showcase_30b_full`) + artifact dirs; republish
    to the SAME URL. User wants it EXTENSIVE (every model ever made, incl. 30B tier-3 parts).
-3. **M11 CNC 2.5D** (X2c) — FreeCAD Path via the E2 bridge; gate: plate part → pocket+drill
-   toolpath, bounds verified vs part bbox + stock, simulated not cut.
+3. ~~**M11 CNC 2.5D** (X2c)~~ — done 2026-07-10: `cad_v5/cam_cnc.py` + `scripts/cnc`, FreeCAD
+   CAM headless (pocket+drill both work; `findToolController` headless bug worked around),
+   pure-python gcode envelope/crash/drill-position verifier, gate part verified simulated.
 4. **N1 follow-ups** — strategy-change on the final inline retry (drop/simplify the failing
    feature instead of re-revising) + N4 API-doc retrieval (api_misuse was a full-run loop on 03).
 5. **E2 v2** — extend `cad_v5/freecad_export.py` grammar beyond box parts: cylinder-based parts
