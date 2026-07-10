@@ -254,6 +254,13 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
      `inherits` chain). Gate met: 100×70×30 enclosure → 150 layers, in-bed, validated; open-shell
      mesh genuinely fails. `scripts/dxf --kerf/--material`: outer +kerf/2, holes −kerf/2
      (`Kind.INTERSECTION`), measured exact via ezdxf (80.30×50.30 / Ø4.70 at kerf 0.3).
+  7. *M10 organic mini-benchmark (measured) + M11 CNC:* organic suite (5 specs, `--suite` runner
+     flag, `min_faces` criterion) first run: **2/5 conv, 6/13 acc, all specs → 30B via triage**
+     (`m10_organic_auto.json`); min_faces immediately caught the critic accepting two
+     under-perforated parts. M11: FreeCAD CAM headless pocket+drill toolpaths with a pure-python
+     gcode envelope/crash/drill-position verifier (`cad_v5/cam_cnc.py`, `scripts/cnc`), gate part
+     verified simulated — the FreeCAD 1.x CAM API findings + the headless `findToolController`
+     bug workaround are documented in the module.
 - **2026-07-06 — M4.1 / M5 / E2 shipped (see `ROADMAP.md` §8 for milestone detail):**
   1. *M4.1 question-based critique:* `verify_questions` + `_CRITIC_QA_SYSTEM` in `cad_agent_v4.py`
      turn the critic into per-feature binary Q&A (CADCodeVerify pattern); the gate never asserts a

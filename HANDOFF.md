@@ -117,6 +117,7 @@ genuinely don't apply, and say so when skipping:
 | M6′ fine-tune (QLoRA 7B) | blocked on budget | needs user go-ahead (rented GPU cost); data mix waits on M8 verdict |
 | M7 N1+N2+N3+N6 (DIRECTION) | done 2026-07-10 | `m7_7b_tiers12_run1/2.json` 2/6→5/6 (baseline 4/6, variance-dominated); N2 behavioral 6/6; N3 offline 13/13; Satine updated live (backup `cad-telegram.py.bak-m7`) |
 | M8 OpenSCAD spike (X1) | done — REJECTED w/ numbers | `m8_scad_7b_tiers12.json` **0/6, 0/22** (7B writes pseudo-OpenSCAD — see `SCAD_SPIKE.md` verdict); infra kept + tested; M6′ data mix ⇒ build123d-only |
+| M10 organic mini-benchmark | done 2026-07-10 (measured) | `m10_organic_auto.json` **2/5, 6/13 (46%)**, all → 30B; min_faces caught 2 critic over-accepts; suite + verified gold idioms shipped |
 | M11 CNC 2.5D (X2c) | done 2026-07-10 | pocket+drill toolpath on the gate plate, exact drill centres, envelope verified, simulated not cut (`test_m11_cnc.py` 3/3) |
 | M9 CAM print + laser kerf (X2a/b) | done 2026-07-10 | enclosure → 150-layer in-bed validated gcode (OrcaSlicer 2.4.2 AppImage + xvfb-run, profiles at `~/.openclaw/cam-profiles/`); kerf DXF exact (80.30×50.30/Ø4.70 @0.3), 7/7 tests |
 
@@ -133,8 +134,9 @@ The 6/10 vs the older 7/10 baseline reflects a stricter honest gate, not a regre
 
 ## Open work, in order
 
-1. **M10 organic mini-benchmark measurement** — implementation in flight on build123d (M8's
-   winner); run `benchmarks/organic` when it lands and record the honest numbers.
+1. **Organic domain follow-ups** — first measured baseline is 2/5, 6/13 (`m10_organic_auto.json`):
+   o1 revolve failure and the o4/o5 under-cut patterns are the concrete targets; the critic
+   needs a pattern-density question (it over-accepted twice — min_faces caught it).
 2. **Gallery rebuild** — the published model gallery (Artifact URL below) is stale. Regenerate via
    `~/Documents/cad-agent-docs/gen_gallery.py` extended with the new run jsons
    (`m7_7b_tiers12_run1/2`, `m8_scad_7b_tiers12`, `showcase_30b_full`) + artifact dirs; republish

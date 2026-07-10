@@ -56,6 +56,7 @@ Headline (baselines, pre-bug-fix engine): 30B full suite **7/10 converged, 21/31
 | M7 run 1 (2026-07-09) | `--coder fast` (7B), post-N1/N2/N3 engine | tiers 1–2 (6) | 2/6 | 7/22 (32%) | `m7_7b_tiers12_run1.json` |
 | M7 run 2 (2026-07-10) | same engine, variance re-run | tiers 1–2 (6) | **5/6** | 15/22 (68%) | `m7_7b_tiers12_run2.json` |
 | M8 OpenSCAD spike (2026-07-10) | `scad_agent.py`, 7B, no few-shots | tiers 1–2 (6) | **0/6** | 0/22 (0%) | `m8_scad_7b_tiers12.json` |
+| M10 organic (2026-07-10) | `--suite organic --coder auto` (all → 30B) | organic (5) | **2/5** | 6/13 (46%) | `m10_organic_auto.json` |
 
 The showcase's 6/10 vs the baseline 7/10 reflects the stricter honest gate shipped in M4.1, not a
 regression (acceptance rose 21→22). Artifacts: `benchmarks/results/artifacts/20260706_085550_strong/`.
@@ -94,14 +95,20 @@ as part of M10 — the mini-benchmark therefore measures the system WITH those i
 retrievable, by design (M10 = expansion on measured footing). `--no-fewshots` remains the A/B
 switch to measure the lift.
 
+First run (2026-07-10, `--coder auto`, `m10_organic_auto.json`): **2/5 converged, 4/5
+geometry, 6/13 acceptance (46%)**, 58 min — the complexity triage routed every organic spec to
+the 30B, correctly. `min_faces` earned its place immediately: it caught the critic accepting
+two under-perforated parts (o4/o5 converged with the pattern only partially cut). The seeded
+gold idioms did not rescue o1 (sine vase produced no geometry) — organic revolves remain the
+domain's hard edge. This is the honest baseline the domain improves against.
+
 | # | Benchmark | Tier | Key challenge | Result (acc) |
 |---|---|---|---|---|
-| — | *run pending* | — | — | — |
-| o1 | Sine-wave vase | 1 | revolve a sampled sine profile, hollow w/ offset revolve | ⬜ |
-| o2 | Twisted hex vase | 2 | loft rotated hex sections, hollow w/ inner offset stack | ⬜ |
-| o3 | Scalloped coaster | 1 | sinusoidal polar boundary + blind recess | ⬜ |
-| o4 | Hex-perforated grille | 2 | honeycomb hole pattern inside a solid border | ⬜ |
-| o5 | Diamond lampshade | 2 | staggered diamond cutouts through a curved wall | ⬜ |
+| o1 | Sine-wave vase | 1 | revolve a sampled sine profile, hollow w/ offset revolve | ❌ 0/2 (no geometry) |
+| o2 | Twisted hex vase | 2 | loft rotated hex sections, hollow w/ inner offset stack | ⚠️ 0/2 (2 solids, 227mm tall) |
+| o3 | Scalloped coaster | 1 | sinusoidal polar boundary + blind recess | ⚠️ 2/3 (bbox ✓ recess ✓, 2 solids) |
+| o4 | Hex-perforated grille | 2 | honeycomb hole pattern inside a solid border | ✅ 2/3 (min_faces ✗ — pattern under-cut) |
+| o5 | Diamond lampshade | 2 | staggered diamond cutouts through a curved wall | ✅ 2/3 (min_faces ✗ — pattern under-cut) |
 
 ---
 
