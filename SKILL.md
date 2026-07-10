@@ -127,7 +127,7 @@ Small-model quality comes from retrieval + memory, not parameters:
 python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retrieval returns
 ```
 
-## CAM — from model to machine (M9)
+## CAM — from model to machine (M9, M11)
 
 ```bash
 cad --target print "<spec>"                       # slice STL → dry-run-validated gcode (OrcaSlicer,
@@ -135,6 +135,8 @@ cad --target print "<spec>"                       # slice STL → dry-run-valida
                                                   # print_facts; gcode in <build>/print/)
 python3 scripts/dxf <part.step> --kerf 0.3        # laser-ready DXF: outer +kerf/2, holes −kerf/2
 python3 scripts/dxf <part.step> --material acrylic-3mm   # kerf preset (see scripts/dxf header)
+python3 scripts/cnc <part.step> --tool 6 --drill auto    # CNC 2.5D: Pocket+Drilling toolpath,
+                                                          # verified vs stock envelope + hole centres
 ```
 
 Print target config: `print` block in `~/.openclaw/cad.json` ({machine, process, filament} — bare
@@ -145,6 +147,15 @@ and a motion scan — extruding moves must stay on the bed, positive extrusion r
 semantics: the beam removes kerf-width centred on the path, so the drawn outer boundary GROWS by
 kerf/2 and holes SHRINK by kerf/2 — the cut part then measures true (verified: 80×50 plate +
 2×Ø5 holes at kerf 0.3 → DXF 80.30×50.30, holes Ø4.70). Tests: `tests/test_m9_cam.py`.
+
+CNC (`cad_v5/cam_cnc.py`) drives FreeCAD's CAM/Path workbench headlessly (no GUI, no LLM):
+auto-detects through-holes (Drilling) and a closed-pocket floor if the part has one (Pocket —
+proven headless-viable empirically, contra the milestone's worry it might be GUI-bound), posts to
+gcode via the LinuxCNC post, then re-verifies the gcode in pure Python against the stock envelope
+and the part's measured hole centres (0.1mm position tolerance). Output is a VERIFIED SIMULATED
+toolpath — simulated, not cut. Full empirical API writeup (module names, a documented FreeCAD
+1.1.1 headless-only multi-tool-controller bug + its workaround) lives in `cam_cnc.py`'s docstring.
+Tests: `tests/test_m11_cnc.py`.
 
 ## Writing good prompts
 

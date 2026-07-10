@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""
+Generate + verify a CNC 2.5D toolpath (Drilling + Pocket) from a STEP file (M11/X2c).
+
+Usage:
+    python3 scripts/cnc <part.step> [-o outdir] [--tool 6] [--drill auto]
+                         [--margin-xy 2] [--margin-z 1] [--safe-z 5]
+
+Drives FreeCAD's CAM/Path workbench headlessly (see cad_v5/cam_cnc.py for the full empirical
+writeup of the API + a documented headless bug workaround), then re-verifies the resulting gcode
+in pure Python against the stock envelope and the part's own measured hole centres. Deterministic,
+no LLM. Exits nonzero if verification finds any FAIL.
+
+The output is a VERIFIED SIMULATED toolpath — simulated, not cut. Nothing here machines real
+material.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+_scripts_dir = Path(__file__).parent
+_cad_builder = _scripts_dir.parent
+if str(_cad_builder) not in sys.path:
+    sys.path.insert(0, str(_cad_builder))
+
+from cad_v5.cam_cnc import generate_toolpath, verify_toolpath  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("step", help="input STEP file")
+    ap.add_argument("-o", "--outdir", default=None,
+                     help="output directory (default: <step_dir>/cnc)")
+    ap.add_argument("--tool", type=float, default=6.0, help="endmill diameter, mm (default 6.0)")
+    ap.add_argument("--drill", default="auto",
+                     help="drill bit diameter, mm, or 'auto' to size from the smallest "
+                          "detected hole (default: auto)")
+    ap.add_argument("--margin-xy", type=float, default=2.0, help="stock XY margin, mm (default 2.0)")
+    ap.add_argument("--margin-z", type=float, default=1.0, help="stock Z margin, mm (default 1.0)")
+    ap.add_argument("--safe-z", type=float, default=5.0,
+                     help="clearance height above stock top, mm (default 5.0)")
+    args = ap.parse_args()
+
+    step_path = Path(args.step).resolve()
+    if not step_path.exists():
+        print(f"ERROR: File not found: {step_path}", file=sys.stderr)
+        return 1
+
+    out_dir = Path(args.outdir).resolve() if args.outdir else step_path.parent / "cnc"
+    drill_dia = None if str(args.drill).lower() == "auto" else float(args.drill)
+
+    print(f"Building toolpath: {step_path.name}  "
+          f"(tool Ø{args.tool}mm, drill {args.drill}, margins {args.margin_xy}/{args.margin_z}mm)")
+    result = generate_toolpath(step_path, out_dir, stock_margin_xy=args.margin_xy,
+                                stock_margin_z=args.margin_z, tool_dia=args.tool,
+                                drill_dia=drill_dia, safe_z=args.safe_z)
+
+    if result["error"]:
+        print(f"ERROR: {result['error']}", file=sys.stderr)
+        if result.get("log"):
+            print(f"Log: {result['log']}", file=sys.stderr)
+        return 1
+
+    job_facts = result["job_facts"]
+    print(f"Job facts:")
+    print(f"  stock:  {job_facts['stock']['min']} .. {job_facts['stock']['max']} mm")
+    print(f"  tool:   endmill Ø{job_facts['stock']['tool_dia']}mm, "
+          f"drill Ø{job_facts['stock'].get('drill_dia')}mm")
+    print(f"  pocket: {job_facts.get('pocket') or '(none detected)'}")
+    print(f"  holes:  {job_facts.get('n_holes_drilled', 0)} drilled "
+          f"({job_facts.get('n_holes_detected', 0)} detected)")
+    print(f"  ops:    {', '.join(job_facts.get('ops', []))}")
+    print(f"gcode: {result['gcode']}")
+
+    known_holes = [{"x": h["x"], "y": h["y"]} for h in job_facts.get("holes", [])]
+    fails, notes, facts = verify_toolpath(result["gcode"], {"holes": known_holes},
+                                          job_facts["stock"])
+
+    print()
+    print("Verification:")
+    print(f"  n_drills:     {facts.get('n_drills', 0)}")
+    if "cut_envelope" in facts:
+        env = facts["cut_envelope"]
+        print(f"  cut envelope: X {env['x']}  Y {env['y']}  Z {env['z']} mm")
+    print(f"  cut length:   {facts.get('cut_length_mm', 0)} mm")
+    for n in notes:
+        print(f"  NOTE: {n}")
+    if fails:
+        for fmsg in fails:
+            print(f"  FAIL: {fmsg}")
+        print()
+        print("VERIFICATION: FAIL")
+        print("(this is a SIMULATED toolpath — nothing was cut)")
+        return 1
+
+    print()
+    print("VERIFICATION: PASS")
+    print("(this is a VERIFIED SIMULATED toolpath — simulated, not cut)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
