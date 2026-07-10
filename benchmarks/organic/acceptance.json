@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "source": "M10 organic mini-benchmark — in-house acceptance criteria, derived from the specs (2026-07-10).",
+    "checks": "Auto-checkable subset only, same scorer as text-to-cad: solids (fused-body count), bbox_mm (overall size, tol=max(2mm,5%) per axis, axis-invariant sorted compare), min_holes (>= count, via cylindrical-face detection), min_through_holes (through-hole detector), min_faces (total B-rep face count >= N — added for this suite). null = not deterministically checkable (skipped, not failed).",
+    "min_holes_nulls": "o1/o2: the vase surfaces are revolved-sine / lofted-planar — no cylindrical face is guaranteed even in a correct build, so cyl-face-based hole detection cannot see anything; null. o4/o5: hexagonal and diamond cutouts leave PLANAR side faces, invisible to the cylindrical-face detector — a correct grille would score 0 cyl faces; null. o3 keeps min_holes=1: the 70mm circular recess always leaves one cylindrical wall face.",
+    "min_faces": "The honest deterministic proxy for 'the perforation pattern actually exists': each hex hole adds 6 planar side faces (o4: even a sparse ~20-hex fill gives >=126 faces vs 6 for an uncut plate; threshold 100 is conservative), each through-wall diamond adds ~4 (o5: >=24 diamonds ~= 96 faces + ~4 shell faces; threshold 80 is conservative). Left null where a smoother-than-expected correct build could legitimately have very few faces (a spline revolve is one face — o1/o2/o3).",
+    "bbox_notes": "o1: max radius 40 at mid-height -> [80,80,120]. o2: hexagon 60 across flats has 69.28mm corner-to-corner circumdiameter and the 90-degree twist sweeps corners past both axes -> [69.3,69.3,150]. o3: 45mm max scallop radius -> [90,90,6]; the 4.5mm bbox tolerance absorbs wave-phase placement (worst-case phase gives ~86.9mm extent). o5: the diamond cutouts remove material only -> [100,100,120].",
+    "scoring": "score = passed_non_null_criteria / total_non_null_criteria, per benchmark and overall. A failed build scores 0/N (every applicable criterion fails), not 0/0."
+  },
+  "o1": {
+    "solids": 1,
+    "bbox_mm": [
+      80,
+      80,
+      120
+    ],
+    "min_holes": null,
+    "min_through_holes": null,
+    "min_faces": null
+  },
+  "o2": {
+    "solids": 1,
+    "bbox_mm": [
+      69.3,
+      69.3,
+      150
+    ],
+    "min_holes": null,
+    "min_through_holes": null,
+    "min_faces": null
+  },
+  "o3": {
+    "solids": 1,
+    "bbox_mm": [
+      90,
+      90,
+      6
+    ],
+    "min_holes": 1,
+    "min_through_holes": 0,
+    "min_faces": null
+  },
+  "o4": {
+    "solids": 1,
+    "bbox_mm": [
+      100,
+      60,
+      3
+    ],
+    "min_holes": null,
+    "min_through_holes": null,
+    "min_faces": 100
+  },
+  "o5": {
+    "solids": 1,
+    "bbox_mm": [
+      100,
+      100,
+      120
+    ],
+    "min_holes": null,
+    "min_through_holes": null,
+    "min_faces": 80
+  }
+}

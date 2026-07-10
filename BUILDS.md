@@ -79,6 +79,30 @@ The runner records, per benchmark: `converged`, `code_model`, wall time, and re-
 `volume_mm3` / `faces` / `bbox_mm` from the produced STEP, to `benchmarks/results/run_<ts>.json`
 and `latest.json`.
 
+### Organic mini-benchmark (M10) — `python3 scripts/run_benchmarks.py --suite organic`
+
+First non-prismatic domain, on **build123d** (the M8-measured winner — the OpenSCAD backend
+went 0/6, `SCAD_SPIKE.md`). Five specs in `benchmarks/organic/specs.json` +
+`acceptance.json`: smoothly-varying revolves, twisted lofts, wavy 2D boundaries, and
+perforation patterns. New acceptance criterion `min_faces` (total B-rep face count ≥ N) is the
+deterministic proxy for "the perforation pattern actually exists" where hex/diamond cutouts
+are invisible to the cylindrical-face hole detector (see the acceptance `_meta` block).
+
+**Measurement note (recorded honestly):** two verified gold examples teaching the o1/o2
+idioms (sine-profile revolve; twisted loft) were seeded into `~/.openclaw/cad-examples.jsonl`
+as part of M10 — the mini-benchmark therefore measures the system WITH those idioms
+retrievable, by design (M10 = expansion on measured footing). `--no-fewshots` remains the A/B
+switch to measure the lift.
+
+| # | Benchmark | Tier | Key challenge | Result (acc) |
+|---|---|---|---|---|
+| — | *run pending* | — | — | — |
+| o1 | Sine-wave vase | 1 | revolve a sampled sine profile, hollow w/ offset revolve | ⬜ |
+| o2 | Twisted hex vase | 2 | loft rotated hex sections, hollow w/ inner offset stack | ⬜ |
+| o3 | Scalloped coaster | 1 | sinusoidal polar boundary + blind recess | ⬜ |
+| o4 | Hex-perforated grille | 2 | honeycomb hole pattern inside a solid border | ⬜ |
+| o5 | Diamond lampshade | 2 | staggered diamond cutouts through a curved wall | ⬜ |
+
 ---
 
 ## Rating good builds (grows the few-shot store)

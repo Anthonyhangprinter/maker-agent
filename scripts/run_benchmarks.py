@@ -12,6 +12,7 @@ Usage:
   python3 scripts/run_benchmarks.py --only 01,05,08       # specific ids
   python3 scripts/run_benchmarks.py --coder fast          # force a coder for the whole run
   python3 scripts/run_benchmarks.py --timeout 2400        # per-build wall-clock cap (s)
+  python3 scripts/run_benchmarks.py --suite organic       # the M10 organic/pattern mini-benchmark
 """
 import argparse
 import json
@@ -23,9 +24,18 @@ from pathlib import Path
 
 HERE        = Path(__file__).resolve().parent.parent          # .../cad-builder
 DEFAULT_AGENT = "v5"   # the cad_v5 --json entry; pass --agent <path/to/script.py> for legacy v4
-SPECS_FILE  = HERE / "benchmarks" / "text-to-cad" / "specs.json"
-ACCEPT_FILE = HERE / "benchmarks" / "text-to-cad" / "acceptance.json"
+DEFAULT_SUITE = "text-to-cad"
+SPECS_FILE  = HERE / "benchmarks" / DEFAULT_SUITE / "specs.json"
+ACCEPT_FILE = HERE / "benchmarks" / DEFAULT_SUITE / "acceptance.json"
 RESULTS_DIR = HERE / "benchmarks" / "results"
+
+
+def suite_files(suite: str = DEFAULT_SUITE) -> tuple[Path, Path]:
+    """Resolve (specs.json, acceptance.json) for a suite directory under benchmarks/ (M10).
+    The default suite resolves to the exact historical SPECS_FILE/ACCEPT_FILE paths —
+    `--suite` is purely additive; no flag means today's behaviour."""
+    base = HERE / "benchmarks" / suite
+    return base / "specs.json", base / "acceptance.json"
 
 
 def derive_geometry(step_path: str) -> dict:
@@ -105,6 +115,17 @@ def score_acceptance(geom: dict, criteria: dict | None) -> dict:
             checks["through"] = False
         elif thru >= 0:
             checks["through"] = (thru >= exp_through)
+    # min_faces (M10): total B-rep face count >= N — the deterministic proxy for "the
+    # perforation/pattern actually exists" when the cutouts aren't cylindrical (hex/diamond
+    # holes leave planar faces the cyl-face hole detector cannot see). A solid uncut plate
+    # has 6 faces; a hex-perforated one has hundreds.
+    exp_faces = criteria.get("min_faces")
+    if isinstance(exp_faces, int):
+        fc = geom.get("faces", -1)
+        if not built:
+            checks["min_faces"] = False
+        elif isinstance(fc, int) and fc >= 0:
+            checks["min_faces"] = (fc >= exp_faces)
     passed = sum(checks.values())
     total = len(checks)
     return {"score": round(passed / total, 3) if total else None,
@@ -216,15 +237,21 @@ def main():
     ap.add_argument("--agent", default=DEFAULT_AGENT,
                     help='"v5" (default, the cad_v5 --json entry) or a path to a legacy agent '
                          'script accepting: build <spec> --coder X --no-upload')
+    ap.add_argument("--suite", default=DEFAULT_SUITE,
+                    help='benchmark suite dir under benchmarks/ (default "text-to-cad"; '
+                         '"organic" = the M10 organic/pattern mini-benchmark)')
     a = ap.parse_args()
     if str(a.agent) != "v5" and not Path(a.agent).exists():
         print(f"Agent not found: {a.agent}"); sys.exit(1)
 
-    data = json.loads(SPECS_FILE.read_text())
+    specs_file, accept_file = suite_files(a.suite)
+    if not specs_file.exists():
+        print(f"Suite not found: {specs_file}"); sys.exit(1)
+    data = json.loads(specs_file.read_text())
     benches = data["benchmarks"]
     acceptance = {}
-    if ACCEPT_FILE.exists():
-        acceptance = {k: v for k, v in json.loads(ACCEPT_FILE.read_text()).items()
+    if accept_file.exists():
+        acceptance = {k: v for k, v in json.loads(accept_file.read_text()).items()
                       if not k.startswith("_")}
     if a.tiers:
         keep = {int(t) for t in a.tiers.split(",")}
@@ -235,7 +262,8 @@ def main():
     if not benches:
         print("No benchmarks match the filter."); sys.exit(1)
 
-    print(f"Running {len(benches)} benchmark(s): {', '.join(b['id'] for b in benches)}  "
+    print(f"Running {len(benches)} benchmark(s) from suite '{a.suite}': "
+          f"{', '.join(b['id'] for b in benches)}  "
           f"(--coder {a.coder}, per-build timeout {a.timeout}s)")
     t0 = time.monotonic()
     run_tag = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{a.coder}"
@@ -250,7 +278,8 @@ def main():
     acc_score = round(acc_passed / acc_total, 3) if acc_total else None
     summary = {
         "ran_at": datetime.now(timezone.utc).isoformat(),
-        "agent": str(a.agent), "coder": a.coder, "fewshots": not a.no_fewshots, "count": len(rows),
+        "agent": str(a.agent), "suite": a.suite, "coder": a.coder,
+        "fewshots": not a.no_fewshots, "count": len(rows),
         "converged": n_conv, "geometry": n_geom, "total_time_s": total,
         "acceptance_passed": acc_passed, "acceptance_total": acc_total, "acceptance_score": acc_score,
         "results": rows,
