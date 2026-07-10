@@ -86,6 +86,15 @@ cad "a flange: 80mm OD, 10mm thick, 30mm through-bore, 6x M6 bolt holes on a 60m
 cad "a shaft 12mm dia x 100mm long with a 4mm cross-hole 20mm from one end"
 ```
 
+**Organic and pattern parts** — the agent isn't limited to boxy engineering shapes: it can also
+build smoothly-varying and decorative forms — vases whose radius swells and shrinks along the
+height, twisted prisms, wavy/scalloped edges, and repeating perforation patterns (honeycomb
+grilles, diamond-pierced shells). The same rules apply: give every dimension explicitly, and for
+waves/twists/patterns say *how many* and *how big* — e.g.
+`cad "a vase 120mm tall, round, radius swelling from 30mm at the base to 40mm at mid-height and back to 30mm at the top, 2.5mm walls, closed floor, open top"`,
+`cad "a hexagonal vase 60mm across flats, 150mm tall, twisted 90 degrees over its height, 2.5mm walls"`, or
+`cad "a 100x60x3mm grille with hexagonal holes 7mm across flats, 2mm webs, inside a solid 6mm border"`.
+
 ### If your spec is missing something
 
 Before the first build, the agent runs a quick check: does this carry enough (an overall size,
