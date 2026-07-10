@@ -129,8 +129,74 @@ import). Change the default target permanently in `~/.openclaw/cad.json` (NOT `o
 gateway's strict schema rejects a top-level `cad` key):
 
 ```json
-{ "cad": { "output_target": "cad-viewer" } }   // or "onshape", "freecad", "fstl", "file"
+{ "output_target": "cad-viewer" }   // or "onshape", "freecad", "print", "fstl", "file"
 ```
+
+---
+
+## From model to machine (CAM)
+
+Two production processes are wired end-to-end — the output isn't just geometry-true, it's
+machine-ready and **checked**.
+
+### 3D printing — `--target print`
+
+```bash
+cad --target print "a 100x70x30mm enclosure with 2mm walls"
+```
+
+Slices the build's STL with OrcaSlicer (headless, Bambu Lab A1 profile by default) and
+**dry-run-validates** the gcode before you ever send it to a printer:
+
+- the slicer's own verdict (`return_code`, per-plate warning messages — the "empty layer /
+  unprintable geometry" signal),
+- the gcode header (layer count > 0, a time estimate, max Z height),
+- a motion scan of the actual gcode: every **extruding** move must land on the machine's bed
+  (envelope read from the machine profile; travel/wipe moves may legitimately leave it),
+  printed height within the machine limit, and total extrusion > 0.
+
+The result reports `print_ok` with `print_fails` (problems), `print_notes` (soft caveats) and
+`print_facts` (layers, estimated time, filament use, printed-footprint bbox). Gcode lands in a
+`print/` folder next to the build's STEP. First use extracts the Bambu system profiles from the
+OrcaSlicer AppImage into `~/.openclaw/cam-profiles/` automatically (one-time, a few seconds).
+
+Change the machine/process/filament with a `print` block in `~/.openclaw/cad.json` (NOT
+openclaw.json — same rule as always). Bare names resolve inside the extracted profile tree's
+`machine/` / `process/` / `filament/` subdirs; absolute paths pass through:
+
+```json
+{ "print": { "machine":  "Bambu Lab A1 0.4 nozzle.json",
+             "process":  "0.20mm Standard @BBL A1.json",
+             "filament": "Bambu PLA Basic @BBL A1.json" } }
+```
+
+Prerequisites: an OrcaSlicer AppImage under `~/Applications/` (or `$ORCA_SLICER` / `orca-slicer`
+on PATH) and `xvfb-run` (package `xvfb`) — the slicer CLI needs a virtual display headlessly.
+
+### Laser cutting — kerf-compensated DXF
+
+```bash
+python3 scripts/dxf ~/.openclaw/cad-last-build.step --kerf 0.3
+python3 scripts/dxf ~/.openclaw/cad-last-build.step --material acrylic-3mm
+```
+
+A laser removes a kerf-wide strip **centred on the cut path**, so an uncompensated DXF cuts
+parts that measure small and holes that measure big. With `--kerf` (or a `--material` preset)
+the geometry is pre-offset so the finished part measures right:
+
+| Feature | Drawn | Why |
+|---|---|---|
+| Outer boundary | **grows** by kerf/2 | the beam eats kerf/2 back inward → lands on the true edge |
+| Interior holes | **shrink** by kerf/2 | the beam eats kerf/2 outward → lands on the true hole edge |
+
+Verified deterministically: an 80×50mm plate with two Ø5mm holes at `--kerf 0.3` produces a DXF
+measuring 80.30×50.30mm with Ø4.70mm holes. Compensated output uses `cut-outer` / `cut-holes`
+layers plus a `kerf-note` text annotation recording the applied kerf; without a kerf flag the
+output is unchanged from before (single `profile` layer, true dimensions).
+
+Material presets (typical values — tune per machine): `acrylic-3mm` 0.20, `acrylic-6mm` 0.30,
+`plywood-3mm` 0.30, `plywood-6mm` 0.40, `mdf-3mm` 0.30, `steel-1mm-fiber` 0.15.
+`--kerf` wins if both flags are given.
 
 ---
 
