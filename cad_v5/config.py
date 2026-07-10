@@ -88,6 +88,11 @@ PRINT_PROCESS_DEFAULT  = "0.20mm Standard @BBL A1.json"
 PRINT_FILAMENT_DEFAULT = "Bambu PLA Basic @BBL A1.json"
 SLICE_TIMEOUT          = 300
 
+# ── CAM: CNC 2.5D toolpaths via FreeCAD Path/CAM (M11/X2c) ─────────────────────
+# A small plate's Pocket+Drilling recompute takes a few seconds; the AppImage cold-start
+# (~10-20s) dominates the wall time. See cad_v5/cam_cnc.py for the full empirical writeup.
+CNC_TIMEOUT = 300
+
 def print_config() -> dict:
     """cad.json `print` block — CAM print-target overrides (same file/pattern as `public_uploads()`
     and `cloud_config()` above — NEVER put this in openclaw.json, only cad.json):

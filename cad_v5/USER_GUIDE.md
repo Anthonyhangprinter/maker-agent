@@ -198,6 +198,36 @@ Material presets (typical values — tune per machine): `acrylic-3mm` 0.20, `acr
 `plywood-3mm` 0.30, `plywood-6mm` 0.40, `mdf-3mm` 0.30, `steel-1mm-fiber` 0.15.
 `--kerf` wins if both flags are given.
 
+### CNC milling — 2.5D toolpaths (`scripts/cnc`)
+
+```bash
+python3 scripts/cnc ~/.openclaw/cad-last-build.step --tool 6 --drill auto
+python3 scripts/cnc ~/.openclaw/cad-last-build.step -o /tmp/mypart-cnc --margin-xy 3 --safe-z 8
+```
+
+Drives FreeCAD's CAM/Path workbench headlessly (no GUI, no LLM) to generate a Drilling operation
+against the part's own through-holes, plus a Pocket operation if the part has a closed cavity
+(a plate with only holes has none — that's fine, drilling alone is reported honestly). Both
+operations are auto-detected from MEASURED geometry: holes via FreeCAD's own cylindrical-face
+hole finder, the pocket floor via a planar-face classifier (a face inset from every outer edge,
+sitting strictly between the stock's top and bottom). Posts to gcode with the LinuxCNC
+post-processor (native G81/G82/G83 canned drill cycles).
+
+The gcode is then **re-verified in pure Python** (no FreeCAD) against the stock envelope and the
+part's own measured hole centres:
+
+- every cutting move stays within the stock's XY footprint (+ tool radius) and above its bottom,
+- at least one real cutting move exists (not just rapids),
+- no rapid move plunges below the stock's top surface while over its footprint (basic crash check),
+- every detected hole gets drilled, no extras, each within 0.1mm of its measured centre.
+
+**This is a VERIFIED SIMULATED toolpath — simulated, not cut.** Nothing here machines real
+material; `scripts/cnc` prints `VERIFICATION: PASS`/`FAIL` and exits nonzero on any FAIL.
+Output lands in `<step_dir>/cnc/` (`toolpath.ngc`, `job_facts.json`, a FreeCAD build log).
+See `cad_v5/cam_cnc.py`'s module docstring for the full empirical API writeup — including a
+documented FreeCAD 1.1.1 headless-only bug (crashes when a Job has >1 tool controller and no GUI
+is present) and its workaround.
+
 ---
 
 ## Speed & quality controls
