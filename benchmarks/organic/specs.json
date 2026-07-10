@@ -1,0 +1,26 @@
+{
+  "source": "M10 organic/pattern mini-benchmark (in-house, 2026-07-10) — first non-prismatic domain, on build123d per the M8 verdict (SCAD_SPIKE.md: OpenSCAD backend 0/6, rejected).",
+  "note": "Five organic/pattern specs for the local v5 build123d agent: smoothly-varying revolves, twisted lofts, wavy 2D boundaries, and perforation patterns. Tiers: 1=easiest two, 2=the rest. Phrased 4-S's style with every dimension explicit. Run: python3 scripts/run_benchmarks.py --suite organic",
+  "benchmarks": [
+    {
+      "id": "o1", "name": "Sine-wave vase", "tier": 1,
+      "spec": "A vase 120mm tall along Z with a circular cross-section, centred on the Z axis, base at Z=0. Its outer radius varies sinusoidally along the height: 30mm at the base (Z=0), 40mm at mid-height (Z=60), and back to 30mm at the top (Z=120), following a smooth half-sine. Wall thickness 2.5mm, a closed solid floor 3mm thick, and a fully open top."
+    },
+    {
+      "id": "o2", "name": "Twisted hex vase", "tier": 2,
+      "spec": "A hexagonal vase 150mm tall along Z, base at Z=0, centred on the Z axis. The cross-section is a regular hexagon 60mm across flats that twists smoothly by 90 degrees total from the base to the top. Wall thickness 2.5mm, a closed solid floor 3mm thick, and a fully open top."
+    },
+    {
+      "id": "o3", "name": "Scalloped coaster", "tier": 1,
+      "spec": "A round coaster 6mm thick along Z, bottom at Z=0, centred on the Z axis, with a scalloped (wavy) edge: the outer radius varies sinusoidally around the circumference between 42mm and 45mm (so 90mm maximum diameter), with exactly 12 scallop waves and 3mm radial wave depth. The top face has a centred circular recess 70mm in diameter and 2mm deep (not through)."
+    },
+    {
+      "id": "o4", "name": "Hex-perforated grille", "tier": 2,
+      "spec": "A flat rectangular grille plate 100mm in X, 60mm in Y, 3mm thick in Z, centred on the origin in X and Y with its bottom at Z=0. A solid border 6mm wide runs around the outer edge; the area inside the border is filled with a honeycomb pattern of hexagonal through-holes, each hexagon 7mm across flats, with 2mm webs of material between neighbouring hexagons. Only hexagons that fit entirely inside the bordered area are cut."
+    },
+    {
+      "id": "o5", "name": "Diamond lampshade", "tier": 2,
+      "spec": "A cylindrical lampshade shell with its axis along Z, base at Z=0: 100mm outer diameter, 120mm tall, 2.5mm wall thickness, open at BOTH the top and the bottom (a plain tube, no floor and no lid). The wall is perforated by staggered horizontal rows of diamond-shaped cutouts (squares rotated 45 degrees), each diamond 10mm across its diagonals, cut radially through the wall, with at least 24 cutouts in total distributed around the shell."
+    }
+  ]
+}
