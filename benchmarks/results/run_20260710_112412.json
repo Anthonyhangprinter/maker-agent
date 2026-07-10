@@ -1,0 +1,199 @@
+{
+  "ran_at": "2026-07-10T01:24:12.381729+00:00",
+  "agent": "scad_agent.py",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 0,
+  "total_time_s": 2682.5,
+  "acceptance_passed": 0,
+  "acceptance_total": 22,
+  "acceptance_score": 0.0,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 216.5,
+      "turns": 4,
+      "n1_autofixes": 8,
+      "wall_time_s": 217.2,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "unknown": 4
+      },
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 257.9,
+      "turns": 4,
+      "n1_autofixes": 8,
+      "wall_time_s": 258.6,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "unknown": 4
+      },
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 553.4,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 554.1,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "timeout": 1,
+        "gate_watertight": 3
+      },
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 92.7,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 93.4,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "gate_watertight": 4
+      },
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 845.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "lient.py\", line 297, in _read_status\n    line = str(self.fp.readline(_MAXLINE + 1), \"iso-8859-1\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/socket.py\", line 707, in readinto\n    return self._sock.recv_into(b)\n           ^^^^^^^^^^^^^^^^^^^^^^^\nTimeoutError: timed out\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 712.8,
+      "turns": 4,
+      "n1_autofixes": 8,
+      "wall_time_s": 713.6,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "unknown": 4
+      },
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}

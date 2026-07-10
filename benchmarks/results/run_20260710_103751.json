@@ -1,0 +1,247 @@
+{
+  "ran_at": "2026-07-10T00:37:51.850425+00:00",
+  "agent": "v5",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 5,
+  "geometry": 5,
+  "total_time_s": 2273.1,
+  "acceptance_passed": 15,
+  "acceptance_total": 22,
+  "acceptance_score": 0.682,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 323.5,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 326.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 115244.2,
+      "solids": 1,
+      "faces": 22,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260710_095958_fast/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 363.1,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 365.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 41259.8,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260710_095958_fast/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 362.3,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 369.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 60424.4,
+      "solids": 1,
+      "faces": 92,
+      "cyl_faces": 18,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        34.0
+      ],
+      "through_holes": 6,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260710_095958_fast/03.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 620.4,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 383.8,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 386.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 65604.4,
+      "solids": 1,
+      "faces": 19,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 4,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260710_095958_fast/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q5_k_m",
+      "agent_build_time_s": 184.2,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 186.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 138886.2,
+      "solids": 1,
+      "faces": 22,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        125.0,
+        60.0,
+        120.0
+      ],
+      "through_holes": 3,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260710_095958_fast/06.step",
+      "acceptance": {
+        "score": 0.25,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 1,
+        "total": 4
+      },
+      "geometry": true
+    }
+  ]
+}
