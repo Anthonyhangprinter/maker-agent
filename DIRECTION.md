@@ -136,14 +136,14 @@ free deterministic ops) around our CAD Viewer. UX multiplier, deliberately after
 
 ## Part 4 — Sequencing proposal
 
-| Milestone | Contents | Rationale |
-|---|---|---|
-| M6′ | fine-tune (whenever budget approved) | parallel track; **data-mix decision (build123d vs .scad vs both) waits for M8's verdict** |
-| M7 | N1 + N2 + N3 (+N6 docs) | reliability + interaction; all small-model leverage, no new deps |
-| M8 | X1 OpenSCAD backend spike → benchmark verdict | cheap, decides the second backend + rescue rung + informs M6 data mix |
-| M9 | X2a print + X2b laser kerf | completes idea→object for the two processes users have today |
-| M10 | organic expansion on M8's winner (BOSL2 patterns; SDF for lattices) + organic mini-benchmark | first new modelling domain, on measured footing |
-| M11 | X2c CNC via FreeCAD Path; then X3/X4/X5 | deepest capability, builds on E2 |
+| Milestone | Contents | Rationale | Status |
+|---|---|---|---|
+| M6′ | fine-tune (whenever budget approved) | parallel track; **data-mix decision (build123d vs .scad vs both) waits for M8's verdict** | blocked on budget go-ahead |
+| M7 | N1 + N2 + N3 (+N6 docs) | reliability + interaction; all small-model leverage, no new deps | **DONE 2026-07-10** — `m7_7b_tiers12_run1/2.json` (2/6 then 5/6 vs 4/6 baseline; variance-dominated), N2 behavioral 6/6, N3 offline 13/13; honest N1 verdict in PROJECT.md History |
+| M8 | X1 OpenSCAD backend spike → benchmark verdict | cheap, decides the second backend + rescue rung + informs M6 data mix | code DONE (merged, 14/14 deterministic tests, STEP recovery proven on goldens); **benchmark verdict pending** — `m8_scad_7b_tiers12` running |
+| M9 | X2a print + X2b laser kerf | completes idea→object for the two processes users have today | **DONE 2026-07-10** — enclosure sliced 150 layers in-bed + dry-run-validated (OrcaSlicer 2.4.2); kerf DXF measured exact (80.30×50.30 / Ø4.70 @ 0.3), 7/7 tests |
+| M10 | organic expansion on M8's winner (BOSL2 patterns; SDF for lattices) + organic mini-benchmark | first new modelling domain, on measured footing | blocked on M8 verdict |
+| M11 | X2c CNC via FreeCAD Path; then X3/X4/X5 | deepest capability, builds on E2 | open |
 
 N4/N5/N7 slot into whichever milestone touches their files (N5 naturally with X5's photo work).
 

@@ -53,9 +53,18 @@ Headline (baselines, pre-bug-fix engine): 30B full suite **7/10 converged, 21/31
 |---|---|---|---|---|---|
 | M4.1 | `--coder fast` (7B) | tiers 1–2 (6) | **4/6** | 13/22 (59%) | `m41_7b_tiers12.json` |
 | Showcase | `--coder strong` (30B) | all 10 | **6/10** | 22/31 (71%) | `showcase_30b_full.json` |
+| M7 run 1 (2026-07-09) | `--coder fast` (7B), post-N1/N2/N3 engine | tiers 1–2 (6) | 2/6 | 7/22 (32%) | `m7_7b_tiers12_run1.json` |
+| M7 run 2 (2026-07-10) | same engine, variance re-run | tiers 1–2 (6) | **5/6** | 15/22 (68%) | `m7_7b_tiers12_run2.json` |
 
 The showcase's 6/10 vs the baseline 7/10 reflects the stricter honest gate shipped in M4.1, not a
 regression (acceptance rose 21→22). Artifacts: `benchmarks/results/artifacts/20260706_085550_strong/`.
+
+The M7 pair is the honest variance picture at n=6 with a temperature-sampled 7B: the two runs
+bracket the 4/6 baseline (failures are single-category loops — the 7B repeats one mistake all
+turns — not engine crashes; run 1's four `rc=1` rows are the pre-existing raise-on-zero-geometry
+path). N1's inline retries fired only on builds that ultimately failed anyway; converging builds
+needed ≤2 turns with zero autofixes. Per-row `turns` + `n1_autofixes` are recorded from these runs
+onward.
 
 ```bash
 SCRIPT=~/.openclaw/skills/cad-builder

@@ -114,7 +114,10 @@ genuinely don't apply, and say so when skipping:
 | M4 question-critique + section-axis | done (as M4.1) | `m41_7b_tiers12.json` 4/6 conv, 13/22 acc, zero critic false-blocks |
 | M5 B7 v5 migration | done | benchmark defaults to v5 `--json`; Satine parses one JSON line; upload single-sourced in `cad_v5/targets.py` |
 | M5 E2 FreeCAD target | done v1, live-verified | box-grammar STEP → parametric `.FCStd` (Params spreadsheet + Cut tree), verified by STEP re-export |
-| M6 fine-tune (QLoRA 7B) | next big item | needs user go-ahead (rented GPU cost) |
+| M6′ fine-tune (QLoRA 7B) | blocked on budget | needs user go-ahead (rented GPU cost); data mix waits on M8 verdict |
+| M7 N1+N2+N3+N6 (DIRECTION) | done 2026-07-10 | `m7_7b_tiers12_run1/2.json` 2/6→5/6 (baseline 4/6, variance-dominated); N2 behavioral 6/6; N3 offline 13/13; Satine updated live (backup `cad-telegram.py.bak-m7`) |
+| M8 OpenSCAD spike (X1) | code done; verdict PENDING | 14/14 deterministic tests; STEP recovery ≤2% on 3 goldens; benchmark `m8_scad_7b_tiers12` decides backend/rescue/reject |
+| M9 CAM print + laser kerf (X2a/b) | done 2026-07-10 | enclosure → 150-layer in-bed validated gcode (OrcaSlicer 2.4.2 AppImage + xvfb-run, profiles at `~/.openclaw/cam-profiles/`); kerf DXF exact (80.30×50.30/Ø4.70 @0.3), 7/7 tests |
 
 **Coder ladder: 7B → 30B (2 rungs).** The 14B was measured OUT twice (`m1_14b_tiers12.json`: 3/6
 at 583–804s — slower than the 30B MoE, weaker than the 7B); `--coder mid` stays manual-only.
@@ -129,17 +132,30 @@ The 6/10 vs the older 7/10 baseline reflects a stricter honest gate, not a regre
 
 ## Open work, in order
 
-1. **Gallery rebuild after the showcase run** — the published model gallery (Artifact URL below) is
-   stale. Regenerate it from repo truth per the "gallery generator" spec below: one section per
-   archived run json in `benchmarks/results/` (now including `showcase_30b_full.json`), a card per
-   benchmark row. Renders may not survive per run — cards without a surviving PNG say so honestly.
-   User wants it EXTENSIVE (every model ever made, incl. 30B tier-3 parts).
-2. **E2 v2** — extend `cad_v5/freecad_export.py` grammar beyond box parts: cylinder-based parts
+1. **M8 verdict** — `m8_scad_7b_tiers12` benchmark (running/latest) decides the OpenSCAD backend's
+   role per `SCAD_SPIKE.md`'s rubric: organic backend / rescue rung / rejected-with-numbers. Then
+   the rescue-rung A/B analysis (7B+OpenSCAD vs 30B+build123d escalation on the specs the 7B+b123d
+   failed) and M10 unblocks on the winner.
+2. **Gallery rebuild** — the published model gallery (Artifact URL below) is stale. Regenerate via
+   `~/Documents/cad-agent-docs/gen_gallery.py` extended with the new run jsons
+   (`m7_7b_tiers12_run1/2`, `m8_scad_7b_tiers12`, `showcase_30b_full`) + artifact dirs; republish
+   to the SAME URL. User wants it EXTENSIVE (every model ever made, incl. 30B tier-3 parts).
+3. **M11 CNC 2.5D** (X2c) — FreeCAD Path via the E2 bridge; gate: plate part → pocket+drill
+   toolpath, bounds verified vs part bbox + stock, simulated not cut.
+4. **N1 follow-ups** — strategy-change on the final inline retry (drop/simplify the failing
+   feature instead of re-revising) + N4 API-doc retrieval (api_misuse was a full-run loop on 03).
+5. **E2 v2** — extend `cad_v5/freecad_export.py` grammar beyond box parts: cylinder-based parts
    (flanges, shafts), blind holes/pockets, fillet/chamfer as real FreeCAD features. Keep the
    verify-by-STEP-reexport rule (`freecad_export.convert` diffs volume/bbox vs the agent's own STEP).
-3. **M6 fine-tune** — recipe in `ROADMAP.md` Track D. Ask the user before spending on a rented GPU.
-4. **Horizon** — assemblies end-to-end validation, image-conditioned builds (Satine already stashes
-   reference photos in sessions), photo→slicer advisor. See `ROADMAP.md` §7.
+6. **M6′ fine-tune** — recipe in `ROADMAP.md` Track D. Ask the user before spending on a rented
+   GPU; training-data mix (build123d / .scad / both) decided by M8's verdict.
+7. **Horizon** — assemblies end-to-end validation, image-conditioned builds (Satine already stashes
+   reference photos in sessions), photo→slicer advisor. See `ROADMAP.md` §7 and DIRECTION.md X3-X6.
+
+New machine deps (all sudo-free, installed 2026-07-09/10): OpenSCAD 2021.01 AppImage +
+OrcaSlicer 2.4.2 AppImage in `~/Applications/`; BOSL2 at `~/repos/BOSL2` (linked into
+`~/.local/share/OpenSCAD/libraries/`); python `trimesh`; Bambu profiles auto-extracted to
+`~/.openclaw/cam-profiles/BBL/`.
 
 ---
 

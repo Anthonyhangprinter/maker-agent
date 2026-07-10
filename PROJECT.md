@@ -217,6 +217,43 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-10 — M7 methodology trio + M8 OpenSCAD spike (code) + M9 CAM shipped (DIRECTION.md sequencing):**
+  1. *M7/N1 traceback auto-fix:* syntax/run failures now retry INLINE inside the turn
+     (`N1_RETRIES=2` in `cad_v5/config.py`) with the raw error re-prompted to the same coder;
+     recovery falls through to inspect without burning the turn, exhausted retries count one
+     failed turn so the escalation ladder still works; `turns` + `n1_autofixes` recorded per
+     benchmark row. **Measured honestly:** two tier-1/2 7B runs bracket the 4/6 baseline —
+     `m7_7b_tiers12_run1.json` 2/6 (7/22) vs `m7_7b_tiers12_run2.json` **5/6 (15/22)**; variance
+     dominates at n=6. N1 never fired on converging builds (all ≤2 turns) and did not rescue the
+     persistent-error builds (the 7B loops on one failure category 10-12×: edge_selection,
+     api_misuse, fillet_chamfer) — recorded as *no measured lift; kept because it is zero-cost
+     when idle*; follow-ups: strategy-change on final retry, N4 API-doc retrieval for api_misuse.
+  2. *M7/N2 ambiguity gate:* `triage_ambiguity()` (qwen3:8b, schema) asks 2-3 bounded questions
+     instead of guessing when a spec lacks its basic size/form. Interactive CLI asks inline;
+     `--json` mode is opt-in via `--ask` (benchmark path provably unchanged); Satine asks in-chat
+     and resolves the next plain message as the answer. Behavioral test: 3/3 vague prompts →
+     questions, 3/3 tier-1 specs → pass-through (`tests/behavioral_n2.py`).
+  3. *M7/N3 brief-as-contract:* the brief is a persistent, PATCHABLE contract
+     (`~/.openclaw/cad-contract.json`); refine turns run `patch_brief()` → deterministic
+     `apply_brief_patch()` (untouched fields byte-identical) → `build(brief_override=…)`, and
+     surface a field-level `Δ intent:` line (CLI + Satine). Full-regeneration fallback on any
+     patch failure. Satine cross-subprocess delta remains a known gap (fresh `--once` per turn).
+  4. *M7/N6:* 4 S's prompting rubric + clearance table + named-hardware note in `cad --help`,
+     USER_GUIDE, SKILL.md, Satine `/help`.
+  5. *M8 OpenSCAD spike (code merged, verdict pending measurement):* `scripts/scad` runner
+     (AppImage, verified camera presets — "top" is the UNROTATED camera, not 90,0,0),
+     `scad_mesh_gate.py` (trimesh: watertight/volume/bbox/body-count; genus as a through-hole
+     lower bound — advisory, blind features invisible to topology), `scad_step_recovery.py`
+     (.csg → FreeCAD importCSG → STEP, revalidated by build123d volume/bbox diff — all three
+     goldens recovered ≤2%), `scad_agent.py` (legacy benchmark CLI contract, no few-shots — the
+     training-data hypothesis stands alone). Gate parity: bbox demoted to advisory to mirror the
+     2026-06-26 B-rep gate redesign (the expected block is a brief guess in both backends).
+  6. *M9 CAM:* `print` output target — OrcaSlicer 2.4.2 AppImage headless (xvfb-run), Bambu
+     profiles auto-extracted to `~/.openclaw/cam-profiles/`, deterministic gcode dry-run
+     validation (result.json + header + extruding-moves-within-bed read from the profile's
+     `inherits` chain). Gate met: 100×70×30 enclosure → 150 layers, in-bed, validated; open-shell
+     mesh genuinely fails. `scripts/dxf --kerf/--material`: outer +kerf/2, holes −kerf/2
+     (`Kind.INTERSECTION`), measured exact via ezdxf (80.30×50.30 / Ø4.70 at kerf 0.3).
 - **2026-07-06 — M4.1 / M5 / E2 shipped (see `ROADMAP.md` §8 for milestone detail):**
   1. *M4.1 question-based critique:* `verify_questions` + `_CRITIC_QA_SYSTEM` in `cad_agent_v4.py`
      turn the critic into per-feature binary Q&A (CADCodeVerify pattern); the gate never asserts a
