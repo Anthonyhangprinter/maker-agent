@@ -1,6 +1,6 @@
 """Single seam to the validated build123d pipeline engine.
 
-The v4.3 engine (`cad_agent_v4.py`) holds the validated brief / codegen / gate / critic / loop /
+The v4.3 engine (`cad_engine.py`) holds the validated brief / codegen / gate / critic / loop /
 learning logic — the part with hard-won decision-rules (escalation guards, advisory-vs-hard gate,
 the measured learning loop). v5 re-architects the OUTPUT layer and the USER FLOW around that engine
 rather than re-deriving it. This module is the ONLY place v5 imports the engine, so the rest of v5
@@ -10,7 +10,7 @@ depends on stable names here; the engine internals can later be physically split
 import importlib
 from . import config  # noqa: F401  (ensures sys.path + logging are set up before importing engine)
 
-_engine = importlib.import_module("cad_agent_v4")
+_engine = importlib.import_module("cad_engine")
 
 # Core loop + refine
 build          = _engine.build            # (spec, coder, use_fewshots, do_upload, final_render,
@@ -18,7 +18,7 @@ build          = _engine.build            # (spec, coder, use_fewshots, do_uploa
 merge_spec     = _engine.merge_spec       # (original, feedback, history) -> new spec
 store_feedback = _engine.store_feedback   # (result, rating, comment)
 
-# N2 (ambiguity gate) / N3 (brief-as-contract) — see cad_agent_v4 for the full contracts.
+# N2 (ambiguity gate) / N3 (brief-as-contract) — see cad_engine for the full contracts.
 triage_ambiguity  = _engine.triage_ambiguity     # (spec) -> [questions] ([] if buildable/failed)
 patch_brief       = _engine.patch_brief          # (brief, feedback) -> (patched_brief|None, delta)
 apply_brief_patch = _engine.apply_brief_patch    # (brief, changes, +features, -features) -> (brief, delta)

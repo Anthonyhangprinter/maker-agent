@@ -1,6 +1,6 @@
 """Shared configuration: paths, models, loop constants, config/credential loaders, logging.
 
-Extracted verbatim from cad_agent_v4.py (v4.3) so behaviour is identical. The CAD builder root
+Extracted verbatim from cad_engine.py (v4.3) so behaviour is identical. The CAD builder root
 (`_HERE`) resolves to the parent package dir so `scripts/`, `b123d/`, and `cad_retrieval` still
 resolve exactly as before.
 """
@@ -163,5 +163,5 @@ def tg_token() -> str:
                .get("accounts", {}).get("cad", {}).get("botToken", ""))
 
 # NOTE: per-build code-model routing (triage / escalation / manual --coder) lives in the
-# engine (cad_agent_v4._ACTIVE_CODE_MODEL / _code_model). A parallel holder here was dead
+# engine (cad_engine._ACTIVE_CODE_MODEL / _code_model). A parallel holder here was dead
 # code with no consumer and was removed; extract it for real when codegen.py is split out.

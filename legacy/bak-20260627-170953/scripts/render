@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""
+Render a STEP/STL file to an isometric shaded PNG — headless (matplotlib Agg).
+
+Usage:
+    python3 scripts/render <file.step|file.stl> [out.png]
+
+Used by the v4 agentic loop to give the (text-only) coder model "sight" via a
+multimodal critic. Tessellates the solid with build123d (no trimesh dependency),
+shades each triangle with a simple Lambert term, and writes a single isometric view.
+Prints  PNG: <path>  on success; exits 1 on error.
+"""
+import sys
+import math
+from pathlib import Path
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/render <file.step|file.stl> [out.png]", file=sys.stderr)
+    sys.exit(1)
+
+in_path = Path(sys.argv[1]).resolve()
+out_path = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else in_path.with_suffix(".png")
+
+if not in_path.exists():
+    print(f"ERROR: File not found: {in_path}", file=sys.stderr)
+    sys.exit(1)
+
+# ── b123d library importable (mirrors scripts/step) ────────────────────────────
+_scripts_dir = Path(__file__).parent
+_cad_builder = _scripts_dir.parent
+for _p in [str(_cad_builder)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# ── Load shape ──────────────────────────────────────────────────────────────--
+try:
+    ext = in_path.suffix.lower()
+    if ext in (".step", ".stp"):
+        from build123d import import_step
+        shape = import_step(str(in_path))
+    elif ext == ".stl":
+        from build123d import import_stl
+        shape = import_stl(str(in_path))
+    else:
+        print(f"ERROR: Unsupported extension {ext!r} (need .step/.stp/.stl)", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"ERROR: Failed to load {in_path.name}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Tessellate (tolerance scaled to part size so tris stay bounded) ─────────────
+try:
+    bbox = shape.bounding_box()
+    diag = math.sqrt(bbox.size.X ** 2 + bbox.size.Y ** 2 + bbox.size.Z ** 2)
+    tol = min(5.0, max(0.1, diag / 150.0))
+    verts, tris = shape.tessellate(tol)
+except Exception as e:
+    print(f"ERROR: Tessellation failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not tris:
+    print("ERROR: No triangles produced — geometry may be empty.", file=sys.stderr)
+    sys.exit(1)
+
+import numpy as np
+
+V = np.array([(v.X, v.Y, v.Z) for v in verts], dtype=float)
+
+# ── Lambert shading per triangle ────────────────────────────────────────────--
+light = np.array([0.5, -0.6, 0.8])
+light = light / np.linalg.norm(light)
+
+polys = []
+shades = []
+for a, b, c in tris:
+    p0, p1, p2 = V[a], V[b], V[c]
+    n = np.cross(p1 - p0, p2 - p0)
+    ln = np.linalg.norm(n)
+    if ln < 1e-12:
+        continue
+    n = n / ln
+    intensity = 0.35 + 0.65 * max(0.0, abs(float(np.dot(n, light))))
+    polys.append([p0, p1, p2])
+    shades.append(intensity)
+
+if not polys:
+    print("ERROR: All triangles degenerate.", file=sys.stderr)
+    sys.exit(1)
+
+# ── Render (Agg, no display / GL) ──────────────────────────────────────────────
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+base = np.array([0.30, 0.55, 0.85])  # steel-blue
+facecolors = [tuple((base * s).clip(0, 1)) + (1.0,) for s in shades]
+
+# Equal aspect: fit a cube around the bounding box
+mins = V.min(axis=0)
+maxs = V.max(axis=0)
+center = (mins + maxs) / 2.0
+span = float((maxs - mins).max()) or 1.0
+half = span / 2.0 * 1.05
+
+
+def _draw(ax, elev, azim, title):
+    # A fresh Poly3DCollection per axes (a collection belongs to one axes).
+    # No edge lines: internal triangulation of flat faces must not show, or a multimodal
+    # critic mistakes the tessellation fan for real facets. Coplanar tris share a normal,
+    # so flat faces shade as one seamless surface.
+    coll = Poly3DCollection(polys, facecolors=facecolors, edgecolors="none",
+                            linewidths=0, shade=False)
+    ax.add_collection3d(coll)
+    ax.set_xlim(center[0] - half, center[0] + half)
+    ax.set_ylim(center[1] - half, center[1] + half)
+    ax.set_zlim(center[2] - half, center[2] + half)
+    try:
+        ax.set_box_aspect((1, 1, 1))
+    except Exception:
+        pass
+    ax.view_init(elev=elev, azim=azim)
+    ax.set_xlabel("X", fontsize=6)
+    ax.set_ylabel("Y", fontsize=6)
+    ax.set_zlabel("Z", fontsize=6)
+    ax.tick_params(labelsize=5)
+    ax.set_title(title, fontsize=8)
+
+
+# Two views so the critic can see both overall form AND top-face features (holes/pockets
+# are invisible in a single isometric view — that gap let a no-op hole slip through before).
+fig = plt.figure(figsize=(11, 5.5), dpi=110)
+_draw(fig.add_subplot(121, projection="3d"), 28, -58, "isometric")
+_draw(fig.add_subplot(122, projection="3d"), 89, -90, "top view (looking down −Z)")
+fig.suptitle(
+    f"{bbox.size.X:.0f} x {bbox.size.Y:.0f} x {bbox.size.Z:.0f} mm   ({len(polys)} tris)",
+    fontsize=10,
+)
+try:
+    fig.savefig(str(out_path), bbox_inches="tight")
+finally:
+    plt.close(fig)
+
+print(f"PNG: {out_path}")

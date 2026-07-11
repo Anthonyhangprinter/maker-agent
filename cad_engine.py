@@ -20,10 +20,10 @@ invalid geometry (e.g. a fillet on a hole rim OCCT tolerates but Onshape silentl
 uploads are the default (free Onshape accounts can only create public documents).
 
 Usage:
-    python3 cad_agent_v4.py build "a 100x60x20mm electronics enclosure with 2mm walls"
-    python3 cad_agent_v4.py build "W200x100 I-beam 1500mm"
-    python3 cad_agent_v4.py rate <1-5> [comment]
-    python3 cad_agent_v4.py session
+    python3 cad_engine.py build "a 100x60x20mm electronics enclosure with 2mm walls"
+    python3 cad_engine.py build "W200x100 I-beam 1500mm"
+    python3 cad_engine.py rate <1-5> [comment]
+    python3 cad_engine.py session
 """
 
 import os
@@ -47,7 +47,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-VERSION = "4.3"
+# Version lives in cad_v5/config.py (single source of truth); imported below with the
+# other loop constants. This module is the core engine behind the cad_v5 package.
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ from cad_v5.config import (        # noqa: E402
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
+    VERSION,
 )
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
@@ -118,7 +120,7 @@ def _load_config() -> dict:
         pass
     except Exception as e:
         # A corrupt openclaw.json silently disabled creds and the telegram token; loud.
-        log.warning("[v4] openclaw.json unreadable (%s) — Onshape creds / telegram token "
+        log.warning("[v5] openclaw.json unreadable (%s) — Onshape creds / telegram token "
                     "unavailable until it is fixed.", e)
     try:
         with open(CAD_CONFIG_FILE) as f:
@@ -126,7 +128,7 @@ def _load_config() -> dict:
     except FileNotFoundError:
         pass
     except Exception as e:
-        log.warning("[v4] cad.json unreadable (%s) — model pin / cad.* settings ignored.", e)
+        log.warning("[v5] cad.json unreadable (%s) — model pin / cad.* settings ignored.", e)
     return cfg
 
 BUILDS_DIR = _OPENCLAW / "cad-builds"
@@ -143,7 +145,7 @@ def _new_build_dir(spec: str) -> Path:
         for p in old:
             shutil.rmtree(p, ignore_errors=True)
     except Exception as e:
-        log.warning("[v4] build-dir pruning failed: %s", e)
+        log.warning("[v5] build-dir pruning failed: %s", e)
     return d
 
 def _creds() -> tuple[str, str]:
@@ -203,7 +205,7 @@ def _cloud_chat(model: str, system: str, prompt: str,
     if _CLOUD_CALLS_LEFT <= 0:
         # Budget exhausted must never crash a build (or run up a bill): an empty reply
         # flows through the normal stuck-handling, which keeps the best verified build.
-        log.warning("[v4] Cloud call budget exhausted — returning empty reply "
+        log.warning("[v5] Cloud call budget exhausted — returning empty reply "
                     "(raise cad.json cloud.max_calls_per_build to allow more).")
         return ""
     cc = cloud_config()
@@ -284,7 +286,7 @@ def _ollama(model: str, system: str, prompt: str,
             return resp["response"].strip()
         except urllib.error.URLError as e:
             if attempt == 0 and not isinstance(e.reason, socket.timeout):
-                log.warning("[v4] Ollama connection issue (%s) — retrying once", e)
+                log.warning("[v5] Ollama connection issue (%s) — retrying once", e)
                 time.sleep(3)
                 continue
             raise
@@ -310,7 +312,7 @@ def preflight() -> None:
             ". Pull with: " + "; ".join(f"ollama pull {m}" for m in missing)
         )
     if CRITIC_MODEL not in have:
-        log.warning("[v4] Critic model %s not installed — visual critique disabled "
+        log.warning("[v5] Critic model %s not installed — visual critique disabled "
                     "(loop falls back to numeric geometry state).", CRITIC_MODEL)
 
 # ── Onshape REST ──────────────────────────────────────────────────────────────
@@ -497,14 +499,14 @@ def build_brief(spec: str) -> dict:
                       timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA)
         brief = _extract_json(raw)
     except Exception as e:
-        log.warning("[v4] Schema-constrained brief failed (%s) — falling back to free-form.", e)
+        log.warning("[v5] Schema-constrained brief failed (%s) — falling back to free-form.", e)
     if brief is None:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
                       timeout=OLLAMA_TIMEOUT, temperature=0.2)
         brief = _extract_json(raw)
     if brief is None:
         # Silent degradation here previously produced an unguided, feature-ungated build.
-        log.warning("[v4] Brief failed twice — building UNGUIDED from the raw spec "
+        log.warning("[v5] Brief failed twice — building UNGUIDED from the raw spec "
                     "(no dimensions/features/expected; gate limited to universal checks).")
         brief = {"name": spec[:40], "description": spec,
                  "dimensions": {}, "features": [], "notes": [], "helper": ""}
@@ -553,10 +555,10 @@ def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
                       timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_TRIAGE_SCHEMA)
         verdict = _extract_json(raw) or {}
         hard = bool(verdict.get("hard"))
-        log.info("[v4] Complexity triage: hard=%s — %s", hard, str(verdict.get("reason", ""))[:140])
+        log.info("[v5] Complexity triage: hard=%s — %s", hard, str(verdict.get("reason", ""))[:140])
         return hard
     except Exception as e:
-        log.warning("[v4] Complexity triage failed (%s) — staying on fast coder.", e)
+        log.warning("[v5] Complexity triage failed (%s) — staying on fast coder.", e)
         return False
 
 # ── N2: ambiguity gate — ask, don't guess ──────────────────────────────────────
@@ -599,7 +601,7 @@ def triage_ambiguity(spec: str) -> list[str]:
                      if isinstance(q, str) and q.strip()]
         return questions[:3]
     except Exception as e:
-        log.warning("[v4] Ambiguity triage failed (%s) — proceeding without questions.", e)
+        log.warning("[v5] Ambiguity triage failed (%s) — proceeding without questions.", e)
         return []
 
 # ── N3: brief as a diffable contract ───────────────────────────────────────────
@@ -675,7 +677,7 @@ def apply_brief_patch(brief: dict, changes: list[dict], features_add: list[str],
             else:
                 raise ValueError("unrecognised field")
         except Exception as e:
-            log.warning("[v4] apply_brief_patch: skipping malformed field %r (%s)", field, e)
+            log.warning("[v5] apply_brief_patch: skipping malformed field %r (%s)", field, e)
             delta.append(f"(?) {field} ignored")
 
     features = list(new_brief.get("features") or [])
@@ -719,7 +721,7 @@ def patch_brief(brief: dict, feedback: str) -> tuple[Optional[dict], list[str]]:
             return None, []
         return apply_brief_patch(brief, changes, features_add, features_remove)
     except Exception as e:
-        log.warning("[v4] patch_brief failed (%s) — full regeneration will be used.", e)
+        log.warning("[v5] patch_brief failed (%s) — full regeneration will be used.", e)
         return None, []
 
 # ── Stage B: distil a fail->fix lesson from a build that recovered ─────────────
@@ -743,7 +745,7 @@ def distill_lesson(spec: str, problem: str, final_code: str) -> Optional[str]:
             return None
         return raw.splitlines()[0].strip()[:240]
     except Exception as e:
-        log.warning("[v4] Lesson distillation failed: %s", e)
+        log.warning("[v5] Lesson distillation failed: %s", e)
         return None
 
 # ── Code generation ───────────────────────────────────────────────────────────
@@ -893,12 +895,12 @@ def generate_code(brief: dict) -> str:
     # deterministically instead of hoping the coder model copies it from prose.
     helper = (brief.get("helper") or "").strip().rstrip(".")
     if _HELPER_RE.match(helper):
-        log.info("[v4] Brief selected domain helper: %s", helper)
+        log.info("[v5] Brief selected domain helper: %s", helper)
         return ("from build123d import *\n"
                 "from b123d.domain import structural_section, spur_gear, hex_bolt\n"
                 f"result = {helper}\n")
     if _WH_HELPER_RE.match(helper):
-        log.info("[v4] Brief selected bd_warehouse helper: %s", helper)
+        log.info("[v5] Brief selected bd_warehouse helper: %s", helper)
         return ("from build123d import *\n" + _WH_IMPORT + f"result = {helper}\n")
 
     dim_str   = json.dumps(brief.get("dimensions", {}), indent=2)
@@ -1077,7 +1079,7 @@ def run_diff(old_step: Path, new_step: Path) -> str:
         out = (result.stdout or "").strip()
         return "\n".join(ln for ln in out.splitlines() if ln.startswith(("Δ", "DIFF")))
     except Exception as e:
-        log.warning("[v4] diff failed: %s", e)
+        log.warning("[v5] diff failed: %s", e)
         return ""
 
 # ── Deterministic verification gate ────────────────────────────────────────────
@@ -1107,7 +1109,7 @@ def parse_facts(inspect_output: str) -> dict:
             data["bore_axes"] = [(float(d), str(o)) for d, o in data.get("bore_axes", [])]
             return data
         except Exception as e:
-            log.warning("[v4] FACTS_JSON parse failed (%s) — using regex fallback.", e)
+            log.warning("[v5] FACTS_JSON parse failed (%s) — using regex fallback.", e)
     facts: dict = {}
     for key, rx in _FACT_INT_RES.items():
         m = rx.search(inspect_output)
@@ -1420,10 +1422,10 @@ def verify_questions(spec: str, brief: dict) -> list[str]:
         # a camera cannot verify "2mm" — such questions only ever answer UNCLEAR (noise).
         qs = [q for q in qs if not re.search(r"\d+(?:\.\d+)?\s*mm", q, re.I)]
         if qs:
-            log.info("[v4] %d verification questions: %s", len(qs), " | ".join(qs)[:200])
+            log.info("[v5] %d verification questions: %s", len(qs), " | ".join(qs)[:200])
         return qs
     except Exception as e:
-        log.warning("[v4] Question generation failed (%s) — free-form critique.", e)
+        log.warning("[v5] Question generation failed (%s) — free-form critique.", e)
         return []
 
 _ANSWERS_SCHEMA = {
@@ -1518,7 +1520,7 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
                     return ("Verification questions FAILED:\n" + "\n".join(lines)
                             + "\nFix these specific issues.")
             except Exception as e:
-                log.warning("[v4] QA critique failed (%s) — free-form fallback.", e)
+                log.warning("[v5] QA critique failed (%s) — free-form fallback.", e)
         prompt = (
             f"Requested part: {spec}\n\n"
             f"Geometry facts (authoritative for hidden/through features):\n{state}\n\n"
@@ -1527,7 +1529,7 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
         return _ollama(CRITIC_MODEL, _CRITIC_SYSTEM, prompt,
                        timeout=CRITIC_TIMEOUT, images=[img_b64]).strip()
     except Exception as e:
-        log.warning("[v4] Visual critique unavailable: %s", e)
+        log.warning("[v5] Visual critique unavailable: %s", e)
         return None
 
 # ── Onshape STEP import (pluggable upload target) ──────────────────────────────
@@ -1619,11 +1621,11 @@ def _load_fewshots(spec: str, n: int = 2) -> list[dict]:
         try:
             hits = cad_retrieval.retrieve(spec, n=n)
             if hits:
-                log.info("[v4] Few-shots (%s): %s", hits[0].get("_how", "?"),
+                log.info("[v5] Few-shots (%s): %s", hits[0].get("_how", "?"),
                          ", ".join(f"{h['spec'][:40]}~{h.get('_score','?')}" for h in hits))
             return hits
         except Exception as e:
-            log.warning("[v4] Semantic retrieval failed (%s) — falling back to word-overlap.", e)
+            log.warning("[v5] Semantic retrieval failed (%s) — falling back to word-overlap.", e)
 
     # Fallback: legacy word-overlap over the same corpus file.
     if not FEEDBACK_FILE.exists():
@@ -1661,7 +1663,7 @@ def _write_contract(brief: dict, spec: str) -> None:
             "ts":         datetime.now(timezone.utc).isoformat(),
         }, indent=2))
     except Exception as e:
-        log.warning("[v4] contract persist failed: %s", e)
+        log.warning("[v5] contract persist failed: %s", e)
 
 def _read_session() -> dict:
     try:
@@ -1684,7 +1686,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     brief_override: N3 — a pre-patched brief contract (from patch_brief) to use verbatim instead
     of calling build_brief() again, so a refine turn changes only what the user asked."""
     log.info("=" * 60)
-    log.info("[v4.%s] build: %s", VERSION.split('.')[-1], spec)
+    log.info("[v%s] build: %s", VERSION, spec)
     preflight()
     t0 = time.monotonic()
 
@@ -1693,7 +1695,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     want_section = wants_section(spec, brief)   # render a cut-through panel for hollow/internal parts
     questions = verify_questions(spec, brief)   # B5: binary checks the critic answers per turn
     if want_section:
-        log.info("[v4] Section view ON — critic gets a mid-plane cut-through panel.")
+        log.info("[v5] Section view ON — critic gets a mid-plane cut-through panel.")
     name     = brief.get("name", spec[:40])
     fewshots = [fs for fs in _load_fewshots(spec) if fs.get("code")] if use_fewshots else []
     if fewshots:
@@ -1718,7 +1720,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         brief["notes"] = brief.get("notes", []) + [
             "PITFALLS to avoid (learned from past builds of similar parts):\n"
             + "\n".join(f"- {l}" for l in lessons)]
-        log.info("[v4] Injected %d learned pitfall(s).", len(lessons))
+        log.info("[v5] Injected %d learned pitfall(s).", len(lessons))
 
     # ── Code-model strategy: manual > config pin > auto (triage + escalation) ──
     global _ACTIVE_CODE_MODEL
@@ -1732,22 +1734,22 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             raise RuntimeError("--coder cloud requires a cad.json `cloud` block "
                                "({provider, model, api_key_env?, max_calls_per_build?})")
         _ACTIVE_CODE_MODEL = CLOUD_PREFIX + cc["model"]
-        log.info("[v4] Code model: %s (manual --coder cloud, budget %d calls)",
+        log.info("[v5] Code model: %s (manual --coder cloud, budget %d calls)",
                  _ACTIVE_CODE_MODEL, _CLOUD_CALLS_LEFT)
     elif coder in ("fast", "mid", "strong"):
         _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST, "mid": CODE_MODEL_MID,
                               "strong": CODE_MODEL_STRONG}[coder]
-        log.info("[v4] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
+        log.info("[v5] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
     elif pinned:
         _ACTIVE_CODE_MODEL = pinned
-        log.info("[v4] Code model: %s (pinned via cad.code_model)", _ACTIVE_CODE_MODEL)
+        log.info("[v5] Code model: %s (pinned via cad.code_model)", _ACTIVE_CODE_MODEL)
     else:
         # Hard specs skip the first rung and start one step up the ladder; whatever the
         # ladder's top is stays escalation-only.
         _ACTIVE_CODE_MODEL = (CODE_MODEL_LADDER[1] if spec_needs_strong_coder(spec, brief)
                               and len(CODE_MODEL_LADDER) > 1 else CODE_MODEL_FAST)
         auto_escalate = True
-        log.info("[v4] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
+        log.info("[v5] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
                  ", may escalate" if auto_escalate else "")
 
     code = generate_code(brief)
@@ -1770,24 +1772,24 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         def _note_failure(err_text: str) -> str:
             cat, hint = diagnose(err_text)
             failure_categories[cat] = failure_categories.get(cat, 0) + 1
-            log.info("[v4] failure category: %s", cat)
+            log.info("[v5] failure category: %s", cat)
             return hint
         recovered_problem: Optional[str] = None   # first failure overcome (drives Stage B lessons)
 
         for turn in range(1, MAX_TURNS + 1):
             if time.monotonic() - t0 > BUILD_TIMEOUT:
-                log.warning("[v4] Wall-clock budget hit before turn %d", turn)
+                log.warning("[v5] Wall-clock budget hit before turn %d", turn)
                 break
 
             # Auto-escalate to the stronger coder once the fast one has failed a few times.
             nxt = _next_code_model(_ACTIVE_CODE_MODEL) if auto_escalate else None
             if nxt and fails >= ESCALATE_AFTER:
-                log.info("[v4] Escalating one rung to %s after %d failed turn(s).", nxt, fails)
+                log.info("[v5] Escalating one rung to %s after %d failed turn(s).", nxt, fails)
                 _ACTIVE_CODE_MODEL = nxt
                 code = generate_code(brief)   # fresh attempt with the stronger model
                 fails = 0
 
-            log.info("[v4] ── Turn %d/%d (%s) ──", turn, MAX_TURNS, _ACTIVE_CODE_MODEL)
+            log.info("[v5] ── Turn %d/%d (%s) ──", turn, MAX_TURNS, _ACTIVE_CODE_MODEL)
 
             # 1+2. Syntax pre-flight + run build123d, with an INLINE auto-fix micro-loop (N1):
             # a syntax error or run exception is the 7B's dominant failure mode and needs zero
@@ -1802,7 +1804,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             for attempt in range(N1_RETRIES + 1):
                 syn = _check_syntax(code)
                 if syn:
-                    log.warning("[v4] %s", syn)
+                    log.warning("[v5] %s", syn)
                     _note_failure("SyntaxError: " + syn)
                     last_errors = [syn]
                     fail_msg = syn
@@ -1810,12 +1812,12 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 else:
                     try:
                         step_path, step_log = run_step(code, work_dir)
-                        log.info("[v4] build123d OK: %s", step_log.strip().replace("\n", " | "))
+                        log.info("[v5] build123d OK: %s", step_log.strip().replace("\n", " | "))
                         step_ok = True
                         break
                     except Exception as e:
                         err = str(e)
-                        log.warning("[v4] Run failed: %s", err[:300])
+                        log.warning("[v5] Run failed: %s", err[:300])
                         last_errors = [err]
                         step_path = None
                         # B3: classify the failure and use the category's targeted repair hint
@@ -1831,7 +1833,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 if time.monotonic() - t0 > BUILD_TIMEOUT:
                     break   # budget blown — re-running identical code can't help; let the turn fail
                 n1_autofixes += 1
-                log.info("[v4] N1 auto-fix retry %d/%d: %s",
+                log.info("[v5] N1 auto-fix retry %d/%d: %s",
                          attempt + 1, N1_RETRIES, fail_msg.replace("\n", " ")[:200])
                 code = revise_script(spec, code, fail_msg)
 
@@ -1848,7 +1850,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # 3. Inspect geometry
             inspection = run_inspect(step_path)
             last_state = inspection["output"]
-            log.info("[v4] Inspect valid=%s", inspection["valid"])
+            log.info("[v5] Inspect valid=%s", inspection["valid"])
             if not inspection["valid"]:
                 last_errors = inspection["errors"]
                 step_path = None  # don't upload invalid geometry
@@ -1870,7 +1872,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 edit_diff = run_diff(prev_step, step_path)
                 if edit_diff:
                     last_state += "\n[edit diff vs previous build]\n" + edit_diff
-                    log.info("[v4] Edit diff: %s", edit_diff.replace("\n", " | ")[:220])
+                    log.info("[v5] Edit diff: %s", edit_diff.replace("\n", " | ")[:220])
 
             # 3b. Deterministic verification gate — assert geometry facts vs the brief's expected
             # target (solid count, holes-actually-cut, overall size). This is the AUTHORITY for
@@ -1882,7 +1884,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             if gate_fails:
                 gate_passed = False
                 msg = "; ".join(gate_fails)
-                log.warning("[v4] Verification gate FAILED: %s", msg)
+                log.warning("[v5] Verification gate FAILED: %s", msg)
                 _note_failure(msg)
                 last_errors = gate_fails
                 fails += 1
@@ -1899,7 +1901,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 continue
             if facts:
                 gate_passed = True
-                log.info("[v4] Verification gate passed (solids=%s cyl_faces=%s bbox=%s).",
+                log.info("[v5] Verification gate passed (solids=%s cyl_faces=%s bbox=%s).",
                          facts.get("solids"), facts.get("cyl_faces"), facts.get("bbox"))
                 # Snapshot every gate-passing build so a broken later edit can never discard
                 # verified-correct geometry (restored at finalize if the loop ends worse off).
@@ -1908,7 +1910,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                     shutil.copy(step_path, best_step)
                     best_code = code
                 except Exception as e:
-                    log.warning("[v4] best-build snapshot failed: %s", e)
+                    log.warning("[v5] best-build snapshot failed: %s", e)
                     best_step = None
                 # The gate only confirms a valid single fused solid — it does NOT verify features
                 # or dimensions. So the visual critic IS the feature judge: it must check the part
@@ -1924,7 +1926,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # section foreshortens the cross-section and yields false negatives).
             if re.search(r"result\s*=\s*(structural_section|spur_gear|hex_bolt|"
                          r"gear|screw|nut|iso_thread|ball_bearing|pipe_flange)\s*\(", code):
-                log.info("[v4] Trusted library-helper geometry is valid — accepting.")
+                log.info("[v5] Trusted library-helper geometry is valid — accepting.")
                 done = True
                 accepted_via = "helper"
                 break
@@ -1934,14 +1936,14 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                                         section=want_section, questions=questions)
             if critique:
                 last_critique = critique
-                log.info("[v4] Critic: %s", critique.replace("\n", " ")[:300])
+                log.info("[v5] Critic: %s", critique.replace("\n", " ")[:300])
 
             # 6. Decide: done, or edit and re-observe
             action, new_code = decide_or_edit(
                 spec, code, last_state, inspection["warnings"], critique
             )
             if action == "done":
-                log.info("[v4] Model satisfied — finalizing.")
+                log.info("[v5] Model satisfied — finalizing.")
                 done = True
                 accepted_via = "critic"
                 break
@@ -1952,7 +1954,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 recovered_problem = recovered_problem or (
                     f"critic rejected: {critique}" if critique else "model stalled with no change")
                 if critique and turn < MAX_TURNS:
-                    log.info("[v4] decide stalled — attempting a directive revise from the critique.")
+                    log.info("[v5] decide stalled — attempting a directive revise from the critique.")
                     retry = revise_script(spec, code,
                                           f"A reviewer says this is WRONG: {critique}\n"
                                           f"Fix it so every requested feature is present and "
@@ -1970,7 +1972,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 # fillet → total failure). An un-actionable visual nitpick must not sink a
                 # verified-correct part. (`accepted_via=gate` keeps every such accept auditable.)
                 if gate_passed:
-                    log.info("[v4] Coder stuck but the deterministic gate passed — accepting as "
+                    log.info("[v5] Coder stuck but the deterministic gate passed — accepting as "
                              "converged via gate (not escalating a verified-correct build).")
                     done = True
                     accepted_via = "gate"
@@ -1979,15 +1981,15 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 # trust, so escalate to the strong coder for fresh code before giving up.
                 nxt = _next_code_model(_ACTIVE_CODE_MODEL) if auto_escalate else None
                 if nxt and turn < MAX_TURNS:
-                    log.info("[v4] Coder stuck (gate unverified) — escalating one rung to %s.", nxt)
+                    log.info("[v5] Coder stuck (gate unverified) — escalating one rung to %s.", nxt)
                     _ACTIVE_CODE_MODEL = nxt
                     code = generate_code(brief)
                     fails = 0
                     continue
-                log.warning("[v4] Model is stuck (no change) and gate unverified — "
+                log.warning("[v5] Model is stuck (no change) and gate unverified — "
                             "stopping NOT converged.")
                 break
-            log.info("[v4] Model chose to keep editing.")
+            log.info("[v5] Model chose to keep editing.")
             # Snapshot this good build (run_step overwrites build_output.step next turn) so the
             # edit can be diffed against it deterministically.
             try:
@@ -2003,7 +2005,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         # gate-passing snapshot exists, restore the snapshot and export that instead.
         if (not done and best_step is not None and best_step.exists()
                 and (step_path is None or not gate_passed)):
-            log.warning("[v4] Loop ended with %s — restoring the last gate-verified build "
+            log.warning("[v5] Loop ended with %s — restoring the last gate-verified build "
                         "instead of discarding it.",
                         "no geometry" if step_path is None else "a gate-failing build")
             step_path = best_step
@@ -2020,7 +2022,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         # a correct part (consistent with the stuck-branch policy, now that the gate checks
         # solids/size/holes/through-vs-blind and can be trusted).
         if not done and gate_passed:
-            log.info("[v4] Turn budget exhausted but the last build passed the deterministic "
+            log.info("[v5] Turn budget exhausted but the last build passed the deterministic "
                      "gate — accepting as converged via gate.")
             done = True
             accepted_via = "gate"
@@ -2038,20 +2040,20 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         try:
             (build_dir / "build_source.py").write_text(code)
         except Exception as e:
-            log.warning("[v4] could not save build_source.py: %s", e)
+            log.warning("[v5] could not save build_source.py: %s", e)
         # Always export a sliceable STL alongside the STEP (printable mesh, mm units).
         try:
             run_stl(step_out, stl_out)
         except Exception as e:
-            log.warning("[v4] STL export failed: %s", e)
+            log.warning("[v5] STL export failed: %s", e)
         # Best-effort flat-pattern DXF (laser/sheet). Only meaningful for plate-like parts; a part
         # with no usable flat face just won't get one — not an error, so never fail the build.
         dxf_summary = ""
         try:
             _, dxf_summary = run_dxf(step_out, dxf_out)
-            log.info("[v4] DXF flat pattern: %s", dxf_summary or dxf_out)
+            log.info("[v5] DXF flat pattern: %s", dxf_summary or dxf_out)
         except Exception as e:
-            log.info("[v4] DXF flat pattern skipped: %s", str(e)[:120])
+            log.info("[v5] DXF flat pattern skipped: %s", str(e)[:120])
         # Legacy last-build copies (clear stale ones first so a missing export from THIS
         # build can never be mistaken for its output).
         for src, legacy in ((step_out, STEP_OUT), (stl_out, STL_OUT), (dxf_out, DXF_OUT)):
@@ -2060,12 +2062,12 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             except FileNotFoundError:
                 pass
             except Exception as e:
-                log.warning("[v4] could not clear %s: %s", legacy, e)
+                log.warning("[v5] could not clear %s: %s", legacy, e)
             if src.exists():
                 try:
                     shutil.copy(src, legacy)
                 except Exception as e:
-                    log.warning("[v4] last-build copy failed (%s): %s", legacy.name, e)
+                    log.warning("[v5] last-build copy failed (%s): %s", legacy.name, e)
 
     # Stage B: if this build recovered from an early failure, distil one reusable lesson.
     if done and recovered_problem and use_fewshots and cad_retrieval is not None:
@@ -2073,9 +2075,9 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         if lesson:
             try:
                 cad_retrieval.store_lesson(spec, lesson, recovered_problem)
-                log.info("[v4] Learned: %s", lesson)
+                log.info("[v5] Learned: %s", lesson)
             except Exception as e:
-                log.warning("[v4] store_lesson failed: %s", e)
+                log.warning("[v5] store_lesson failed: %s", e)
 
     base_result = {
         "spec":         spec,
@@ -2105,7 +2107,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             f"matches the spec — the uploaded geometry is the last valid build and may be "
             f"wrong. Last critique: {last_critique or 'n/a'}"
         )
-        log.warning("[v4] Not converged — uploading last valid build as best effort.")
+        log.warning("[v5] Not converged — uploading last valid build as best effort.")
 
     # N3: persist the brief as a diffable contract now that the build has valid geometry
     # (frontends read it directly; the next refine's patch_brief() reads it back as the base).
@@ -2122,11 +2124,11 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 shutil.copy(dest, STEP_OUT.with_suffix(".png"))   # legacy convenience copy
                 render_local = str(dest)
             except Exception as e:
-                log.warning("[v4] Final render failed: %s", e)
+                log.warning("[v5] Final render failed: %s", e)
         result = {**base_result, "ok": True, "has_bodies": True, "url": "",
                   "render_local": render_local}
         _write_session(result)
-        log.info("[v4] Done (no upload): step=%s render=%s", step_out, render_local)
+        log.info("[v5] Done (no upload): step=%s render=%s", step_out, render_local)
         return result
 
     try:
@@ -2135,14 +2137,14 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         fail = {**base_result, "ok": False, "has_bodies": True,
                 "url": "", "error": str(e)}
         _write_session(fail)
-        log.error("[v4] Upload failed: %s", e)
+        log.error("[v5] Upload failed: %s", e)
         raise RuntimeError(f"{e}  (local STEP saved at {step_out})")
 
     result = {**base_result, "ok": True, "has_bodies": True,
               "url": upload["url"], "did": upload["did"],
               "wid": upload["wid"], "eid": upload["eid"]}
     _write_session(result)
-    log.info("[v4] Done: url=%s  time=%.1fs", result["url"], result["build_time_s"])
+    log.info("[v5] Done: url=%s  time=%.1fs", result["url"], result["build_time_s"])
     return result
 
 # ── Feedback store (kept) ─────────────────────────────────────────────────────
@@ -2178,7 +2180,7 @@ def store_feedback(result: dict, rating: int, comment: str = "") -> None:
         for row in gold + rated:
             f.write(json.dumps(row) + "\n")
     os.replace(tmp, FEEDBACK_FILE)
-    log.info("[v4] Stored %d★ to corpus (gold=%d rated=%d): %s",
+    log.info("[v5] Stored %d★ to corpus (gold=%d rated=%d): %s",
              rating, len(gold), len(rated), result.get("spec", "")[:50])
 
 # ── Telegram helper (now actually wired from _cmd_build) ───────────────────────
@@ -2192,7 +2194,7 @@ def _tg_send(chat_id: str, text: str) -> None:
     try:
         urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=15)
     except Exception as e:
-        log.warning("[v4] Telegram send failed: %s", e)
+        log.warning("[v5] Telegram send failed: %s", e)
 
 # ── CLI commands ──────────────────────────────────────────────────────────────
 
@@ -2216,7 +2218,7 @@ def _cmd_build(argv):
         result = build(spec, chat_id=a.chat_id, coder=a.coder,
                        use_fewshots=not a.no_fewshots, do_upload=not a.no_upload)
     except Exception as e:
-        log.error("[v4] Build error: %s", e)
+        log.error("[v5] Build error: %s", e)
         _tg_send(a.chat_id or "", f"❌ CAD build failed: {spec}\n\n{str(e)[:300]}")
         print(json.dumps({"ok": False, "error": str(e), "spec": spec}))
         sys.exit(1)

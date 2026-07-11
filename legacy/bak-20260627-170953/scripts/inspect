@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""
+Inspect a STEP file and validate geometry.
+
+Usage:
+    python3 scripts/inspect <file.step>
+
+Exit 0 if the STEP contains at least one closed solid body.
+Exit 1 on any error or degenerate geometry.
+Prints a structured report to stdout.
+"""
+import sys
+from pathlib import Path
+
+if len(sys.argv) < 2:
+    print("Usage: python3 scripts/inspect <file.step>", file=sys.stderr)
+    sys.exit(1)
+
+step_file = Path(sys.argv[1]).resolve()
+if not step_file.exists():
+    print(f"ERROR: File not found: {step_file}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Import STEP ───────────────────────────────────────────────────────────────
+
+try:
+    from build123d import import_step
+except ImportError:
+    print("ERROR: build123d not installed (pip install build123d)", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    shape = import_step(str(step_file))
+except Exception as e:
+    print(f"ERROR: Failed to import STEP: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# ── Checks ────────────────────────────────────────────────────────────────────
+
+solids  = shape.solids()
+shells  = shape.shells()
+faces   = shape.faces()
+edges   = shape.edges()
+volume  = shape.volume
+bbox    = shape.bounding_box()
+
+# Centre of mass — gives the model a sense of where material actually sits
+try:
+    from build123d import CenterOf
+    com = shape.center(CenterOf.MASS)
+    com_str = f"{com.X:.2f}, {com.Y:.2f}, {com.Z:.2f}"
+except Exception:
+    com_str = "unknown"
+
+# Classify curved faces so a deterministic gate can confirm holes/bores actually cut:
+# a through-hole leaves a cylindrical face; a countersink leaves a conical face. A no-op
+# subtraction that missed the solid leaves neither — caught without relying on the vision model.
+cyl_faces = cone_faces = -1   # -1 = couldn't classify (older build123d) → gate skips this check
+try:
+    from build123d import GeomType
+    cyl_faces  = len(faces.filter_by(GeomType.CYLINDER))
+    cone_faces = len(faces.filter_by(GeomType.CONE))
+except Exception:
+    pass
+
+# Classify each cylindrical HOLE as THROUGH or BLIND. A blind bore has a cylindrical face
+# exactly like a through hole, so a naive cyl-face count cannot tell them apart (a blind
+# 30mm bore passed the gate 3/3). Method, fully deterministic:
+#   1. hole vs outer wall — is there material just OUTSIDE the cylinder? (wall has none)
+#   2. through vs blind   — walk the cylinder axis across the part; a through hole has NO
+#      material on its axis, a blind hole's uncut remainder leaves material on the axis.
+through_holes = blind_holes = -1   # -1 = analysis unavailable → gate skips through-check
+hole_report = []
+try:
+    from build123d import Vertex, GeomType
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    def _inside(x, y, z, tol=1e-6):
+        return shape.distance_to(Vertex(x, y, z)) < tol
+
+    _corners = [(X, Y, Z) for X in (bbox.min.X, bbox.max.X)
+                          for Y in (bbox.min.Y, bbox.max.Y)
+                          for Z in (bbox.min.Z, bbox.max.Z)]
+    def _axis_extent(px, py, pz, dx, dy, dz):
+        ts = [(cx - px) * dx + (cy - py) * dy + (cz - pz) * dz for (cx, cy, cz) in _corners]
+        return min(ts), max(ts)
+
+    through = blind = 0
+    for f in faces.filter_by(GeomType.CYLINDER):
+        ad = BRepAdaptor_Surface(f.wrapped)
+        if ad.GetType() != GeomAbs_Cylinder:
+            continue
+        cyl = ad.Cylinder(); axis = cyl.Axis()
+        loc = axis.Location(); d = axis.Direction()
+        px, py, pz = loc.X(), loc.Y(), loc.Z()
+        dx, dy, dz = d.X(), d.Y(), d.Z()
+        r = cyl.Radius()
+        tmin, tmax = _axis_extent(px, py, pz, dx, dy, dz)
+        tmid = (tmin + tmax) / 2.0
+        mx, my, mz = px + dx * tmid, py + dy * tmid, pz + dz * tmid
+        # a unit vector perpendicular to the axis (Gram-Schmidt off a non-parallel seed)
+        seed = (1.0, 0.0, 0.0) if abs(dx) < 0.9 else (0.0, 1.0, 0.0)
+        dot = seed[0] * dx + seed[1] * dy + seed[2] * dz
+        ux, uy, uz = seed[0] - dot * dx, seed[1] - dot * dy, seed[2] - dot * dz
+        un = (ux * ux + uy * uy + uz * uz) ** 0.5 or 1.0
+        ux, uy, uz = ux / un, uy / un, uz / un
+        # step 1: material just OUTSIDE the cylinder? if not, this is the outer wall — skip
+        if not _inside(mx + ux * (r + 0.5), my + uy * (r + 0.5), mz + uz * (r + 0.5)):
+            continue
+        # step 2: walk the axis; any material on it ⇒ blind
+        mat = sum(1 for i in range(25)
+                  if _inside(px + dx * (t := tmin + (tmax - tmin) * i / 24.0),
+                             py + dy * t, pz + dz * t))
+        verdict = "THROUGH" if mat == 0 else "BLIND"
+        through += (mat == 0); blind += (mat != 0)
+        hole_report.append(f"r{r:.1f}@({px:.0f},{py:.0f},{pz:.0f}):{verdict}")
+    through_holes, blind_holes = through, blind
+except Exception as e:
+    hole_report = [f"(hole analysis unavailable: {str(e)[:80]})"]
+
+print(f"Solids:  {len(solids)}")
+print(f"Shells:  {len(shells)}")
+print(f"Faces:   {len(faces)}")
+print(f"Cylindrical faces: {cyl_faces}")
+print(f"Conical faces: {cone_faces}")
+print(f"Through-holes: {through_holes}")
+print(f"Blind-holes: {blind_holes}")
+if hole_report:
+    print(f"Hole detail: {'; '.join(hole_report)}")
+print(f"Edges:   {len(edges)}")
+print(f"Volume:  {volume:.3f} mm³")
+print(f"Bbox:    {bbox.size.X:.2f} x {bbox.size.Y:.2f} x {bbox.size.Z:.2f} mm  (X x Y x Z)")
+print(f"Centre of mass: ({com_str}) mm")
+print(f"File:    {step_file.stat().st_size // 1024} KB")
+
+errors = []
+
+if len(solids) == 0:
+    errors.append("No solid bodies — geometry is open or degenerate")
+
+if volume < 0.001:
+    errors.append(f"Volume is near-zero ({volume:.6f} mm³) — likely a surface, not a solid")
+
+if any(d < 0.001 for d in [bbox.size.X, bbox.size.Y, bbox.size.Z]):
+    errors.append(f"Bounding box has a near-zero dimension — check for collapsed geometry")
+
+if errors:
+    for err in errors:
+        print(f"ERROR: {err}", file=sys.stderr)
+    sys.exit(1)
+
+if volume < 1.0:
+    print(f"WARNING: Very small volume ({volume:.4f} mm³) — verify units are mm")
+
+print("OK")

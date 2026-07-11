@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import cad_agent_v4 as v4  # noqa: E402
+import cad_engine as v4  # noqa: E402
 
 VAGUE = [
     "a wall mount for my router",

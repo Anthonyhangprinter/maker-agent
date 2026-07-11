@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v4.3 engine + v5 package): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen2.5-coder:7b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v5: cad_v5 package + cad_engine.py core): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen2.5-coder:7b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -11,7 +11,7 @@ metadata:
   }
 ---
 
-# CAD Builder Skill (v4.3 engine + v5 package)
+# CAD Builder Skill (v5: cad_v5 package + cad_engine.py core)
 
 Build and iterate on CAD models from text specs. All inference runs locally via Ollama
 (qwen3:8b, qwen2.5-coder:7b + qwen3-coder:30b on the auto ladder, 14b manual-only, gemma4:e4b).
@@ -22,6 +22,32 @@ The agent writes **build123d** Python (algebra mode), runs it → STEP, inspects
 renders a 2-panel PNG (isometric + top-down), has a multimodal critic judge it against the spec,
 then edits and re-observes until it converges (`###DONE###`) or hits the turn/time budget. It then
 translates the STEP into a real Onshape **Part Studio** (viewable/editable, not a blob).
+
+## Layout — how this directory is filed
+
+```
+cad-builder/
+├── cad               # launcher (`cad "<spec>"` — symlinked into ~/.local/bin, works anywhere)
+├── cad_engine.py     # THE core engine: brief → codegen → gate → critic loop (one big module)
+├── cad_retrieval.py  # few-shot / lesson semantic retrieval (nomic-embed)
+├── cad_v5/           # the v5 package: cli, loop (refine/undo), engine wrapper, targets,
+│                     #   config.py (SINGLE SOURCE OF TRUTH: models, timeouts, VERSION),
+│                     #   cam_print.py / cam_cnc.py, freecad_export.py, USER_GUIDE.md, EXPLAINER.md
+├── b123d/            # deterministic domain helpers: structural sections, gears (bd_warehouse), gussets
+├── scripts/          # runners the loop shells out to: step, inspect, render, dxf, cnc, stl,
+│                     #   run_benchmarks.py
+├── benchmarks/       # suites (text-to-cad/, organic/) + results/ (json + artifacts per run)
+├── tests/            # offline unit/behavioral tests (pytest)
+├── integration/      # cad-telegram.py — Satine bot SOURCE (deployed: ~/.openclaw/cad-telegram.py
+│                     #   is a symlink to it; restart cad-telegram.service after editing)
+├── docs/             # PROJECT.md (design+results) · ROADMAP.md · DIRECTION.md · BUILDS.md
+│                     #   (build journal) · HANDOFF.md
+├── legacy/           # v1-v3 agents, scad-spike/ (M8, rejected), bak-20260627/ — rollback only
+└── SKILL.md          # this file — usage (stays at root: skill convention)
+```
+
+Runtime state lives in `~/.openclaw/` (cad.json, cad-examples.jsonl, cad-lessons.jsonl,
+cad-session.json, cad-builds/, cad-agent.log) — see "Scripts" below.
 
 ## When to Use
 
@@ -39,7 +65,7 @@ translates the STEP into a real Onshape **Part Studio** (viewable/editable, not 
 
 ```
 cad "<spec>"                                              # v5 interactive entry (local CAD Viewer)
-SCRIPT=~/.openclaw/skills/cad-builder/cad_agent_v4.py     # v4.3 ENGINE (also a standalone CLI)
+SCRIPT=~/.openclaw/skills/cad-builder/cad_engine.py       # core ENGINE (also a standalone CLI)
 # Legacy / rollback only (moved to legacy/): cad_agent_v3.py, cad_agent_v2.py, onshape_cad_agent.py
 ```
 
@@ -101,7 +127,7 @@ is OFF the auto ladder (measured out twice) and reachable only via manual `--cod
 
 - Send a spec as plain text (or `/build <spec>`) to build; reply with changes to refine.
 - `fast:`/`mid:`/`strong:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
-- Satine shells out to `cad_agent_v4.py` per request, so agent edits are live without a restart;
+- Satine shells out to `cad_engine.py` per request, so agent edits are live without a restart;
   **restart `cad-telegram.service` only after editing `cad-telegram.py` itself.**
 
 ## Honesty & verification
@@ -111,7 +137,7 @@ build still uploads the last valid geometry but is flagged with `converged: fals
 `last_critique`. Verify geometry against intent (volume / face counts / render) — don't assume a
 feature exists just because the code mentions it.
 
-## Learning loop (v4.2)
+## Learning loop
 
 Small-model quality comes from retrieval + memory, not parameters:
 - **Few-shot corpus** `~/.openclaw/cad-examples.jsonl` — `gold` (verified) + `rated` builds. Semantic
@@ -166,10 +192,10 @@ Surfaces (which face a feature is on), Symmetry (patterns/spacing) — plus a cl
 `cad_v5/USER_GUIDE.md`. A spec missing a critical dimension or basic form gets asked about
 (2-3 short questions with defaults) instead of silently guessed.
 
-## Tuning knobs (see PROJECT.md for detail)
+## Tuning knobs (see docs/PROJECT.md for detail)
 
 - **`~/.openclaw/cad.json`**: `code_model` (pin coder), `public_uploads`. Creds: openclaw.json `env.ONSHAPE_*`.
-- **Constants** (top of `cad_agent_v4.py`): models, `MAX_TURNS`, `ESCALATE_AFTER`, `*_TIMEOUT`.
+- **Constants** (`cad_v5/config.py` — single source of truth): models, `MAX_TURNS`, `ESCALATE_AFTER`, `*_TIMEOUT`.
 - **Prompts** (highest leverage): `_BRIEF_SYSTEM` (intent), `_CODE_SYSTEM` (coordinate rules +
   examples), `_COMPLEXITY_SYSTEM` (triage), `_CRITIC_SYSTEM`/`_DECIDE_SYSTEM`. Sampling temps are
   inline (codegen/revise/decide 0.15, brief 0.2, triage 0.0).

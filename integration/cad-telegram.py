@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cad-telegram.py — Satine Telegram bot frontend for the CAD agent (v4.3 engine).
+cad-telegram.py — Satine Telegram bot frontend for the CAD agent (v5, cad_engine.py).
 
 Commands:
   /build <spec>  — build the spec in Onshape (or just send the spec as plain text)
@@ -50,10 +50,10 @@ OFFSET_FILE   = os.path.expanduser("~/.openclaw/telegram/update-offset-cad.json"
 SESSIONS_FILE = os.path.expanduser("~/.openclaw/telegram/cad-sessions.json")
 JOURNAL_FILE  = os.path.expanduser("~/.openclaw/telegram/cad-jobs-journal.json")
 PHOTOS_DIR    = os.path.expanduser("~/.openclaw/telegram/cad-photos")
-CAD_AGENT     = os.path.expanduser("~/.openclaw/skills/cad-builder/cad_agent_v4.py")
+CAD_AGENT     = os.path.expanduser("~/.openclaw/skills/cad-builder/cad_engine.py")
 POLL_TIMEOUT  = 30
 MAX_MSG_LEN   = 4000
-# Must exceed the agent's own wall-clock budget (cad_agent_v4 BUILD_TIMEOUT=1800)
+# Must exceed the agent's own wall-clock budget (cad_engine BUILD_TIMEOUT=1800)
 # so the bot never kills a build that is still legitimately iterating.
 BUILD_TIMEOUT = 1860
 # Spec-revision LLM call budget: must survive a cold model swap on a busy single-GPU box

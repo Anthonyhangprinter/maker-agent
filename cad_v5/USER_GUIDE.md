@@ -296,7 +296,7 @@ Single parts (enclosures, brackets, plates, shafts, housings, pistons…), stand
 - Logs: `~/.openclaw/cad-agent.log`.
 - Ratings/examples it learns from: `~/.openclaw/cad-examples.jsonl`,
   pitfalls: `~/.openclaw/cad-lessons.jsonl`.
-- Rollback: the previous generation, `cad_agent_v4.py` (v4.3), still runs unchanged if ever needed.
+- Rollback: the previous generation, `cad_engine.py` (v4.3), still runs unchanged if ever needed.
 
 ---
 
