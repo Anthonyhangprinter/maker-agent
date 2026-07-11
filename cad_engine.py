@@ -1335,13 +1335,18 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
             f"the spec seems to ask for ~{exp_holes} hole(s)/bore(s) but the solid has only "
             f"{cyl} cylindrical face(s) — if holes are missing, ensure each cut overlaps the solid.")
 
+    # Advisories that a MEASUREMENT contradicts a number/word the user actually wrote get a
+    # "[spec] " tag: they never block a turn, but the loop must not claim convergence-via-gate
+    # while any is outstanding (a stuck-accept shipped a flange with no bolt holes as
+    # converged:true, 2026-07-11).
     exp_through = expected.get("min_through_holes")
     thru  = facts.get("through_holes", -1)
     blind = facts.get("blind_holes", -1)
+    _thru_tag = "[spec] " if re.search(r"\bthrough\b", spec or "", re.I) else ""
     if isinstance(exp_through, int) and exp_through > 0 and thru >= 0 and thru < exp_through:
         detail = (f" ({blind} blind)" if isinstance(blind, int) and blind > 0 else "")
         soft.append(
-            f"the spec may want {exp_through} hole(s) to pass fully THROUGH but only {thru} do{detail} "
+            f"{_thru_tag}the spec may want {exp_through} hole(s) to pass fully THROUGH but only {thru} do{detail} "
             f"— if a through-hole is required, give the cutter height ≥ 2× the thickness, centred.")
 
     if expected.get("forbid_blind_holes") and isinstance(blind, int) and blind > 0:
@@ -1374,8 +1379,9 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
             hg = facts.get("hole_groups") or []
             seen = (_fmt_hole_groups(hg) if hg else
                     ', '.join(f'{g:g}' for g in sorted({round(x, 1) for x in got_bores})) or "none")
+            tag = "[spec] " if any(_spec_mentions_dim(spec, d) for d in missing) else ""
             soft.append(
-                f"the spec asks for bore/hole diameter(s) {', '.join(f'{d:g}' for d in missing)}mm "
+                f"{tag}the spec asks for bore/hole diameter(s) {', '.join(f'{d:g}' for d in missing)}mm "
                 f"but no cylindrical face of that size was found (measured holes: {seen}) — check "
                 f"the hole radius (radius = diameter/2!) and that each cut overlaps the solid.")
 
@@ -1396,7 +1402,7 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # Advisory: chamfers on straight edges leave planes, not cones, so absence isn't proof there.
     if (re.search(r"\bchamfer", spec or "", re.I) and facts.get("cone_faces", -1) == 0):
         soft.append(
-            "the spec asks for a chamfer but no conical face was measured — the chamfer likely "
+            "[spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely "
             "failed silently. Select the edge explicitly (e.g. the top outer circular edge: "
             "edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) "
             "and apply chamfer(edge, length) WITHOUT wrapping it in try/except.")
@@ -1488,8 +1494,9 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                         if (isinstance(circle_d, (int, float)) and circle_d > 0 and ring
                                 and abs(ring[0].get("circle_d", 0) - circle_d)
                                     > max(1.0, 0.05 * circle_d)):
+                            _bc_tag = "[spec] " if _spec_mentions_dim(spec, circle_d) else ""
                             soft.append(
-                                f"the {n}× Ø{d:g}mm holes sit on a measured circle "
+                                f"{_bc_tag}the {n}× Ø{d:g}mm holes sit on a measured circle "
                                 f"Ø{ring[0]['circle_d']:g}mm but the spec says Ø{circle_d:g}mm — "
                                 f"place the hole centres on a Ø{circle_d:g}mm circle "
                                 f"(radius {circle_d/2:g}mm from the part axis).")
@@ -1510,6 +1517,8 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                            f"bolt-circle positions.")
                     if corroborated and wrong_size and match_n == 0:
                         hard.append(msg)
+                    elif corroborated:
+                        soft.append("[spec] " + msg)
                     else:
                         soft.append(msg)
                 else:
@@ -1930,6 +1939,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         done = False
         gate_passed = False  # did the build currently held in step_path pass the deterministic gate?
         accepted_via: Optional[str] = None  # 'critic' | 'gate' | 'helper' — how convergence was reached
+        last_spec_notes: list[str] = []  # outstanding "[spec]" advisories — veto accept-via-gate
         fails = 0   # failed/stuck turns on the current coder (drives auto-escalation)
         n1_autofixes = 0   # N1: inline same-turn auto-fix retries consumed across the whole build
         failure_categories: dict = {}   # B3: per-build failure histogram (feeds the fine-tune track)
@@ -2052,6 +2062,10 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # feature presence; the vision critic below only judges shape/proportion.
             facts = parse_facts(inspection["output"])
             gate_fails, gate_notes = verify_expected(facts, brief.get("expected", {}), spec=spec)
+            # "[spec]"-tagged advisories = a MEASUREMENT contradicts a number the user wrote.
+            # They never block a turn, but no accept-via-gate may happen while one is
+            # outstanding (a stuck-accept shipped a flange with no bolt holes as converged).
+            last_spec_notes = [n for n in gate_notes if n.startswith("[spec]")]
             if gate_notes:
                 last_state += "\n[advisory] " + "  ".join(gate_notes)
             if gate_fails:
@@ -2147,23 +2161,26 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 # benchmark passed the gate twice on the 7B, then a 30B escalation crashed on a bad
                 # fillet → total failure). An un-actionable visual nitpick must not sink a
                 # verified-correct part. (`accepted_via=gate` keeps every such accept auditable.)
-                if gate_passed:
+                if gate_passed and not last_spec_notes:
                     log.info("[v5] Coder stuck but the deterministic gate passed — accepting as "
                              "converged via gate (not escalating a verified-correct build).")
                     done = True
                     accepted_via = "gate"
                     break
-                # Gate UNVERIFIED (geometry facts didn't parse) — there is no measurement to
-                # trust, so escalate to the strong coder for fresh code before giving up.
+                # Gate UNVERIFIED (no measurement to trust) — or it PASSED structurally while a
+                # measurement contradicts a spec-stated number ("[spec]" advisory: missing
+                # corroborated holes, chamfer, through-ness). Either way this is NOT a
+                # verified-correct build: escalate for fresh code before giving up.
                 nxt = _next_code_model(_ACTIVE_CODE_MODEL) if auto_escalate else None
+                why = ("gate unverified" if not gate_passed
+                       else f"spec advisories outstanding: {'; '.join(last_spec_notes)[:160]}")
                 if nxt and turn < MAX_TURNS:
-                    log.info("[v5] Coder stuck (gate unverified) — escalating one rung to %s.", nxt)
+                    log.info("[v5] Coder stuck (%s) — escalating one rung to %s.", why, nxt)
                     _ACTIVE_CODE_MODEL = nxt
                     code = generate_code(brief)
                     fails = 0
                     continue
-                log.warning("[v5] Model is stuck (no change) and gate unverified — "
-                            "stopping NOT converged.")
+                log.warning("[v5] Model is stuck (no change) and %s — stopping NOT converged.", why)
                 break
             log.info("[v5] Model chose to keep editing.")
             # Snapshot this good build (run_step overwrites build_output.step next turn) so the
@@ -2196,12 +2213,18 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         # Turn budget exhausted without an explicit accept, but the last geometry PASSED the
         # deterministic gate → it is verified-correct. Accept it via the gate rather than discard
         # a correct part (consistent with the stuck-branch policy, now that the gate checks
-        # solids/size/holes/through-vs-blind and can be trusted).
-        if not done and gate_passed:
+        # solids/size/holes/through-vs-blind and can be trusted) — UNLESS a "[spec]" advisory
+        # says a measurement contradicts a spec-stated number: then the part is measured-wrong
+        # and must report converged:false, honestly.
+        if not done and gate_passed and not last_spec_notes:
             log.info("[v5] Turn budget exhausted but the last build passed the deterministic "
                      "gate — accepting as converged via gate.")
             done = True
             accepted_via = "gate"
+        elif not done and gate_passed and last_spec_notes:
+            log.warning("[v5] Turn budget exhausted; build passes the structural gate but "
+                        "measured spec advisories remain (%s) — reporting NOT converged.",
+                        "; ".join(last_spec_notes)[:200])
 
         # Persist artifacts into a per-build directory (concurrent builds previously
         # clobbered each other in the shared cad-last-build.* files), then refresh the

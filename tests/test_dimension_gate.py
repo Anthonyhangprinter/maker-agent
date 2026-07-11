@@ -128,3 +128,30 @@ def test_missing_chamfer_is_advisory():
     facts["cone_faces"] = 1
     _hard, soft2 = eng.verify_expected(facts, EXPECTED, spec=SPEC)
     assert not any("chamfer" in s for s in soft2)
+
+
+def test_spec_tags_veto_gate_accept():
+    # The 2026-07-11 false accept: 16mm-thick flange, NO bolt holes, blind bore — structurally
+    # valid (gate passes) but measured-wrong on spec-stated numbers. Every such contradiction
+    # must carry a "[spec] " tag so the loop refuses accept-via-gate.
+    facts = {
+        "solids": 1, "cyl_faces": 3, "cone_faces": 0,
+        "through_holes": 0, "blind_holes": 1,
+        "bores": [20.0],
+        "hole_groups": [{"d": 20.0, "n": 1, "through": 0, "circle_d": 0.0}],
+        "volume": 40000.0, "bbox": [60.0, 60.0, 16.0],
+    }
+    hard, soft = eng.verify_expected(facts, EXPECTED, spec=SPEC)
+    assert hard == [], f"missing-entirely stays advisory: {hard}"
+    spec_notes = [s for s in soft if s.startswith("[spec]")]
+    # missing Ø5 holes (corroborated), through-count short (spec says 'through'), chamfer absent
+    assert any("Ø5" in s or "5mm" in s for s in spec_notes), spec_notes
+    assert any("THROUGH" in s for s in spec_notes), spec_notes
+    assert any("chamfer" in s for s in spec_notes), spec_notes
+
+
+def test_correct_part_has_no_spec_tags():
+    facts = dict(CORRECT_FACTS)
+    facts["cone_faces"] = 1
+    _hard, soft = eng.verify_expected(facts, EXPECTED, spec=SPEC)
+    assert not [s for s in soft if s.startswith("[spec]")], soft
