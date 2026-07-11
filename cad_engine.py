@@ -904,12 +904,19 @@ from b123d.domain import structural_section
 result = structural_section(200, 100, 10, 6, 1500)"""
 
 
+_NUM_LIT_RE = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")
+
+def _neutralise_numbers(code: str) -> str:
+    """Replace every numeric literal in reference example code with <DIM> so the example
+    can only teach STYLE/idiom — coders provably copy reference numbers otherwise."""
+    return _NUM_LIT_RE.sub("<DIM>", code)
+
 _HELPER_RE    = re.compile(r"^(structural_section|spur_gear|hex_bolt)\s*\(.*\)\s*$")
 # bd_warehouse (gumyr) correct-by-construction parts — see b123d/warehouse.py.
 _WH_HELPER_RE = re.compile(r"^(gear|screw|nut|iso_thread|ball_bearing|pipe_flange)\s*\(.*\)\s*$")
 _WH_IMPORT    = "from b123d.warehouse import gear, screw, nut, iso_thread, ball_bearing, pipe_flange\n"
 
-def generate_code(brief: dict) -> str:
+def generate_code(brief: dict, spec: str = "") -> str:
     # If the brief decided this is a standard section/gear/bolt/fastener, execute that decision
     # deterministically instead of hoping the coder model copies it from prose.
     helper = (brief.get("helper") or "").strip().rstrip(".")
@@ -925,8 +932,16 @@ def generate_code(brief: dict) -> str:
     dim_str   = json.dumps(brief.get("dimensions", {}), indent=2)
     feat_str  = "\n".join(f"- {f}" for f in brief.get("features", []))
     notes_str = "\n".join(f"- {n}" for n in brief.get("notes", []))
+    # The coder gets the USER'S REQUEST VERBATIM, first and authoritative. It used to see
+    # only the 8B brief's paraphrase — a translation layer that garbled/dropped numbers
+    # (measured 2026-07-11: the raw-spec harness one-shotted a flange the brief-fed coder
+    # failed 5x). The brief stays as structured support; the request owns the numbers.
+    spec_block = (f"USER REQUEST (verbatim — every number here is AUTHORITATIVE; if the "
+                  f"structured brief below disagrees with it, the request wins):\n{spec}\n\n"
+                  if spec else "")
     prompt = (
-        f"Part: {brief.get('description', brief.get('name', ''))}\n"
+        spec_block
+        + f"Part: {brief.get('description', brief.get('name', ''))}\n"
         f"Dimensions (mm):\n{dim_str}\n"
         + (f"Features:\n{feat_str}\n" if feat_str else "")
         + (f"Notes:\n{notes_str}\n" if notes_str else "")
@@ -1872,18 +1887,22 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     name     = brief.get("name", spec[:40])
     fewshots = [fs for fs in _load_fewshots(spec) if fs.get("code")] if use_fewshots else []
     if fewshots:
+        # STYLE-ONLY references: every numeric literal in the reference code is replaced with
+        # <DIM>. "Adapt the technique, not the geometry" as prose provably failed — coders
+        # copied the gold flange's six Ø6 holes into a four-Ø5 spec (both 7B AND 30B,
+        # 2026-07-11). With no numbers left to copy, only the idiom survives injection.
         fs_note = (
             "TECHNIQUE REFERENCES — idioms from past *verified* builds, NOT answers to copy.\n"
-            "This spec differs from every reference below. Study HOW each one performs its\n"
-            "operation (edge selection, boolean, helper call) and reuse that idiom, then write\n"
-            "ORIGINAL code for THIS spec. Copying a whole reference verbatim is wrong — the part\n"
-            "you are building is different; adapt the technique, not the geometry.\n")
+            "Every number in the reference code has been replaced with <DIM>. Study HOW each\n"
+            "one performs its operation (edge selection, boolean, helper call, polar layout),\n"
+            "then write ORIGINAL code for THIS part — every dimension, count and radius must\n"
+            "come from the user's request, never from a reference. Never write <DIM> itself.\n")
         for fs in fewshots:
             teaches = fs.get("teaches")
             fs_note += "\n"
             fs_note += (f"• Idiom: {teaches}\n" if teaches
-                        else f"• From a build of: {fs['spec']}\n")
-            fs_note += f"  how it's expressed in build123d:\n{fs['code'][:600]}\n"
+                        else "• Idiom from a past verified build:\n")
+            fs_note += f"  how it's expressed in build123d:\n{_neutralise_numbers(fs['code'][:600])}\n"
         brief["notes"] = brief.get("notes", []) + [fs_note.strip()]
 
     # Stage B: inject pitfalls learned from past failures on similar parts.
@@ -1925,7 +1944,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         log.info("[v5] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
                  ", may escalate" if auto_escalate else "")
 
-    code = generate_code(brief)
+    code = generate_code(brief, spec)
 
     with tempfile.TemporaryDirectory(prefix="cadv4_") as work_str:
         work_dir = Path(work_str)
@@ -1962,7 +1981,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 _ACTIVE_CODE_MODEL = nxt
                 fails = 0
                 try:
-                    code = generate_code(brief)   # fresh attempt with the stronger model
+                    code = generate_code(brief, spec)   # fresh attempt with the stronger model
                 except Exception as e:
                     # A timed-out/failed escalation codegen must cost ONE turn, not the whole
                     # build (an unhandled socket timeout here aborted a build with no result,
@@ -2177,7 +2196,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 if nxt and turn < MAX_TURNS:
                     log.info("[v5] Coder stuck (%s) — escalating one rung to %s.", why, nxt)
                     _ACTIVE_CODE_MODEL = nxt
-                    code = generate_code(brief)
+                    code = generate_code(brief, spec)
                     fails = 0
                     continue
                 log.warning("[v5] Model is stuck (no change) and %s — stopping NOT converged.", why)

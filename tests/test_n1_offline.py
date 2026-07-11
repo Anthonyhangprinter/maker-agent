@@ -25,7 +25,7 @@ def _patch_common(monkeypatch, tmp_path):
     monkeypatch.setattr(v4, "preflight", lambda: None)
     monkeypatch.setattr(v4, "build_brief", lambda spec: _minimal_brief())
     monkeypatch.setattr(v4, "verify_questions", lambda spec, brief: [])
-    monkeypatch.setattr(v4, "generate_code", lambda brief: "result = 1\n")
+    monkeypatch.setattr(v4, "generate_code", lambda brief, spec="": "result = 1\n")
     monkeypatch.setattr(v4, "_new_build_dir", lambda spec: tmp_path)
     monkeypatch.setattr(v4, "STEP_OUT", tmp_path / "cad-last-build.step")
     monkeypatch.setattr(v4, "STL_OUT", tmp_path / "cad-last-build.stl")
