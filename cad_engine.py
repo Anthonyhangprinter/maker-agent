@@ -1944,7 +1944,16 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         log.info("[v5] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
                  ", may escalate" if auto_escalate else "")
 
-    code = generate_code(brief, spec)
+    try:
+        code = generate_code(brief, spec)
+    except Exception as e:
+        # A cold model swap can blow the codegen timeout on the FIRST call (a pinned 30B
+        # spent 900s loading 18GB and the unguarded call killed the whole build,
+        # 2026-07-12). The model is warm after the failed attempt — retry once; a second
+        # failure propagates honestly.
+        log.warning("[v5] Initial codegen failed (%s) — retrying once now the model is warm.",
+                    str(e)[:120])
+        code = generate_code(brief, spec)
 
     with tempfile.TemporaryDirectory(prefix="cadv4_") as work_str:
         work_dir = Path(work_str)

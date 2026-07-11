@@ -69,7 +69,7 @@ CODE_TIMEOUT   = 600
 # The strong 30B rung is CPU-offloaded (~7min/call measured) and pays a cold model swap when the
 # ladder escalates mid-build; 600s killed a build at exactly +600s while the 30B was still loading
 # (2026-07-11). Budget the swap + one slow generation.
-CODE_TIMEOUT_STRONG = 900
+CODE_TIMEOUT_STRONG = 1200
 CRITIC_TIMEOUT = 200
 
 # ── Loop config ─────────────────────────────────────────────────────────────--
