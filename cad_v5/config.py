@@ -45,7 +45,13 @@ except Exception:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 BRIEF_MODEL        = "qwen3:8b"
-CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q5_k_m"   # ~16s/call, fully on GPU
+# Fast rung = qwen3:8b (2026-07-12, tiers 1-2 A/B under identical v5.2 prompts):
+# qwen3:8b 15/22 acceptance (68%), 5/6 valid geometry, 1052s — vs the code-tuned
+# qwen2.5-coder:7b at 8/22 (36%), 3/6 geometry, 1242s. The general 8B repairs
+# fillet/chamfer crashes the 7B spirals on, AND it keeps ONE model warm across
+# brief/triage/codegen/decide (fewer VRAM swaps). Old 7B stays reachable via a
+# cad.json code_model pin. Results: benchmarks/results/ (20260712 runs).
+CODE_MODEL_FAST    = "qwen3:8b"
 CODE_MODEL_MID     = "qwen2.5-coder:14b-instruct-q4_k_m"  # manual --coder mid only, NOT on the ladder
 CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # CPU offload, ~7min/call — last resort
 # Escalation ladder, weakest first; failures climb one rung per trigger. The 14B was MEASURED
