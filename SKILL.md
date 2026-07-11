@@ -83,7 +83,7 @@ Session: `~/.openclaw/cad-session.json`. Per-build artifacts: `~/.openclaw/cad-b
 python3 $SCRIPT build "a 100x60x30mm enclosure with 2mm walls"        # → Onshape URL
 python3 $SCRIPT build "W200x100 I-beam 1500mm"                        # uses structural_section()
 python3 $SCRIPT build "<spec>" --coder strong                        # force the 30B coder
-python3 $SCRIPT build "<spec>" --coder fast                          # force the 7B coder
+python3 $SCRIPT build "<spec>" --coder fast                          # force the fast rung (qwen3:8b)
 python3 $SCRIPT session                                              # last build state (JSON)
 python3 $SCRIPT rate <1-5> [comment]                                 # store ≥4★ as a few-shot
 python3 $SCRIPT brief "<spec>"                                       # debug: structured brief only
@@ -97,7 +97,7 @@ python3 $SCRIPT inspect "<onshape_url>"                              # describe 
 1. **Brief** (`qwen3:8b`, temp 0.2) — NL spec → structured JSON `{name, dimensions, features,
    notes, helper}`. Interprets intent: box/case/enclosure/container/tray/bin ⇒ **hollow, open-top,
    ~2mm walls** unless "solid"/"block"/"plate" etc. is said.
-2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to SKIP the fast 7B and start
+2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to SKIP the fast rung and start
    directly on the strong 30B rung.
 3. **Codegen** (auto-routed coder, temp 0.15) — build123d algebra-mode script.
 4. **Run → STEP** (`scripts/step`), **inspect** (`scripts/inspect`), **render** (`scripts/render`,
@@ -113,11 +113,13 @@ correct by construction, and **bypass codegen and the critic** (~60s).
 
 ## Coder routing
 
-Escalation ladder is **2 rungs: 7B → 30B** (`CODE_MODEL_LADDER = [CODE_MODEL_FAST,
-CODE_MODEL_STRONG]`, weakest first, one rung per escalation). Default is the fast `qwen2.5-coder:7b`
-(~16s/call, GPU); triage makes hard specs SKIP the 7B and start on the strong `qwen3-coder:30b`
-(~7min/call, CPU offload) — the last resort, reached by triage or escalation. The `qwen2.5-coder:14b`
-is OFF the auto ladder (measured out twice) and reachable only via manual `--coder mid`.
+Escalation ladder is **2 rungs: qwen3:8b → 30B** (`CODE_MODEL_LADDER = [CODE_MODEL_FAST,
+CODE_MODEL_STRONG]`, weakest first, one rung per escalation). Default fast rung is **`qwen3:8b`**
+(2026-07-12 A/B: 15/22 acceptance vs the code-tuned 7B's 8/22 under identical prompts — it also
+keeps one model warm across brief/triage/codegen/decide); triage makes hard specs SKIP it and
+start on the strong `qwen3-coder:30b` (~7min/call, CPU offload) — the last resort, reached by
+triage or escalation. The `qwen2.5-coder:14b` is OFF the auto ladder (measured out twice),
+manual `--coder mid` only; the retired `qwen2.5-coder:7b` is reachable via a cad.json pin.
 - Force per build: `--coder auto|fast|mid|strong`.
 - Telegram (Satine): prefix the message `fast: <spec>`, `mid: <spec>` or `strong: <spec>`.
 - Pin permanently: set `cad.code_model` in `~/.openclaw/cad.json` (disables auto-climbing).
