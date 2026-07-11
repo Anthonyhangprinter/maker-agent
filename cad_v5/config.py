@@ -60,6 +60,10 @@ OLLAMA_URL     = OLLAMA_HOST + "/api/generate"
 OLLAMA_TAGS    = OLLAMA_HOST + "/api/tags"
 OLLAMA_TIMEOUT = 300
 CODE_TIMEOUT   = 600
+# The strong 30B rung is CPU-offloaded (~7min/call measured) and pays a cold model swap when the
+# ladder escalates mid-build; 600s killed a build at exactly +600s while the 30B was still loading
+# (2026-07-11). Budget the swap + one slow generation.
+CODE_TIMEOUT_STRONG = 900
 CRITIC_TIMEOUT = 200
 
 # ── Loop config ─────────────────────────────────────────────────────────────--

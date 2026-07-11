@@ -83,6 +83,41 @@ def test_no_hole_groups_falls_back_to_cyl_faces():
     assert any("bolt circle" in s for s in soft)
 
 
+BROKEN_CHAMFER_SRC = """\
+from build123d import *
+from b123d.domain import bolt_circle
+chamfer = 1
+result = Cylinder(radius=30, height=8)
+try:
+    result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1], length=chamfer)
+except:
+    pass
+"""
+
+
+def test_fix_feature_guards_shadow_and_unguard():
+    # Real 30B output shape (2026-07-11): `chamfer = 1` shadows the function AND the call is
+    # guarded — the feature dies silently. The AST fixer must repair both.
+    fixed = eng._fix_feature_guards(BROKEN_CHAMFER_SRC, wants=frozenset({"chamfer"}))
+    assert "chamfer_mm = 1" in fixed, fixed
+    assert "length=chamfer_mm" in fixed, fixed
+    assert "try:" not in fixed, fixed
+    assert "chamfer(result" in fixed  # the call still targets the real function
+    compile(fixed, "<fixed>", "exec")  # stays valid python
+
+
+def test_fix_feature_guards_keeps_decorative_guard():
+    # A fillet the spec never asked for may stay guarded (wants excludes it).
+    src = "result = 1\ntry:\n    result = fillet(x, radius=3)\nexcept Exception as e:\n    print(e)\n"
+    out = eng._fix_feature_guards(src, wants=frozenset({"chamfer"}))
+    assert "try:" in out
+
+
+def test_fix_feature_guards_no_change_passthrough():
+    src = "result = Cylinder(radius=30, height=8)\n"
+    assert eng._fix_feature_guards(src, wants=frozenset({"chamfer"})) == src
+
+
 def test_missing_chamfer_is_advisory():
     facts = dict(CORRECT_FACTS)
     facts["cone_faces"] = 0

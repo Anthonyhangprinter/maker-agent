@@ -165,14 +165,21 @@ def _ensure_viewer(serve_dir: Path, port: int) -> bool:
 def cad_viewer_target(step_path: Path, name: str) -> dict:
     """Serve the STEP through the local CAD Viewer and return a browser link. Local + offline."""
     serve_dir = _OPENCLAW
-    # The viewer serves a directory; make sure the artifact lives under it.
-    if step_path.resolve().parent != serve_dir.resolve():
+    # The viewer serves a directory tree and `file=` takes a path RELATIVE to it — so anything
+    # already under ~/.openclaw (cad-builds/<ts>/build.step, cad-last-build.step) is served in
+    # place, keeping the per-build artifact dirs browsable in the viewer's picker. Only artifacts
+    # from OUTSIDE the tree get copied in (the old behavior copied every build to the root, so
+    # the bare viewer URL showed a pile of loose files and no build history).
+    try:
+        rel = step_path.resolve().relative_to(serve_dir.resolve())
+    except ValueError:
         dest = serve_dir / step_path.name
         try:
             shutil.copy(step_path, dest)
         except Exception:
             dest = step_path
         step_path = dest
+        rel = Path(step_path.name)
     # Drop any stale hidden GLB sidecar so the viewer regenerates from THIS step. The viewer caches
     # by mtime; a leftover newer-than-step .glb (e.g. from an earlier part) would otherwise be served
     # forever, immune to browser refresh.
@@ -186,7 +193,7 @@ def cad_viewer_target(step_path: Path, name: str) -> dict:
     up = _ensure_viewer(serve_dir, CAD_VIEWER_PORT)
     if not up:
         return file_target(step_path, name)
-    url = (f"http://127.0.0.1:{CAD_VIEWER_PORT}/?dir={serve_dir}&file={step_path.name}")
+    url = (f"http://127.0.0.1:{CAD_VIEWER_PORT}/?dir={serve_dir}&file={rel}")
     log.info("[v5] CAD Viewer: %s", url)
     return {"url": url, "uploaded": False, "viewer": True, "target": "cad-viewer",
             "step_local": str(step_path)}

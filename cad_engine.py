@@ -87,10 +87,16 @@ from cad_v5.config import (        # noqa: E402
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
-    VERSION,
+    VERSION, CODE_TIMEOUT_STRONG,
 )
+
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
+
+def _code_timeout() -> int:
+    """Per-rung codegen timeout: the CPU-offloaded strong coder needs more headroom than the
+    GPU 7B (a 600s cap killed a build mid-escalation while the 30B was still loading)."""
+    return CODE_TIMEOUT_STRONG if _code_model() == CODE_MODEL_STRONG else CODE_TIMEOUT
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -811,15 +817,20 @@ bore). For a normal SINGLE part, ignore this and assign one fused solid to `resu
 FILLET / CHAMFER operate on a solid's edges:
   result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges
   result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges
-A fillet/chamfer is COSMETIC — it must never crash the whole part. OCCT raises
-"no suitable edges" if the selection is empty/already-filleted, or the radius is too big for the
-geometry. So ALWAYS guard them and keep the unfilleted solid if it fails:
+  # the single top OUTER circular edge of a round part (flange/disc rim):
+  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]
+                   .sort_by(SortBy.RADIUS)[-1], length=1)
+When the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE — never wrap it in try/except:
+a silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the
+cut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).
+Only a purely decorative fillet the spec never asked for may be guarded, and even then log it:
   try:
-      result = fillet(result.edges().filter_by(Axis.Z), radius=3)
-  except Exception:
-      pass   # keep the solid; a missing cosmetic fillet beats a failed build
+      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only
+  except Exception as e:
+      print(f"WARN: decorative fillet skipped: {e}")   # NEVER a bare pass
 Keep radii small relative to the part (radius < half the thinnest adjacent wall), and select a
-SPECIFIC edge set (filter_by / group_by) — never fillet result.edges() blindly.
+SPECIFIC edge set (filter_by / group_by) — never fillet result.edges() blindly. chamfer() takes
+length=, fillet() takes radius= — don't swap them, and don't substitute one for the other.
 
 Cylinder/Cone take keyword args: Cylinder(radius=R, height=H) — NOT r=/h=.
 A hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole → radius=2). An M3 bolt clearance
@@ -921,8 +932,8 @@ def generate_code(brief: dict) -> str:
         + (f"Notes:\n{notes_str}\n" if notes_str else "")
         + "\nWrite the build123d code:"
     )
-    raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=CODE_TIMEOUT, temperature=0.15)
-    return _patch_code(_strip_fences(raw))
+    raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
+    return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(json.dumps(brief)))
 
 def _strip_fences(text: str) -> str:
     text = re.sub(r"^```python\s*\n?", "", text)
@@ -944,10 +955,76 @@ _CODE_PATCHES = [
     (r"^\s*\w+\.export_step\(.*$", "# export_step removed — the runner handles export"),
 ]
 
-def _patch_code(code: str) -> str:
+def _patch_code(code: str, wants: frozenset = frozenset()) -> str:
     for pattern, replacement in _CODE_PATCHES:
         code = re.sub(pattern, replacement, code, flags=re.MULTILINE)
-    return code
+    return _fix_feature_guards(code, wants)
+
+def _wanted_edge_features(text: str) -> frozenset:
+    """Which edge features (chamfer/fillet) the spec/brief text actually requests."""
+    t = (text or "").lower()
+    return frozenset(w for w in ("chamfer", "fillet") if w in t)
+
+def _fix_feature_guards(code: str, wants: frozenset = frozenset()) -> str:
+    """Deterministic AST repairs for the two ways a spec-requested fillet/chamfer dies
+    silently (both observed live, 2026-07-11 flange builds):
+      1. a parameter named `chamfer`/`fillet` SHADOWS the build123d function
+         (`chamfer = 1` then `chamfer(...)` → TypeError every time)
+      2. the call sits in try/except which swallows that error → the feature ships missing
+         and only cone_faces==0 betrays it.
+    Renaming a shadowing variable is always safe. Guards are stripped ONLY around calls to
+    features in `wants` (spec-requested — decorative guards may stay, per _CODE_SYSTEM)."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return code
+
+    changed = False
+    shadows = {t.id for node in ast.walk(tree) if isinstance(node, ast.Assign)
+               for t in node.targets
+               if isinstance(t, ast.Name) and t.id in ("chamfer", "fillet")}
+    if shadows:
+        class _Rename(ast.NodeTransformer):
+            def visit_Call(self, node):
+                self.generic_visit(node)
+                f = node.func
+                # the call itself must keep resolving to the real build123d function
+                if isinstance(f, ast.Name) and f.id.endswith("_mm") and f.id[:-3] in shadows:
+                    f.id = f.id[:-3]
+                return node
+            def visit_Name(self, node):
+                if node.id in shadows:
+                    node.id = node.id + "_mm"
+                return node
+        tree = _Rename().visit(tree)
+        changed = True
+
+    if wants:
+        stripped = []
+        class _Unguard(ast.NodeTransformer):
+            def visit_Try(self, node):
+                self.generic_visit(node)
+                probe = ast.Module(body=node.body, type_ignores=[])
+                for n in ast.walk(probe):
+                    if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                            and n.func.id in wants):
+                        stripped.append(n.func.id)
+                        return node.body   # required feature: let it fail LOUDLY
+                return node
+        tree = _Unguard().visit(tree)
+        if stripped:
+            changed = True
+            log.info("[v5] Stripped try/except guard around spec-requested %s.",
+                     "/".join(sorted(set(stripped))))
+
+    if not changed:
+        return code
+    if shadows:
+        log.info("[v5] Renamed variable(s) shadowing build123d %s.", "/".join(sorted(shadows)))
+    try:
+        return ast.unparse(ast.fix_missing_locations(tree))
+    except Exception:
+        return code
 
 def _check_syntax(code: str) -> Optional[str]:
     """Return None if the code parses, else a short SyntaxError description."""
@@ -967,6 +1044,7 @@ Correct build123d API — ALGEBRA MODE (build123d 0.10):
   Position: Pos(x,y,z) * shape    Rotate: Rotation(rx,ry,rz) * shape   (degrees)
   Combine:  a + b (union)   a - b (cut)   a & b (intersect)
   Fillet/chamfer: result = fillet(result.edges().filter_by(Axis.Z), radius=r)
+                  result = chamfer(<edges>, length=L)  — spec-requested ones must NOT be in try/except
   Vertical through-hole: stock - Pos(x, y, 0) * Cylinder(radius=r, height=2*thickness).
     Z must be 0 (centred), NOT the top-face height; only x,y position it. A cutter offset up
     to z=height makes a shallow/missing hole — the most common mistake.
@@ -991,8 +1069,8 @@ def revise_script(spec: str, code: str, problem: str, state: str = "") -> str:
         f"Current code:\n```python\n{code}\n```\n\n"
         f"Return the complete fixed script:"
     )
-    raw = _ollama(_code_model(), _REVISE_SYSTEM, prompt, timeout=CODE_TIMEOUT, temperature=0.15)
-    return _patch_code(_strip_fences(raw))
+    raw = _ollama(_code_model(), _REVISE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
+    return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(spec))
 
 
 _DECIDE_SYSTEM = f"""\
@@ -1032,14 +1110,14 @@ def decide_or_edit(spec: str, code: str, state: str,
         f"Visual critique:\n{crit_block}\n\n"
         f"Reply {DONE_SENTINEL} if correct, otherwise return the corrected full script:"
     )
-    raw = _ollama(_code_model(), _DECIDE_SYSTEM, prompt, timeout=CODE_TIMEOUT, temperature=0.15)
+    raw = _ollama(_code_model(), _DECIDE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
     # A 'done' verdict is the sentinel, possibly with a short remark; a real edit contains
     # code. Detect code by a fence or an actual import STATEMENT — the old substring test
     # ("import" not in raw) misread prose like "all important dimensions match" as an edit.
     has_code = "```" in raw or re.search(r"^\s*(?:from|import)\s+\w+", raw, re.M)
     if DONE_SENTINEL in raw and not has_code:
         return "done", None
-    return "edit", _patch_code(_strip_fences(raw))
+    return "edit", _patch_code(_strip_fences(raw), wants=_wanted_edge_features(spec))
 
 # ── build123d runner ──────────────────────────────────────────────────────────
 
@@ -1872,8 +1950,17 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             if nxt and fails >= ESCALATE_AFTER:
                 log.info("[v5] Escalating one rung to %s after %d failed turn(s).", nxt, fails)
                 _ACTIVE_CODE_MODEL = nxt
-                code = generate_code(brief)   # fresh attempt with the stronger model
                 fails = 0
+                try:
+                    code = generate_code(brief)   # fresh attempt with the stronger model
+                except Exception as e:
+                    # A timed-out/failed escalation codegen must cost ONE turn, not the whole
+                    # build (an unhandled socket timeout here aborted a build with no result,
+                    # 2026-07-11). Keep the previous rung's code; the revise path retries on
+                    # the strong rung with its longer _code_timeout().
+                    log.warning("[v5] Escalated codegen failed (%s) — keeping previous code "
+                                "for a revise turn.", str(e)[:120])
+                    _note_failure(f"escalated codegen failed: {e}")
 
             log.info("[v5] ── Turn %d/%d (%s) ──", turn, MAX_TURNS, _ACTIVE_CODE_MODEL)
 
