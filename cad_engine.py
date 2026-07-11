@@ -377,9 +377,10 @@ The "expected" block is a deterministic acceptance target the build is checked a
     the spec uses the word "through", count it; otherwise leave it out of this number.
   • "bores_mm": the DIAMETERS in mm of any holes/bores whose size the spec actually states (e.g.
     "20mm wrist-pin bore" → [20]; "M5 clearance holes" → [5.5]; "drill 8mm and 12mm holes" →
-    [8, 12]; a bolt circle of 6× M6 → [6.6]). List each DISTINCT diameter once. Use metric
-    clearance sizes for "MN clearance/bolt holes" (M3→3.4, M4→4.5, M5→5.5, M6→6.6, M8→9). Leave
-    [] when no specific hole diameter is given.
+    [8, 12]; a bolt circle of 6× M6 → [6.6]). List each DISTINCT diameter once — and list ALL of
+    them: a part with a 20mm central bore AND four 5mm bolt holes has TWO stated diameters →
+    [20, 5], never just the biggest. Use metric clearance sizes for "MN clearance/bolt holes"
+    (M3→3.4, M4→4.5, M5→5.5, M6→6.6, M8→9). Leave [] when no specific hole diameter is given.
   • "wall_mm": the wall thickness in mm for a HOLLOW part / enclosure / tube when the spec states
     or clearly implies one (e.g. "2mm walls" → 2; "enclosure" with no thickness → 2). Use null for
     solid parts, plates, or when there is no wall.
@@ -397,13 +398,20 @@ The "expected" block is a deterministic acceptance target the build is checked a
            bore feature_check for holes/cavities that are actually cut INTO the part. So an "80mm-bore
            piston" contributes Ø80 to bbox/diameter, and ONLY its wrist-pin hole is a bore feature.
       {"kind": "groove", "count": <N>}   # N circumferential ring grooves (piston rings, snap-ring, O-ring)
-      {"kind": "bolt_circle", "count": <N>, "d_mm": <hole diameter>}   # N equally-spaced holes on a circle
+      {"kind": "bolt_circle", "count": <N>, "d_mm": <hole diameter>, "circle_d_mm": <bolt circle Ø or null>}
+         # N equally-spaced holes on a circle. d_mm is the HOLE diameter (NOT the circle's);
+         # circle_d_mm is the bolt-circle diameter when the spec states one, else null.
     Examples:
       "a piston ... three ring grooves ... 20mm wrist-pin bore through the skirt"
          → [{"kind":"bore","d_mm":20,"orientation":"radial"}, {"kind":"groove","count":3}]
       "a shaft with a central 10mm bore and a 5mm cross-hole"
          → [{"kind":"bore","d_mm":10,"orientation":"axial"}, {"kind":"bore","d_mm":5,"orientation":"radial"}]
-      "a flange with six M6 bolt holes" → [{"kind":"bolt_circle","count":6,"d_mm":6.6}]
+      "a flange with six M6 bolt holes" → [{"kind":"bolt_circle","count":6,"d_mm":6.6,"circle_d_mm":null}]
+      "a flange with a 20mm central through-bore and four 5mm holes on a 42mm bolt circle"
+         → [{"kind":"bore","d_mm":20,"orientation":"axial"},
+            {"kind":"bolt_circle","count":4,"d_mm":5,"circle_d_mm":42}]
+         (EVERY numbered feature gets its own check — do not merge the bolt holes into the bore
+          or drop them; 5 is the hole Ø, 42 is the circle Ø, never swap them.)
     Empty list for a plain plate/box/bracket with no such distinct features.
 
 Build EXACTLY what is asked — do NOT invent extra features (mounting holes, bosses, fillets,
@@ -1161,6 +1169,29 @@ def _spec_mentions_dim(spec: str, d: float) -> bool:
             return True
     return False
 
+_COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+                "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
+
+def _spec_mentions_count(spec: str, n: int) -> bool:
+    """Does the spec text corroborate count n (digit or number-word)? Same hallucination
+    guard as _spec_mentions_dim, for hole counts."""
+    if re.search(rf"\b{n}\s*(?:x\b|×)?", spec or ""):
+        return True
+    return any(v == n and re.search(rf"\b{w}\b", spec or "", re.I)
+               for w, v in _COUNT_WORDS.items())
+
+def _fmt_hole_groups(groups: list) -> str:
+    """Human-readable measured hole table: 'Ø20×1 centred; Ø5×4 on circle Ø42'."""
+    out = []
+    for g in groups or []:
+        try:
+            tag = (f" on circle Ø{g['circle_d']:g}" if g.get("n", 0) > 1 and g.get("circle_d", 0) > 1.0
+                   else " centred" if g.get("circle_d", 99) <= 1.0 else "")
+            out.append(f"Ø{g['d']:g}×{g['n']}{tag}")
+        except Exception:
+            continue
+    return "; ".join(out) or "none"
+
 def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[str], list[str]]:
     """Sanity-check the produced geometry. Returns (hard_fails, advisories).
 
@@ -1262,11 +1293,13 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
         missing = [d for d in exp_bores if isinstance(d, (int, float)) and d > 0
                    and not any(abs(d - g) <= max(0.6, 0.05 * d) for g in got_bores)]
         if missing:
-            seen = ', '.join(f'{g:g}' for g in sorted({round(x, 1) for x in got_bores})) or "none"
+            hg = facts.get("hole_groups") or []
+            seen = (_fmt_hole_groups(hg) if hg else
+                    ', '.join(f'{g:g}' for g in sorted({round(x, 1) for x in got_bores})) or "none")
             soft.append(
                 f"the spec asks for bore/hole diameter(s) {', '.join(f'{d:g}' for d in missing)}mm "
-                f"but no cylindrical face of that size was found (measured Ø: {seen}mm) — check the "
-                f"hole radius and that each cut actually overlaps the solid.")
+                f"but no cylindrical face of that size was found (measured holes: {seen}) — check "
+                f"the hole radius (radius = diameter/2!) and that each cut overlaps the solid.")
 
     # Wall thickness — NOISY estimate, advisory only. Fires only when the spec names a wall and NO
     # candidate is near it; noise only ADDS candidates, so this won't false-alarm on a correct wall.
@@ -1279,6 +1312,16 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                 f"the spec implies a ~{exp_wall:g}mm wall but no wall near that thickness was "
                 f"measured (candidates: {cand}mm) — if the walls look too thick/thin, adjust the "
                 f"shell offset or cavity size.")
+
+    # Chamfer presence — a chamfer on a circular edge leaves a CONICAL face, so cone_faces==0
+    # with a spec-requested chamfer means it silently failed (the classic try/except-pass drop).
+    # Advisory: chamfers on straight edges leave planes, not cones, so absence isn't proof there.
+    if (re.search(r"\bchamfer", spec or "", re.I) and facts.get("cone_faces", -1) == 0):
+        soft.append(
+            "the spec asks for a chamfer but no conical face was measured — the chamfer likely "
+            "failed silently. Select the edge explicitly (e.g. the top outer circular edge: "
+            "edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) "
+            "and apply chamfer(edge, length) WITHOUT wrapping it in try/except.")
 
     # ── GENERAL geometry-matches-intent gate ────────────────────────────────────────────────────
     # One generic loop over the brief's structured `feature_checks` — NO part-specific code. The
@@ -1349,12 +1392,55 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
             elif kind == "bolt_circle":
                 n = ch.get("count")
                 d = ch.get("d_mm")
-                cyl = facts.get("cyl_faces", -1)
-                if isinstance(n, int) and n > 0 and isinstance(cyl, int) and 0 <= cyl < n:
-                    soft.append(
-                        f"the spec asks for a {n}-hole bolt circle but only {cyl} cylindrical "
-                        f"face(s) exist — use bolt_circle({n}, <circle Ø>, "
-                        f"{d if d else '<hole Ø>'}, <depth>) so the holes are equally spaced.")
+                circle_d = ch.get("circle_d_mm")
+                groups = facts.get("hole_groups") or []
+                if not (isinstance(n, int) and n > 0):
+                    continue
+                if groups:
+                    # Measured per-Ø hole groups exist (scripts/inspect) — check size AND count,
+                    # not just "enough cylindrical faces" (five Ø20 holes used to satisfy a
+                    # 4×Ø5 bolt circle). Tolerance mirrors the bore check.
+                    tol = max(0.6, 0.06 * d) if isinstance(d, (int, float)) and d > 0 else None
+                    match_n = sum(g.get("n", 0) for g in groups
+                                  if tol and abs(g.get("d", 0) - d) <= tol)
+                    if tol and match_n >= n:
+                        # Right size, right count — advisory only if the bolt-circle Ø is off.
+                        ring = [g for g in groups
+                                if abs(g.get("d", 0) - d) <= tol and g.get("n", 0) > 1]
+                        if (isinstance(circle_d, (int, float)) and circle_d > 0 and ring
+                                and abs(ring[0].get("circle_d", 0) - circle_d)
+                                    > max(1.0, 0.05 * circle_d)):
+                            soft.append(
+                                f"the {n}× Ø{d:g}mm holes sit on a measured circle "
+                                f"Ø{ring[0]['circle_d']:g}mm but the spec says Ø{circle_d:g}mm — "
+                                f"place the hole centres on a Ø{circle_d:g}mm circle "
+                                f"(radius {circle_d/2:g}mm from the part axis).")
+                        continue
+                    # Not satisfied. If holes exist in (at least) the right count but the WRONG
+                    # size — and the spec really states both Ø and count — that is a measured,
+                    # unambiguous miss: hard-fail with the exact numbers so the coder fixes the
+                    # radius instead of guessing. (Everything else stays advisory per the
+                    # 2026-06-26 gate design: never block on what wasn't reliably measured.)
+                    wrong_size = [g for g in groups
+                                  if g.get("n", 0) >= n and (not tol or abs(g.get("d", 0) - d) > tol)]
+                    corroborated = (isinstance(d, (int, float)) and d > 0
+                                    and _spec_mentions_dim(spec, d) and _spec_mentions_count(spec, n))
+                    msg = (f"the spec asks for {n}× Ø{d:g}mm holes"
+                           + (f" on a Ø{circle_d:g}mm bolt circle" if circle_d else "")
+                           + f" but the measured hole groups are: {_fmt_hole_groups(groups)} — "
+                           f"cut {n} cylinders of RADIUS {d/2:g}mm (diameter Ø{d:g}mm) at the "
+                           f"bolt-circle positions.")
+                    if corroborated and wrong_size and match_n == 0:
+                        hard.append(msg)
+                    else:
+                        soft.append(msg)
+                else:
+                    cyl = facts.get("cyl_faces", -1)
+                    if isinstance(cyl, int) and 0 <= cyl < n:
+                        soft.append(
+                            f"the spec asks for a {n}-hole bolt circle but only {cyl} cylindrical "
+                            f"face(s) exist — use bolt_circle({n}, <circle Ø>, "
+                            f"{d if d else '<hole Ø>'}, <depth>) so the holes are equally spaced.")
     return hard, soft
 
 def run_render(step_path: Path, work_dir: Path, section: bool = False) -> Path:
@@ -1920,6 +2006,9 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                                "shape, proportions, AND every requested feature (holes, grooves, "
                                "bores, bosses) are actually present and correct; check the top-down "
                                "panel for top-face features before concluding one is missing.")
+                if facts.get("hole_groups"):
+                    last_state += ("\n[measured] holes: " + _fmt_hole_groups(facts["hole_groups"])
+                                   + " — compare these Ø/counts against the spec's numbers.")
 
             # Domain-helper geometry is correct by construction — accept it without
             # subjecting it to the visual critic (a single isometric view of a long

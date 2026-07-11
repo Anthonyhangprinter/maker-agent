@@ -111,6 +111,7 @@ except Exception:
 #      material on its axis, a blind hole's uncut remainder leaves material on the axis.
 through_holes = blind_holes = -1   # -1 = analysis unavailable → gate skips through-check
 hole_report = []
+hole_recs = []   # (radius, (px,py,pz), (dx,dy,dz), verdict) per hole face — feeds hole_groups
 try:
     from build123d import Vertex, GeomType
     from OCP.BRepAdaptor import BRepAdaptor_Surface
@@ -145,8 +146,13 @@ try:
         ux, uy, uz = seed[0] - dot * dx, seed[1] - dot * dy, seed[2] - dot * dz
         un = (ux * ux + uy * uy + uz * uz) ** 0.5 or 1.0
         ux, uy, uz = ux / un, uy / un, uz / un
-        # step 1: material just OUTSIDE the cylinder? if not, this is the outer wall — skip
-        if not _inside(mx + ux * (r + 0.5), my + uy * (r + 0.5), mz + uz * (r + 0.5)):
+        # step 1: material just OUTSIDE the cylinder? if not, this is the outer wall — skip.
+        # Probe FOUR perpendicular directions, not one: a hole that breaches the outer wall
+        # has void on the breach side, and a single probe there misclassified it as "wall".
+        vx, vy, vz = (dy * uz - dz * uy), (dz * ux - dx * uz), (dx * uy - dy * ux)
+        if not any(_inside(mx + sx * (r + 0.5), my + sy * (r + 0.5), mz + sz * (r + 0.5))
+                   for (sx, sy, sz) in ((ux, uy, uz), (-ux, -uy, -uz),
+                                        (vx, vy, vz), (-vx, -vy, -vz))):
             continue
         # step 2: walk the axis; any material on it ⇒ blind
         mat = sum(1 for i in range(25)
@@ -155,9 +161,65 @@ try:
         verdict = "THROUGH" if mat == 0 else "BLIND"
         through += (mat == 0); blind += (mat != 0)
         hole_report.append(f"r{r:.1f}@({px:.0f},{py:.0f},{pz:.0f}):{verdict}")
+        hole_recs.append((r, (px, py, pz), (dx, dy, dz), verdict))
     through_holes, blind_holes = through, blind
 except Exception as e:
     hole_report = [f"(hole analysis unavailable: {str(e)[:80]})"]
+
+# ── Hole GROUPS (Ø × count × through × bolt-circle Ø) ───────────────────────────
+# The unique-diameter "Bore diameters" line can't tell "one Ø20 bore + four Ø5 bolt holes"
+# from "five Ø20 holes" (a real 7B failure the critic then passed). Group the HOLE-classified
+# cylinders (outer walls already excluded above) by diameter, dedupe seam-split faces of the
+# same physical hole (same axis line + radius), and report count / through-count / mean radial
+# offset from the part centre (×2 = the measured bolt-circle Ø). Fully deterministic.
+hole_groups: list[dict] = []
+try:
+    _uniq = []
+    for (r, loc, d, verdict) in hole_recs:
+        dup = False
+        for (ur, uloc, ud, _uv) in _uniq:
+            if abs(ur - r) > 1e-3:
+                continue
+            if abs(d[0]*ud[0] + d[1]*ud[1] + d[2]*ud[2]) < 0.999:
+                continue
+            dxp = (loc[0]-uloc[0], loc[1]-uloc[1], loc[2]-uloc[2])
+            proj = dxp[0]*ud[0] + dxp[1]*ud[1] + dxp[2]*ud[2]
+            perp = ((dxp[0]-proj*ud[0])**2 + (dxp[1]-proj*ud[1])**2 + (dxp[2]-proj*ud[2])**2) ** 0.5
+            if perp < 0.1:   # same axis line + same radius ⇒ same hole (seam-split face)
+                dup = True
+                break
+        if not dup:
+            _uniq.append((r, loc, d, verdict))
+    _cx = (bbox.min.X + bbox.max.X) / 2
+    _cy = (bbox.min.Y + bbox.max.Y) / 2
+    _cz = (bbox.min.Z + bbox.max.Z) / 2
+    _bydia: dict = {}
+    for (r, loc, d, verdict) in _uniq:
+        _bydia.setdefault(round(2 * r, 1), []).append((loc, d, verdict))
+    for dia in sorted(_bydia):
+        items = _bydia[dia]
+        offd = []
+        for (loc, d, v) in items:
+            vx, vy, vz = loc[0]-_cx, loc[1]-_cy, loc[2]-_cz
+            proj = vx*d[0] + vy*d[1] + vz*d[2]
+            offd.append((((vx-proj*d[0])**2 + (vy-proj*d[1])**2 + (vz-proj*d[2])**2) ** 0.5, v))
+        # Sub-cluster by radial offset so a CENTRED bore and a same-Ø bolt circle report as two
+        # groups (one Ø20 group spanning offsets 0+21 reported a bogus mean "circle Ø33.6").
+        offd.sort()
+        clusters: list[list] = [[offd[0]]]
+        for pair in offd[1:]:
+            if pair[0] - clusters[-1][-1][0] > max(2.0, 0.05 * pair[0]):
+                clusters.append([pair])
+            else:
+                clusters[-1].append(pair)
+        for cl in clusters:
+            hole_groups.append({
+                "d": dia, "n": len(cl),
+                "through": sum(1 for (_o, v) in cl if v == "THROUGH"),
+                "circle_d": round(2 * sum(o for (o, _v) in cl) / len(cl), 1),
+            })
+except Exception:
+    hole_groups = []
 
 # ── Feature dimensions (measure) ────────────────────────────────────────────────
 # Deterministic readout of feature SIZES so the gate can check the brief's target dims (bore Ø,
@@ -279,6 +341,11 @@ if bore_radii:
     uniq_r = sorted({round(r, 2) for r in bore_radii})
     print(f"Bore diameters: {', '.join(f'{2*r:.2f}' for r in uniq_r)} mm  "
           f"(radii: {', '.join(f'{r:.2f}' for r in uniq_r)})")
+if hole_groups:
+    print("Hole groups: " + "; ".join(
+        f"Ø{g['d']:g} ×{g['n']} ({g['through']} through"
+        + (f", on circle Ø{g['circle_d']:g}" if g['n'] > 1 and g['circle_d'] > 1.0 else "")
+        + ")" for g in hole_groups))
 if wall_candidates:
     uniq_w = sorted({round(w, 2) for w in wall_candidates})
     print(f"Wall candidates (est): {', '.join(f'{w:.2f}' for w in uniq_w)} mm")
@@ -297,6 +364,7 @@ print("FACTS_JSON: " + _json.dumps({
     "cyl_faces": cyl_faces, "cone_faces": cone_faces,
     "through_holes": through_holes, "blind_holes": blind_holes,
     "bores": sorted({round(2 * r, 2) for r in bore_radii}),
+    "hole_groups": hole_groups,
     "walls": sorted({round(w, 2) for w in wall_candidates}),
     "bore_axes": sorted({(round(d, 1), o) for d, o in bore_orientations}),
     "volume": round(volume, 3),
