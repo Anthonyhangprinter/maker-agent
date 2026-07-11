@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v5: cad_v5 package + cad_engine.py core): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen2.5-coder:7b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v5: cad_v5 package + cad_engine.py core): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen3:8b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -14,7 +14,7 @@ metadata:
 # CAD Builder Skill (v5: cad_v5 package + cad_engine.py core)
 
 Build and iterate on CAD models from text specs. All inference runs locally via Ollama
-(qwen3:8b, qwen2.5-coder:7b + qwen3-coder:30b on the auto ladder, 14b manual-only, gemma4:e4b).
+(qwen3:8b for brief+code, qwen3-coder:30b escalation, 14b manual-only, gemma4:e4b critic).
 **No Claude API calls.** Default output target is the local CAD Viewer (via the `cad` launcher);
 Onshape is opt-in.
 
