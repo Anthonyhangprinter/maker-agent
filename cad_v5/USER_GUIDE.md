@@ -241,14 +241,14 @@ is present) and its workaround.
 
 ## Speed & quality controls
 
-- **The default is auto-routing** (`--coder auto`): it starts on the fast `qwen2.5-coder:7b`
+- **The default is auto-routing** (`--coder auto`): it starts on the fast `qwen3:8b`
   (~seconds/turn, GPU) and only escalates to the strong `qwen3-coder:30b` (minutes/turn, CPU
   offload) after repeated failures — or immediately when the triage step judges the spec hard. No
   coder is pinned right now, so the ladder is live.
-- Force it per build: **`--coder fast`** (always the 7B, quick) or **`--coder strong`** (always the
-  30B, for hard parts). `--coder mid` is the 14B, manual-only (it's off the auto ladder).
+- Force it per build: **`--coder fast`** (the 8B, quick) or **`--coder strong`** (the 30B, for
+  hard parts). There is no mid rung — the 14B was measured out and removed (2026-07-16).
 - Pin a coder permanently with `cad.code_model` in `~/.openclaw/cad.json` (disables auto-escalation).
-- From Telegram (Satine), prefix the spec with `fast:`, `mid:`, or `strong:`.
+- From Telegram (Satine), prefix the spec with `fast:` or `strong:`.
 
 ---
 
