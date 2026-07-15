@@ -75,19 +75,23 @@ false-negatives otherwise). ~60s vs ~150s+ for freeform.
 
 ## Coder routing (escalation ladder, 2026-07-04)
 
-`CODE_MODEL_LADDER` in `cad_v5/config.py` is **2 rungs: 7B → 30B** (`[CODE_MODEL_FAST,
-CODE_MODEL_STRONG]`), weakest first. Default rung is the fast `qwen2.5-coder:7b` (GPU, ~16s/call);
+`CODE_MODEL_LADDER` in `cad_v5/config.py` is **2 rungs: fast → strong** (`[CODE_MODEL_FAST,
+CODE_MODEL_STRONG]`), weakest first. Default fast rung is `qwen3:8b` (GPU, ~35 tok/s; won the
+2026-07-12 A/B 15/22 vs the code-tuned 7B's 8/22 — it repairs fillet/chamfer crashes the 7B
+spirals on, and keeps ONE model warm across brief/triage/codegen/decide);
 escalation climbs ONE rung per trigger (`ESCALATE_AFTER` = 2 failed/stuck turns, or
 stuck-with-gate-unverified) and regenerates fresh. Triage (`spec_needs_strong_coder`, an LLM call
 via qwen3:8b — **not** keyword rules) makes hard specs SKIP the fast rung and start directly on
 `CODE_MODEL_LADDER[1]` = the STRONG 30B (~7min/call, CPU offload) — deliberately the last resort on
 8GB VRAM, reached either by triage or by escalation.
 
-The **14B (`CODE_MODEL_MID`) is OFF the auto ladder** — measured out twice (`m1_14b_tiers12.json`:
-3/6 converged at 583–804s/build, slower than the 30B MoE and weaker than the 7B). It remains
-reachable only via manual `--coder mid` / the `mid:` Telegram prefix.
+There is **no mid rung**: the 14B was measured out twice (`m1_14b_tiers12.json`: 3/6 converged at
+583–804s/build, slower than the 30B MoE and weaker than the 7B), and on 2026-07-16 the model +
+the `--coder mid` alias / `mid:` Telegram prefix were removed outright (with the retired
+qwen2.5-coder:7b, qwen3.5:4b/9b and phi3 — ~28GB freed). The right middle rung for weak hardware
+is the cloud (B4/M3).
 
-- **Manual:** `build --coder auto|fast|mid|strong`; Satine accepts `fast:`/`mid:`/`strong:` prefixes.
+- **Manual:** `build --coder auto|fast|strong`; Satine accepts `fast:`/`strong:` prefixes.
 - **Pin:** `cad.code_model` in `~/.openclaw/cad.json` disables auto-climbing (currently UNPINNED
   — the ladder is live routing).
 - **Recorded:** chosen model stored as `code_model` in the session/result.
@@ -128,11 +132,12 @@ reachable only via manual `--coder mid` / the `mid:` Telegram prefix.
 
 - **Machine:** HP Z2 Tower G4 · AMD RX 6600 8GB VRAM (ROCm) · `OLLAMA_MAX_LOADED_MODELS=1`.
 - **brief / triage / refine:** `qwen3:8b` (~35 tok/s GPU).
-- **coder:** `qwen2.5-coder:7b-instruct-q5_k_m` (default, full GPU ~16s) ⇄ `qwen3-coder:30b`
-  (30.5B MoE, CPU offload ~7min/call). `qwen2.5-coder:14b`: rejected TWICE by measurement —
-  early tests (~217s, no win) and the 2026-07-04 re-benchmark (m1_14b_tiers12.json: 3/6 converged
-  at 583–804s/build — slower than the 30B MoE, since a dense 14B offloads worse than a 3B-active
-  MoE, and weaker than the 7B's 5/6 at ~250s). Off the auto ladder; `--coder mid` stays manual.
+- **coder:** `qwen3:8b` (fast rung, full GPU, 35.2 tok/s measured 2026-07-16) ⇄ `qwen3-coder:30b`
+  (30.5B MoE, CPU offload 64/36, 11.2 tok/s gen measured 2026-07-16). The 14B mid rung and the
+  old qwen2.5-coder:7b were rejected by measurement and REMOVED 2026-07-16 (see Coder routing).
+- **RAM ceiling rule (measured 2026-07-16):** a strong-rung model must be ≤ ~18GB on disk.
+  `qwen3.6:35b-a3b` q4_K_M (23GB, ~19GiB CPU-side) cannot even LOAD beside the live desktop on
+  31GB RAM — 98% memory pressure, runner never came up. Q3_K_M (~17GB) is the fit-this-box quant.
 - **critic:** `gemma4:e4b` (multimodal; text on GPU, vision encoder on CPU).
 - One model in VRAM at a time → model swaps cost cold-load time; the helper bypass and fast-coder
   default keep common builds quick.
@@ -142,7 +147,7 @@ reachable only via manual `--coder mid` / the `mid:` Telegram prefix.
 ## Tuning Surface (where to change behavior)
 
 1. **`~/.openclaw/cad.json`** — `code_model` (pin coder), `public_uploads`; creds stay in openclaw.json `env.ONSHAPE_*`.
-2. **Constants** (top of `cad_agent_v4.py`) — model names, `MAX_TURNS`, `ESCALATE_AFTER`,
+2. **Constants** (`cad_v5/config.py` — single source of truth) — model names, `MAX_TURNS`, `ESCALATE_AFTER`,
    `BUILD_TIMEOUT`, `CODE_TIMEOUT`, `CRITIC_TIMEOUT`, etc.
 3. **Prompts** (highest leverage) — `_BRIEF_SYSTEM`, `_CODE_SYSTEM`, `_COMPLEXITY_SYSTEM`,
    `_CRITIC_SYSTEM`, `_DECIDE_SYSTEM`; inline sampling temps.
@@ -153,15 +158,16 @@ reachable only via manual `--coder mid` / the `mid:` Telegram prefix.
 
 ## Open Follow-ups
 
-- **Model upgrade (coder generation) — tracked 2026-06-26.** The agent still runs older coders:
-  fast = `qwen2.5-coder:7b` (2024), strong = `qwen3-coder:30b-a3b`. Newer generation is available and
-  pulled: `qwen3.6:35b-a3b` (A3B MoE, ~93% HumanEval). Plan: (1) **runtime** — move the strong coder
-  off Ollama onto **llama.cpp `--n-cpu-moe`** (keeps the 3B active path + attention on GPU, offloads
-  dormant experts to RAM) to kill the 30B timeouts (cases 04/08/10 hit the 35-min cap); (2) **model**
-  — A/B `qwen3-coder:30b-a3b` (coder-tuned) vs `qwen3.6:35b-a3b` (newer, general) on tiers 1–2,
-  scoring pass-rate AND wall-time (HumanEval ≠ build123d, so measure). Coder-tuning usually beats a
-  bigger general model for code, but qwen3.6 is the newer lineage — let the A/B decide. See
-  [[project_model_landscape_2026]].
+- **Model upgrade (coder generation) — IN PROGRESS 2026-07-16.** Fast rung already refreshed
+  (qwen3:8b, 2026-07-12 A/B). Strong-rung A/B `qwen3-coder:30b` vs `qwen3.6:35b-a3b` is live:
+  the q4_K_M CANNOT LOAD on this box (23GB > the ~18GB RAM-ceiling rule, see Hardware) — the
+  Q3_K_M (~17GB, `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:Q3_K_M`) is the variant under test.
+  Rung-1 shootout also queued: qwen3:8b (incumbent 15/22) vs granite3.3:8b (34.8 tok/s) vs
+  granite4:7b-a1b-h (4.2GB MoE, 80 tok/s, fully-GPU) vs qwen3:4b (58.5 tok/s). Candidates found
+  and rejected in the 2026-07-16 survey: qwen3-coder-next (52GB), Laguna XS 2.1 (20GB q4 —
+  marginal, revisit at q3), no small qwen3-coder exists. Blocked on: Ollama 0.20.5 → 0.32.x
+  upgrade (needs sudo; brings post-April qwen3.6 MoE fixes + MTP). The llama.cpp `--n-cpu-moe`
+  runtime idea stays open for after the model verdict. See [[project_model_landscape_2026]].
 - Richer / auto-oriented render so the critic can judge long foreshortened sections (helpers still
   bypass the critic for this reason).
 - Wrap as a Hermes plugin (`~/.hermes/plugins/cad/`) over the clean `build()` API.
@@ -206,6 +212,16 @@ tiers: 1 = 01–03 simple, 2 = 04–06 moderate, 3 = 07–10 hard; tier 3 — ra
 impeller, spiral staircase, planetary gear — mainly stresses the 30B path on 8GB VRAM.)
 Run: `python3 scripts/run_benchmarks.py [--tiers N,M] [--only IDs] [--coder fast|strong] [--agent PATH]`.
 
+**Held-out suite (2026-07-16):** `benchmarks/heldout-cqe/` — the 25 danwahl/cadqueryeval tasks
+(MIT) ported by `scripts/port_cqe_heldout.py` (15 tier-1, 10 tier-2; NL spec + solids/bbox
+acceptance + a reference STL each). Run: `run_benchmarks.py --suite heldout-cqe`; then
+`scripts/score_heldout.py <run_tag>` adds registration-aligned reference-STL fidelity checks
+(watertight / components / bbox 1mm / volume 2% / chamfer 1mm / hausdorff95 1mm, via
+cadqueryeval's own open3d RANSAC+ICP code at `~/repos/cadqueryeval`; scorer chain verified
+against a hand-built reference part: 0.10mm chamfer, 6/6 checks). **HELD-OUT CONTRACT: these
+specs must never be rated into cad-examples.jsonl or distilled into cad-lessons.jsonl** — they
+exist so retrieval lift can't inflate scores.
+
 **Honest scoring (2026-07-04):** a build that produces no geometry scores 0/N on every applicable
 criterion (previously 0/0, which inflated suite scores); bbox check is axis-invariant like the
 runtime gate. **Measured baselines (pre-bug-fix engine, honest scorer, in
@@ -217,6 +233,18 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-16 — Coder-model refresh pass (Claude Code session):** (1) *Cleanup:* removed
+  qwen3.5:9b/4b, phi3, qwen2.5-coder:7b/14b (~28GB) and the `--coder mid` alias everywhere
+  (config/engine/cli/runner/Satine); openclaw.json cad agent repointed to qwen3:8b; gateway +
+  Satine restarted clean. (2) *Measured:* speed table (gen tok/s, same CAD prompt) — granite4:
+  7b-a1b-h 80.0 · qwen3:4b 58.5 · qwen3:8b 35.2 · granite3.3:8b 34.8 · qwen3-coder:30b 11.2;
+  and the qwen3.6:35b-a3b q4 load failure → the ≤~18GB strong-rung RAM-ceiling rule. (3) *Suite
+  hardening:* heldout-cqe suite + score_heldout.py (see Benchmark suite). (4) *Facts corrected:*
+  there is NO small qwen3.6 (27b dense / 35b-a3b only); qwen3.6 has CONTROLLABLE thinking (the
+  engine's `think:false` applies) and flagship coding scores — the "3.5/3.6 never for text" rule
+  is 3.5-only pending the A/B. Open: Q3_K_M pull, rung-1 shootout, strong-rung A/B, Ollama
+  upgrade. Operational rule learned: ONE heavy job at a time on this box (31GB RAM + desktop),
+  monitor /proc/pressure/memory between stages.
 - **2026-07-10 — M7 methodology trio + M8 OpenSCAD spike (code) + M9 CAM shipped (DIRECTION.md sequencing):**
   1. *M7/N1 traceback auto-fix:* syntax/run failures now retry INLINE inside the turn
      (`N1_RETRIES=2` in `cad_v5/config.py`) with the raw error re-prompted to the same coder;

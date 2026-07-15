@@ -324,7 +324,7 @@ def extract_coder(text: str):
     from Telegram. Requires an explicit marker so normal specs aren't misread:
     "--strong <spec>" or "strong: <spec>" (likewise fast/auto). The agent decides automatically
     by default. Returns (coder, remaining_text) with coder in auto|fast|strong."""
-    m = re.match(r"^\s*(?:--(strong|mid|fast|auto)\s+|(strong|mid|fast|auto):\s*)(.*)$",
+    m = re.match(r"^\s*(?:--(strong|fast|auto)\s+|(strong|fast|auto):\s*)(.*)$",
                  text, re.IGNORECASE | re.DOTALL)
     if m:
         return (m.group(1) or m.group(2)).lower(), m.group(3).strip()
@@ -593,8 +593,8 @@ HELP_TEXT = (
     "Photos: I save reference images with your session (building FROM a photo is coming); "
     "a caption on the photo is treated as your spec.\n\n"
     "Builds run one at a time — if I'm busy you'll be queued and told your position.\n\n"
-    "I pick a coder automatically (fast 7B → 14B → strong 30B, climbing a rung when one "
-    "struggles). To force one, prefix your spec: \"fast: <spec>\", \"mid: <spec>\" or "
+    "I pick a coder automatically (fast 8B → strong 30B, climbing a rung when one "
+    "struggles). To force one, prefix your spec: \"fast: <spec>\" or "
     "\"strong: <spec>\".\n\n"
     "If a spec is missing something critical (overall size, or basic shape), I'll ask 2-3 short "
     "questions with suggested defaults before building — just reply, or send anything else to "

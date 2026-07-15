@@ -118,17 +118,17 @@ CODE_MODEL_STRONG]`, weakest first, one rung per escalation). Default fast rung 
 (2026-07-12 A/B: 15/22 acceptance vs the code-tuned 7B's 8/22 under identical prompts — it also
 keeps one model warm across brief/triage/codegen/decide); triage makes hard specs SKIP it and
 start on the strong `qwen3-coder:30b` (~7min/call, CPU offload) — the last resort, reached by
-triage or escalation. The `qwen2.5-coder:14b` is OFF the auto ladder (measured out twice),
-manual `--coder mid` only; the retired `qwen2.5-coder:7b` is reachable via a cad.json pin.
-- Force per build: `--coder auto|fast|mid|strong`.
-- Telegram (Satine): prefix the message `fast: <spec>`, `mid: <spec>` or `strong: <spec>`.
+triage or escalation. There is NO mid rung: the 14B was measured out twice and the model + the
+`--coder mid` alias were REMOVED 2026-07-16 (as were qwen2.5-coder:7b, qwen3.5:4b/9b, phi3).
+- Force per build: `--coder auto|fast|strong`.
+- Telegram (Satine): prefix the message `fast: <spec>` or `strong: <spec>`.
 - Pin permanently: set `cad.code_model` in `~/.openclaw/cad.json` (disables auto-climbing).
 - The chosen model is recorded as `code_model` in the session/result.
 
 ## Telegram (Satine — `~/.openclaw/cad-telegram.py`, `cad-telegram.service`)
 
 - Send a spec as plain text (or `/build <spec>`) to build; reply with changes to refine.
-- `fast:`/`mid:`/`strong:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
+- `fast:`/`strong:` prefix forces a coder. `/rate 1-5`, `/plan`, `/done`, `/help`.
 - Satine shells out to `cad_engine.py` per request, so agent edits are live without a restart;
   **restart `cad-telegram.service` only after editing `cad-telegram.py` itself.**
 

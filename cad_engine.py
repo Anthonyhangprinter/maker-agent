@@ -8,7 +8,7 @@ build123d script, the system RUNS it, INSPECTS the geometry, RENDERS a two-panel
 the spec. That observation is fed back so the coder model EDITS the script and re-observes —
 iterating until it judges the part correct (replies ###DONE###) or the bounds are hit.
 
-v4.2: the coder is auto-routed — fast qwen2.5-coder:7b by default, an LLM triage starts hard
+v4.2+: the coder is auto-routed — fast qwen3:8b by default, an LLM triage starts hard
 specs on qwen3-coder:30b, and the loop auto-escalates 7B->30B after repeated failures (override
 with --coder auto|fast|strong). The brief interprets intent (box => hollow container). Structural
 sections / gears / bolts use the b123d domain helpers inside the same loop — no separate
@@ -82,7 +82,7 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 # (previously duplicated here; the two copies drifted independently. Model/timeout/loop
 # tuning now happens in ONE place and both the v4 engine and the v5 package follow.)
 from cad_v5.config import (        # noqa: E402
-    BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_MID, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
+    BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
@@ -1928,8 +1928,8 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         _ACTIVE_CODE_MODEL = CLOUD_PREFIX + cc["model"]
         log.info("[v5] Code model: %s (manual --coder cloud, budget %d calls)",
                  _ACTIVE_CODE_MODEL, _CLOUD_CALLS_LEFT)
-    elif coder in ("fast", "mid", "strong"):
-        _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST, "mid": CODE_MODEL_MID,
+    elif coder in ("fast", "strong"):
+        _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST,
                               "strong": CODE_MODEL_STRONG}[coder]
         log.info("[v5] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
     elif pinned:
@@ -2430,9 +2430,9 @@ def _cmd_build(argv):
     p = argparse.ArgumentParser(prog="build")
     p.add_argument("spec", nargs="+")
     p.add_argument("--chat-id", default=None)
-    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto",
+    p.add_argument("--coder", choices=["auto", "fast", "strong", "cloud"], default="auto",
                    help="auto=triage spec + escalate on failure (default); "
-                        "fast=force the 7B coder; strong=force the 30B coder")
+                        "fast=force the fast rung; strong=force the 30B coder")
     p.add_argument("--no-fewshots", action="store_true",
                    help="disable retrieved few-shot examples (to A/B-measure the retrieval lift)")
     p.add_argument("--no-upload", action="store_true",
@@ -2546,7 +2546,7 @@ def _cmd_chat(argv):
     saves STEP+STL+PNG locally, and shows the result. Type feedback to refine; /commands below."""
     import argparse
     p = argparse.ArgumentParser(prog="chat", add_help=False)
-    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto")
+    p.add_argument("--coder", choices=["auto", "fast", "strong", "cloud"], default="auto")
     p.add_argument("--no-fewshots", action="store_true")
     p.add_argument("opening", nargs="*", help="optional first spec; otherwise you'll be prompted")
     a = p.parse_args(argv)

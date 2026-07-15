@@ -1,0 +1,232 @@
+{
+ "_meta": {
+  "source": "danwahl/cadqueryeval (MIT) \u2014 https://github.com/danwahl/cadqueryeval",
+  "checks": "solids (expected_component_count) + bbox_mm (sorted-axis, runner tol max(2mm,5%)). Reference-STL metrics (volume 2%, chamfer 1mm, hausdorff95 1mm, after RANSAC+ICP registration) via score_heldout.py.",
+  "heldout": "NEVER promote these specs into cad-examples.jsonl / cad-lessons.jsonl."
+ },
+ "H01": {
+  "bbox_mm": [
+   11.4107,
+   10.7664,
+   5.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task1.stl"
+ },
+ "H02": {
+  "bbox_mm": [
+   32.0,
+   18.0,
+   3.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task2.stl"
+ },
+ "H03": {
+  "bbox_mm": [
+   100.0,
+   100.0,
+   10.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task3.stl"
+ },
+ "H04": {
+  "bbox_mm": [
+   35.0,
+   35.0,
+   80.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task4.stl"
+ },
+ "H05": {
+  "bbox_mm": [
+   50.0,
+   50.0,
+   100.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task5.stl"
+ },
+ "H06": {
+  "bbox_mm": [
+   40.0,
+   20.0,
+   5.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task6.stl"
+ },
+ "H07": {
+  "bbox_mm": [
+   60.0,
+   60.0,
+   10.0
+  ],
+  "solids": 2,
+  "reference_stl": "reference/task7.stl"
+ },
+ "H08": {
+  "bbox_mm": [
+   20.0,
+   20.0,
+   80.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task8.stl"
+ },
+ "H09": {
+  "bbox_mm": [
+   50.0,
+   50.0,
+   50.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task9.stl"
+ },
+ "H10": {
+  "bbox_mm": [
+   65.0,
+   130.0,
+   30.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task10.stl"
+ },
+ "H11": {
+  "bbox_mm": [
+   80.0,
+   30.0,
+   5.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task11.stl"
+ },
+ "H12": {
+  "bbox_mm": [
+   60.0,
+   15.0,
+   60.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task12.stl"
+ },
+ "H13": {
+  "bbox_mm": [
+   10.0,
+   50.0,
+   10.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task13.stl"
+ },
+ "H14": {
+  "bbox_mm": [
+   120.0,
+   60.0,
+   25.981
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task14.stl"
+ },
+ "H15": {
+  "bbox_mm": [
+   40.0,
+   40.0,
+   40.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task15.stl"
+ },
+ "H16": {
+  "bbox_mm": [
+   80.0,
+   40.0,
+   20.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task16.stl"
+ },
+ "H17": {
+  "bbox_mm": [
+   80.0,
+   40.0,
+   10.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task17.stl"
+ },
+ "H18": {
+  "bbox_mm": [
+   40.0,
+   20.0,
+   5.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task18.stl"
+ },
+ "H19": {
+  "bbox_mm": [
+   100.0,
+   100.0,
+   50.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task19.stl"
+ },
+ "H20": {
+  "bbox_mm": [
+   80.0,
+   50.0,
+   20.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task20.stl"
+ },
+ "H21": {
+  "bbox_mm": [
+   45.0,
+   60.0,
+   10.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task21.stl"
+ },
+ "H22": {
+  "bbox_mm": [
+   40.0,
+   40.0,
+   95.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task22.stl"
+ },
+ "H23": {
+  "bbox_mm": [
+   120.0,
+   20.0,
+   60.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task23.stl"
+ },
+ "H24": {
+  "bbox_mm": [
+   50.0,
+   50.0,
+   75.0
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task24.stl"
+ },
+ "H25": {
+  "bbox_mm": [
+   50.0,
+   50.0,
+   74.495
+  ],
+  "solids": 1,
+  "reference_stl": "reference/task25.stl"
+ }
+}

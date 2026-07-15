@@ -147,7 +147,7 @@ The tier model the codebase should encode explicitly (auto-detected, overridable
 | Tier | Hardware | Coder rungs | Critic | Notes |
 |---|---|---|---|---|
 | **T0 floor** | CPU-only / ≤4GB | 7B q4 (slow) → cloud | off (gate-only) | degraded but functional |
-| **T1 (now)** | 8GB VRAM | 7B GPU → 30B† → cloud | gemma4:e4b | 14B measured out (3/6 at 583–804s — slower than the 30B MoE, weaker than the 7B); † 30B = last resort |
+| **T1 (now)** | 8GB VRAM | qwen3:8b GPU → 30B† → cloud | gemma4:e4b | 14B measured out and removed 2026-07-16 (with `--coder mid`); † 30B = last resort. RAM-ceiling rule: strong rung ≤ ~18GB on disk (31GB RAM + desktop) |
 | **T2** | 16–24GB | fine-tuned 7B → 30B GPU → cloud | larger VLM | 30B becomes resident |
 | **T3** | 96–128GB | 70B-class local | large VLM | no cloud needed |
 | **Cloud burst** | any | OpenRouter/Claude | cloud VLM possible | per-build cost cap |
@@ -162,12 +162,15 @@ The single biggest proven lever for small-model CAD quality (Text-to-CadQuery: c
 fine-tuning on 170k pairs; CADmium: Qwen2.5-Coder-14B on JSON CAD sequences; CAD-Coder: geometric-
 reward RL on top).
 
-- **Base:** `qwen2.5-coder:7b` (already the fast rung; QLoRA on a rented A100/4090, a day or two).
+- **Base:** the current fast rung (`qwen3:8b` since 2026-07-12; qwen2.5-coder:7b was retired and
+  removed 2026-07-16 — re-pick the base from the rung-1 shootout winner; QLoRA on a rented
+  A100/4090, a day or two).
 - **Data:** Text-to-CadQuery 170k adapted toward build123d idioms + a Text2CAD (660k prompts)
   subset + **the agent's own harvest** — the mechanism already exists: gate-passing builds are free
   SFT pairs (auto-promote verified-converged builds into the corpus = the open Stage C item), and
   fail→fix turn pairs are DPO data. B3's error histogram picks the failure modes to oversample.
-- **Eval:** the 10-spec suite (`--coder fast`, honest scorer) + a held-out Text2CAD-Bench slice.
+- **Eval:** the 10-spec suite (`--coder fast`, honest scorer) + the `heldout-cqe` suite (25
+  cadqueryeval tasks with reference-STL scoring, live since 2026-07-16 — see PROJECT.md).
   Success = fine-tuned 7B ≥ stock-30B baseline (7/10) on the full suite.
 - **Deploy:** GGUF quant → Ollama tag (e.g. `cad-coder:7b`) → swap `CODE_MODEL_FAST` in
   `cad_v5/config.py`. Zero code changes — that's the point of the config unification.
@@ -207,6 +210,18 @@ Explicitly out of scope until Tracks B+D land, in intended order:
 Standing rule: every milestone ends with a full honest benchmark run committed to
 `benchmarks/results/`, compared against `baseline_*.json`. No claimed improvement without a
 measured delta.
+
+## 9. Addendum — coder-model refresh (2026-07-16, in flight)
+
+Both ladder rungs are under measured challenge (full context: PROJECT.md History 2026-07-16):
+
+- **Rung 1:** qwen3:8b (incumbent, 15/22 tiers 1–2) vs granite3.3:8b vs granite4:7b-a1b-h
+  (4.2GB MoE-A1B, 80 tok/s — first fully-GPU MoE on this box) vs qwen3:4b.
+- **Strong rung:** qwen3-coder:30b (incumbent, 11.2 tok/s) vs qwen3.6:35b-a3b **Q3_K_M** —
+  the q4 quant physically cannot load beside the desktop (RAM-ceiling rule, Track C table).
+- **Suite:** decisions use tiers 1–2 + the new `heldout-cqe` suite; held-out specs never enter
+  the few-shot corpus, so retrieval can't flatter the numbers.
+- Deferred: qwen3.6 MTP variant (after the Ollama 0.32.x upgrade), Laguna XS 2.1 at q3.
 
 ---
 

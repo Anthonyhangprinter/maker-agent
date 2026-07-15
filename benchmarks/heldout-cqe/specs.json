@@ -1,0 +1,156 @@
+{
+ "source": "danwahl/cadqueryeval (MIT) \u2014 25 NL->CAD tasks with reference STLs",
+ "note": "HELD-OUT suite: excluded from the few-shot corpus by contract (see acceptance _meta).",
+ "benchmarks": [
+  {
+   "id": "H01",
+   "name": "cqe task1",
+   "tier": 1,
+   "spec": "A simple hex nut without the threads modeled. The nut has a hexagonal shape with a hole in the center of the hexagonal shape.\n\n1. The extruded hexagonal prism is 10mm wide (flat side to flat side).\n\n2. The hole diameter through the center of the hexagon is 5mm. The thickness of the nut is 5mm."
+  },
+  {
+   "id": "H02",
+   "name": "cqe task2",
+   "tier": 1,
+   "spec": "This is a 3mm thickness rectangular plate with two holes.\n1. The plate is 18mm x 32mm in dimension.\n2. When looking down at the plate, it has two holes that are drilled through it. In the bottom left of the plate, there's a hole with a center point that is 3mm from the short (18mm) side and 3 mm from the long (32mm) side. This hole has a diameter of 2mm.\n3. In roughly the top left corner of plate, there's a hole of diameter 3mm. Its center point is 8mm from the short side (18mm side) and 6mm away from the long (32mm) side."
+  },
+  {
+   "id": "H03",
+   "name": "cqe task3",
+   "tier": 1,
+   "spec": "This is a 10mm thick circular plate that has two holes. It's a concentric circle (sort of like a gasket).\n1. The outer diameter of the plate is 100mm and the inner diameter is 50mm.\n2. There are two holes through the plate. One hole is at the 12 o'clock position (at the top of the plate). It's halfway between the inner diameter and outer diameter (so the center hole is 37.5mm from the center of the circular plate. The hole is 5mm diameter.\n3. The second hole is in the 3 o'clock position. It's also half way between the inner and outer diameter of the plate. This hole is 10mm in diameter."
+  },
+  {
+   "id": "H04",
+   "name": "cqe task4",
+   "tier": 1,
+   "spec": "I'm building a metal pin. It's a single part created using 3 operations.\n1. First, for the head of the pin, it's a simple cylinder. The cylinder is 35 mm in diameter and 20mm thick.\n2. Then for the shaft of the pin, there's another cylinder that's 20mm in diameter and 60mm long. So the total length of the metal pin (head + shaft) is 80mm.\n3. Finally, there's a chamfer on the head of the pin, on the top of it. In other words, if the pin was sitting on its head with the shaft in the sky, the chamfered edge of the head would be towards the ground. The chamfer is 2mm in size (the edge length of the chamfer)."
+  },
+  {
+   "id": "H05",
+   "name": "cqe task5",
+   "tier": 1,
+   "spec": "This is a rectangular prism (a 50x50mm square extruded by 100mm). The prism has a half-circle (diameter 25mm) channel (100mm long) on one of the 4 long sides of the prism. The channel is centered on the side (12.5mm from the channel edge to the side of the prism)."
+  },
+  {
+   "id": "H06",
+   "name": "cqe task6",
+   "tier": 1,
+   "spec": "This is a rectangular plate with a single hole with a counterbore.\n1. The rectangular prism is 20mm wide and 40mm long with 5mm thickness.\n2. The hole is 4mm in diameter. Looking down at the plate the centerpoint of the circle is 5mm from one of the long edges and its centered in the other direction (10mm from either side).\n3. The counterbore is 8mm in diameter and is cut 2mm down into the plate."
+  },
+  {
+   "id": "H07",
+   "name": "cqe task7",
+   "tier": 1,
+   "spec": "This is a hollow torus, or a circular pipe. The hollow, circular section is 10mm in outer diameter and is 2mm in thickness. The total, outer diameter of the torus is 60mm. (40mm inner diameter)."
+  },
+  {
+   "id": "H08",
+   "name": "cqe task8",
+   "tier": 1,
+   "spec": "This is a 20mm x 20mm x 80 mm solid rectangular prism. All 12 edges of the solid have a 1mm chamfer."
+  },
+  {
+   "id": "H09",
+   "name": "cqe task9",
+   "tier": 1,
+   "spec": "This is a 50mm x 50mm x 50mm box with 5mm thick walls (and no top).\n1. Start by creating a cube (50x50x50)\n2. Then cut down from the top a 40mm x 40mm square a total depth of 45mm."
+  },
+  {
+   "id": "H10",
+   "name": "cqe task10",
+   "tier": 1,
+   "spec": "A square face swept along a half circle path to create a rainbow-like arc. The outer diameter of the rainbow is 130mm and the inner diameter is 70mm. The square is 30mm x 30 mm. The half circle path is 100mm in diameter. And the center point of the square is along the path."
+  },
+  {
+   "id": "H11",
+   "name": "cqe task11",
+   "tier": 1,
+   "spec": "We're making an eye bolt. The eyebolt is a torus with a cylinder extruded out of it to make the shank of the bolt.\n1: For the torus, the inner diameter is 20mm and the outer diameter is 30mm.\n2: For the cylindrical shank, the length is 50mm and the diameter is 5mm.\n3: At the end of the shank, away from from the torus, add a 1mm chamfer on the bottom edge of the shank.\nMake sure the shank and the circular eyebolt torus are connected. It's all one part."
+  },
+  {
+   "id": "H12",
+   "name": "cqe task12",
+   "tier": 2,
+   "spec": "I'm making a t-handle holder for taps. It's going to be made with a few operations and I will let you know them one by one.\n1. The shank of the holder is a cylinder that is 15mm in diameter (XY) and 60mm long (Z)\n2. Next, add a hole at one end of the shank. The center of the hole, should be the center of the shank. The diameter of the hole is 8mm and the depth of the hole is 25mm (Z) into the shank.\n3. Next, at the end of the shank with the hole, we're going to add a 1mm chamfer to the outside edge of the shank.\n4. Finally, we need to add a the t-handle to the other side of the shank from the hole. The handle is a cylinder 60mm long and 5mm in diameter. It goes through the shank and is positioned orthogonally to the shank to make a T shape. The center of the handle is positioned 5.5mm (in the Z dimension) from the end of the shank (such that handle goes through the shank). The handle and shank are joined in a union to make 1 part."
+  },
+  {
+   "id": "H13",
+   "name": "cqe task13",
+   "tier": 1,
+   "spec": "A 50mm long pipe that has a 10mm outer diameter and 2mm wall thickness."
+  },
+  {
+   "id": "H14",
+   "name": "cqe task14",
+   "tier": 1,
+   "spec": "This part is made by revolving a triangle around an axis by 180 degrees.\nThe triangle is equilateral (30mm per side).\nOne of the sides of the triangle is positioned orthogonally to the axis of rotation. The corner of the triangle closest to the axis is 30mm away from the axis."
+  },
+  {
+   "id": "H15",
+   "name": "cqe task15",
+   "tier": 1,
+   "spec": "This part is made using a loft operation. The two profiles for the loft operation are a square and a circle. They are placed on planes parallel to one another and separated by 40 mm. The circle is 40mm in diameter and the square is 30mm on each side. The two shapes are positioned directly over one another. In other words the line that connects their center points is orthogonal to the two parallel planes."
+  },
+  {
+   "id": "H16",
+   "name": "cqe task16",
+   "tier": 2,
+   "spec": "This is a clamp used for workholding. It\u2019s made with 4 operations that I\u2019ll explain sequentially.\n1. To start, extrude a rectangular prism that is 80 mm (X) by 40mm (Y) and 20 mm (Z) thickness.\n2. Next, we\u2019re going to cut in the Z dimension to cut off two corners on one side of the prism. On the XY plane, draw a line in each corner to to make a triangle. Both right triangles should have two legs of 15mm. Using those two triangle profiles, cut down into the prism, removing the corners.\n3. Next, we\u2019re going to make a slot cut in the Z dimension down through the prism. The slot is 25mm long (center point to center point). The diameter of the two circles in the slot is 10mm. The slot is positioned parallel to the sides (the 80mm dimension) of the prism. The centerline of the slot (which bisects the two circles) is centered in the prism in the Y axis. Finally, we need to position the slot in the X axis on the prism; the slot is 15mm from the end of the prism that has the cut off corners, measured from the end of the prism to the edge of the circle of the slot.\n4. Finally, the slot edges (on both the front and back of the prism) are chamfered with a 1 mm edge."
+  },
+  {
+   "id": "H17",
+   "name": "cqe task17",
+   "tier": 1,
+   "spec": "This is a rectangular plate with a slot cut through it with a slot counterbore. I\u2019ll explain step by step.\n1. First, create a rectangular plate: 80mm (X) x 40mm (Y) x 10mm (Z)\n2. Next, make a slot cut. The slot is 20mm center to center and is parallel to the X axis (along the length of the plate) and centered in the Y dimension. One of the two circles is at the center of the plate. The cut should go through the whole thickness of the plate (10mm). The diameter of the slot is 10mm.\n3. Next, we\u2019re going to make another slot cut that counterbores the first slot. The diameter of the counterbore slot is 15mm and the depth of the cut is 5mm."
+  },
+  {
+   "id": "H18",
+   "name": "cqe task18",
+   "tier": 2,
+   "spec": "This is a rectangular plate with two holes, one with a counterbore and one that\u2019s a through hole.\n1. The rectangular plate is 20mm wide (Y) and 40mm long (X) with 5mm (Z) thickness.\n2. The counterbored hole is 4mm in diameter. Looking down at the plate the centerpoint of the circle is 5mm from the right edge of the plate in the X dimension and its centered in the Y dimension (10mm from either side).  The counterbore is 8mm in diameter and is cut 2mm down into the plate.\n3. The through hole is 8mm in diameter. The hole is 8mm from the left side of the plate in the X dimension and is also centered in the Y dimension."
+  },
+  {
+   "id": "H19",
+   "name": "cqe task19",
+   "tier": 2,
+   "spec": "This is a 10mm thick circular plate that has two holes and a crank shaft.\n1. The plate is a concentric circle (sort of like a gasket). The outer diameter of the plate is 100mm and the inner diameter is 50mm.\n2. There are two holes through the plate. One hole is at the 12 o'clock position (at the top of the plate). It's halfway between the inner diameter and outer diameter (so the center hole is 37.5mm from the center of the circular plate. The hole is 5mm diameter.\n3. The second hole is in the 3 o'clock position. It's also half way between the inner and outer diameter of the plate. This hole is 10mm in diameter.\n4. The crank shaft is a the 6 o\u2019clock position. It\u2019s a square prism, 10mm on each side, extruded 40mm out from the plate. The center of the prism is 10mm from outer diameter."
+  },
+  {
+   "id": "H20",
+   "name": "cqe task20",
+   "tier": 2,
+   "spec": "This is a milled part. It\u2019s a specific shape and I\u2019ll give you operation by operation instructions on how to create it in CAD.\n1. Start by creating a 80mm (X) x 50mm (Y) x 20mm (Z) rectangular prism.\n2. Fillet the 20mm long edges of this prism parallel to the Z axis. This creates a rectangular prism with curved edges. The radius of the fillet is 15mm. It\u2019s a constant radius fillet.\n3. Next we\u2019re going to cut down (in the Z dimension) around the edges of the pieces. To do so, create an offset that is 5 mm from the edge of the existing shape towards the center of the piece. Then use that profile (created by this offset and the edge of the piece) and cut down 15mm into the piece with this profile.\n4. Next we\u2019re going to cut a through hole, diameter 5mm, cutting in the Z dimension. The center of the hole is positioned 6mm (in the Y dimension) from the midline of the piece that is parallel to the X axis. The hole is positioned 10mm (in the X dimension) from the edge of the piece.\n5. Finally, we\u2019re going to cut a large rectangular slot through the entire piece in the Z dimension. The rectangular slot is center in the piece (in the XY plane) and is 50mm (X) x 20mm (Y). The rectangular has 4 filleted corners, each with a radius of 5mm."
+  },
+  {
+   "id": "H21",
+   "name": "cqe task21",
+   "tier": 2,
+   "spec": "This is a milled plate. It's a fairly specific shape - I'll tell you how to make it operation by operation.\n1. Start by creating a rectangular prism that is 45mm (X) x 60mm (Y) x 10mm (Z)\n2. Create 4 holes (cutting in the Z dimension) in the 4 corners of the plate. Each hole is 3mm in diameter. The center of each hole is 5mm from each edge.\n3. Now we're going to cut a pocket down 6mm into the plate. The pocket is rectangular in shape and is 22.5 mm (X) x 30 mm (Y). The rectangular pocket has 4 rounded corners of radius 5mm.\n4. Now we're going to cut a single slot from the outside of the plate to the rectangular pocket. The slot is 6mm (Y) wide, is parallel to the X axis, and is centered in the middle of the part in the Y axis. The slot is also 6mm deep and goes from the outside of the plate to the inner rectangular pocket.\n5. Finally, we've cut a 15mm diameter hole through the center of the plate."
+  },
+  {
+   "id": "H22",
+   "name": "cqe task22",
+   "tier": 2,
+   "spec": "This is turned part that has a head and a shank. It's a fairly specific shape and I'll give you some step by step instructions.\n1. First make a cylindrical head. The cylinder is 40mm in diameter (XY plane) and 15mm tall (Z).\n2. Next make a cylindrical shank centered on top of the cylinder. The shank is 15mm diameter (XY) and 80mm tall (Z).\n3. Create a filleted edge between the shank and the head of radius 5mm.\n4. Cut a hole (3mm diameter) through the center of the entire part (in Z dim)\n5. Chamfer the top of the shank. The chamfer edge length should be 2mm."
+  },
+  {
+   "id": "H23",
+   "name": "cqe task23",
+   "tier": 2,
+   "spec": "This is a long rectangular arm with a handle. I'll give you step by step instructions on how to make it.\n1. Make a rectangular prism 120mm (X) x 20mm (Y) x 20mm (Z) 2. Fillet the 4 edges (parallel to the Z axis) of the rectangle. The radius of the fillet is 10mm. 3. Next, we're going to extrude out the handle. The center of the cylindrical handle is positioned 15mm from the end of the arm (in the X dimension). Start making the handle by creating a cylinder 10mm in diameter and extrude up 40mm. 4. Fillet the top edge of this cylinder with a radius of 5mm. This creates a hemisphere at the top of the handle. 5. Fillet the edge at the base of the handle that connects to the arm. The fillet radius should be 2mm"
+  },
+  {
+   "id": "H24",
+   "name": "cqe task24",
+   "tier": 2,
+   "spec": "This is a L block used for work holding while machining. I'll help you step by step to create it.\n1. Create the base of the block using a rectangular prism 50mm (X) x 50mm (Y) x 15mm (Z).\n2. Extrude a 20mm (X) x 50mm (Y) rectangle up 40mm (Z) on the right side (e.g. starting at x = 30mm, if the bottom left hand corner of the piece is 0, 0, 0).\n3. Next add 4 holes that cut through the piece in the Z dimension. If you're looking at the bottom pieces, there will be a hole in each corner of the rectangle. The holes are 6mm in diameter. The center of each hole is 8mm from both edges in the corner. The hole should go through the entire piece (it will need to cut higher through the piece in order to cut through the part we extruded in 2)\n4. Next we're going to add a counterbore to the 2 holes that are currently going through the taller section created from the extruded rectangle (made in 2). The counterbore is 12mm in diameter and has a depth of 20mm. We are counterboring the holes only on the bottom of the piece, not the top of the piece.\n5. Finally, on top of the piece we're going to add another extruded prism. The extruded piece is 5 mm (X) by 50mm (Y) and is extruded up 20mm (Z). It's positioned at x = 30, just to the left of the two holes that emerge from the top of the bracket."
+  },
+  {
+   "id": "H25",
+   "name": "cqe task25",
+   "tier": 2,
+   "spec": "This shape looks like a grain silo with a hole cut through the center. I'll tell you how to make it step by step.\n\n1. Start by making a cylinder that is 50mm diameter (in XY plane) and 50mm tall (Z).\n\n2. Next on top of the cylinder, add a hemisphere (half sphere) of diameter 50mm. The center point of the sphere is at the center of the circle that is on top (Z=50) of the cylinder. This hemisphere creates the top shape of the \"silo\" like structure.\n\n3. Next we're going to cut out a 50mm diameter hemisphere to cut out a hemisphere at the bottom of the silo. The centerpoint of the sphere (used to cut) is centered on the circle at the bottom (Z=0) of the cylinder.\n\n4. Finally, we're going to add a hole through the center of the zilo in the Z dimension. The diameter of the hole is 10mm."
+  }
+ ]
+}

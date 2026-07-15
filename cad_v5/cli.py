@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> None:
         description="build123d CAD agent v5 — describe a part, build it, refine it by chatting.",
         epilog=_PROMPT_RUBRIC)
     p.add_argument("spec", nargs="*", help="what to build (omit to be prompted)")
-    p.add_argument("--coder", choices=["auto", "fast", "mid", "strong", "cloud"], default="auto",
+    p.add_argument("--coder", choices=["auto", "fast", "strong", "cloud"], default="auto",
                    help="coder model strategy (default: auto — fast, escalate on failure)")
     p.add_argument("--target", default=None,
                    help="output target: cad-viewer (default) | onshape | freecad | print | fstl | file"

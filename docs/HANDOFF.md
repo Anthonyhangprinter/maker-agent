@@ -16,11 +16,11 @@ committed unless flagged; `git log --oneline -25` tells the story.
 2. **Run the health checks** and read the output before touching anything:
    ```bash
    systemctl --user status cad-telegram openclaw-gateway hermes-gateway --no-pager
-   ollama list | grep -E 'qwen3:8b|qwen2.5-coder:7b|qwen3-coder:30b|gemma4:e4b|nomic-embed'
+   ollama list | grep -E 'qwen3:8b|qwen3-coder:30b|gemma4:e4b|nomic-embed'
    cd /home/theultimatecunt/.openclaw/skills/cad-builder && git status --short
    ```
-   Expected: `cad-telegram.service` active (Satine); the five models present; a clean or
-   known-dirty tree. `openclaw-gateway`/`hermes-gateway` may be active — leave them alone.
+   Expected: `cad-telegram.service` active (Satine); the four models present (qwen2.5-coder:7b
+   was removed 2026-07-16); a clean or known-dirty tree. `openclaw-gateway`/`hermes-gateway` may be active — leave them alone.
 
 3. **NEVER edit engine files while a benchmark/showcase unit is active.** The runner shells the
    agent per build; editing `cad_agent_v4.py` or `cad_v5/*` mid-run corrupts the measurement. Check
@@ -121,9 +121,13 @@ genuinely don't apply, and say so when skipping:
 | M11 CNC 2.5D (X2c) | done 2026-07-10 | pocket+drill toolpath on the gate plate, exact drill centres, envelope verified, simulated not cut (`test_m11_cnc.py` 3/3) |
 | M9 CAM print + laser kerf (X2a/b) | done 2026-07-10 | enclosure → 150-layer in-bed validated gcode (OrcaSlicer 2.4.2 AppImage + xvfb-run, profiles at `~/.openclaw/cam-profiles/`); kerf DXF exact (80.30×50.30/Ø4.70 @0.3), 7/7 tests |
 
-**Coder ladder: 7B → 30B (2 rungs).** The 14B was measured OUT twice (`m1_14b_tiers12.json`: 3/6
-at 583–804s — slower than the 30B MoE, weaker than the 7B); `--coder mid` stays manual-only.
-Honest 7B level on tiers 1–2: **4/6 converged, 13/22 acceptance** (`m41_7b_tiers12.json`).
+**Coder ladder: qwen3:8b → qwen3-coder:30b (2 rungs).** The 14B was measured OUT twice
+(`m1_14b_tiers12.json`); on 2026-07-16 the 14B model AND the `--coder mid` alias were removed
+outright (with qwen2.5-coder:7b, qwen3.5:4b/9b, phi3 — ~28GB freed). Fast-rung baseline on
+tiers 1–2: **qwen3:8b 15/22** (20260712 A/B). A measured refresh of BOTH rungs is in flight —
+see PROJECT.md History 2026-07-16 and ROADMAP.md §9 (rung-1 shootout incl. granite4:7b-a1b-h
+80 tok/s; strong-rung A/B vs qwen3.6:35b-a3b Q3_K_M — the q4 cannot load, ≤~18GB RAM-ceiling
+rule; new `heldout-cqe` suite + `scripts/score_heldout.py` reference-STL scoring).
 
 Latest full 30B showcase run (`--coder strong`, current stricter engine): **6/10 converged, 9/10
 geometry, 22/31 acceptance (71%)** — `benchmarks/results/showcase_30b_full.json` (log
@@ -134,6 +138,14 @@ The 6/10 vs the older 7/10 baseline reflects a stricter honest gate, not a regre
 
 ## Open work, in order
 
+0. **Coder-model refresh (2026-07-16, in flight)** — finish the staggered benchmark sequence
+   (ONE heavy job at a time; monitor `/proc/pressure/memory` between stages; long jobs as
+   detached systemd units per SESSION PROTOCOL #4): (a) pull qwen3.6 Q3_K_M
+   (`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:Q3_K_M`, resumable); (b) rung-1 shootout granite3.3:8b /
+   granite4:7b-a1b-h / qwen3:4b on tiers 1–2 (incumbent qwen3:8b 15/22 reused); (c) strong-rung
+   A/B 30B vs qwen3.6-Q3 tiers 1–2 first, full suite for the winner; (d) heldout-cqe runs for the
+   finalists + `score_heldout.py`; (e) wire winners into `cad_v5/config.py`, POST-CHANGE SOP.
+   Blocked on user: Ollama 0.20.5→0.32.x upgrade (sudo) — do BEFORE (c) if possible.
 1. **Organic domain follow-ups** — first measured baseline is 2/5, 6/13 (`m10_organic_auto.json`):
    o1 revolve failure and the o4/o5 under-cut patterns are the concrete targets; the critic
    needs a pattern-density question (it over-accepted twice — min_faces caught it).
