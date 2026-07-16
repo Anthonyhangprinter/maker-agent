@@ -1,0 +1,236 @@
+{
+ "run_tag": "20260717_043311_auto",
+ "suite": "heldout-cqe",
+ "rows": [
+  {
+   "id": "H01",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 0.2824545935449715,
+   "chamfer": true,
+   "hausdorff95_mm": 1.1254525291714992,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H02",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": true,
+   "chamfer_mm": 0.10042959100555021,
+   "chamfer": true,
+   "hausdorff95_mm": 0.18386430403082138,
+   "hausdorff": true,
+   "passed": true,
+   "errors": []
+  },
+  {
+   "id": "H03",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": true,
+   "chamfer_mm": 0.2896281927244802,
+   "chamfer": true,
+   "hausdorff95_mm": 0.5647426877757834,
+   "hausdorff": true,
+   "passed": true,
+   "errors": []
+  },
+  {
+   "id": "H05",
+   "watertight": false,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 1.4962429476716623,
+   "chamfer": false,
+   "hausdorff95_mm": 8.83435639184992,
+   "hausdorff": false,
+   "passed": false,
+   "errors": [
+    "Watertight: Mesh is not manifold (non-watertight edges)",
+    "Volume: Generated mesh not watertight for volume"
+   ]
+  },
+  {
+   "id": "H06",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": true,
+   "chamfer_mm": 0.18262306409405052,
+   "chamfer": true,
+   "hausdorff95_mm": 0.5411537792020428,
+   "hausdorff": true,
+   "passed": true,
+   "errors": []
+  },
+  {
+   "id": "H07",
+   "watertight": true,
+   "components": false,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 2.698119179047686,
+   "chamfer": false,
+   "hausdorff95_mm": 10.267697055087522,
+   "hausdorff": false,
+   "passed": false,
+   "errors": [
+    "Components: Found 1 components, expected 2"
+   ]
+  },
+  {
+   "id": "H08",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": true,
+   "chamfer_mm": 0.1859781903977909,
+   "chamfer": true,
+   "hausdorff95_mm": 0.36281497862330686,
+   "hausdorff": true,
+   "passed": true,
+   "errors": []
+  },
+  {
+   "id": "H09",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 3.8965530837642364,
+   "chamfer": false,
+   "hausdorff95_mm": 18.362114086484592,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H10",
+   "watertight": true,
+   "components": true,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 23.169691925796318,
+   "chamfer": false,
+   "hausdorff95_mm": 74.6715953271201,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H13",
+   "watertight": false,
+   "components": true,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 23.754964424699747,
+   "chamfer": false,
+   "hausdorff95_mm": 77.45269700951101,
+   "hausdorff": false,
+   "passed": false,
+   "errors": [
+    "Watertight: Mesh is not manifold (non-watertight edges)"
+   ]
+  },
+  {
+   "id": "H15",
+   "watertight": true,
+   "components": true,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 3.158615946992266,
+   "chamfer": false,
+   "hausdorff95_mm": 11.424766666106601,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H16",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 2.8192232455704103,
+   "chamfer": false,
+   "hausdorff95_mm": 13.289663389766657,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H17",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 0.40277108625058305,
+   "chamfer": true,
+   "hausdorff95_mm": 1.6256543184979255,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H19",
+   "watertight": true,
+   "components": false,
+   "bbox": false,
+   "volume": true,
+   "chamfer_mm": 2.0698750229516607,
+   "chamfer": false,
+   "hausdorff95_mm": 17.89456011539227,
+   "hausdorff": false,
+   "passed": false,
+   "errors": [
+    "Components: Found 2 components, expected 1"
+   ]
+  },
+  {
+   "id": "H21",
+   "watertight": true,
+   "components": true,
+   "bbox": true,
+   "volume": false,
+   "chamfer_mm": 0.5782716816496405,
+   "chamfer": true,
+   "hausdorff95_mm": 2.3765782953944847,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H24",
+   "watertight": true,
+   "components": true,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 16.404904081850088,
+   "chamfer": false,
+   "hausdorff95_mm": 56.3130890716672,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  },
+  {
+   "id": "H25",
+   "watertight": true,
+   "components": true,
+   "bbox": false,
+   "volume": false,
+   "chamfer_mm": 2.16601349565572,
+   "chamfer": false,
+   "hausdorff95_mm": 15.1977717142102,
+   "hausdorff": false,
+   "passed": false,
+   "errors": []
+  }
+ ]
+}

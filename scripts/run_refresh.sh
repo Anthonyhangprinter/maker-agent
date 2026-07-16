@@ -83,8 +83,9 @@ case "$MODE" in
     ;;
   strong)
     M=${1:?strong needs a model}
+    T=${2:-1800}   # per-part cap; a rotating 35B needs ~3600 for 2+ edit turns (2026-07-17)
     headroom_ok 20 || exit 1
-    pressure_ok && run_suite "$M" text-to-cad "" 1800
+    pressure_ok && run_suite "$M" text-to-cad "" "$T"
     ;;
   heldout)
     M=${1:?heldout needs a model}
