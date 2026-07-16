@@ -98,6 +98,16 @@ case "$MODE" in
       pressure_ok && run_suite "$M" text-to-cad "1,2" 1500 "$CB/agents/etj_agent.py"
     done
     ;;
+  day-20260717)
+    # Strong A/B re-run with the size-based codegen timeout fix (85b6865), then the
+    # earthtojake-pipeline legs (etj keeps one model loaded — no brief/critic rotation).
+    if headroom_ok 20; then
+      pressure_ok && run_suite "qwen3.6:35b-a3b" text-to-cad "" 1800
+    fi
+    for M in qwen3:8b granite4:7b-a1b-h granite3.3:8b qwen3.6:35b-a3b; do
+      pressure_ok && run_suite "$M" text-to-cad "1,2" 1500 "$CB/agents/etj_agent.py"
+    done
+    ;;
   night-20260716)
     for M in granite4:7b-a1b-h granite3.3:8b; do
       pressure_ok && run_suite "$M" text-to-cad "1,2" 1500
