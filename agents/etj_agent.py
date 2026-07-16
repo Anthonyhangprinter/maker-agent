@@ -44,7 +44,23 @@ SYSTEM = """You are a mechanical CAD engineer generating parametric parts with b
 - Import from build123d; use algebra mode (e.g. `part = Box(...) - Cylinder(...)`)
   or builder mode, whichever fits.
 
-Reply with ONE ```python code block containing the complete source, nothing else."""
+Reply with ONE ```python code block containing the complete source, nothing else.
+
+The plugin's build123d modeling reference follows — its APIs and patterns are the ONLY ones
+that exist; do not invent methods or classes not shown or documented here:
+
+{modeling_reference}"""
+
+def _load_system() -> str:
+    """Inline the plugin's own modeling reference — its SKILL.md instructs agents to read it
+    before writing build123d source; without it the first etj leg (2026-07-17) hallucinated a
+    fictional API (bd.Part()/occurrence()/Chamfer) on every part: qwen3:8b 0/22 vs 13/22 engine."""
+    try:
+        ref = (ETJ / "references" / "build123d-modeling.md").read_text()
+    except OSError:
+        ref = "(reference unavailable — use only documented build123d APIs)"
+    return SYSTEM.replace("{modeling_reference}", ref)
+
 
 FEEDBACK_TMPL = """The toolchain ran your source. Result:
 
@@ -64,7 +80,8 @@ def resolve_model(coder: str) -> str:
     return {"fast": FAST, "strong": STRONG, "auto": FAST}.get(coder, coder)
 
 
-def ollama(model: str, prompt: str, system: str = SYSTEM) -> str:
+def ollama(model: str, prompt: str, system: str | None = None) -> str:
+    system = system or _load_system()
     payload = {"model": model, "stream": False, "system": system, "prompt": prompt,
                "options": {"num_ctx": 16384}, "think": False}
     req = urllib.request.Request(OLLAMA, json.dumps(payload).encode(),
