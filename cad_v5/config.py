@@ -70,6 +70,11 @@ CODE_TIMEOUT   = 600
 # ladder escalates mid-build; 600s killed a build at exactly +600s while the 30B was still loading
 # (2026-07-11). Budget the swap + one slow generation.
 CODE_TIMEOUT_STRONG = 1200
+# A model whose weights exceed this (GB, from /api/tags) cannot sit fully in the RX 6600's 8GB
+# VRAM → CPU offload + a ~6min reload whenever the brief/critic evicts it. Such models get
+# CODE_TIMEOUT_STRONG even when pinned by name (2026-07-17: a pinned qwen3.6:35b-a3b got the
+# 600s fast timeout, timed out on all 10 benchmark parts, and produced a 0/31 artifact score).
+VRAM_RESIDENT_GB_MAX = 5.5
 CRITIC_TIMEOUT = 200
 
 # ── Loop config ─────────────────────────────────────────────────────────────--

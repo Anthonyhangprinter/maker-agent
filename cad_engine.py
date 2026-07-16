@@ -87,16 +87,34 @@ from cad_v5.config import (        # noqa: E402
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
-    VERSION, CODE_TIMEOUT_STRONG,
+    VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
 )
 
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
 
+_MODEL_SIZE_GB: dict[str, float] = {}
+
+def _model_size_gb(model: str) -> float:
+    """Weights size (GB) from Ollama's tags API, cached; 0.0 when unknown."""
+    if not _MODEL_SIZE_GB:
+        try:
+            with urllib.request.urlopen(OLLAMA_TAGS, timeout=10) as r:
+                for m in json.loads(r.read()).get("models", []):
+                    _MODEL_SIZE_GB[m["name"]] = m.get("size", 0) / 1e9
+        except Exception:
+            pass
+    return _MODEL_SIZE_GB.get(model, 0.0)
+
 def _code_timeout() -> int:
-    """Per-rung codegen timeout: the CPU-offloaded strong coder needs more headroom than the
-    GPU 7B (a 600s cap killed a build mid-escalation while the 30B was still loading)."""
-    return CODE_TIMEOUT_STRONG if _code_model() == CODE_MODEL_STRONG else CODE_TIMEOUT
+    """Per-rung codegen timeout. Any coder too big to sit fully in VRAM (not just the named
+    strong rung — a pinned challenger like qwen3.6:35b-a3b too) is CPU-offloaded and pays a
+    ~6min reload whenever the brief/critic evicts it; the 600s fast cap killed every call of
+    the 2026-07-17 strong A/B before first token. Unknown size falls back to the name check."""
+    m = _code_model()
+    if m == CODE_MODEL_STRONG or _model_size_gb(m) > VRAM_RESIDENT_GB_MAX:
+        return CODE_TIMEOUT_STRONG
+    return CODE_TIMEOUT
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
