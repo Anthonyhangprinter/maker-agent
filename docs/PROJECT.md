@@ -158,16 +158,19 @@ is the cloud (B4/M3).
 
 ## Open Follow-ups
 
-- **Model upgrade (coder generation) — IN PROGRESS 2026-07-16.** Fast rung already refreshed
-  (qwen3:8b, 2026-07-12 A/B). Strong-rung A/B `qwen3-coder:30b` vs `qwen3.6:35b-a3b` is live:
-  the q4_K_M CANNOT LOAD on this box (23GB > the ~18GB RAM-ceiling rule, see Hardware) — the
-  Q3_K_M (~17GB, `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:Q3_K_M`) is the variant under test.
-  Rung-1 shootout also queued: qwen3:8b (incumbent 15/22) vs granite3.3:8b (34.8 tok/s) vs
-  granite4:7b-a1b-h (4.2GB MoE, 80 tok/s, fully-GPU) vs qwen3:4b (58.5 tok/s). Candidates found
-  and rejected in the 2026-07-16 survey: qwen3-coder-next (52GB), Laguna XS 2.1 (20GB q4 —
-  marginal, revisit at q3), no small qwen3-coder exists. Blocked on: Ollama 0.20.5 → 0.32.x
-  upgrade (needs sudo; brings post-April qwen3.6 MoE fixes + MTP). The llama.cpp `--n-cpu-moe`
-  runtime idea stays open for after the model verdict. See [[project_model_landscape_2026]].
+- **Model upgrade (coder generation) — rung-1 SETTLED 2026-07-16, strong rung pending.**
+  Rung-1 shootout ran (tiers 1–2, pinned, honest scorer; `refresh-20260716.log` +
+  `run_20260716_*.json`): **qwen3:8b keeps the rung** — 3/6 conv 15/22 acc @173s vs
+  granite4:7b-a1b-h 2/6 10/22 @224s (80 tok/s raw but more repair turns ⇒ slower per PART),
+  granite3.3:8b 0/6 7/22, qwen3:4b 0/6 0/22 (emits unterminated-string Python — fails even a
+  20mm cube; reproduced standalone). Token speed ≠ part speed: convergence rate dominates wall
+  time. Strong-rung A/B `qwen3-coder:30b` (4/6, 15/22, 699s baseline) vs `qwen3.6:35b-a3b`
+  Q3_K_M is BLOCKED on the Ollama 0.20.5→0.32.x upgrade (sudo): the hf.co GGUF pull downloads
+  but model-create fails `Error: 400` on this runtime; blobs are cached, retry is instant
+  post-upgrade. q4_K_M separately CANNOT LOAD (23GB > ~18GB RAM ceiling, see Hardware).
+  Survey rejects: qwen3-coder-next (52GB), Laguna XS 2.1 (20GB q4 — marginal, revisit at q3);
+  no small qwen3-coder exists. llama.cpp `--n-cpu-moe` stays open after the model verdict.
+  See [[project_model_landscape_2026]].
 - Richer / auto-oriented render so the critic can judge long foreshortened sections (helpers still
   bypass the critic for this reason).
 - Wrap as a Hermes plugin (`~/.hermes/plugins/cad/`) over the clean `build()` API.

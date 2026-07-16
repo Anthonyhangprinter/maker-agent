@@ -211,17 +211,18 @@ Standing rule: every milestone ends with a full honest benchmark run committed t
 `benchmarks/results/`, compared against `baseline_*.json`. No claimed improvement without a
 measured delta.
 
-## 9. Addendum — coder-model refresh (2026-07-16, in flight)
+## 9. Addendum — coder-model refresh (2026-07-16)
 
-Both ladder rungs are under measured challenge (full context: PROJECT.md History 2026-07-16):
-
-- **Rung 1:** qwen3:8b (incumbent, 15/22 tiers 1–2) vs granite3.3:8b vs granite4:7b-a1b-h
-  (4.2GB MoE-A1B, 80 tok/s — first fully-GPU MoE on this box) vs qwen3:4b.
-- **Strong rung:** qwen3-coder:30b (incumbent, 11.2 tok/s) vs qwen3.6:35b-a3b **Q3_K_M** —
-  the q4 quant physically cannot load beside the desktop (RAM-ceiling rule, Track C table).
+- **Rung 1 — SETTLED (measured, `run_20260716_*.json`): qwen3:8b keeps the rung.**
+  3/6 conv, 15/22 acc, 173s/build vs granite4:7b-a1b-h 2/6, 10/22, 224s (80 tok/s raw — fast
+  tokens, slow parts: convergence rate dominates wall time), granite3.3:8b 0/6, 7/22, and
+  qwen3:4b 0/6, 0/22 (persistent unterminated-string syntax errors, fails even a cube).
+- **Strong rung — BLOCKED on the Ollama 0.20.5→0.32.x upgrade:** the Q3_K_M GGUF (the only
+  quant that fits the RAM ceiling) downloads but fails model-create with `Error: 400` on the
+  old runtime; blobs cached, retry instant post-upgrade. Baseline to beat: 30B 4/6, 15/22, 699s.
 - **Suite:** decisions use tiers 1–2 + the new `heldout-cqe` suite; held-out specs never enter
   the few-shot corpus, so retrieval can't flatter the numbers.
-- Deferred: qwen3.6 MTP variant (after the Ollama 0.32.x upgrade), Laguna XS 2.1 at q3.
+- Deferred: qwen3.6 MTP variant (post-upgrade), Laguna XS 2.1 at q3.
 
 ---
 

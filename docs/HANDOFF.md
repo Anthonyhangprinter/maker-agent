@@ -138,14 +138,16 @@ The 6/10 vs the older 7/10 baseline reflects a stricter honest gate, not a regre
 
 ## Open work, in order
 
-0. **Coder-model refresh (2026-07-16, in flight)** — finish the staggered benchmark sequence
-   (ONE heavy job at a time; monitor `/proc/pressure/memory` between stages; long jobs as
-   detached systemd units per SESSION PROTOCOL #4): (a) pull qwen3.6 Q3_K_M
-   (`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:Q3_K_M`, resumable); (b) rung-1 shootout granite3.3:8b /
-   granite4:7b-a1b-h / qwen3:4b on tiers 1–2 (incumbent qwen3:8b 15/22 reused); (c) strong-rung
-   A/B 30B vs qwen3.6-Q3 tiers 1–2 first, full suite for the winner; (d) heldout-cqe runs for the
-   finalists + `score_heldout.py`; (e) wire winners into `cad_v5/config.py`, POST-CHANGE SOP.
-   Blocked on user: Ollama 0.20.5→0.32.x upgrade (sudo) — do BEFORE (c) if possible.
+0. **Coder-model refresh — rung-1 DONE 2026-07-16, strong rung blocked on Ollama upgrade.**
+   Rung-1 verdict (refresh-20260716.log, run_20260716_*.json): **qwen3:8b keeps the fast rung**
+   (3/6, 15/22, 173s) over granite4:7b-a1b-h (2/6, 10/22 — fast tokens, slow parts),
+   granite3.3:8b (0/6) and qwen3:4b (0/6 — broken syntax output, reproduced). NO config change.
+   Remaining, in order once the user runs `curl -fsSL https://ollama.com/install.sh | sh`:
+   (a) re-pull qwen3.6 Q3_K_M (blobs cached; 0.20.5 rejects the GGUF with `Error: 400`);
+   (b) strong-rung A/B vs the 30B baseline (4/6, 15/22, 699s) tiers 1–2; (c) heldout-cqe for
+   the strong winner + qwen3:8b, scored via `scripts/score_heldout.py`; (d) wire any winner
+   into `cad_v5/config.py` + POST-CHANGE SOP; optional (e) MTP variant. Compare runs fast with
+   `scripts/compare_runs.py --latest N`.
 1. **Organic domain follow-ups** — first measured baseline is 2/5, 6/13 (`m10_organic_auto.json`):
    o1 revolve failure and the o4/o5 under-cut patterns are the concrete targets; the critic
    needs a pattern-density question (it over-accepted twice — min_faces caught it).

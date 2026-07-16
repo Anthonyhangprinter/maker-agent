@@ -1,0 +1,234 @@
+{
+  "ran_at": "2026-07-16T00:55:24.610780+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 3,
+  "total_time_s": 2711.5,
+  "acceptance_passed": 7,
+  "acceptance_total": 22,
+  "acceptance_score": 0.318,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "granite3.3:8b",
+      "agent_build_time_s": 1076.2,
+      "turns": 4,
+      "n1_autofixes": 4,
+      "wall_time_s": 1079.3,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\nAre there four through-holes aligned along the X and Y axes at X=\u00b135 and Y=\u00b120? -> NO (The top-down view shows features based on a diameter of 16.0mm, not four distinct holes at the specified coordinates.)\nAre the chamfers present only on the top outer perimeter and not on the holes? -> NO (The advisory mentions the chamfer likely failed silently and no conical faces were measured.)\nFix these specific issues.",
+      "failures": {
+        "timeout": 1,
+        "syntax": 3
+      },
+      "rc": 0,
+      "volume_mm3": 111328.2,
+      "solids": 1,
+      "faces": 23,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 8,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260716_101013_auto/01.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "granite3.3:8b",
+      "agent_build_time_s": 658.7,
+      "turns": 4,
+      "n1_autofixes": 4,
+      "wall_time_s": 661.4,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The isometric view shows a solid disc with a central bore, and the top-down view confirms the central bore is present. The cross-section view is consistent with the overall shape, showing the disc profile. The rendered part is missing the six $\\text{\u00d8}6\\text{mm}$ bolt holes on the $\\text{\u00d8}60\\text{mm}$ bolt circle and appears to have an incorrect overall bore diameter (the top-down view only shows a $\\text{\u00d8}30\\text{mm}$ bore, not the specified $\\text{\u00d8}30\\text{mm}$ bore plus the six holes). Therefore, the part does not match the requested geometry.",
+      "failures": {
+        "syntax": 4
+      },
+      "rc": 0,
+      "volume_mm3": 42956.2,
+      "solids": 1,
+      "faces": 6,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260716_101013_auto/02.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 253.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 213.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "granite3.3:8b",
+      "agent_build_time_s": 142.0,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 144.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "failures": {
+        "degenerate_input": 1,
+        "gate_feature": 1,
+        "gate_structural": 3,
+        "api_misuse": 1
+      },
+      "rc": 0,
+      "volume_mm3": 71341.5,
+      "solids": 2,
+      "faces": 29,
+      "cyl_faces": 12,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260716_101013_auto/05.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": false,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 350.3,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}
