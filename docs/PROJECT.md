@@ -236,6 +236,28 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-17 — Crash root-cause + clean rung-1 verdict + earthtojake adapter (Claude Code
+  session):** (1) *The 2026-07-16 "system crashes" were systemd-oomd memory-pressure kills*
+  (gnome-shell shot at 20:58 → Wayland session death), triggered by CPU-offloaded 30B/35B
+  models thrashing reclaim on 8G swap; several benchmark parts died mid-run (rc=1), tainting
+  that day's scores. Fixed + verified live (35B offload at ~0% PSI): swap 8→24G, oomd 50%/20s
+  → 80%/60s, and `scripts/run_refresh.sh` — a generalized driver that detaches into a
+  `MemoryHigh=12G` systemd unit, gates stages on `/proc/pressure/memory`, and refuses
+  strong-rung legs under 20G RAM+swap headroom. (2) *Clean rung-1 shootout (tiers 1–2):*
+  qwen3:8b **13/22 keeps the fast rung**; granite4:7b-a1b-h 6/22 (bimodal — 3/3 on BOTH
+  tier-2 parts incl. the never-solved stepped-shaft-keyway, but tier-1 build123d API flubs
+  it never recovers from: `SyntaxError`/`float(Vector)` through all N1 retries + 4 turns);
+  granite3.3:8b 2/22; qwen3:4b 0/22. The recurring rc=1/model=None rows were NOT an engine
+  bug — build() correctly returns a no-result failure when codegen never runs; the runner
+  now preserves the CLI's error JSON + stderr tail (`stderr_tail`) so this is diagnosable
+  from the run JSON. (3) *earthtojake pipeline adapter* (user request): `agents/etj_agent.py`
+  drives any Ollama model through the text-to-cad plugin's own contract (`gen_step()` source
+  → their `scripts/step` → `scripts/inspect --facts` feedback loop, no brief/few-shots/critic/
+  gate) and emits the runner JSON — `run_refresh.sh etj <models…>` benches model+their-toolchain
+  as an independent second pipeline under identical acceptance. Selftest green. (4) Stage-1
+  Q3 pull failure explained: unsloth tags are `UD-Q3_K_M` (16.6G), not `Q3_K_M`; strong A/B
+  runs on the local official q4 instead (quant-matched vs the 30B incumbent). Strong-rung
+  qwen3.6:35b-a3b full-suite A/B + heldout qwen3:8b baseline + etj legs running overnight.
 - **2026-07-16 — Coder-model refresh pass (Claude Code session):** (1) *Cleanup:* removed
   qwen3.5:9b/4b, phi3, qwen2.5-coder:7b/14b (~28GB) and the `--coder mid` alias everywhere
   (config/engine/cli/runner/Satine); openclaw.json cad agent repointed to qwen3:8b; gateway +

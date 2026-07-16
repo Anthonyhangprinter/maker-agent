@@ -206,8 +206,12 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
             row["step"] = str(art / f"{bm['id']}.step")
         except Exception as e:
             row["artifact_error"] = str(e)[:150]
-    if rc != 0 and not res:
-        row["error"] = (stderr or stdout or "no output")[-300:]
+    if rc != 0:
+        # Always keep the failure evidence: the CLI's own error JSON if it printed one,
+        # plus the stderr tail — rc=1-with-partial-JSON used to discard the traceback,
+        # which made the 2026-07-16/17 intermittent pre-build failures undiagnosable.
+        row["error"] = (res.get("error") or res.get("detail") or "")[:300] or None
+        row["stderr_tail"] = (stderr or stdout or "no output")[-600:]
 
     acc = score_acceptance(geom, criteria)
     row["acceptance"] = acc

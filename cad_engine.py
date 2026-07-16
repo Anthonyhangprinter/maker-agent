@@ -1412,6 +1412,28 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                 f"measured (candidates: {cand}mm) — if the walls look too thick/thin, adjust the "
                 f"shell offset or cavity size.")
 
+    # Cavity-not-cut — a part briefed as HOLLOW whose measured volume fills its own bounding box
+    # means the cavity subtraction never removed material (cutter offset outside the stock — the
+    # centred-origin trap). Same defect class as holes-that-didn't-cut, but detectable even when
+    # no wall candidates are measurable (a solid block has none). "[spec]"-tagged when the user's
+    # own words ask for hollowness (incl. the container nouns the brief is REQUIRED to read as
+    # hollow), so a self-satisfied accept cannot ship a solid brick (found live 2026-07-16: a
+    # 40x30x15 "open-top box, 2mm walls" converged as an 18000mm³ solid).
+    vol, bbox3 = facts.get("volume"), facts.get("bbox")
+    if (isinstance(exp_wall, (int, float)) and exp_wall > 0
+            and isinstance(vol, (int, float))
+            and isinstance(bbox3, (list, tuple)) and len(bbox3) == 3
+            and all(isinstance(b, (int, float)) and b > 0 for b in bbox3)
+            and vol >= 0.97 * bbox3[0] * bbox3[1] * bbox3[2]):
+        _hollow_tag = "[spec] " if re.search(
+            r"hollow|wall|shell|open[ -]?top|enclosure|container|housing|tray|bin|case|\bbox\b|tube",
+            spec or "", re.I) else ""
+        soft.append(
+            f"{_hollow_tag}this part should be HOLLOW (~{exp_wall:g}mm walls) but its volume "
+            f"({vol:.0f}mm³) fills its entire bounding box — NO material was removed; the cavity "
+            f"cut missed the solid. Primitives are centred at the origin: subtract the inner "
+            f"volume at the SAME position as the outer shape (offset only by wall/floor thickness).")
+
     # Chamfer presence — a chamfer on a circular edge leaves a CONICAL face, so cone_faces==0
     # with a spec-requested chamfer means it silently failed (the classic try/except-pass drop).
     # Advisory: chamfers on straight edges leave planes, not cones, so absence isn't proof there.
@@ -2161,6 +2183,33 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 spec, code, last_state, inspection["warnings"], critique
             )
             if action == "done":
+                if last_spec_notes:
+                    # A deterministic measurement still contradicts the user's own words — a
+                    # self-satisfied coder must not ship it (same defect class as the 2026-07-11
+                    # stuck-accept flange; found again 2026-07-16 when a "done" shipped a solid
+                    # brick as an open-top box). NOT a critic veto: only "[spec]" measurements
+                    # block here, so the M4.1 no-false-critic-blocks property is preserved.
+                    fails += 1
+                    _note_failure("done-veto: " + "; ".join(last_spec_notes)[:200])
+                    recovered_problem = recovered_problem or (
+                        "done vetoed by measurement: " + last_spec_notes[0][:200])
+                    if turn < MAX_TURNS:
+                        log.info("[v5] Model says done but [spec] advisories are outstanding — "
+                                 "vetoing the accept and revising: %s",
+                                 "; ".join(last_spec_notes)[:200])
+                        code = revise_script(
+                            spec, code,
+                            "You are NOT done. Deterministic measurements of the actual solid "
+                            "contradict the user's request:\n"
+                            + "\n".join(f"- {n}" for n in last_spec_notes)
+                            + "\nFix the source so the measurements match what was asked. "
+                              "Primitives are centred at the origin — a cut must overlap the "
+                              "solid's actual position to remove material.",
+                            state=inspection["output"])
+                        continue
+                    log.warning("[v5] done vetoed by [spec] advisories at MAX_TURNS — "
+                                "stopping NOT converged.")
+                    break
                 log.info("[v5] Model satisfied — finalizing.")
                 done = True
                 accepted_via = "critic"

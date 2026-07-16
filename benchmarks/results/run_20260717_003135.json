@@ -1,0 +1,218 @@
+{
+  "ran_at": "2026-07-16T14:31:35.211538+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 2,
+  "total_time_s": 1034.5,
+  "acceptance_passed": 6,
+  "acceptance_total": 22,
+  "acceptance_score": 0.273,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 145.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 84.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 101.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "granite4:7b-a1b-h",
+      "agent_build_time_s": 322.1,
+      "turns": 4,
+      "n1_autofixes": 6,
+      "wall_time_s": 324.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\n1. Does the keyway slot span from X=40 to X=80 on the middle section? -> NO (The top-down view shows a circular feature centered at (0, 0), not a slot spanning X=40 to X=80.)\nFix these specific issues.",
+      "failures": {
+        "fillet_chamfer": 9
+      },
+      "rc": 0,
+      "volume_mm3": 61100.2,
+      "solids": 1,
+      "faces": 15,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        30.0,
+        30.0,
+        120.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_001420_auto/04.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "granite4:7b-a1b-h",
+      "agent_build_time_s": 211.6,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 214.4,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\nAre there four cylindrical mounting standoffs positioned at X=+/-35, Y=+/-25 on the floor? -> NO (The top-down view shows features near X=\u00b148mm and Y=\u00b134mm, not X=\u00b135, Y=\u00b125.)\nFix these specific issues.",
+      "failures": {
+        "gate_feature": 1,
+        "fillet_chamfer": 2,
+        "api_misuse": 1
+      },
+      "rc": 0,
+      "volume_mm3": 207204.0,
+      "solids": 1,
+      "faces": 21,
+      "cyl_faces": 9,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 7,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_001420_auto/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 157.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}
