@@ -46,6 +46,36 @@ SYSTEM = """You are a mechanical CAD engineer generating parametric parts with b
 
 Reply with ONE ```python code block containing the complete source, nothing else.
 
+WORKED EXAMPLE (algebra mode — the shape of a correct answer):
+
+```python
+from build123d import *
+
+# parameters first
+length, width, height = 80.0, 50.0, 12.0
+hole_d, hole_inset = 5.5, 8.0
+
+def gen_step():
+    part = Box(length, width, height)                       # centred at origin
+    # four corner through-holes: overshoot the cut past both faces
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            x = sx * (length / 2 - hole_inset)
+            y = sy * (width / 2 - hole_inset)
+            part -= Pos(x, y, 0) * Cylinder(radius=hole_d / 2, height=height + 2)
+    # chamfer the top outer edges last
+    top_edges = part.faces().sort_by(Axis.Z)[-1].edges()
+    part = chamfer(top_edges, 1.0)
+    return part
+```
+
+API truths — violating any of these is an automatic failure:
+- There is NO empty-container `Part()` constructor and NO `new_part()`. Start from a
+  primitive (`Box`, `Cylinder`, ...) or a Build context, and combine with `+` / `-`.
+- Shapes have NO `.translate()`/`.translated()` method. Position with `Pos(x, y, z) * shape`
+  or `Location(...) * shape` BEFORE combining.
+- `chamfer(...)`/`fillet(...)` are functions taking an edge list, not classes.
+
 The plugin's build123d modeling reference follows — its APIs and patterns are the ONLY ones
 that exist; do not invent methods or classes not shown or documented here:
 
