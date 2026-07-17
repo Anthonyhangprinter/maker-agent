@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAD agent</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #111315; color: #e6e6e6; font: 15px/1.5 system-ui, sans-serif;
+         min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+  main { width: min(720px, 94vw); padding: 6vh 0 4rem; }
+  h1 { font-size: 1.9rem; font-weight: 600; text-align: center; margin-bottom: 1.6rem; }
+  .composer { background: #1b1e21; border: 1px solid #2c3136; border-radius: 14px; padding: 0.9rem; }
+  textarea { width: 100%; background: transparent; border: 0; color: inherit; resize: vertical;
+             min-height: 3.2rem; font: inherit; outline: none; }
+  .row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
+  .row .spacer { flex: 1; }
+  button, select, label.filebtn { background: #262b30; color: #e6e6e6; border: 1px solid #383f46;
+    border-radius: 9px; padding: 0.45rem 0.9rem; font: inherit; cursor: pointer; }
+  button.primary { background: #2f6fed; border-color: #2f6fed; color: #fff; font-weight: 600; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type=file] { display: none; }
+  .hint { color: #8b949e; font-size: 0.82rem; margin-top: 0.7rem; }
+  .thumb { max-height: 52px; border-radius: 7px; display: none; }
+  .job { background: #1b1e21; border: 1px solid #2c3136; border-radius: 14px;
+         padding: 1rem; margin-top: 1.3rem; }
+  .pill { display: inline-block; padding: 0.12rem 0.65rem; border-radius: 999px;
+          font-size: 0.8rem; font-weight: 600; background: #333; }
+  .pill.queued { background: #4d4a1f; } .pill.running { background: #1f4d2c; }
+  .pill.waiting_gpu { background: #4d3a1f; } .pill.done { background: #1f4d2c; }
+  .pill.error { background: #5b2320; } .pill.needs_clarification { background: #23405b; }
+  .log { background: #0d0f10; border-radius: 9px; padding: 0.6rem 0.8rem; margin-top: 0.8rem;
+         font: 12px/1.45 ui-monospace, monospace; color: #9aa4ad; max-height: 200px;
+         overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  .render { width: 100%; border-radius: 9px; margin-top: 0.8rem; background: #fff; }
+  .downloads { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .downloads a { color: #7ab3ff; text-decoration: none; border: 1px solid #383f46;
+                 border-radius: 9px; padding: 0.35rem 0.8rem; font-size: 0.88rem; }
+  .meta { color: #8b949e; font-size: 0.84rem; margin-top: 0.55rem; }
+  .warn { color: #e0b05c; font-size: 0.88rem; margin-top: 0.55rem; }
+  .qbox { margin-top: 0.8rem; } .qbox ol { padding-left: 1.2rem; }
+  footer { color: #6b7480; font-size: 0.78rem; padding: 0 0 1.4rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>What should we build?</h1>
+  <div class="composer">
+    <textarea id="spec" placeholder="a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor…"></textarea>
+    <div class="row">
+      <label class="filebtn" for="image" title="Reference photo or sketch (jpg/png/webp)">📷 Image</label>
+      <input type="file" id="image" accept="image/jpeg,image/png,image/webp">
+      <img id="thumb" class="thumb" alt="">
+      <button id="clearimg" style="display:none" title="Remove image">✕</button>
+      <span class="spacer"></span>
+      <select id="coder" title="Coder model: auto picks and escalates">
+        <option value="auto" selected>auto</option>
+        <option value="fast">fast (8B)</option>
+        <option value="strong">strong (30B)</option>
+      </select>
+      <button class="primary" id="go">Build</button>
+    </div>
+  </div>
+  <div class="hint">
+    Good prompts say <b>Size</b> (envelope in mm) · <b>Specs</b> (counts + diameters) ·
+    <b>Surfaces</b> (which face) · <b>Symmetry</b> (patterns/spacing). With a photo: shape and
+    proportions come from the image, absolute sizes still come from your words.
+  </div>
+  <div id="jobs"></div>
+</main>
+<footer>
+  One build at a time (single GPU) — you'll see “waiting for GPU” if another agent is building.
+  In-flight builds are lost if the server restarts.
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+const jobsEl = $("jobs"), tracked = new Map();
+
+$("image").onchange = () => {
+  const f = $("image").files[0];
+  if (!f) return;
+  $("thumb").src = URL.createObjectURL(f);
+  $("thumb").style.display = "block";
+  $("clearimg").style.display = "inline-block";
+};
+$("clearimg").onclick = () => {
+  $("image").value = ""; $("thumb").style.display = "none";
+  $("clearimg").style.display = "none";
+};
+
+$("go").onclick = async () => {
+  const spec = $("spec").value.trim();
+  if (!spec) return $("spec").focus();
+  const fd = new FormData();
+  fd.append("spec", spec);
+  fd.append("coder", $("coder").value);
+  if ($("image").files[0]) fd.append("image", $("image").files[0]);
+  $("go").disabled = true;
+  try {
+    const r = await fetch("/api/build", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    track(j.job_id);
+  } catch (e) { alert("Build request failed: " + e.message); }
+  finally { $("go").disabled = false; }
+};
+
+function card(id) {
+  let el = document.getElementById("job-" + id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "job"; el.id = "job-" + id;
+    jobsEl.prepend(el);
+  }
+  return el;
+}
+
+const STATUS_LABEL = { queued: "queued", running: "building", waiting_gpu: "waiting for GPU",
+  done: "done", error: "failed", needs_clarification: "needs answers" };
+
+function render(j) {
+  const el = card(j.id), r = j.result || {}, a = r.artifacts || {};
+  let h = `<span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>
+           <b style="margin-left:.6rem">${esc(j.spec.slice(0, 120))}</b>`;
+  if (j.has_image) h += ` <span title="image-conditioned">📷</span>`;
+  if (["queued", "running", "waiting_gpu"].includes(j.status))
+    h += `<div class="log">${esc((j.log_tail || []).join("\n")) || "…"}</div>`;
+  if (j.status === "needs_clarification" && r.questions) {
+    h += `<div class="qbox">Before building, it needs:<ol>` +
+         r.questions.map(q => `<li>${esc(q)}</li>`).join("") +
+         `</ol><i>Add the answers to your spec above and Build again.</i></div>`;
+  }
+  if (a.render) h += `<img class="render" src="${a.render}?t=${Date.now()}" alt="render">`;
+  if (j.status === "done") {
+    const dl = ["step", "stl", "dxf", "source", "reference"]
+      .filter(k => a[k]).map(k => `<a href="${a[k]}" download>${k.toUpperCase()}</a>`);
+    if (dl.length) h += `<div class="downloads">${dl.join("")}</div>`;
+    h += `<div class="meta">${r.converged ? "converged" : "NOT converged"}`
+      + (r.accepted_via ? ` via ${r.accepted_via}` : "")
+      + (r.code_model ? ` · coder ${esc(r.code_model)}` : "")
+      + (r.build_time_s ? ` · ${Math.round(r.build_time_s)}s` : "")
+      + (r.turns ? ` · ${r.turns} turn(s)` : "") + `</div>`;
+    if (r.warning) h += `<div class="warn">⚠ ${esc(r.warning)}</div>`;
+    if (r.image_analysis && r.image_analysis.shape_family)
+      h += `<div class="meta">image read as: ${esc(r.image_analysis.shape_family)}`
+        + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
+  }
+  if (j.status === "error") h += `<div class="warn">✗ ${esc(j.error || "failed")}</div>`;
+  el.innerHTML = h;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function track(id) {
+  if (tracked.has(id)) return;
+  const timer = setInterval(async () => {
+    try {
+      const r = await fetch("/api/jobs/" + id);
+      if (!r.ok) { clearInterval(timer); return; }
+      const j = await r.json();
+      render(j);
+      if (["done", "error", "needs_clarification"].includes(j.status)) clearInterval(timer);
+    } catch (e) { /* transient */ }
+  }, 2000);
+  tracked.set(id, timer);
+}
+
+// On load, show recent jobs (resume polling for any still running).
+fetch("/api/jobs").then(r => r.json()).then(list => {
+  list.reverse().forEach(j => {
+    render(j);
+    if (["queued", "running", "waiting_gpu"].includes(j.status)) track(j.id);
+  });
+}).catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+{
+  "ran_at": "2026-07-17T06:16:50.956730+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "auto",
+  "fewshots": false,
+  "count": 6,
+  "converged": 1,
+  "geometry": 3,
+  "total_time_s": 2036.2,
+  "acceptance_passed": 8,
+  "acceptance_total": 22,
+  "acceptance_score": 0.364,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 102.8,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "ortBy.RADIUS)[-1], length=1)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/shape_core.py\", line 2843, in sort_by\n    with_radius = [obj for obj in self if hasattr(obj, \"radius\")]\n                                          ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/one_d.py\", line 329, in radius\n    raise ValueError(\"Shape could not be reduced to a circle\") from err\nValueError: Shape could not be reduced to a circle\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 178.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_2ezaazfa/build_source.py\", line 25, in <module>\n    bolt_circle = Circle(radius=bolt_hole_radius).extrude(bolt_circle_diameter_mm)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: Compound.extrude() missing 1 required positional argument: 'direction'\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 222.3,
+      "turns": 2,
+      "n1_autofixes": 1,
+      "wall_time_s": 226.1,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\n1. Are there two right-triangle gussets at X=+/-20 bracing the base-to-back transition? -> NO (The provided facts mention gussets at X=+/-20, but the detailed feature list in the prompt states the gussets are at X=+/-20, while the provided geometry facts do not confirm this specific feature placement or geometry.)\nFix these specific issues.",
+      "failures": {
+        "api_misuse": 1,
+        "gate_structural": 1
+      },
+      "rc": 0,
+      "volume_mm3": 60881.7,
+      "solids": 1,
+      "faces": 50,
+      "cyl_faces": 22,
+      "bbox_mm": [
+        80.0,
+        54.0,
+        50.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 18,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_154254_auto/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 160.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": " (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_l0co5_ps/build_source.py\", line 19, in <module>\n    result = chamfer(result.edges().filter_by(Axis.Z), radius=chamfer_mm)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: chamfer() got an unexpected keyword argument 'radius'\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 548.2,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 550.7,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: PASS: verification questions confirmed \u2014 1. Are there four cylindrical mounting standoffs positioned ",
+      "failures": {
+        "gate_dimension": 4
+      },
+      "rc": 0,
+      "volume_mm3": 206115.6,
+      "solids": 1,
+      "faces": 30,
+      "cyl_faces": 12,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 8,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_154254_auto/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 736.0,
+      "turns": 4,
+      "n1_autofixes": 1,
+      "wall_time_s": 772.4,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "gate_feature": 1,
+        "unknown": 2,
+        "api_misuse": 1
+      },
+      "rc": 0,
+      "volume_mm3": 107950.3,
+      "solids": 1,
+      "faces": 115,
+      "cyl_faces": 59,
+      "bbox_mm": [
+        120.0,
+        60.0,
+        42.0
+      ],
+      "through_holes": 11,
+      "blind_holes": 32,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_154254_auto/06.step",
+      "acceptance": {
+        "score": 0.75,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 3,
+        "total": 4
+      },
+      "geometry": true
+    }
+  ]
+}

@@ -65,9 +65,24 @@ cad-session.json, cad-builds/, cad-agent.log) — see "Scripts" below.
 
 ```
 cad "<spec>"                                              # v5 interactive entry (local CAD Viewer)
+cad --image photo.jpg "<spec>"                            # image-conditioned build (reference photo)
 SCRIPT=~/.openclaw/skills/cad-builder/cad_engine.py       # core ENGINE (also a standalone CLI)
 # Legacy / rollback only (moved to legacy/): cad_agent_v3.py, cad_agent_v2.py, onshape_cad_agent.py
 ```
+
+**Reference images (`--image`, 2026-07-17):** a gemma4:e4b vision pre-pass describes the photo
+(shape family, features, proportions — NEVER absolute mm; only in-image annotations may carry
+numbers) into an `IMAGE ANALYSIS` addendum the brief reads, and the critic receives the photo as
+a SECOND image each turn to judge form/features/proportions against (two-image attention verified
+2026-07-17). Analysis cached at `<photo>.analysis.json`; the downscaled reference is saved into
+the build dir as `reference.jpg`; result JSON carries `image` + `image_analysis`. Satine: caption
+a photo = spec with reference; bare photo = stashed for the next build (30 min TTL, single-use).
+
+**Build lock (2026-07-17):** `engine.build()` holds an exclusive flock on
+`~/.openclaw/cad-build.lock` — builds from ALL frontends (CLI/Satine/web/benchmarks) serialize
+machine-wide (one model fits the GPU). The wall-clock budget starts after acquisition; frontends
+surface the `waiting for build lock` stderr line as a queue state. Holder info (pid/frontend/spec)
+is written into the lock file; `CAD_FRONTEND` env names the frontend.
 
 Config & creds: `~/.openclaw/openclaw.json` (`env` ONSHAPE keys + telegram token) and
 **`~/.openclaw/cad.json`** (`cad.*` agent settings incl. the `code_model` pin — kept out of

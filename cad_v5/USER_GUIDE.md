@@ -38,10 +38,23 @@ That's the whole experience. Keep talking until it's right; type `done` when it 
 ```bash
 cad "<what you want>"                 # build, then refine interactively
 cad                                   # start with no spec; describe it at the first prompt
+cad --image photo.jpg "<spec>"        # build FROM a reference photo/sketch (jpg/png/webp)
 ```
 
 (Equivalently `python3 ~/.openclaw/skills/cad-builder/cad_v5 "<spec>"`. From Telegram/Satine the
 same loop applies: send a description, then reply with changes.)
+
+### Building from a photo (`--image`)
+
+Give the agent a reference photo or sketch and it uses the image two ways: a local vision
+model (gemma4:e4b) first describes the part's form, features, and proportions into the build
+brief, and then judges every draft render against your photo until they match.
+
+**The rule: shape and proportions come from the image; absolute sizes come from your text.**
+A photo has no scale, so the agent never invents millimetres from it — say the envelope
+("..., 80mm wide") in the spec, or have real dimension annotations legible in the image.
+From Telegram, caption a photo with your spec (or send the photo bare, then describe the part
+within 30 minutes). The analysis is cached per photo, and refine turns keep the reference.
 
 ### Things you can type at the feedback prompt
 

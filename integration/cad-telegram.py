@@ -53,9 +53,12 @@ PHOTOS_DIR    = os.path.expanduser("~/.openclaw/telegram/cad-photos")
 CAD_AGENT     = os.path.expanduser("~/.openclaw/skills/cad-builder/cad_engine.py")
 POLL_TIMEOUT  = 30
 MAX_MSG_LEN   = 4000
-# Must exceed the agent's own wall-clock budget (cad_engine BUILD_TIMEOUT=1800)
-# so the bot never kills a build that is still legitimately iterating.
-BUILD_TIMEOUT = 1860
+# Must exceed the agent's own wall-clock budget (cad_engine BUILD_TIMEOUT=1800) PLUS a full
+# lock wait: builds are serialized machine-wide via the engine's flock, so a job may sit a
+# whole build behind another frontend (web/CLI) before its own budget even starts.
+BUILD_TIMEOUT = 2 * 1860
+# An uncaptioned photo is usable as the reference for the NEXT build within this window, once.
+PHOTO_TTL = 1800
 # Spec-revision LLM call budget: must survive a cold model swap on a busy single-GPU box
 # (the old 60s silently degraded refines to a raw feedback restatement).
 REFINE_TIMEOUT = 300
@@ -219,14 +222,22 @@ def get_session(sessions: dict, chat_id) -> dict | None:
     return None
 
 
-def set_session(sessions: dict, chat_id, original_spec: str, history: list):
+def set_session(sessions: dict, chat_id, original_spec: str, history: list,
+                image: str | None = None):
+    """image: the reference photo this session's build was conditioned on — refines reuse it.
+    Passed explicitly by the handlers (never inherited implicitly), so a fresh text-only
+    build can never pick up a stale reference from an earlier session."""
     with _sessions_lock:
         prev = sessions.get(str(chat_id)) or {}
         sessions[str(chat_id)] = {
             "original_spec": original_spec,
             "history":       history,
             "timestamp":     time.time(),
-            **({"photo": prev["photo"]} if prev.get("photo") else {}),
+            **({"image": image} if image else {}),
+            **({"photo": prev["photo"],
+                "photo_ts": prev.get("photo_ts", 0),
+                "photo_consumed": prev.get("photo_consumed", False)}
+               if prev.get("photo") else {}),
         }
         save_sessions(sessions)
 
@@ -238,12 +249,31 @@ def clear_session(sessions: dict, chat_id):
 
 
 def stash_photo(sessions: dict, chat_id, path: str):
-    """Remember the latest reference photo on the (possibly empty) session."""
+    """Remember the latest reference photo on the (possibly empty) session. The stash is
+    single-use with a freshness window (PHOTO_TTL): the next build within the window uses it
+    as the reference, after which it never conditions a later, unrelated build."""
     with _sessions_lock:
         s = sessions.setdefault(str(chat_id), {"original_spec": "", "history": []})
         s["photo"] = path
+        s["photo_ts"] = time.time()
+        s["photo_consumed"] = False
         s["timestamp"] = time.time()
         save_sessions(sessions)
+
+
+def take_stashed_photo(sessions: dict, chat_id) -> str | None:
+    """Return the stashed photo iff fresh and unconsumed, marking it consumed."""
+    with _sessions_lock:
+        s = sessions.get(str(chat_id))
+        if not s or not s.get("photo") or s.get("photo_consumed"):
+            return None
+        if time.time() - s.get("photo_ts", 0) >= PHOTO_TTL:
+            print(f"[cad-telegram] stashed photo for {chat_id} skipped as stale "
+                  f"(> {PHOTO_TTL}s old)", flush=True)
+            return None
+        s["photo_consumed"] = True
+        save_sessions(sessions)
+        return s["photo"]
 
 
 # ── N2 pending clarification (in-memory — small and short-lived, no journal needed) ────────────
@@ -342,7 +372,7 @@ def run_agent(args, timeout=60):
         return "", str(e), 1
 
 
-def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT):
+def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None):
     """Build via the v5 --json entry: stdout is exactly one JSON line (B7 contract) —
     no more scraping the human output for the first '{' and hoping.
 
@@ -350,11 +380,16 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT):
     form; if it can't build a competent first draft, it replies with one JSON line
     {needs_clarification: true, questions: [...], spec} INSTEAD of building. The caller
     (handle_build/handle_refine below) surfaces those questions and remembers the spec so
-    the user's next plain message can answer them."""
+    the user's next plain message can answer them.
+
+    image: optional reference-photo path forwarded as --image (image-conditioned build)."""
     cmd = [sys.executable, "-m", "cad_v5", spec, "--once", "--json", "--ask",
            "--coder", coder, "--target", "onshape"]
+    if image:
+        cmd += ["--image", image]
+    env = {**os.environ, "CAD_FRONTEND": "telegram"}   # shows up in the build-lock holder info
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env,
                               cwd=os.path.expanduser("~/.openclaw/skills/cad-builder"))
     except subprocess.TimeoutExpired:
         return None, "Build timed out."
@@ -401,14 +436,22 @@ def send_clarification(token, chat_id, spec: str, result: dict) -> None:
     set_pending_clarification(chat_id, result.get("spec") or spec)
 
 
-def handle_build(token, chat_id, spec, sessions: dict):
+def handle_build(token, chat_id, spec, sessions: dict, image: str | None = None):
     coder, spec = extract_coder(spec)
     if not spec.strip():
         send(token, chat_id, "Usage: /build <spec>  e.g. /build spur gear 20T")
         return
+    # Reference photo: the one attached to THIS message wins; otherwise a fresh, unconsumed
+    # stashed photo (sent bare within the last PHOTO_TTL) conditions this build once.
+    image = image or take_stashed_photo(sessions, chat_id)
+    if image and not os.path.isfile(image):
+        send(token, chat_id, "(The saved reference photo is gone from disk — building from "
+                             "your text only.)")
+        image = None
     note = "" if coder == "auto" else f"  (forcing {coder} coder)"
-    send(token, chat_id, f"Looking at: {spec}{note}\nThis may take a few minutes (it iterates and self-checks)…")
-    result, err = run_v5_build(spec, coder)
+    ref  = "  (using your photo as the reference)" if image else ""
+    send(token, chat_id, f"Looking at: {spec}{note}{ref}\nThis may take a few minutes (it iterates and self-checks)…")
+    result, err = run_v5_build(spec, coder, image=image)
     if not result:
         send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
         return
@@ -422,22 +465,27 @@ def handle_build(token, chat_id, spec, sessions: dict):
         send(token, chat_id, f"(Onshape upload failed: {result['target_error'][:300]} — "
                              f"the files above are still your model.)")
     history = [{"spec": spec, "url": url}]
-    set_session(sessions, chat_id, original_spec=spec, history=history)
+    set_session(sessions, chat_id, original_spec=spec, history=history, image=image)
     send(token, chat_id,
          "Reply with what to change (e.g. \"make it 200mm longer\") "
          "or /rate 1-5 when you're happy.")
 
 
-def handle_refine(token, chat_id, feedback: str, sessions: dict):
+def handle_refine(token, chat_id, feedback: str, sessions: dict, image: str | None = None):
     coder, feedback = extract_coder(feedback)
     session = get_session(sessions, chat_id)
     if not session:
         # Session expired — treat as new build
-        handle_build(token, chat_id, feedback, sessions)
+        handle_build(token, chat_id, feedback, sessions, image=image)
         return
 
     original = session["original_spec"]
     history  = session["history"]
+    # A photo attached to the refine message replaces the reference; otherwise refines keep
+    # judging against the image the session's build was conditioned on (by design).
+    image = image or session.get("image")
+    if image and not os.path.isfile(image):
+        image = None
 
     send(token, chat_id, "Revising…")
     # Get a revised spec from the LLM
@@ -451,7 +499,7 @@ def handle_refine(token, chat_id, feedback: str, sessions: dict):
 
     note = "" if coder == "auto" else f"  (forcing {coder} coder)"
     send(token, chat_id, f"Looking at revised: {revised}{note}\nThis may take a few minutes (it iterates and self-checks)…")
-    result, err = run_v5_build(revised, coder)
+    result, err = run_v5_build(revised, coder, image=image)
     if not result:
         send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
         return
@@ -462,7 +510,7 @@ def handle_refine(token, chat_id, feedback: str, sessions: dict):
     url = result.get("url", "")
     send_build_files(token, chat_id, result)   # render photo + STEP/STL in the chat
     history.append({"spec": revised, "url": url})
-    set_session(sessions, chat_id, original_spec=original, history=history)
+    set_session(sessions, chat_id, original_spec=original, history=history, image=image)
     # N3: the brief-contract patch delta, when the loop patched instead of regenerating.
     delta = result.get("intent_delta") or []
     prefix = ("Δ " + "; ".join(delta) + "\n\n") if delta else ""
@@ -590,8 +638,10 @@ HELP_TEXT = (
     "After a build, reply with what to change — I'll refine it.\n\n"
     "Paste an Onshape URL and I'll read the document and describe it.\n"
     "You can also paste a URL + feedback in one message to inspect and refine.\n\n"
-    "Photos: I save reference images with your session (building FROM a photo is coming); "
-    "a caption on the photo is treated as your spec.\n\n"
+    "Photos: send a photo/sketch of a part and I'll build FROM it — the shape and proportions "
+    "come from the image, sizes in mm come from your words. Caption the photo with your spec, "
+    "or send it bare and describe the part in your next message (within 30 min). A photo sent "
+    "during refinement updates the reference.\n\n"
     "Builds run one at a time — if I'm busy you'll be queued and told your position.\n\n"
     "I pick a coder automatically (fast 8B → strong 30B, climbing a rung when one "
     "struggles). To force one, prefix your spec: \"fast: <spec>\" or "
@@ -617,6 +667,7 @@ def dispatch(token, job: dict, sessions: dict):
     happens HERE (not at poll time) so a refinement queued behind its own build still
     sees the session that build creates."""
     chat_id, text = job["chat_id"], job["text"]
+    image = job.get("image")   # reference photo attached to THIS message (journal-replay safe)
     if job["kind"] == "plan":
         handle_plan(token, chat_id, text)
         return
@@ -629,7 +680,8 @@ def dispatch(token, job: dict, sessions: dict):
         if pending_spec is not None:
             clear_pending_clarification(chat_id)
             if not is_new_build(text) and not ONSHAPE_URL_RE.search(text):
-                handle_build(token, chat_id, f"{pending_spec} — {text}".strip(), sessions)
+                handle_build(token, chat_id, f"{pending_spec} — {text}".strip(), sessions,
+                             image=image)
                 return
 
     url_match = ONSHAPE_URL_RE.search(text)
@@ -638,11 +690,11 @@ def dispatch(token, job: dict, sessions: dict):
         extra = (text[:url_match.start()].strip() + " " + text[url_match.end():].strip()).strip()
         handle_inspect(token, chat_id, url, extra, sessions)
     elif job["kind"] == "build":
-        handle_build(token, chat_id, text, sessions)
+        handle_build(token, chat_id, text, sessions, image=image)
     elif get_session(sessions, chat_id) and not is_new_build(text):
-        handle_refine(token, chat_id, text, sessions)
+        handle_refine(token, chat_id, text, sessions, image=image)
     else:
-        handle_build(token, chat_id, text, sessions)
+        handle_build(token, chat_id, text, sessions, image=image)
 
 
 def worker(token, sessions: dict):
@@ -695,22 +747,26 @@ def main():
                 if not chat_id or from_id not in allowed:
                     continue
 
-                # Photo messages: download + stash on the session so the upcoming
-                # image-conditioned flow can use it (previously silently dropped).
+                # Photo messages — image-conditioned builds. A CAPTIONED photo is a request
+                # right now: it's queued like a normal message with the photo riding along as
+                # the build's reference (dispatch still routes build-vs-refine). An UNCAPTIONED
+                # photo is stashed: the next build within PHOTO_TTL uses it as reference, once.
                 if msg.get("photo"):
                     path = download_photo(token, msg)
                     caption = (msg.get("caption") or "").strip()
-                    if path:
-                        stash_photo(sessions, chat_id, path)
-                        send(token, chat_id,
-                             "Got the image — I can't build FROM photos yet, but I've saved "
-                             "it with your session. Describe what to build in words"
-                             + (f" (I'll treat your caption as the spec)." if caption else "."))
-                    else:
+                    if not path:
                         send(token, chat_id, "Couldn't download that image — please try again.")
-                    if not caption:
                         continue
-                    text = caption   # a captioned photo proceeds as a normal message
+                    if caption:
+                        enqueue(token, {"id": upd["update_id"], "chat_id": chat_id,
+                                        "kind": "message", "text": caption, "image": path})
+                        continue
+                    stash_photo(sessions, chat_id, path)
+                    send(token, chat_id,
+                         "Got the image — tell me what to build within the next 30 minutes "
+                         "and I'll use it as the reference. Say sizes in mm; I take the "
+                         "shape and proportions from the photo.")
+                    continue
 
                 if not text:
                     continue

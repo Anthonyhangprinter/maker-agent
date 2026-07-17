@@ -45,13 +45,15 @@ except Exception:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 BRIEF_MODEL        = "qwen3:8b"
-# Fast rung = qwen3:8b (2026-07-12, tiers 1-2 A/B under identical v5.2 prompts):
-# qwen3:8b 15/22 acceptance (68%), 5/6 valid geometry, 1052s — vs the code-tuned
-# qwen2.5-coder:7b at 8/22 (36%), 3/6 geometry, 1242s. The general 8B repairs
-# fillet/chamfer crashes the 7B spirals on, AND it keeps ONE model warm across
-# brief/triage/codegen/decide (fewer VRAM swaps). Old 7B stays reachable via a
-# cad.json code_model pin. Results: benchmarks/results/ (20260712 runs).
-CODE_MODEL_FAST    = "qwen3:8b"
+# Fast rung = qwen2.5-coder:7b Q4 (user decision 2026-07-17, supported by that day's 2x2
+# A/B, tiers 1-2 same engine same day): 7b-q4 WITH few-shots 13/22 (59%) vs qwen3:8b 11/22
+# (50%); few-shots lift the 7B +23pts (8/22 bare) and lift qwen3:8b ZERO (11/22 either way)
+# — the corpus was distilled from qwen3 builds, so retrieval transfers those idioms into
+# the specialist while teaching the incumbent nothing new. Trade-off accepted: the brief
+# (qwen3:8b) -> coder swap costs a VRAM reload per build (7B suite 2068s vs 8B 1164s).
+# The 2026-07-12 result (old q5 quant, pre-N1/style-only-fewshot engine: 8/22) is superseded.
+# Results: benchmarks/results/ run_20260717_15*/16* (2x2 legs).
+CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q4_K_M"
 CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # CPU offload, ~7min/call — last resort
 # Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
 # the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged

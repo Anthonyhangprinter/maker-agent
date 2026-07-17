@@ -236,6 +236,16 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-17 (evening) — FAST RUNG REVERSED to qwen2.5-coder:7b-instruct-q4_K_M (user
+  decision + same-day 2×2 A/B):** tiers 1–2, same engine, four pinned legs — 7b-q4 WITH
+  few-shots **13/22 (59%)** / without 8/22; qwen3:8b with few-shots 11/22 (50%) / without
+  11/22. The few-shot corpus (distilled from qwen3 builds) lifts the specialist +23pts and
+  the incumbent ZERO — retrieval transfers idioms into the model that lacks them; the July-12
+  "7B loses 8/22 vs 15/22" result was the old q5 quant on the pre-N1, pre-style-only-fewshot
+  engine and is superseded. Trade-off accepted knowingly: brief(qwen3:8b)→coder swap costs a
+  VRAM reload per build (7B suite 2068s vs 8B 1164s wall). `CODE_MODEL_FAST` updated in
+  cad_v5/config.py; brief/triage/critic unchanged. Follow-up: Stage-C style auto-promotion
+  should now rate/distil 7B-q4 builds into the corpus so the few-shot lift compounds.
 - **2026-07-17 (later) — heldout baseline + etj pipeline measurements:** (1) *Held-out fidelity
   baseline* (25-part heldout-cqe, qwen3:8b unpinned ladder): 9/25 converged, 17/25 geometry,
   25/50 runner acceptance; `score_heldout.py` strict reference-STL checks pass 4/17 — misses
