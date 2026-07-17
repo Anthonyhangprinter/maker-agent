@@ -76,6 +76,14 @@ CODE_TIMEOUT_STRONG = 1200
 # 600s fast timeout, timed out on all 10 benchmark parts, and produced a 0/31 artifact score).
 VRAM_RESIDENT_GB_MAX = 5.5
 CRITIC_TIMEOUT = 200
+# Reference-image builds: two images through gemma's CPU-side vision encoder need more headroom
+# than the single-render 200s (measured 2026-07-17: 110s cold for a two-image compare).
+REF_CRITIC_TIMEOUT = 300
+REF_IMAGE_MAX_PX   = 1024   # downscale reference photos to this long edge before base64/vision
+
+# One build at a time across ALL frontends (CLI / Satine / web) — the RX 6600 fits one model.
+# engine.build() takes an fcntl.flock on this file; flock self-releases on process death.
+BUILD_LOCK_FILE = _OPENCLAW / "cad-build.lock"
 
 # ── Loop config ─────────────────────────────────────────────────────────────--
 MAX_TURNS      = 4

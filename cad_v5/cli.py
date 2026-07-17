@@ -58,6 +58,10 @@ def main(argv: list[str] | None = None) -> None:
                         " ('print' slices the STL and dry-run-validates the gcode via OrcaSlicer)")
     p.add_argument("--onshape", action="store_true",
                    help="use Onshape as the output target (shortcut for --target onshape)")
+    p.add_argument("--image", default=None, metavar="PATH",
+                   help="reference photo/sketch (jpg/png/webp) — a local vision model analyzes "
+                        "it to guide the build and judges every render against it. Proportions "
+                        "come from the image; absolute mm still come from your text.")
     p.add_argument("--no-fewshots", action="store_true",
                    help="disable few-shot retrieval (A/B the learning lift)")
     p.add_argument("--once", action="store_true",
@@ -76,31 +80,51 @@ def main(argv: list[str] | None = None) -> None:
     target_name = "onshape" if a.onshape else (a.target or targets.default_target_name())
     spec = " ".join(a.spec).strip() or None
 
+    if a.image:
+        from pathlib import Path
+        img = Path(a.image).expanduser()
+        if not img.is_file():
+            p.error(f"--image: file not found: {a.image}")
+        if img.suffix.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
+            p.error(f"--image: unsupported type {img.suffix} (jpg/png/webp)")
+        a.image = str(img)
+
     if a.json and not a.once:
         p.error("--json requires --once (interactive sessions have no single result)")
     if a.json:
         # Machine mode: the human progress output goes to stderr; stdout carries exactly
-        # ONE JSON line — consumers parse it instead of scraping.
+        # ONE JSON line — consumers parse it instead of scraping. NOTE: everything in this
+        # branch before redirect_stdout runs UN-redirected — no prints besides the contract line.
         import contextlib
         import json as _json
         if a.ask and spec:
             # N2 in machine mode is opt-in (--ask) so the benchmark runner and any other --json
             # caller that doesn't pass it sees ZERO behavior change (load-bearing for scoring).
-            questions = engine.triage_ambiguity(spec)
+            # With a reference photo, triage sees the vision analysis too — the image often
+            # answers "what basic form?" so the gate shouldn't ask (analysis is cached; the
+            # build's own pre-pass reuses it for free).
+            triage_spec = spec
+            if a.image:
+                addendum = engine.image_analysis_text(engine.analyze_reference_image(a.image))
+                if addendum:
+                    triage_spec = spec + "\n\n" + addendum
+            questions = engine.triage_ambiguity(triage_spec)
             if questions:
                 print(_json.dumps({"needs_clarification": True, "questions": questions,
                                    "spec": spec}))
                 raise SystemExit(0)
         with contextlib.redirect_stdout(sys.stderr):
             result = loop.run(spec=spec, coder=a.coder, target_name=target_name,
-                              use_fewshots=not a.no_fewshots, interactive=False)
+                              use_fewshots=not a.no_fewshots, interactive=False,
+                              image=a.image)
         print(_json.dumps(result or {"ok": False, "error": "build produced no result"}))
         raise SystemExit(0 if result else 1)
 
     print(f"CAD agent v{config.VERSION}  (engine v{engine.ENGINE_VERSION})"
-          f" · output: {target_name} · coder: {a.coder}")
+          f" · output: {target_name} · coder: {a.coder}"
+          + (f" · reference: {a.image}" if a.image else ""))
     loop.run(spec=spec, coder=a.coder, target_name=target_name,
-             use_fewshots=not a.no_fewshots, interactive=not a.once)
+             use_fewshots=not a.no_fewshots, interactive=not a.once, image=a.image)
 
 
 if __name__ == "__main__":

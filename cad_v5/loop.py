@@ -45,8 +45,11 @@ def _name_of(result: dict, spec: str) -> str:
 
 
 def run(spec: str | None = None, coder: str = "auto", target_name: str | None = None,
-        use_fewshots: bool = True, interactive: bool = True) -> dict | None:
-    """Build `spec`, show it in the target, then refine interactively until the user is done."""
+        use_fewshots: bool = True, interactive: bool = True,
+        image: str | None = None) -> dict | None:
+    """Build `spec`, show it in the target, then refine interactively until the user is done.
+    image: optional reference photo path — forwarded to every engine.build() call (first build
+    AND refine turns), so the critic keeps judging against it across the whole session."""
     target_name = target_name or targets.default_target_name()
     if not spec:
         try:
@@ -62,7 +65,12 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
     # part's basic form. Conservative by design — a buildable-with-defaults spec returns []
     # and this is a no-op.
     if interactive:
-        questions = engine.triage_ambiguity(spec)
+        triage_spec = spec
+        if image:   # the reference photo often answers "what basic form?" — let triage see it
+            addendum = engine.image_analysis_text(engine.analyze_reference_image(image))
+            if addendum:
+                triage_spec = spec + "\n\n" + addendum
+        questions = engine.triage_ambiguity(triage_spec)
         if questions:
             print("\nThis spec is missing details — answer briefly "
                   "(or press Enter to build with defaults):")
@@ -90,7 +98,7 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
         try:
             result = engine.build(spec, coder=coder, use_fewshots=use_fewshots,
                                   do_upload=False, final_render=False,
-                                  brief_override=next_brief_override)
+                                  brief_override=next_brief_override, image=image)
             if next_intent_delta:
                 result["intent_delta"] = next_intent_delta
             next_brief_override = None

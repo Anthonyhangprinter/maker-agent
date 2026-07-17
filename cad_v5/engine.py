@@ -14,9 +14,13 @@ _engine = importlib.import_module("cad_engine")
 
 # Core loop + refine
 build          = _engine.build            # (spec, coder, use_fewshots, do_upload, final_render,
-                                          #  brief_override) -> result
+                                          #  brief_override, image) -> result
 merge_spec     = _engine.merge_spec       # (original, feedback, history) -> new spec
 store_feedback = _engine.store_feedback   # (result, rating, comment)
+
+# Reference-image pre-pass (image-conditioned builds) — cached per photo, {} on failure
+analyze_reference_image = _engine.analyze_reference_image   # (image_path) -> analysis dict
+image_analysis_text     = _engine.image_analysis_text       # (analysis) -> spec addendum str
 
 # N2 (ambiguity gate) / N3 (brief-as-contract) — see cad_engine for the full contracts.
 triage_ambiguity  = _engine.triage_ambiguity     # (spec) -> [questions] ([] if buildable/failed)

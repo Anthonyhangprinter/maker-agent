@@ -58,13 +58,14 @@ headroom_ok() {
   LOG_TS "headroom ok: ${total_gb}G RAM+swap available"
 }
 
-run_suite() {  # $1=model|auto  $2=suite  $3=tiers(""=all)  $4=timeout  [$5=agent path]
+run_suite() {  # $1=model|auto  $2=suite  $3=tiers(""=all)  $4=timeout  [$5=agent path]  [$6=nofs]
   local model=$1 suite=$2 tiers=$3 timeout=$4 args=()
   if [ "$model" != "auto" ]; then
     printf '{"code_model": "%s"}\n' "$model" > "$CADJSON"
   fi
   [ -n "$tiers" ] && args+=(--tiers "$tiers")
   [ -n "${5:-}" ] && args+=(--agent "$5")
+  [ "${6:-}" = "nofs" ] && args+=(--no-fewshots)
   LOG_TS "== suite=$suite tiers=${tiers:-all} pinned to $model"
   (cd "$CB" && python3 scripts/run_benchmarks.py --suite "$suite" "${args[@]}" \
       --timeout "$timeout") 2>&1 | tee -a "$LOG" | tail -20
@@ -97,6 +98,15 @@ case "$MODE" in
   etj)
     for M in "$@"; do
       pressure_ok && run_suite "$M" text-to-cad "1,2" 1500 "$CB/agents/etj_agent.py"
+    done
+    ;;
+  ab7b-20260717)
+    # 2x2 user-requested A/B: qwen2.5-coder:7b Q4 (user's research pick) vs qwen3:8b incumbent,
+    # each with few-shots ON and OFF — separates model quality from scaffolding lift (the
+    # corpus/pitfalls were distilled mostly from qwen3 builds, a real affinity confound).
+    for M in qwen2.5-coder:7b-instruct-q4_K_M qwen3:8b; do
+      pressure_ok && run_suite "$M" text-to-cad "1,2" 1500
+      pressure_ok && run_suite "$M" text-to-cad "1,2" 1500 "" nofs
     done
     ;;
   day-20260717)

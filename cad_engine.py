@@ -32,6 +32,7 @@ import json
 import re
 import ast
 import copy
+import fcntl
 import time
 import math
 import base64
@@ -88,6 +89,7 @@ from cad_v5.config import (        # noqa: E402
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
     VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
+    REF_CRITIC_TIMEOUT, REF_IMAGE_MAX_PX, BUILD_LOCK_FILE,
 )
 
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
@@ -314,6 +316,161 @@ def _ollama(model: str, system: str, prompt: str,
                 time.sleep(3)
                 continue
             raise
+
+# ── GPU build lock — one build at a time across all frontends ─────────────────
+
+def _acquire_build_lock(spec: str):
+    """Take an exclusive fcntl.flock on BUILD_LOCK_FILE and return the open fd holder.
+    Non-blocking first so contention is visible in the logs (frontends surface the
+    'waiting for build lock' line as a queue state), then blocks until free. flock is
+    released by the kernel on process death — no stale-lock cleanup needed."""
+    BUILD_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fh = open(BUILD_LOCK_FILE, "a+")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        holder = ""
+        try:
+            fh.seek(0)
+            holder = (json.loads(fh.read() or "{}").get("spec") or "")[:80]
+        except Exception:
+            pass
+        log.info("[v5] waiting for build lock%s", f" (held by: {holder})" if holder else "")
+        fcntl.flock(fh, fcntl.LOCK_EX)   # block until the other build finishes
+    try:
+        fh.seek(0)
+        fh.truncate()
+        fh.write(json.dumps({"pid": os.getpid(),
+                             "frontend": os.environ.get("CAD_FRONTEND", "cli"),
+                             "spec": spec[:200],
+                             "started_at": datetime.now(timezone.utc).isoformat()}))
+        fh.flush()
+    except Exception:
+        pass   # holder info is diagnostics only — never fail a build over it
+    return fh
+
+# ── Reference image (image-conditioned builds) ────────────────────────────────
+# CADAM pattern: the uploaded photo/sketch rides into the multimodal model's context and the
+# model extracts the geometric cues. Two touch points: a vision PRE-PASS whose structured
+# analysis augments the spec text for the (text-only) brief model, and the CRITIC which gets
+# the reference as a second image to judge the build against. Codegen stays text-only.
+
+def _prep_image_b64(path: Path) -> str:
+    """Reference photo → base64, downscaled via Pillow when available (EXIF-upright,
+    ≤REF_IMAGE_MAX_PX long edge, RGB JPEG q85 — gemma's vision encoder runs on the CPU, so
+    pixel count is wall time). PIL missing/failing degrades to the raw bytes."""
+    path = Path(path)
+    try:
+        import io
+        from PIL import Image, ImageOps
+        img = ImageOps.exif_transpose(Image.open(path))
+        img.thumbnail((REF_IMAGE_MAX_PX, REF_IMAGE_MAX_PX))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode()
+    except Exception as e:
+        log.warning("[v5] reference image downscale unavailable (%s) — sending raw bytes.", e)
+        return base64.b64encode(path.read_bytes()).decode()
+
+_IMAGE_ANALYSIS_SYSTEM = """\
+You are a CAD geometry analyst looking at a photo or sketch of a part a user wants modeled.
+Extract ONLY what the image shows. Reply as JSON.
+
+HARD RULE — dimensions: a photo has no scale. NEVER estimate absolute millimetres from
+appearance. Describe sizes as PROPORTIONS/ratios (e.g. "length ≈ 3× width", "hole Ø ≈ 1/4 of
+plate width"). The ONLY absolute values allowed are numbers LITERALLY WRITTEN in the image
+(dimension annotations, labels, a ruler) — quote the exact visible text as source_text.
+
+Fields:
+- shape_family: the basic form in CAD terms (plate, L-bracket, flange, enclosure, shaft, gear…)
+- features: distinct features you can actually see — holes, slots, pockets, ribs, fillets,
+  bosses, grooves — with counts and where they sit on the part.
+- proportions: the part's overall aspect ratios and relative feature sizes, as ratios only.
+- legible_dimensions_mm: ONLY dimensions literally written in the image; empty list otherwise.
+- symmetry: any symmetry or regular patterns (e.g. "4 holes in a rectangular pattern",
+  "rotationally symmetric").
+- confidence: low | medium | high — how clearly the geometry reads from this image."""
+
+_IMAGE_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "shape_family": {"type": "string"},
+        "features": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"type": {"type": "string"},
+                           "count": {"type": "integer"},
+                           "location": {"type": "string"}},
+            "required": ["type", "count", "location"]}},
+        "proportions": {"type": "string"},
+        "legible_dimensions_mm": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"value_mm": {"type": "number"},
+                           "what": {"type": "string"},
+                           "source_text": {"type": "string"}},
+            "required": ["value_mm", "what", "source_text"]}},
+        "symmetry": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+    },
+    "required": ["shape_family", "features", "proportions",
+                 "legible_dimensions_mm", "symmetry", "confidence"],
+}
+
+def analyze_reference_image(image_path: str) -> dict:
+    """Vision pre-pass: gemma4:e4b describes the reference photo into a structured dict.
+    Cached at <image>.analysis.json keyed on (mtime, size) — one vision call per photo, ever,
+    across refine turns and the cli --ask path. Any failure returns {} and the build proceeds
+    text-only (graceful, like the critic)."""
+    p = Path(image_path)
+    cache = p.with_suffix(p.suffix + ".analysis.json")
+    key = [int(p.stat().st_mtime), p.stat().st_size]
+    try:
+        cached = json.loads(cache.read_text())
+        if cached.get("_key") == key:
+            return cached.get("analysis") or {}
+    except Exception:
+        pass
+    try:
+        raw = _ollama(CRITIC_MODEL, _IMAGE_ANALYSIS_SYSTEM,
+                      "Analyze this reference image of a part to be modeled:",
+                      timeout=REF_CRITIC_TIMEOUT, images=[_prep_image_b64(p)],
+                      temperature=0.1, fmt=_IMAGE_ANALYSIS_SCHEMA)
+        analysis = _extract_json(raw) or {}
+    except Exception as e:
+        log.warning("[v5] reference image analysis failed (%s) — building from text only.", e)
+        return {}
+    if analysis:
+        log.info("[v5] Reference image: %s — %s (confidence %s)",
+                 analysis.get("shape_family", "?"),
+                 (analysis.get("proportions") or "")[:120], analysis.get("confidence", "?"))
+        try:
+            cache.write_text(json.dumps({"_key": key, "analysis": analysis}, indent=2))
+        except Exception:
+            pass
+    return analysis
+
+def image_analysis_text(analysis: dict) -> str:
+    """Render the vision pre-pass into the spec addendum the brief/triage models read."""
+    if not analysis:
+        return ""
+    feats = "; ".join(f"{f.get('count', 1)}x {f.get('type', '?')} ({f.get('location', '')})"
+                      for f in analysis.get("features", []) if isinstance(f, dict))
+    dims = "; ".join(f"{d.get('value_mm')}mm {d.get('what', '')} (written in image: "
+                     f"\"{d.get('source_text', '')}\")"
+                     for d in analysis.get("legible_dimensions_mm", []) if isinstance(d, dict))
+    return (
+        "IMAGE ANALYSIS (from the user's reference photo — proportions are trustworthy, "
+        "but the photo has no scale: absolute mm come ONLY from the user's text or the "
+        "quoted in-image annotations below; where no size is given use sensible defaults, "
+        "never a value invented from the photo):\n"
+        f"- basic form: {analysis.get('shape_family', 'unknown')}\n"
+        f"- visible features: {feats or 'none identified'}\n"
+        f"- proportions: {analysis.get('proportions', 'unknown')}\n"
+        f"- symmetry/pattern: {analysis.get('symmetry', 'none noted')}\n"
+        f"- dimensions written in the image: {dims or 'none'}\n"
+        f"- read confidence: {analysis.get('confidence', 'low')}"
+    )
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
@@ -1694,6 +1851,17 @@ _CRITIC_SYSTEM = (
     "missing/extra features. Be concise and concrete."
 )
 
+# Appended to both critic prompts when the user supplied a reference photo: the critic then
+# receives TWO images and must also judge the build against the reference's form.
+_CRITIC_REF_SUFFIX = (
+    " IMPORTANT — you are given TWO separate images this time. The FIRST image is the "
+    "multi-panel render of the current build described above. The SECOND image is the user's "
+    "REFERENCE PHOTO of the target part. Judge whether the build matches the reference's "
+    "overall form, feature types, feature counts, and proportions. IGNORE the reference's "
+    "colour, material, texture, background, lighting, and any objects that are not the part "
+    "itself — only the 3D geometry matters."
+)
+
 # Specs whose correctness lives INSIDE the part — render a section panel so the critic can see in.
 _INTERNAL_FEATURE_TERMS = re.compile(
     r"\b(hollow|cavity|cavities|enclosure|housing|case|casing|container|tray|bin|shell|shelled|"
@@ -1711,23 +1879,30 @@ def wants_section(spec: str, brief: dict) -> bool:
     return isinstance(exp, dict) and isinstance(exp.get("wall_mm"), (int, float))
 
 def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
-                    section: bool = False, questions: Optional[list[str]] = None) -> Optional[str]:
+                    section: bool = False, questions: Optional[list[str]] = None,
+                    ref_b64: Optional[str] = None) -> Optional[str]:
     """Render the part and ask the multimodal model to judge it. With `questions`, runs the
     CADCodeVerify-style pass: the critic answers each binary question from the panels and the
     verdict is assembled deterministically (measured +7.3% geometric accuracy over free-form
     critique in the paper). Falls back to free-form critique without questions, and returns
-    None on any failure so the loop degrades gracefully to numeric-state-only."""
+    None on any failure so the loop degrades gracefully to numeric-state-only.
+    ref_b64: the user's reference photo — passed as a SECOND image so the critic also judges
+    the build against the reference's form (two-image attention verified 2026-07-17)."""
     try:
         png = run_render(step_path, work_dir, section=section)
         img_b64 = base64.b64encode(png.read_bytes()).decode()
+        images = [img_b64] + ([ref_b64] if ref_b64 else [])
+        qa_system = _CRITIC_QA_SYSTEM + (_CRITIC_REF_SUFFIX if ref_b64 else "")
+        ff_system = _CRITIC_SYSTEM + (_CRITIC_REF_SUFFIX if ref_b64 else "")
+        timeout = REF_CRITIC_TIMEOUT if ref_b64 else CRITIC_TIMEOUT
         if questions:
             try:
                 qlist = "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions))
-                raw = _ollama(CRITIC_MODEL, _CRITIC_QA_SYSTEM,
+                raw = _ollama(CRITIC_MODEL, qa_system,
                               f"Requested part: {spec}\n\nGeometry facts (authoritative for "
                               f"hidden/through features):\n{state}\n\n"
                               f"Verification questions:\n{qlist}\n\nAnswer each:",
-                              timeout=CRITIC_TIMEOUT, images=[img_b64], fmt=_ANSWERS_SCHEMA)
+                              timeout=timeout, images=images, fmt=_ANSWERS_SCHEMA)
                 answers = (_extract_json(raw) or {}).get("answers") or []
                 if answers:
                     # Only a hard NO blocks: UNCLEAR means the views can't tell, and
@@ -1754,8 +1929,8 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
             f"Geometry facts (authoritative for hidden/through features):\n{state}\n\n"
             f"Critique the render:"
         )
-        return _ollama(CRITIC_MODEL, _CRITIC_SYSTEM, prompt,
-                       timeout=CRITIC_TIMEOUT, images=[img_b64]).strip()
+        return _ollama(CRITIC_MODEL, ff_system, prompt,
+                       timeout=timeout, images=images).strip()
     except Exception as e:
         log.warning("[v5] Visual critique unavailable: %s", e)
         return None
@@ -1903,7 +2078,8 @@ def _read_session() -> dict:
 
 def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
           use_fewshots: bool = True, do_upload: bool = True,
-          final_render: bool = True, brief_override: Optional[dict] = None) -> dict:
+          final_render: bool = True, brief_override: Optional[dict] = None,
+          image: Optional[str] = None) -> dict:
     """Returns result dict with at least: url, path, spec, has_bodies, build_time_s.
 
     coder: "auto" (triage the spec + escalate on failure, default), "fast" (force the 7B),
@@ -1912,13 +2088,46 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     do_upload: when False, render the final STEP to a local PNG and skip Onshape (used for
     benchmarking / when no Onshape creds are configured) — result carries render_local, url="".
     brief_override: N3 — a pre-patched brief contract (from patch_brief) to use verbatim instead
-    of calling build_brief() again, so a refine turn changes only what the user asked."""
+    of calling build_brief() again, so a refine turn changes only what the user asked.
+    image: optional path to a reference photo/sketch — a gemma4:e4b pre-pass augments the brief
+    with its structured analysis (proportions, never invented mm) and the critic judges every
+    turn's render against it as a second image. Text-only behaviour is unchanged when None.
+
+    Serialized machine-wide via an fcntl.flock (one model fits the GPU): a second build from
+    any frontend blocks on the lock, and the wall-clock budget starts AFTER acquisition."""
+    lock_fh = _acquire_build_lock(spec)
+    try:
+        return _build_impl(spec, chat_id=chat_id, coder=coder, use_fewshots=use_fewshots,
+                           do_upload=do_upload, final_render=final_render,
+                           brief_override=brief_override, image=image)
+    finally:
+        try:
+            fcntl.flock(lock_fh, fcntl.LOCK_UN)
+            lock_fh.close()
+        except Exception:
+            pass
+
+def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
+                use_fewshots: bool = True, do_upload: bool = True,
+                final_render: bool = True, brief_override: Optional[dict] = None,
+                image: Optional[str] = None) -> dict:
     log.info("=" * 60)
-    log.info("[v%s] build: %s", VERSION, spec)
+    log.info("[v%s] build: %s%s", VERSION, spec, f"  [reference: {image}]" if image else "")
     preflight()
     t0 = time.monotonic()
 
-    brief    = brief_override if brief_override is not None else build_brief(spec)
+    # Reference photo: vision pre-pass BEFORE the brief so its structured analysis rides into
+    # the (text-only) brief model's context. A patched refine brief (brief_override) already
+    # descends from the image-informed one, so only the fresh-brief path augments.
+    ref_b64: Optional[str] = None
+    image_analysis: dict = {}
+    if image:
+        ref_b64 = _prep_image_b64(Path(image))
+        image_analysis = analyze_reference_image(image)
+    addendum = image_analysis_text(image_analysis)
+    brief_spec = spec + ("\n\n" + addendum if addendum else "")
+
+    brief    = brief_override if brief_override is not None else build_brief(brief_spec)
     reconcile_expected(brief, spec)   # deterministically harden the brief's expected block
     want_section = wants_section(spec, brief)   # render a cut-through panel for hollow/internal parts
     questions = verify_questions(spec, brief)   # B5: binary checks the critic answers per turn
@@ -2189,9 +2398,11 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 accepted_via = "helper"
                 break
 
-            # 4 + 5. Render + multimodal critique (graceful if unavailable)
+            # 4 + 5. Render + multimodal critique (graceful if unavailable); with a reference
+            # photo the critic gets it as a second image and judges the build against it.
             critique = visual_critique(step_path, spec, last_state, work_dir,
-                                        section=want_section, questions=questions)
+                                        section=want_section, questions=questions,
+                                        ref_b64=ref_b64)
             if critique:
                 last_critique = critique
                 log.info("[v5] Critic: %s", critique.replace("\n", " ")[:300])
@@ -2329,6 +2540,13 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         stl_out  = build_dir / "build.stl"
         dxf_out  = build_dir / "build.dxf"
         shutil.copy(step_path, step_out)
+        # Keep the (downscaled) reference photo with the build so the artifact dir is
+        # self-contained and frontends can show what the build was asked to match.
+        if ref_b64:
+            try:
+                (build_dir / "reference.jpg").write_bytes(base64.b64decode(ref_b64))
+            except Exception as e:
+                log.warning("[v5] could not save reference.jpg: %s", e)
         # The recipe IS the parametric model — persist it so `cad params`/`cad regen`
         # can edit dimensions and rebuild without an LLM.
         try:
@@ -2392,6 +2610,8 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "n1_autofixes": n1_autofixes,
         "turns":        turn,   # loop turns entered — with n1_autofixes, N1's exit metric
         "last_critique": last_critique,
+        "image":        image or "",
+        "image_analysis": image_analysis,
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),
     }
