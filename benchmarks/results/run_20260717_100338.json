@@ -1,0 +1,220 @@
+{
+  "ran_at": "2026-07-17T00:03:38.522228+00:00",
+  "agent": "/home/theultimatecunt/.openclaw/skills/cad-builder/agents/etj_agent.py",
+  "suite": "text-to-cad",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 1,
+  "total_time_s": 417.8,
+  "acceptance_passed": 4,
+  "acceptance_total": 22,
+  "acceptance_score": 0.182,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen3:8b",
+      "agent_build_time_s": 41.9,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 42.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 115114.9,
+      "solids": 1,
+      "faces": 18,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260717_095640_auto/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 42.0,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 42.1,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 337, in fillet\n    native_edges = [e.wrapped for e in edge_list]\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: 'float' object is not iterable",
+      "stderr_tail": "alse, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 42.0, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-095726-etj-a-solid-circular-flange-a-cylinder-of-80\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\\\", line 337, in fillet\\n    native_edges = [e.wrapped for e in edge_list]\\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nTypeError: 'float' object is not iterable\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 78.8,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 78.8,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "claw/cad-builds/20260717-095808-etj-a-solid-l-bracket-a-horizontal-base-plat/gen_source.py\", line 49, in gen_step\n    base_edges = [e for e in edges if e.face().is_part_of(base)]\n                                      ^^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'is_part_of'",
+      "stderr_tail": " false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 78.8, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-095808-etj-a-solid-l-bracket-a-horizontal-base-plat\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"claw/cad-builds/20260717-095808-etj-a-solid-l-bracket-a-horizontal-base-plat/gen_source.py\\\", line 49, in gen_step\\n    base_edges = [e for e in edges if e.face().is_part_of(base)]\\n                                      ^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'NoneType' object has no attribute 'is_part_of'\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 57.6,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 57.7,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "tepped-shaft-with-its-axis-alon/gen_source.py\", line 20, in gen_step\n    part += Cylinder(radius=middle_diameter / 2, height=middle_section_length, \n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: Cylinder.__init__() got an unexpected keyword argument 'axis'",
+      "stderr_tail": " false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 57.6, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-095927-etj-a-solid-stepped-shaft-with-its-axis-alon\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"tepped-shaft-with-its-axis-alon/gen_source.py\\\", line 20, in gen_step\\n    part += Cylinder(radius=middle_diameter / 2, height=middle_section_length, \\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nTypeError: Cylinder.__init__() got an unexpected keyword argument 'axis'\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 76.9,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 76.9,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "    ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/shape_core.py\", line 990, in __sub__\n    raise ValueError(\"Dimensions of objects to subtract from are inconsistent\")\nValueError: Dimensions of objects to subtract from are inconsistent",
+      "stderr_tail": "lse, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 76.9, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-100025-etj-a-solid-open-top-electronics-enclosure-b\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"    ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/shape_core.py\\\", line 990, in __sub__\\n    raise ValueError(\\\"Dimensions of objects to subtract from are inconsistent\\\")\\nValueError: Dimensions of objects to subtract from are inconsistent\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 116.2,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 116.3,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "/20260717-100142-etj-a-solid-aerospace-style-clevis-bracket-s/gen_source.py\", line 44, in gen_step\n    semicircle = semicircle.translate((lug.position.x, lug.position.y, 0))\n                                       ^^^^^^^^^^^^^^\nAttributeError: 'Vector' object has no attribute 'x'. Did you mean: 'X'?",
+      "stderr_tail": "false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 116.2, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-100142-etj-a-solid-aerospace-style-clevis-bracket-s\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"/20260717-100142-etj-a-solid-aerospace-style-clevis-bracket-s/gen_source.py\\\", line 44, in gen_step\\n    semicircle = semicircle.translate((lug.position.x, lug.position.y, 0))\\n                                       ^^^^^^^^^^^^^^\\nAttributeError: 'Vector' object has no attribute 'x'. Did you mean: 'X'?\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}

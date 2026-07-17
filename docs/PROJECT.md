@@ -236,8 +236,31 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
-- **2026-07-17 — Crash root-cause + clean rung-1 verdict + earthtojake adapter (Claude Code
-  session):** (1) *The 2026-07-16 "system crashes" were systemd-oomd memory-pressure kills*
+- **2026-07-17 (later) — heldout baseline + etj pipeline measurements:** (1) *Held-out fidelity
+  baseline* (25-part heldout-cqe, qwen3:8b unpinned ladder): 9/25 converged, 17/25 geometry,
+  25/50 runner acceptance; `score_heldout.py` strict reference-STL checks pass 4/17 — misses
+  are dimensional (volume/hausdorff), not topological. (2) *earthtojake-pipeline A/B* (etj_agent,
+  tiers 1–2): the same qwen3:8b that scores 13/22 through the engine scores **0/22 bare-prompt,
+  0/22 with the plugin's modeling reference inlined, 4/22 after adding a worked algebra-mode
+  example** (and its one pass is the part shaped like the example — few-shot imitation, not
+  doc comprehension). granite4/granite3.3 via etj: 0/22 each. This is the cleanest measured
+  evidence yet for the engine's scaffolding thesis: brief + retrieved few-shots + critic loop
+  ≈ 3× acceptance for small local coders; reference docs alone do nothing for them. (3) The
+  first fixed strong A/B attempt (1200s call cap) still died: 7/7 parts hit the 1800s per-part
+  cap — engine model-rotation makes a 23GB coder pay a ~6.5min reload per turn; `strong` mode
+  now takes a per-part timeout arg (3600s recommended for 35B-class). qwen3.6:35b-a3b etj legs
+  timed out per-call at 1200s (empty replies — under instrumented probe, see below).
+  (4) *STRONG-RUNG VERDICT — qwen3-coder:30b keeps the rung.* Instrumented probe: a single
+  qwen3.6:35b-a3b q4 `/api/generate` with a realistic CAD prompt (2.5–3K-token system+spec)
+  completed in **35m32s** (journal, 13:01:45). Cause is prompt PREFILL through CPU-resident
+  experts (5.6/23GB on GPU): short prompts generate fine (~66s gen in the 07-16 smoke), long
+  prompts take tens of minutes before the first token. At ~35min/call no loop is viable; the
+  30B (18GB, ~11GB offloaded) sustains ~7min/call. Capability was never measurable at sane
+  budgets on this box — practicality eliminates the q4 35B first. This confirms and sharpens
+  the ≤~18GB strong-rung ceiling (2026-07-16). Follow-up recorded, NOT run: unsloth
+  `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q3_K_M` (16.6GB — inside the ceiling) and the MTP
+  variant. The 3600s engine A/B was deliberately skipped: 2 calls/part × ~35min already
+  exceeds it; running it would only manufacture more timeout zeros. (1) *The 2026-07-16 "system crashes" were systemd-oomd memory-pressure kills*
   (gnome-shell shot at 20:58 → Wayland session death), triggered by CPU-offloaded 30B/35B
   models thrashing reclaim on 8G swap; several benchmark parts died mid-run (rc=1), tainting
   that day's scores. Fixed + verified live (35B offload at ~0% PSI): swap 8→24G, oomd 50%/20s

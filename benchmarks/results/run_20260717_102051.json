@@ -1,0 +1,212 @@
+{
+  "ran_at": "2026-07-17T00:20:51.598418+00:00",
+  "agent": "/home/theultimatecunt/.openclaw/skills/cad-builder/agents/etj_agent.py",
+  "suite": "text-to-cad",
+  "coder": "auto",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 0,
+  "total_time_s": 672.3,
+  "acceptance_passed": 0,
+  "acceptance_total": 22,
+  "acceptance_score": 0.0,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 172.9,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 172.9,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "g-in/gen_source.py\", line 17, in gen_step\n    top_edges = [edge for face in part.faces().sort_by(Axis.Z)[-1].edges() if not edge.curve.isCircular()]\n                                                                                  ^^^^^^^^^^\nAttributeError: 'function' object has no attribute 'curve'",
+      "stderr_tail": " false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 172.9, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-100939-etj-a-solid-rectangular-block-100mm-long-in\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"g-in/gen_source.py\\\", line 17, in gen_step\\n    top_edges = [edge for face in part.faces().sort_by(Axis.Z)[-1].edges() if not edge.curve.isCircular()]\\n                                                                                  ^^^^^^^^^^\\nAttributeError: 'function' object has no attribute 'curve'\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 80.2,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 80.3,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "nerator()\n                  ^^^^^^^^^^^\n  File \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101232-etj-a-solid-circular-flange-a-cylinder-of-80/gen_source.py\", line 29, in gen_step\n    part = EdgeChamfer(edge, fillet_radius)\n           ^^^^^^^^^^^\nNameError: name 'EdgeChamfer' is not defined",
+      "stderr_tail": "lse, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 80.2, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101232-etj-a-solid-circular-flange-a-cylinder-of-80\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"nerator()\\n                  ^^^^^^^^^^^\\n  File \\\"/home/theultimatecunt/.openclaw/cad-builds/20260717-101232-etj-a-solid-circular-flange-a-cylinder-of-80/gen_source.py\\\", line 29, in gen_step\\n    part = EdgeChamfer(edge, fillet_radius)\\n           ^^^^^^^^^^^\\nNameError: name 'EdgeChamfer' is not defined\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 114.3,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 114.4,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "orizontal-base-plat/gen_source.py\", line 26, in gen_step\n    part = round(part.edges().filter(lambda e: e.start_point.z == 0 and e.end_point.z == back_height), fillet_radius)\n                 ^^^^^^^^^^^^^^^^^^^\nAttributeError: 'ShapeList' object has no attribute 'filter'. Did you mean: 'filter_by'?",
+      "stderr_tail": "false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 114.3, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101352-etj-a-solid-l-bracket-a-horizontal-base-plat\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"orizontal-base-plat/gen_source.py\\\", line 26, in gen_step\\n    part = round(part.edges().filter(lambda e: e.start_point.z == 0 and e.end_point.z == back_height), fillet_radius)\\n                 ^^^^^^^^^^^^^^^^^^^\\nAttributeError: 'ShapeList' object has no attribute 'filter'. Did you mean: 'filter_by'?\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 87.0,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 87.1,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "^^^^^^^^\n  File \"/home/theultimatecunt/.claude/plugins/marketplaces/text-to-cad/skills/cad/scripts/packages/cadpy/src/cadpy/metadata.py\", line 102, in parse_generator_metadata\n    raise RuntimeError(f\"Failed to parse {_display_path(script_path)}\") from exc\nRuntimeError: Failed to parse gen_source.py",
+      "stderr_tail": "lse, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 87.0, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101546-etj-a-solid-stepped-shaft-with-its-axis-alon\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"^^^^^^^^\\n  File \\\"/home/theultimatecunt/.claude/plugins/marketplaces/text-to-cad/skills/cad/scripts/packages/cadpy/src/cadpy/metadata.py\\\", line 102, in parse_generator_metadata\\n    raise RuntimeError(f\\\"Failed to parse {_display_path(script_path)}\\\") from exc\\nRuntimeError: Failed to parse gen_source.py\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 89.6,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 89.7,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "uilds/20260717-101713-etj-a-solid-open-top-electronics-enclosure-b/gen_source.py\", line 13, in gen_step\n    part = part.translate(wall_thickness, wall_thickness, 0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: Shape.translate() takes 2 positional arguments but 4 were given",
+      "stderr_tail": " false, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 89.6, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101713-etj-a-solid-open-top-electronics-enclosure-b\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"uilds/20260717-101713-etj-a-solid-open-top-electronics-enclosure-b/gen_source.py\\\", line 13, in gen_step\\n    part = part.translate(wall_thickness, wall_thickness, 0)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nTypeError: Shape.translate() takes 2 positional arguments but 4 were given\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": 127.9,
+      "turns": 4,
+      "n1_autofixes": null,
+      "wall_time_s": 128.0,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "etj_pipeline": 1
+      },
+      "rc": 1,
+      "error": "-style-clevis-bracket-s/gen_source.py\", line 17, in gen_step\n    lugs = [Pos(-lug_extent / 2, 0, lug_height) * Box(lug_width, y_dim, lug_thickness) \\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: unsupported operand type(s) for |: 'Box' and 'Box'",
+      "stderr_tail": "alse, \"accepted_via\": null, \"code_model\": null, \"agent\": \"etj\", \"turns\": 4, \"build_time_s\": 127.9, \"step_local\": null, \"build_dir\": \"/home/theultimatecunt/.openclaw/cad-builds/20260717-101843-etj-a-solid-aerospace-style-clevis-bracket-s\", \"failure_categories\": {\"etj_pipeline\": 1}, \"error\": \"-style-clevis-bracket-s/gen_source.py\\\", line 17, in gen_step\\n    lugs = [Pos(-lug_extent / 2, 0, lug_height) * Box(lug_width, y_dim, lug_thickness) \\\\\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nTypeError: unsupported operand type(s) for |: 'Box' and 'Box'\"}\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}
