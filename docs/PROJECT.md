@@ -236,6 +236,17 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
 
 ## History
 
+- **2026-07-18 — Stage C shipped (auto-promotion, the fast-rung follow-up):**
+  `cad_retrieval.promote_build()` + engine hook — a build that converged AND was accepted
+  (gate/critic) auto-appends to `cad-examples.jsonl` as source=stage-c, rating 3 (below
+  hand-curated gold/seed; `retrieve()` now adds +0.02/rating-point above 3 as a tie-break so
+  curation outranks automation at equal similarity). Spec-normalized dedup, 60-entry cap
+  (prune before more), never raises. Benchmark runs are EXCLUDED via `CAD_BENCH=1` set by
+  run_benchmarks.py — a suite must not feed its own answers into the corpus it is scored
+  with. Seeded the 7B-q4's verified enclosure build (part 05, 3/3) with a caveat-carrying
+  `teaches`; its part-01 build was NOT promoted (it chamfered a hole rim, not the perimeter —
+  full acceptance, wrong idiom: acceptance doesn't measure chamfers). Verified end-to-end:
+  organic spacer build → converged via critic, turn 1 → "Stage C: promoted to corpus (10)".
 - **2026-07-17 (evening) — FAST RUNG REVERSED to qwen2.5-coder:7b-instruct-q4_K_M (user
   decision + same-day 2×2 A/B):** tiers 1–2, same engine, four pinned legs — 7b-q4 WITH
   few-shots **13/22 (59%)** / without 8/22; qwen3:8b with few-shots 11/22 (50%) / without

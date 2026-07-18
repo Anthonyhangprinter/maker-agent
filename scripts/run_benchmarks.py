@@ -16,6 +16,7 @@ Usage:
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -164,7 +165,10 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
         cmd.append("--no-fewshots")
     t0 = time.monotonic()
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE)
+        # CAD_BENCH=1 suppresses Stage C auto-promotion — a benchmark must never feed its own
+        # answers into the retrieval corpus it is scored with.
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE,
+                              env={**os.environ, "CAD_BENCH": "1"})
         stdout, stderr, rc = proc.stdout, proc.stderr, proc.returncode
     except subprocess.TimeoutExpired:
         stdout, stderr, rc = "", f"timed out after {timeout}s", 124

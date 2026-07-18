@@ -16,6 +16,7 @@ import math
 import os
 import re
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -119,6 +120,10 @@ def retrieve(spec: str, n: int = 2, min_score: float = 0.65) -> list[dict]:
     _save_cache(cache)
     if not scored:
         return _word_overlap(spec, rows, n)
+    # Rating tie-break (Stage C, 2026-07-18): hand-curated gold (5) should edge out auto-promoted
+    # builds (3) when cosine is close — +0.02 per rating point above 3, small enough that a
+    # genuinely more-similar auto entry still wins.
+    scored = [(score + 0.02 * max(0, row.get("rating", 3) - 3), row) for score, row in scored]
     scored.sort(key=lambda x: -x[0])
     out = []
     for score, row in scored[:n]:
@@ -128,6 +133,36 @@ def retrieve(spec: str, n: int = 2, min_score: float = 0.65) -> list[dict]:
         row["_score"], row["_how"] = round(score, 3), "cosine"
         out.append(row)
     return out
+
+
+# ── Stage C: auto-promotion of verified-converged builds ──────────────────────
+_CORPUS_CAP = 60   # note-and-move-on guard: past this, promotion needs a human prune first
+
+def promote_build(spec: str, code: str, verified: dict, code_model: str) -> str:
+    """Append a verified-converged build to the corpus (source=stage-c, rating 3 — below
+    hand-curated gold/seed so retrieval's rating tie-break prefers those at equal similarity).
+    Dedup by normalized spec so repeated builds of the same part don't flood retrieval.
+    Returns a short outcome string for the caller's log. Must never raise."""
+    try:
+        norm = " ".join(spec.lower().split())
+        rows = load_corpus()
+        if len(rows) >= _CORPUS_CAP:
+            return f"skipped: corpus at cap ({_CORPUS_CAP}) — prune before more auto-promotion"
+        for row in rows:
+            if " ".join(row.get("spec", "").lower().split()) == norm:
+                return "skipped: same spec already in corpus"
+        entry = {
+            "spec": spec, "code": code.replace("###DONE###", "").rstrip(),
+            "source": "stage-c", "rating": 3, "verified": verified,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "teaches": None,   # auto entries carry no curated idiom note; retrieval shows the code
+            "code_model": code_model,
+        }
+        with CORPUS_FILE.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+        return f"promoted to corpus ({len(rows) + 1} entries)"
+    except Exception as e:   # promotion is a bonus, never a build failure
+        return f"failed: {e}"
 
 
 # ── Stage B: fail->fix lessons ────────────────────────────────────────────────

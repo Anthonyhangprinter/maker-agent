@@ -2615,6 +2615,15 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),
     }
+    # Stage C (2026-07-18): verified-converged organic builds auto-promote into the few-shot
+    # corpus so the active coder's own idioms compound. Benchmark runs set CAD_BENCH=1 and are
+    # excluded — retrieval feeding a suite its own answers would inflate every future score.
+    if done and accepted_via and cad_retrieval is not None and not os.environ.get("CAD_BENCH"):
+        outcome = cad_retrieval.promote_build(
+            spec, code, {"accepted_via": accepted_via, "turns": turn,
+                         "build_time_s": base_result["build_time_s"]}, _ACTIVE_CODE_MODEL)
+        log.info("[v5] Stage C: %s", outcome)
+        base_result["stage_c"] = outcome
     if not done:
         base_result["warning"] = (
             f"Loop ended after {MAX_TURNS} turns without the model confirming the part "
