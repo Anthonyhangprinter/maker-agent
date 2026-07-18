@@ -1,0 +1,79 @@
+{
+  "note": "references are clean renders of past DIFFERENT builds, not real photos (limitation); spec kept form-vague so the image must supply the form",
+  "cases": {
+    "clevis": {
+      "spec": "a bracket like the reference image, 80mm long overall",
+      "reference": "/home/theultimatecunt/.openclaw/cad-builds/20260705-062614-a-solid-aerospace-style-clevis-bracket-s/render.png",
+      "without_image": {
+        "converged": true,
+        "accepted_via": "critic",
+        "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+        "turns": 4,
+        "build_time_s": 502.6,
+        "wall_s": 505.3,
+        "stdout_pure": true,
+        "stdout_lines": 1,
+        "image_analysis": null,
+        "bbox_note": null,
+        "build_dir": "/home/theultimatecunt/.openclaw/cad-builds/20260718-105809-a-bracket-like-the-reference-image-80mm-",
+        "error": null
+      },
+      "with_image": {
+        "converged": true,
+        "accepted_via": "critic",
+        "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+        "turns": 1,
+        "build_time_s": 331.9,
+        "wall_s": 487.6,
+        "stdout_pure": true,
+        "stdout_lines": 1,
+        "image_analysis": "plate",
+        "bbox_note": null,
+        "build_dir": "/home/theultimatecunt/.openclaw/cad-builds/20260718-110620-a-bracket-like-the-reference-image-80mm-",
+        "error": null
+      }
+    }
+  },
+  "verdict_2026_07_18": {
+    "cases_completed": "1 of 3 (suite stopped twice; remaining cases = follow-up via a MemoryHigh-capped unit per the run_refresh.sh rule \u2014 this runner can escalate to the 30B rung)",
+    "mechanics_verified": [
+      "stdout purity: exactly 1 stdout line on BOTH legs (--json contract intact)",
+      "image + image_analysis fields present in result JSON",
+      "reference.jpg saved in the with-image build dir",
+      "vision pre-pass ran + cached (read the clevis render as 'plate')",
+      "build lock serialized this suite behind a live benchmark (verified 2026-07-17)"
+    ],
+    "measured_case1": {
+      "turns": {
+        "without": 4,
+        "with": 1
+      },
+      "build_time_s": {
+        "without": 502.6,
+        "with": 331.9
+      },
+      "bbox_mm": {
+        "without": [
+          100,
+          40,
+          20
+        ],
+        "with": [
+          168.5,
+          126,
+          97.5
+        ],
+        "spec_said": "80mm long"
+      },
+      "form": {
+        "without": "plain bar + 2 slots (not a bracket)",
+        "with": "blocky bracket, 4x \u00d839 through-holes + gusset (closer to reference form family)"
+      }
+    },
+    "honest_findings": [
+      "NEITHER leg is a good part: both ignored the explicit '80mm long overall' (without=100mm, with=168mm) \u2014 form-vague specs make the brief emit bbox_mm=null, so the deterministic gate has NO envelope check. Pre-existing gap, not image-specific. Follow-up: parse explicit 'NNmm long/wide/tall' from spec text into a [spec] advisory.",
+      "The reference-aware critic accepted the with-image part in 1 turn \u2014 possibly too lenient ('matches reference form' judged loosely). Watch item; consider requiring the QA questions to also pass against the reference.",
+      "Image DID steer form family (holes+gusset vs plain bar) and cut turns 4->1, but with case count = 1 and dimensional misses in both legs, NO quality lift is claimed."
+    ]
+  }
+}

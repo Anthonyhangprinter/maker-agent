@@ -434,3 +434,18 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
   container both converge on the 7B).
 - Earlier v4.x: build123d agentic loop, domain-helper bypass, STEP→Part Studio translation,
   honesty/non-convergence flagging.
+- **2026-07-17/18 (image-conditioned builds + web UI + build lock):** CADAM-pattern `--image`:
+  gemma4:e4b pre-pass → structured analysis (proportions/features; absolute mm ONLY from user
+  text or in-image annotations; cached per photo) merged into the brief, and the critic receives
+  the reference as a SECOND image each turn (two-image attention verified: distinguished clevis
+  vs 4-hole block, 110s cold). Machine-wide `fcntl.flock` in `engine.build()` serializes all
+  frontends on the single GPU (verified live: queued 9 min behind a running benchmark; budget
+  starts post-acquisition). Satine: captioned photo = spec+reference (routes build OR refine);
+  bare photo = 30-min single-use stash. Web UI `webui/` (FastAPI, cad-web.service,
+  127.0.0.1:8090, tailnet-only via tailscale serve :8443; RUNBOOK.md). **Measured (1 of 3 A/B
+  cases, results/image_ab_20260717.json):** stdout purity held both legs; image cut turns 4→1
+  (503s→332s) and steered form (through-holes+gusset vs plain bar) — but NO quality lift
+  claimed: BOTH legs ignored the explicit "80mm long" (form-vague spec → brief emits
+  bbox_mm=null → gate has no envelope check; open follow-up: parse "NNmm long/wide/tall" into
+  a [spec] advisory), and the ref-aware critic's 1-turn accept is a leniency watch item.
+  Remaining A/B cases: rerun via a MemoryHigh-capped unit (runner can escalate to the 30B rung).
