@@ -18,12 +18,17 @@ import os
 import queue
 import re
 import subprocess
-import sys
 import threading
 import time
 import uuid
 from collections import deque
 from pathlib import Path
+
+# The engine must run under the SYSTEM interpreter (build123d/OCP live there) — NOT this
+# app's venv python (sys.executable here), which only carries fastapi/uvicorn. Using
+# sys.executable propagated the venv into the engine's own scripts/step subprocesses and
+# every build123d run died on ImportError (found live 2026-07-18).
+ENGINE_PYTHON = "/usr/bin/python3"
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -87,7 +92,7 @@ def _worker():
 
 def _run_build(job: dict):
     job["status"] = "running"
-    cmd = [sys.executable, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
+    cmd = [ENGINE_PYTHON, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
            "--coder", job["coder"], "--target", "file"]
     if job["image"]:
         cmd += ["--image", job["image"]]
