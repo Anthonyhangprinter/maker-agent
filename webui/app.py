@@ -135,6 +135,7 @@ def _run_build(job: dict):
         job["status"] = "error"
         job["error"] = (list(job["log"])[-1] if job["log"] else "no output from engine")
         return
+    _ensure_render(result)
     job["result"] = _result_public(result)
     if result.get("needs_clarification"):
         job["status"] = "needs_clarification"
@@ -142,6 +143,21 @@ def _run_build(job: dict):
         job["status"] = "done"
     else:
         job["status"], job["error"] = "error", result.get("error", "build failed")
+
+
+def _ensure_render(result: dict):
+    """--json builds skip the engine's final render (final_render=False in machine mode), so
+    the web preview would be empty. Generate build.png here (CPU-only, ~10s) — best-effort."""
+    build_dir = result.get("build_dir") or ""
+    step = Path(build_dir) / "build.step" if build_dir else None
+    if not step or not step.is_file() or (step.parent / "build.png").exists():
+        return
+    try:
+        subprocess.run([ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "render"),
+                        str(step), str(step.parent / "build.png")],
+                       timeout=120, capture_output=True)
+    except Exception:
+        pass
 
 
 def _result_public(result: dict) -> dict:
