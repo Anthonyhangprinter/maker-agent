@@ -50,11 +50,16 @@ Give the agent a reference photo or sketch and it uses the image two ways: a loc
 model (gemma4:e4b) first describes the part's form, features, and proportions into the build
 brief, and then judges every draft render against your photo until they match.
 
-**The rule: shape and proportions come from the image; absolute sizes come from your text.**
-A photo has no scale, so the agent never invents millimetres from it — say the envelope
-("..., 80mm wide") in the spec, or have real dimension annotations legible in the image.
-From Telegram, caption a photo with your spec (or send the photo bare, then describe the part
-within 30 minutes). The analysis is cached per photo, and refine turns keep the reference.
+**An image alone is a full request.** `cad --image photo.jpg` with no spec reads the shape
+from the photo, chooses sensible realistic sizes to match its proportions (a photo has no
+scale), states what it chose, and builds — correct the sizes by refining ("make it 80mm
+long"). From Telegram, a bare photo builds immediately; a photo sent during refinement
+reshapes the current part toward the new image.
+
+**With text + image, your words own the numbers.** Shape and proportions come from the image;
+any millimetre you write (or that's legibly annotated in the image) always wins over a chosen
+default. Caption a Telegram photo with your spec to combine them. The analysis is cached per
+photo, and refine turns keep the reference.
 
 ### Things you can type at the feedback prompt
 

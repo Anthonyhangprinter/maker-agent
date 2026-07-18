@@ -20,7 +20,8 @@ store_feedback = _engine.store_feedback   # (result, rating, comment)
 
 # Reference-image pre-pass (image-conditioned builds) — cached per photo, {} on failure
 analyze_reference_image = _engine.analyze_reference_image   # (image_path) -> analysis dict
-image_analysis_text     = _engine.image_analysis_text       # (analysis) -> spec addendum str
+image_analysis_text     = _engine.image_analysis_text       # (analysis, image_only) -> addendum
+spec_from_image         = _engine.spec_from_image           # (analysis) -> derived spec str
 
 # N2 (ambiguity gate) / N3 (brief-as-contract) — see cad_engine for the full contracts.
 triage_ambiguity  = _engine.triage_ambiguity     # (spec) -> [questions] ([] if buildable/failed)

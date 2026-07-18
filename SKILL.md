@@ -70,13 +70,18 @@ SCRIPT=~/.openclaw/skills/cad-builder/cad_engine.py       # core ENGINE (also a 
 # Legacy / rollback only (moved to legacy/): cad_agent_v3.py, cad_agent_v2.py, onshape_cad_agent.py
 ```
 
-**Reference images (`--image`, 2026-07-17):** a gemma4:e4b vision pre-pass describes the photo
-(shape family, features, proportions — NEVER absolute mm; only in-image annotations may carry
-numbers) into an `IMAGE ANALYSIS` addendum the brief reads, and the critic receives the photo as
-a SECOND image each turn to judge form/features/proportions against (two-image attention verified
-2026-07-17). Analysis cached at `<photo>.analysis.json`; the downscaled reference is saved into
-the build dir as `reference.jpg`; result JSON carries `image` + `image_analysis`. Satine: caption
-a photo = spec with reference; bare photo = stashed for the next build (30 min TTL, single-use).
+**Reference images (`--image`, 2026-07-17; image-only mode 2026-07-18):** a gemma4:e4b vision
+pre-pass describes the photo (shape family, features, proportions, `suggested_spec`) into an
+`IMAGE ANALYSIS` addendum the brief reads, and the critic receives the photo as a SECOND image
+each turn to judge form/features/proportions against (two-image attention verified 2026-07-17).
+**Image-only ('fluid') builds:** an image with NO spec is a full request — `spec_from_image()`
+turns the analysis into the spec, the brief CHOOSES and states sensible proportion-consistent
+sizes (in-image annotations honoured), the ambiguity gate is skipped, and the result carries
+`image_only: true` + the derived `spec` (frontends echo "I read the image as…"). With text
+present, user mm still always win over the photo. Analysis cached at `<photo>.analysis.json`
+(old caches without `suggested_spec` auto-refresh); downscaled reference saved per-build as
+`reference.jpg`; result JSON carries `image` + `image_analysis`. Satine: bare photo = immediate
+image-only build (mid-session: refines toward the new photo); captioned photo = spec+reference.
 
 **Build lock (2026-07-17):** `engine.build()` holds an exclusive flock on
 `~/.openclaw/cad-build.lock` — builds from ALL frontends (CLI/Satine/web/benchmarks) serialize

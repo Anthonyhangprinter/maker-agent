@@ -164,8 +164,8 @@ def _result_public(result: dict) -> dict:
     """Strip the result to what the page needs, with artifact paths rewritten to URLs."""
     out = {k: result.get(k) for k in
            ("ok", "converged", "accepted_via", "code_model", "turns", "build_time_s",
-            "last_critique", "warning", "image_analysis", "needs_clarification",
-            "questions", "spec", "error")}
+            "last_critique", "warning", "image_analysis", "image_only",
+            "needs_clarification", "questions", "spec", "error")}
     build_dir = result.get("build_dir") or ""
     if build_dir:
         bid = Path(build_dir).name
@@ -180,11 +180,11 @@ def _result_public(result: dict) -> dict:
 
 
 @app.post("/api/build")
-async def api_build(spec: str = Form(...), coder: str = Form("auto"),
+async def api_build(spec: str = Form(""), coder: str = Form("auto"),
                     image: UploadFile | None = File(None)):
     spec = spec.strip()
-    if not spec:
-        raise HTTPException(400, "spec is required")
+    if not spec and not (image is not None and image.filename):
+        raise HTTPException(400, "provide a spec, an image, or both")
     if coder not in CODERS:
         raise HTTPException(400, f"coder must be one of {sorted(CODERS)}")
     image_path = None

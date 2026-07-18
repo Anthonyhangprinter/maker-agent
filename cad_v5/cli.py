@@ -60,8 +60,10 @@ def main(argv: list[str] | None = None) -> None:
                    help="use Onshape as the output target (shortcut for --target onshape)")
     p.add_argument("--image", default=None, metavar="PATH",
                    help="reference photo/sketch (jpg/png/webp) — a local vision model analyzes "
-                        "it to guide the build and judges every render against it. Proportions "
-                        "come from the image; absolute mm still come from your text.")
+                        "it to guide the build and judges every render against it. With a text "
+                        "spec, proportions come from the image and absolute mm from your text; "
+                        "ALONE (no spec), the image is the whole request and sensible sizes "
+                        "are chosen for you (correct them by refining).")
     p.add_argument("--no-fewshots", action="store_true",
                    help="disable few-shot retrieval (A/B the learning lift)")
     p.add_argument("--once", action="store_true",

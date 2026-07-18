@@ -391,6 +391,9 @@ Fields:
 - legible_dimensions_mm: ONLY dimensions literally written in the image; empty list otherwise.
 - symmetry: any symmetry or regular patterns (e.g. "4 holes in a rectangular pattern",
   "rotationally symmetric").
+- suggested_spec: ONE sentence describing the part as a CAD build request (form + features +
+  proportions), written like a user would ask for it — with NO absolute dimensions unless they
+  are literally annotated in the image.
 - confidence: low | medium | high — how clearly the geometry reads from this image."""
 
 _IMAGE_ANALYSIS_SCHEMA = {
@@ -411,10 +414,11 @@ _IMAGE_ANALYSIS_SCHEMA = {
                            "source_text": {"type": "string"}},
             "required": ["value_mm", "what", "source_text"]}},
         "symmetry": {"type": "string"},
+        "suggested_spec": {"type": "string"},
         "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
     },
     "required": ["shape_family", "features", "proportions",
-                 "legible_dimensions_mm", "symmetry", "confidence"],
+                 "legible_dimensions_mm", "symmetry", "suggested_spec", "confidence"],
 }
 
 def analyze_reference_image(image_path: str) -> dict:
@@ -427,7 +431,9 @@ def analyze_reference_image(image_path: str) -> dict:
     key = [int(p.stat().st_mtime), p.stat().st_size]
     try:
         cached = json.loads(cache.read_text())
-        if cached.get("_key") == key:
+        # suggested_spec was added later — treat older cached analyses as misses so
+        # image-only builds always have a derived spec to work from.
+        if cached.get("_key") == key and (cached.get("analysis") or {}).get("suggested_spec"):
             return cached.get("analysis") or {}
     except Exception:
         pass
@@ -450,8 +456,10 @@ def analyze_reference_image(image_path: str) -> dict:
             pass
     return analysis
 
-def image_analysis_text(analysis: dict) -> str:
-    """Render the vision pre-pass into the spec addendum the brief/triage models read."""
+def image_analysis_text(analysis: dict, image_only: bool = False) -> str:
+    """Render the vision pre-pass into the spec addendum the brief/triage models read.
+    image_only: the photo is the whole request — dimensions are the brief's to CHOOSE (sensible,
+    proportion-consistent, stated) instead of reserved for user text."""
     if not analysis:
         return ""
     feats = "; ".join(f"{f.get('count', 1)}x {f.get('type', '?')} ({f.get('location', '')})"
@@ -459,18 +467,39 @@ def image_analysis_text(analysis: dict) -> str:
     dims = "; ".join(f"{d.get('value_mm')}mm {d.get('what', '')} (written in image: "
                      f"\"{d.get('source_text', '')}\")"
                      for d in analysis.get("legible_dimensions_mm", []) if isinstance(d, dict))
+    if image_only:
+        header = (
+            "IMAGE ANALYSIS (the user sent ONLY this reference photo — it is the whole request. "
+            "Proportions and features below are the spec. The photo has no scale, so CHOOSE "
+            "sensible realistic dimensions consistent with the proportions and the kind of part "
+            "this is, honour any in-image annotations below, and state every dimension you "
+            "choose in the brief so the user can correct them):\n")
+    else:
+        header = (
+            "IMAGE ANALYSIS (from the user's reference photo — proportions are trustworthy, "
+            "but the photo has no scale: absolute mm come ONLY from the user's text or the "
+            "quoted in-image annotations below; where no size is given use sensible defaults, "
+            "never a value invented from the photo):\n")
     return (
-        "IMAGE ANALYSIS (from the user's reference photo — proportions are trustworthy, "
-        "but the photo has no scale: absolute mm come ONLY from the user's text or the "
-        "quoted in-image annotations below; where no size is given use sensible defaults, "
-        "never a value invented from the photo):\n"
-        f"- basic form: {analysis.get('shape_family', 'unknown')}\n"
+        header
+        + f"- basic form: {analysis.get('shape_family', 'unknown')}\n"
         f"- visible features: {feats or 'none identified'}\n"
         f"- proportions: {analysis.get('proportions', 'unknown')}\n"
         f"- symmetry/pattern: {analysis.get('symmetry', 'none noted')}\n"
         f"- dimensions written in the image: {dims or 'none'}\n"
         f"- read confidence: {analysis.get('confidence', 'low')}"
     )
+
+def spec_from_image(analysis: dict) -> str:
+    """Image-only builds: turn the vision analysis into the build spec itself. Sizes are
+    deliberately left to the brief model ('fluid' by design — a photo has no scale), which is
+    instructed to choose and STATE sensible proportion-consistent dimensions."""
+    base = (analysis.get("suggested_spec") or "").strip()
+    if not base:
+        feats = ", ".join(f"{f.get('count', 1)}x {f.get('type', '?')}"
+                          for f in analysis.get("features", []) if isinstance(f, dict))
+        base = f"a {analysis.get('shape_family') or 'part'}" + (f" with {feats}" if feats else "")
+    return base
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
@@ -2092,10 +2121,12 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     image: optional path to a reference photo/sketch — a gemma4:e4b pre-pass augments the brief
     with its structured analysis (proportions, never invented mm) and the critic judges every
     turn's render against it as a second image. Text-only behaviour is unchanged when None.
+    With an image the spec may be EMPTY: the vision analysis becomes the spec (image-only
+    build) and the brief chooses + states sensible dimensions ('fluid' mode).
 
     Serialized machine-wide via an fcntl.flock (one model fits the GPU): a second build from
     any frontend blocks on the lock, and the wall-clock budget starts AFTER acquisition."""
-    lock_fh = _acquire_build_lock(spec)
+    lock_fh = _acquire_build_lock(spec or "<image-only build>")
     try:
         return _build_impl(spec, chat_id=chat_id, coder=coder, use_fewshots=use_fewshots,
                            do_upload=do_upload, final_render=final_render,
@@ -2112,7 +2143,8 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 final_render: bool = True, brief_override: Optional[dict] = None,
                 image: Optional[str] = None) -> dict:
     log.info("=" * 60)
-    log.info("[v%s] build: %s%s", VERSION, spec, f"  [reference: {image}]" if image else "")
+    log.info("[v%s] build: %s%s", VERSION, spec or "<image-only>",
+             f"  [reference: {image}]" if image else "")
     preflight()
     t0 = time.monotonic()
 
@@ -2121,10 +2153,18 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     # descends from the image-informed one, so only the fresh-brief path augments.
     ref_b64: Optional[str] = None
     image_analysis: dict = {}
+    image_only = False
     if image:
         ref_b64 = _prep_image_b64(Path(image))
         image_analysis = analyze_reference_image(image)
-    addendum = image_analysis_text(image_analysis)
+    if not (spec or "").strip():
+        if not image:
+            raise RuntimeError("build needs a spec or a reference image")
+        # Image-only ('fluid') build: the analysis IS the spec; the brief picks + states sizes.
+        image_only = True
+        spec = spec_from_image(image_analysis)
+        log.info("[v5] image-only build — derived spec: %s", spec[:200])
+    addendum = image_analysis_text(image_analysis, image_only=image_only)
     brief_spec = spec + ("\n\n" + addendum if addendum else "")
 
     brief    = brief_override if brief_override is not None else build_brief(brief_spec)
@@ -2612,6 +2652,7 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "last_critique": last_critique,
         "image":        image or "",
         "image_analysis": image_analysis,
+        "image_only":   image_only,   # spec above was derived from the photo, sizes model-chosen
         "build_time_s": round(time.monotonic() - t0, 1),
         "built_at":     datetime.now(timezone.utc).isoformat(),
     }

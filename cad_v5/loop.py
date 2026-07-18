@@ -51,7 +51,7 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
     image: optional reference photo path — forwarded to every engine.build() call (first build
     AND refine turns), so the critic keeps judging against it across the whole session."""
     target_name = target_name or targets.default_target_name()
-    if not spec:
+    if not spec and not image:   # image alone is a full request (image-only 'fluid' build)
         try:
             spec = input("Describe the part to build > ").strip()
         except (EOFError, KeyboardInterrupt):
@@ -64,7 +64,9 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
     # in an interactive session, check whether the spec is missing a critical dimension or the
     # part's basic form. Conservative by design — a buildable-with-defaults spec returns []
     # and this is a no-op.
-    if interactive:
+    # Image-only builds skip the gate entirely: there's no user text to interrogate, and the
+    # engine derives the spec + chooses sizes by design ('fluid' mode).
+    if interactive and spec:
         triage_spec = spec
         if image:   # the reference photo often answers "what basic form?" — let triage see it
             addendum = engine.image_analysis_text(engine.analyze_reference_image(image))
@@ -120,6 +122,10 @@ def run(spec: str | None = None, coder: str = "auto", target_name: str | None = 
             continue
 
         last = result
+        if not spec:   # image-only build: adopt the derived spec so refine turns have a base
+            spec = result.get("spec") or ""
+            if spec and interactive:
+                print(f"  (read from your image: {spec[:140]})")
         step = Path(result.get("step_local") or STEP_OUT)
         facts = _facts_for(step)
 

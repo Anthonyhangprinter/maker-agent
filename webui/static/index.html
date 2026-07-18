@@ -64,8 +64,9 @@
   </div>
   <div class="hint">
     Good prompts say <b>Size</b> (envelope in mm) · <b>Specs</b> (counts + diameters) ·
-    <b>Surfaces</b> (which face) · <b>Symmetry</b> (patterns/spacing). With a photo: shape and
-    proportions come from the image, absolute sizes still come from your words.
+    <b>Surfaces</b> (which face) · <b>Symmetry</b> (patterns/spacing). With a photo + words:
+    shape comes from the image, your mm win. A photo <b>alone</b> works too — the shape is read
+    from the image and sensible sizes are chosen for you.
   </div>
   <div id="jobs"></div>
 </main>
@@ -91,7 +92,7 @@ $("clearimg").onclick = () => {
 
 $("go").onclick = async () => {
   const spec = $("spec").value.trim();
-  if (!spec) return $("spec").focus();
+  if (!spec && !$("image").files[0]) return $("spec").focus();  // image alone is a full request
   const fd = new FormData();
   fd.append("spec", spec);
   fd.append("coder", $("coder").value);
@@ -122,7 +123,7 @@ const STATUS_LABEL = { queued: "queued", running: "building", waiting_gpu: "wait
 function render(j) {
   const el = card(j.id), r = j.result || {}, a = r.artifacts || {};
   let h = `<span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>
-           <b style="margin-left:.6rem">${esc(j.spec.slice(0, 120))}</b>`;
+           <b style="margin-left:.6rem">${esc((j.spec || "image-only build").slice(0, 120))}</b>`;
   if (j.has_image) h += ` <span title="image-conditioned">📷</span>`;
   if (["queued", "running", "waiting_gpu"].includes(j.status))
     h += `<div class="log">${esc((j.log_tail || []).join("\n")) || "…"}</div>`;
@@ -142,7 +143,9 @@ function render(j) {
       + (r.build_time_s ? ` · ${Math.round(r.build_time_s)}s` : "")
       + (r.turns ? ` · ${r.turns} turn(s)` : "") + `</div>`;
     if (r.warning) h += `<div class="warn">⚠ ${esc(r.warning)}</div>`;
-    if (r.image_analysis && r.image_analysis.shape_family)
+    if (r.image_only && r.spec)
+      h += `<div class="meta">built from your image as: ${esc(r.spec.slice(0, 200))} — sizes were chosen for you; rebuild with real mm in the prompt to correct them</div>`;
+    else if (r.image_analysis && r.image_analysis.shape_family)
       h += `<div class="meta">image read as: ${esc(r.image_analysis.shape_family)}`
         + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
   }
