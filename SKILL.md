@@ -170,9 +170,23 @@ Small-model quality comes from retrieval + memory, not parameters:
   pitfall (qwen3:8b), retrieved + injected as "PITFALLS to avoid" on similar future specs.
 - **Measure the lift:** `build --no-fewshots` (or the runner's `--no-fewshots`) disables retrieval so
   any claimed improvement is A/B-checkable. If a piece shows no benchmark lift, remove it.
+- **Fine-tune harvest (GIFT, 2026-07-19 — arXiv 2603.27448):** every converged organic build
+  appends (spec, code, render) good pairs + GIFT-FAIL pairs (wrong-turn render + bad code →
+  correct code) to `~/.openclaw/cad-sftpairs.jsonl` (images in `cad-sftpairs/`; per-turn
+  intermediates persist in each build dir's `turns/` + `build_meta.json`). Benchmark runs
+  (CAD_BENCH=1) are excluded, same rule as Stage C. This is the M6′ QLoRA dataset.
+- **Best-of-N first turn:** `cad --candidates N` (env `CAD_CANDIDATES`, cad.json `candidates`)
+  samples N initial programs at varied temperatures; execute+inspect+gate picks the survivor
+  deterministically. **Default 3** — the 2026-07-19 A/B (same engine both legs) doubled
+  acceptance 5/22→10/22 AND cut suite wall time 2097s→1221s vs N=1; a good first candidate
+  saves whole edit turns.
 
 ```bash
 python3 cad_retrieval.py "a flange with a bolt circle"      # inspect what retrieval returns
+python3 scripts/harvest_census.py [--mine]        # M6' data census / retro-mine build history
+python3 scripts/gift_sample.py --k 8              # amplify corpus: sample K per spec, band-score
+                                                  # vs stored verified geometry (GIFT-REJECT/FAIL)
+python3 scripts/geom_bands.py <cand.step> <ref.stl>   # match/valid/near_miss/fail band scorer
 ```
 
 ## CAM — from model to machine (M9, M11)

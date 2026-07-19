@@ -162,13 +162,20 @@ The single biggest proven lever for small-model CAD quality (Text-to-CadQuery: c
 fine-tuning on 170k pairs; CADmium: Qwen2.5-Coder-14B on JSON CAD sequences; CAD-Coder: geometric-
 reward RL on top).
 
-- **Base:** the current fast rung (`qwen3:8b` since 2026-07-12; qwen2.5-coder:7b was retired and
-  removed 2026-07-16 — re-pick the base from the rung-1 shootout winner; QLoRA on a rented
-  A100/4090, a day or two).
-- **Data:** Text-to-CadQuery 170k adapted toward build123d idioms + a Text2CAD (660k prompts)
-  subset + **the agent's own harvest** — the mechanism already exists: gate-passing builds are free
-  SFT pairs (auto-promote verified-converged builds into the corpus = the open Stage C item), and
-  fail→fix turn pairs are DPO data. B3's error histogram picks the failure modes to oversample.
+- **Base:** the current fast rung (`qwen2.5-coder:7b-instruct-q4_K_M` since the 2026-07-17
+  few-shot 2×2; QLoRA on a rented A100/4090, a day or two).
+- **Data (methodology adopted 2026-07-19 from GIFT, arXiv 2603.27448 — see the maker-agent
+  packet's GIFT-UPGRADE-PLAN.md):** the harvest machinery is BUILT and live —
+  `~/.openclaw/cad-sftpairs.jsonl` accumulates (spec, code, render) good pairs from converged
+  organic builds and GIFT-FAIL pairs (wrong-turn render + bad code → correct code);
+  `scripts/gift_sample.py` amplifies the corpus by sampling K candidates per spec and
+  band-scoring them against the stored verified geometry (`scripts/geom_bands.py`);
+  `scripts/harvest_census.py` mines/audits history. **Census 2026-07-19: history is thin (2
+  clean pairs from 154 dirs — 5/7 log-converged organic builds failed offline geometry
+  verification, which forced the [spec] gate-hardening the same day).** So the mix is:
+  sampler amplification + go-forward capture + Text-to-CadQuery 170k adapted toward build123d
+  idioms (+ optionally a GenCAD-Code-derived image set for the --image path). B3's error
+  histogram picks the failure modes to oversample.
 - **Eval:** the 10-spec suite (`--coder fast`, honest scorer) + the `heldout-cqe` suite (25
   cadqueryeval tasks with reference-STL scoring, live since 2026-07-16 — see PROJECT.md).
   Success = fine-tuned 7B ≥ stock-30B baseline (7/10) on the full suite.

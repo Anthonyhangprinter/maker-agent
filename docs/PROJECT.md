@@ -449,3 +449,26 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
   bbox_mm=null → gate has no envelope check; open follow-up: parse "NNmm long/wide/tall" into
   a [spec] advisory), and the ref-aware critic's 1-turn accept is a leniency watch item.
   Remaining A/B cases: rerun via a MemoryHigh-capped unit (runner can escalate to the 30B rung).
+- **2026-07-19 (GIFT adoption — arXiv 2603.27448; all measured):** the paper's data-bootstrapping
+  recipe implemented end-to-end, no-money scope. **Best-of-N first turn** (`--candidates`,
+  `CAD_CANDIDATES`, cad.json `candidates`; deterministic execute→inspect→gate selection, temps
+  0.15/0.45/0.7): A/B tiers 1-2 fast rung, same engine both legs, capped unit, 0 oomd kills —
+  **N=3 acc 10/22 + wall 1221s vs N=1 acc 5/22 + wall 2097s** (run_20260719_191156/193217.json);
+  default now 3. Convergence 1/6 both legs — the same-day gate hardening refuses measurably
+  incomplete parts the old engine passed, so the 2026-07-17 13/22 is non-comparable history.
+  **Gate hardening** (3 new [spec] checks, all unit-tested, each from an observed live failure):
+  spec-text axis dims ("80mm long" — closes the image-A/B follow-up), hole OVERcount ("a 10mm
+  hole" shipped with five), hole spacing/bolt-circle via hole_groups circle Ø ("34mm apart"
+  shipped at 24mm — a render cannot measure distance). Overcount-only for counts: inspect's
+  through-hole classifier misses non-axial bores (gold L-bracket's radial holes measure 0 —
+  logged as an open inspect gap). **M6′ harvest live:** per-build `turns/tN.py|step|png` +
+  `build_meta.json` persist; converged organic builds append good + GIFT-FAIL pairs to
+  `~/.openclaw/cad-sftpairs.jsonl` (CAD_BENCH excluded). **Retro census** (harvest_census.py):
+  2 clean pairs from 154 dirs — 100 bench, 40 no-source, and 5/7 log-converged organic builds
+  FAILED offline geometry checks (brick-as-box, 100/168mm "80mm" brackets, 5×Ø10 for 1, 4×Ø6
+  for 2). **gift_sample.py** (corpus-only ground truth, per-spec build lock, N1-style repair
+  retry): first full run 13 specs × K=8 → 3 match + 12 valid + 20 near_miss = 35 pairs, 75 min
+  (gift_sample_20260719_204634.json); corpus audit then purged 2 poisoned stage-c rows (168mm
+  bracket, 5-hole plate) + their 8 derived pairs → **dataset 30 clean pairs day one, corpus 11
+  (10/11 pass audit; the solid "box with holes" gold is a flagged user call)**. Fine-tune
+  itself: GPU rental pending (UNSW).

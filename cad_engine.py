@@ -90,6 +90,7 @@ from cad_v5.config import (        # noqa: E402
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
     VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
     REF_CRITIC_TIMEOUT, REF_IMAGE_MAX_PX, BUILD_LOCK_FILE,
+    first_turn_candidates, CANDIDATE_TEMPS, SFTPAIRS_DIR, SFTPAIRS_FILE,
 )
 
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
@@ -1120,7 +1121,7 @@ _HELPER_RE    = re.compile(r"^(structural_section|spur_gear|hex_bolt)\s*\(.*\)\s
 _WH_HELPER_RE = re.compile(r"^(gear|screw|nut|iso_thread|ball_bearing|pipe_flange)\s*\(.*\)\s*$")
 _WH_IMPORT    = "from b123d.warehouse import gear, screw, nut, iso_thread, ball_bearing, pipe_flange\n"
 
-def generate_code(brief: dict, spec: str = "") -> str:
+def generate_code(brief: dict, spec: str = "", temperature: float = 0.15) -> str:
     # If the brief decided this is a standard section/gear/bolt/fastener, execute that decision
     # deterministically instead of hoping the coder model copies it from prose.
     helper = (brief.get("helper") or "").strip().rstrip(".")
@@ -1151,8 +1152,58 @@ def generate_code(brief: dict, spec: str = "") -> str:
         + (f"Notes:\n{notes_str}\n" if notes_str else "")
         + "\nWrite the build123d code:"
     )
-    raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
+    raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=_code_timeout(),
+                  temperature=temperature)
     return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(json.dumps(brief)))
+
+_HELPER_RESULT_RE = re.compile(
+    r"result\s*=\s*(structural_section|spur_gear|hex_bolt|"
+    r"gear|screw|nut|iso_thread|ball_bearing|pipe_flange)\s*\(")
+
+def _pick_first_turn_candidate(brief: dict, spec: str, first_code: str,
+                               work_dir: Path, n: int) -> str:
+    """Best-of-N first-turn sampling (GIFT-inspired, 2026-07-19): draw n-1 further candidates
+    at varied temperatures alongside first_code, execute + inspect + gate each in its own
+    subdir, and return the best by a purely deterministic ranking — (ran, gate passed,
+    fewest [spec] contradictions, fewest gate fails+advisories). No critic calls here: the
+    selection must stay cheap and objective; the loop's critic judges the winner as usual.
+    The winner is re-run by turn 1 (a few seconds of build123d, buys a much simpler loop).
+    Never raises — any candidate error just scores that candidate as a failure."""
+    candidates = [first_code]
+    for i in range(1, n):
+        try:
+            candidates.append(generate_code(
+                brief, spec, temperature=CANDIDATE_TEMPS[i % len(CANDIDATE_TEMPS)]))
+        except Exception as e:
+            log.warning("[v5] candidate %d codegen failed (%s) — sampling on.", i + 1,
+                        str(e)[:120])
+    best_key, best_code = None, first_code
+    for i, cand in enumerate(candidates):
+        key = (0, 0, 0, 0)
+        if not _check_syntax(cand):
+            cdir = work_dir / f"cand{i}"
+            cdir.mkdir(exist_ok=True)
+            try:
+                cstep, _ = run_step(cand, cdir)
+                inspection = run_inspect(cstep)
+                if inspection["valid"]:
+                    facts = parse_facts(inspection["output"])
+                    gate_fails, gate_notes = verify_expected(
+                        facts, brief.get("expected", {}), spec=spec)
+                    spec_notes = [x for x in gate_notes if x.startswith("[spec]")]
+                    key = (1, 1 if (facts and not gate_fails) else 0,
+                           -len(spec_notes), -len(gate_fails) - len(gate_notes))
+                else:
+                    key = (1, 0, -9, -9)
+            except Exception as e:
+                log.info("[v5] candidate %d failed to build: %s", i + 1, str(e)[:120])
+        log.info("[v5] candidate %d/%d: ran=%s gate=%s notes=%s", i + 1, len(candidates),
+                 bool(key[0]), bool(key[1]), -key[3])
+        if best_key is None or key > best_key:
+            best_key, best_code = key, cand
+    log.info("[v5] best-of-%d pick: candidate %d (ran=%s gate=%s)", len(candidates),
+             candidates.index(best_code) + 1, bool(best_key[0]), bool(best_key[1]))
+    return best_code
 
 def _strip_fences(text: str) -> str:
     text = re.sub(r"^```python\s*\n?", "", text)
@@ -1449,6 +1500,41 @@ _RADIAL_TERMS = re.compile(r"\b(radial(?:ly)?|cross[- ]?(?:hole|bore|drill)|side
 _AXIAL_TERMS = re.compile(r"\b(axial(?:ly)?|along (?:the|its) (?:long )?axis|central(?:ly)? "
                           r"(?:bored|drilled)|down (?:the|its) (?:centre|center|length))\b", re.I)
 
+# Explicit per-axis sizes in the user's words: "80mm long", "25mm wide", "12mm tall/high/deep",
+# "60mm diameter", "40x30x15mm". Deliberately NOT matched: bare "NNmm" (could be any feature)
+# and hole/bore phrasing ("10mm through-hole" is a feature Ø, owned by the bores_mm check).
+_AXIS_DIM_RE  = re.compile(
+    r"(\d+(?:\.\d+)?)\s*mm\s+(?:long|wide|tall|high|deep|(?:in\s+)?diameter|dia\b|across|overall)",
+    re.I)
+_DIMS3_SPEC_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*mm", re.I)
+
+# "34mm apart" / "on a 40mm bolt circle": for a 2-hole group the measured circle_d IS the
+# centre spacing; for n>2 it is the bolt-circle diameter — both directly comparable.
+_APART_RE = re.compile(r"(\d+(?:\.\d+)?)\s*mm\s+apart|"
+                       r"(\d+(?:\.\d+)?)\s*mm\s+(?:bolt[- ]?circle|circle)", re.I)
+# Exact hole counts the user wrote: "two 6mm through holes", "a 10mm central hole".
+_SPEC_HOLES_RE = re.compile(r"(an?|one|two|three|four|five|six|\d+)\s+(\d+(?:\.\d+)?)\s*mm\s+"
+                            r"(?:\w+\s+){0,2}?(?:through[- ]?)?(?:holes?|bores?)", re.I)
+_HOLE_COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                     "five": 5, "six": 6}
+
+def _spec_axis_dims(spec: str) -> list[tuple[float, str]]:
+    """(value_mm, phrase) for every overall size the user explicitly wrote. Each value must
+    match SOME measured bbox axis — permutation-free by design, since "80mm long" pins a
+    length without saying which axis the coder laid it along."""
+    out = []
+    for m in _AXIS_DIM_RE.finditer(spec or ""):
+        out.append((float(m.group(1)), m.group(0)))
+    # Only enforce NxNxN when the spec states exactly ONE: a compound part ("a 60x40x6mm base
+    # flange and a 6x40x60mm upright") has sub-part dims that are NOT overall extents — the
+    # 2026-07-19 corpus audit false-flagged a correct L-bracket exactly this way.
+    d3 = _DIMS3_SPEC_RE.findall(spec or "")
+    if len(d3) == 1:
+        m = _DIMS3_SPEC_RE.search(spec or "")
+        out.extend((float(v), m.group(0)) for v in m.groups())
+    return out
+
 def _spec_states_orientation(spec: str, orient: str) -> bool:
     """Does the spec TEXT actually claim this bore orientation? The brief labels orientations
     and gets them wrong (a vertical blind standoff hole labelled 'radial' hard-failed every
@@ -1585,6 +1671,49 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                 f"{'×'.join(f'{d:.1f}' for d in sorted(got, reverse=True))}mm vs an expected "
                 f"{'×'.join(f'{d:.1f}' for d in sorted(exp_bbox, reverse=True))}mm — confirm the "
                 f"dimensions against the actual spec (the brief's size guess is often wrong).")
+
+    # Spec-stated axis dimensions — derived from the USER'S OWN TEXT, not the brief, so this
+    # fires even when a form-vague spec made the brief emit bbox_mm=null (the 2026-07-17 gate
+    # gap: an explicit "80mm long" went unenforced in both image-A/B legs, and the 2026-07-19
+    # harvest audit found two shipped brackets at 100mm and 168mm for that same spec). "[spec]"
+    # tagged: a measurement contradicting a number the user wrote must block accept-via-gate.
+    if got:
+        for want, phrase in _spec_axis_dims(spec):
+            if all(abs(want - g) > max(1.0, 0.05 * want) for g in got):
+                soft.append(
+                    f"[spec] the request says '{phrase}' but no axis of the part measures "
+                    f"{want:g}mm (extents: {'×'.join(f'{d:.1f}' for d in sorted(got, reverse=True))}mm) "
+                    f"— size the geometry from the numbers in the request.")
+
+    # Exact hole count + spacing from the USER'S TEXT (hole_groups measure both precisely).
+    # Count: "two 6mm holes" with five Ø6 present is a WRONG part even though min_holes
+    # passes (found in the 2026-07-19 harvest audit: a 1-hole spec shipped with 5). Spacing:
+    # the critic cannot measure distance from a render, so "34mm apart" shipped at 24mm
+    # (smoke build, same day) — the 2-hole group's circle Ø IS the spacing, so compare it.
+    # OVERCOUNT only: hole detection misses non-axial bores (a correct gold L-bracket's radial
+    # flange holes measure as 0 through-holes, 2026-07-19), so a low count can be a detection
+    # artifact — but EXTRA holes of the named size cannot be, and that's the observed failure
+    # (five Ø10 where one was asked). Undercounts stay with the min_holes/through advisories.
+    hgroups = facts.get("hole_groups") or []
+    for m in _SPEC_HOLES_RE.finditer(spec or ""):
+        n_want = _HOLE_COUNT_WORDS.get(m.group(1).lower()) or int(m.group(1))
+        d_want = float(m.group(2))
+        n_got = sum(g["n"] for g in hgroups
+                    if abs(g["d"] - d_want) <= max(0.6, 0.05 * d_want))
+        if n_got > n_want:
+            soft.append(
+                f"[spec] the request says '{m.group(0)}' ({n_want}×Ø{d_want:g}) but the solid "
+                f"has {n_got} hole(s) of that size (measured: {_fmt_hole_groups(hgroups)}) — "
+                f"cut exactly the holes the request names, no extras.")
+    for m in _APART_RE.finditer(spec or ""):
+        want = float(m.group(1) or m.group(2))
+        circles = [g.get("circle_d", 0) for g in hgroups if g.get("n", 0) >= 2]
+        if circles and all(abs(want - c) > max(1.0, 0.05 * want) for c in circles):
+            got_str = ", ".join(f"{c:.1f}" for c in circles)
+            soft.append(
+                f"[spec] the request says '{m.group(0).strip()}' but the measured hole-centre "
+                f"spacing/circle is {got_str}mm — position the hole centres from the request's "
+                f"numbers (e.g. 34mm apart = centres at ±17mm).")
 
     # Bore/hole diameters — a RELIABLE feature-size check (cylindrical faces measure exactly). If
     # the spec names a target Ø and no cylindrical face of that size exists, the hole is missing or
@@ -2246,6 +2375,12 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
 
     with tempfile.TemporaryDirectory(prefix="cadv4_") as work_str:
         work_dir = Path(work_str)
+        # GIFT best-of-N (2026-07-19): sample further first-turn candidates at varied
+        # temperatures and let execute+inspect+gate pick deterministically. Helper-brief
+        # code is deterministic — resampling it would return the same call N times.
+        n_cand = first_turn_candidates()
+        if n_cand > 1 and not _HELPER_RESULT_RE.search(code):
+            code = _pick_first_turn_candidate(brief, spec, code, work_dir, n_cand)
         step_path: Optional[Path] = None
         prev_step: Optional[Path] = None   # last good build, kept so an edit can be diffed against it
         best_step: Optional[Path] = None   # last GATE-PASSING build + its code — a later broken edit
@@ -2260,6 +2395,7 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         fails = 0   # failed/stuck turns on the current coder (drives auto-escalation)
         n1_autofixes = 0   # N1: inline same-turn auto-fix retries consumed across the whole build
         failure_categories: dict = {}   # B3: per-build failure histogram (feeds the fine-tune track)
+        turn_records: list[dict] = []   # per-turn intermediates (code/step/render) — M6' harvest
         def _note_failure(err_text: str) -> str:
             cat, hint = diagnose(err_text)
             failure_categories[cat] = failure_categories.get(cat, 0) + 1
@@ -2347,6 +2483,20 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # a cross-turn recovery would, for Stage B's fail→fix lesson distillation.
             recovered_problem = recovered_problem or first_fail
 
+            # Per-turn artifact capture (2026-07-19): the loop's intermediates are the raw
+            # material for GIFT-FAIL fine-tune pairs and used to die with the tempdir.
+            turn_rec = {"turn": turn, "code": code, "step": None, "png": None,
+                        "gate_fails": [], "notes": [], "critique": None}
+            turn_records.append(turn_rec)
+            try:
+                tdir = work_dir / "turns"
+                tdir.mkdir(exist_ok=True)
+                shutil.copy(step_path, tdir / f"t{turn}.step")
+                (tdir / f"t{turn}.py").write_text(code)
+                turn_rec["step"] = f"t{turn}.step"
+            except Exception:
+                pass
+
             # 3. Inspect geometry
             inspection = run_inspect(step_path)
             last_state = inspection["output"]
@@ -2383,6 +2533,7 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             # They never block a turn, but no accept-via-gate may happen while one is
             # outstanding (a stuck-accept shipped a flange with no bolt holes as converged).
             last_spec_notes = [n for n in gate_notes if n.startswith("[spec]")]
+            turn_rec["gate_fails"], turn_rec["notes"] = gate_fails, gate_notes
             if gate_notes:
                 last_state += "\n[advisory] " + "  ".join(gate_notes)
             if gate_fails:
@@ -2446,6 +2597,17 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             if critique:
                 last_critique = critique
                 log.info("[v5] Critic: %s", critique.replace("\n", " ")[:300])
+            turn_rec["critique"] = critique
+            # The critic's render (work_dir/render.png, overwritten each turn) is exactly the
+            # "visual manifestation of the model's error" GIFT-FAIL trains on — keep a copy.
+            try:
+                rp = work_dir / "render.png"
+                if rp.exists():
+                    (work_dir / "turns").mkdir(exist_ok=True)
+                    shutil.copy(rp, work_dir / "turns" / f"t{turn}.png")
+                    turn_rec["png"] = f"t{turn}.png"
+            except Exception:
+                pass
 
             # 6. Decide: done, or edit and re-observe
             action, new_code = decide_or_edit(
@@ -2593,6 +2755,26 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
             (build_dir / "build_source.py").write_text(code)
         except Exception as e:
             log.warning("[v5] could not save build_source.py: %s", e)
+        # Persist per-turn intermediates + a machine-readable build record (2026-07-19).
+        # The M6' harvest and the retroactive miner read these; before this the loop's
+        # intermediates died with the tempdir and the FULL spec wasn't even on disk (the
+        # dir name truncates it at 40 chars).
+        try:
+            tdir = work_dir / "turns"
+            if tdir.is_dir() and any(tdir.iterdir()):
+                shutil.copytree(tdir, build_dir / "turns", dirs_exist_ok=True)
+        except Exception as e:
+            log.warning("[v5] could not persist turn artifacts: %s", e)
+        try:
+            (build_dir / "build_meta.json").write_text(json.dumps({
+                "spec": spec, "image": image or "", "image_only": image_only,
+                "converged": done, "accepted_via": accepted_via,
+                "code_model": _ACTIVE_CODE_MODEL,
+                "turns": [{k: v for k, v in tr.items() if k != "code"}
+                          for tr in turn_records],
+                "built_at": datetime.now(timezone.utc).isoformat()}, indent=1))
+        except Exception as e:
+            log.warning("[v5] could not write build_meta.json: %s", e)
         # Always export a sliceable STL alongside the STEP (printable mesh, mm units).
         try:
             run_stl(step_out, stl_out)
@@ -2665,6 +2847,16 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                          "build_time_s": base_result["build_time_s"]}, _ACTIVE_CODE_MODEL)
         log.info("[v5] Stage C: %s", outcome)
         base_result["stage_c"] = outcome
+    # GIFT-FAIL harvest (2026-07-19, arXiv 2603.27448): a converged build whose earlier turns
+    # produced wrong geometry yields free fine-tune pairs — each wrong turn's render paired
+    # with the final CORRECT code is a geometric-denoising example, and the converged
+    # (spec, code) itself is a plain SFT pair. Same CAD_BENCH exclusion as Stage C: suite
+    # specs must never leak into training data.
+    if done and accepted_via and not os.environ.get("CAD_BENCH"):
+        try:
+            _record_sft_pairs(base_result, build_dir, turn_records)
+        except Exception as e:   # harvest is a bonus, never a build failure
+            log.warning("[v5] sft-pair harvest failed: %s", e)
     if not done:
         base_result["warning"] = (
             f"Loop ended after {MAX_TURNS} turns without the model confirming the part "
@@ -2710,6 +2902,55 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     _write_session(result)
     log.info("[v5] Done: url=%s  time=%.1fs", result["url"], result["build_time_s"])
     return result
+
+# ── M6' fine-tune harvest (GIFT-FAIL pairs, 2026-07-19) ───────────────────────
+
+def _record_sft_pairs(result: dict, build_dir: Path, turn_records: list[dict]) -> None:
+    """Append fine-tune pairs for a converged organic build to ~/.openclaw/cad-sftpairs.jsonl.
+    kind=good: the accepted (spec, code) + its render (image->code AND text->code SFT).
+    kind=fail: a wrong earlier turn's render + bad code + what was measured wrong, paired
+    with the final correct code (GIFT's geometric-denoising objective).
+    Images are copied into SFTPAIRS_DIR because cad-builds/ rotates at KEEP_BUILDS.
+    No dedup here — repeated builds of one spec are deduped at dataset-assembly time,
+    where the mix is decided (mirrors how GIFT filters offline, not at capture)."""
+    SFTPAIRS_DIR.mkdir(parents=True, exist_ok=True)
+    build_id = build_dir.name
+    final_code = result["code"].replace(DONE_SENTINEL, "").rstrip()
+
+    def _keep_image(png_name: str) -> str:
+        src = build_dir / "turns" / png_name
+        if not src.exists():
+            return ""
+        dst = SFTPAIRS_DIR / f"{build_id}-{png_name}"
+        shutil.copy(src, dst)
+        return str(dst)
+
+    rows = []
+    accepted_png = next((tr["png"] for tr in reversed(turn_records) if tr.get("png")), None)
+    rows.append({"kind": "good", "spec": result["spec"], "code": final_code,
+                 "image": _keep_image(accepted_png) if accepted_png else "",
+                 "build_id": build_id, "code_model": result["code_model"],
+                 "accepted_via": result["accepted_via"], "timestamp": result["built_at"]})
+    for tr in turn_records:
+        if not tr.get("png"):
+            continue
+        if tr["code"].replace(DONE_SENTINEL, "").rstrip() == final_code:
+            continue   # this IS the accepted geometry, not an error to denoise
+        # Only turns with something observably wrong qualify — the gate's measurements
+        # first (deterministic), advisories next, the critic's complaint last.
+        problem = ("; ".join(tr["gate_fails"]) or "; ".join(tr["notes"])
+                   or (tr["critique"] or "").strip())
+        if not problem:
+            continue
+        rows.append({"kind": "fail", "spec": result["spec"], "code": final_code,
+                     "bad_code": tr["code"], "image": _keep_image(tr["png"]),
+                     "problem": problem[:300], "turn": tr["turn"], "build_id": build_id,
+                     "code_model": result["code_model"], "timestamp": result["built_at"]})
+    with SFTPAIRS_FILE.open("a") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    log.info("[v5] SFT-pair harvest: %d pair(s) (%d fail) -> %s",
+             len(rows), sum(1 for r in rows if r["kind"] == "fail"), SFTPAIRS_FILE.name)
 
 # ── Feedback store (kept) ─────────────────────────────────────────────────────
 

@@ -1,0 +1,28 @@
+{
+ "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+ "k": 3,
+ "specs": 1,
+ "elapsed_s": 77.8,
+ "totals": {
+  "match": 0,
+  "valid": 1,
+  "near_miss": 0,
+  "fail": 0,
+  "no_run": 2,
+  "dup": 0
+ },
+ "pairs_written": 1,
+ "per_spec": [
+  {
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the corners and a 2mm chamfer on the top outer edges",
+   "counts": {
+    "match": 0,
+    "valid": 1,
+    "near_miss": 0,
+    "fail": 0,
+    "no_run": 2,
+    "dup": 0
+   }
+  }
+ ]
+}

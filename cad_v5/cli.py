@@ -4,6 +4,7 @@ One command: build, then refine interactively (the default). Flags only tune spe
 result is shown; there is intentionally no separate one-shot subcommand — pass --once, or just type
 `done` after the first build.
 """
+import os
 import sys
 import argparse
 
@@ -66,6 +67,10 @@ def main(argv: list[str] | None = None) -> None:
                         "are chosen for you (correct them by refining).")
     p.add_argument("--no-fewshots", action="store_true",
                    help="disable few-shot retrieval (A/B the learning lift)")
+    p.add_argument("--candidates", type=int, default=None, metavar="N",
+                   help="best-of-N first-turn sampling: draw N initial candidates at varied "
+                        "temperatures, the deterministic gate picks the survivor (default: "
+                        "cad.json `candidates` or 1)")
     p.add_argument("--once", action="store_true",
                    help="build once and exit — skip the interactive refine prompt")
     p.add_argument("--json", action="store_true",
@@ -78,6 +83,11 @@ def main(argv: list[str] | None = None) -> None:
                         "result prints one JSON line {needs_clarification, questions, spec} and "
                         "exits instead of building.")
     a = p.parse_args(argv)
+
+    if a.candidates is not None:
+        # The engine resolves candidate count at build time via the env var, so the flag
+        # works without threading a parameter through build()'s whole call chain.
+        os.environ["CAD_CANDIDATES"] = str(max(1, a.candidates))
 
     target_name = "onshape" if a.onshape else (a.target or targets.default_target_name())
     spec = " ".join(a.spec).strip() or None

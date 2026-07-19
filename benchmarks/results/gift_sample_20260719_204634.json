@@ -1,0 +1,160 @@
+{
+ "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+ "k": 8,
+ "specs": 13,
+ "elapsed_s": 4455.9,
+ "totals": {
+  "match": 3,
+  "valid": 12,
+  "near_miss": 20,
+  "fail": 23,
+  "no_run": 30,
+  "dup": 16
+ },
+ "pairs_written": 35,
+ "per_spec": [
+  {
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the corners and a 2mm chamfer on the top outer edges",
+   "counts": {
+    "match": 0,
+    "valid": 6,
+    "near_miss": 0,
+    "fail": 0,
+    "no_run": 2,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a solid circular flange 80mm diameter 10mm thick with a 30mm central bore and six 6mm bolt holes on a 60mm bolt circle, 1.5mm fillet on the outer edges",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 0,
+    "no_run": 8,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a 100x60x30mm enclosure with 2mm walls, hollow and open at the top",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 3,
+    "fail": 1,
+    "no_run": 1,
+    "dup": 3
+   }
+  },
+  {
+   "spec": "a 100x60x30mm box with four 4mm diameter holes through the top face near the corners",
+   "counts": {
+    "match": 2,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 0,
+    "no_run": 0,
+    "dup": 6
+   }
+  },
+  {
+   "spec": "an L-bracket: a 60x40x6mm base flange and a 6x40x60mm upright flange meeting at a right angle, braced at the inner corner with a gusset, two 6mm mounting holes in each flange",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 3,
+    "fail": 3,
+    "no_run": 2,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a piston, 80mm bore diameter, 60mm tall, with three ring grooves below the crown and a 20mm wrist-pin bore through the skirt",
+   "counts": {
+    "match": 0,
+    "valid": 2,
+    "near_miss": 3,
+    "fail": 0,
+    "no_run": 3,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a vase 120mm tall with a circular cross-section whose outer radius varies sinusoidally along the height between 30mm at the base and top and 40mm at mid-height, 2.5mm walls, a closed 3mm floor and an open top",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 1,
+    "fail": 4,
+    "no_run": 3,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a hexagonal vase 60mm across flats and 150mm tall whose cross-section twists 90 degrees over the height, 2.5mm walls, a closed 3mm floor and an open top",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 1,
+    "no_run": 7,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a solid open-top electronics enclosure box 100x70x30mm with 3mm walls and floor, four corner standoffs with blind holes, filleted outside vertical corners",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 7,
+    "no_run": 1,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a 30mm diameter 12mm tall cylindrical spacer with an 11mm central through-bore",
+   "counts": {
+    "match": 1,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 0,
+    "no_run": 0,
+    "dup": 7
+   }
+  },
+  {
+   "spec": "a bracket like the reference image, 80mm long overall",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 0,
+    "fail": 7,
+    "no_run": 1,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "a 40x30x5mm rectangular plate with a 10mm central through-hole",
+   "counts": {
+    "match": 0,
+    "valid": 0,
+    "near_miss": 8,
+    "fail": 0,
+    "no_run": 0,
+    "dup": 0
+   }
+  },
+  {
+   "spec": "Model a plate with overall dimensions of 126 by 120 by 41 mm, featuring two holes near the corners and one slot cut into the side face.",
+   "counts": {
+    "match": 0,
+    "valid": 4,
+    "near_miss": 2,
+    "fail": 0,
+    "no_run": 2,
+    "dup": 0
+   }
+  }
+ ]
+}

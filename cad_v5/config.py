@@ -87,6 +87,36 @@ REF_IMAGE_MAX_PX   = 1024   # downscale reference photos to this long edge befor
 # engine.build() takes an fcntl.flock on this file; flock self-releases on process death.
 BUILD_LOCK_FILE = _OPENCLAW / "cad-build.lock"
 
+# ── GIFT-style sampling + SFT-pair harvest (2026-07-19, arXiv 2603.27448) ─────
+# Best-of-N first-turn sampling: draw N initial candidates at varied temperatures and let the
+# deterministic gate pick the survivor — the GIFT paper's pass@N data says candidate diversity
+# is worth double-digit accuracy (their pass@1->pass@10 gap was 15.5%). Default 3 per the
+# 2026-07-19 A/B (tiers 1-2, fast rung, same engine both legs, capped unit, no oomd kills):
+# N=3 doubled acceptance 5/22 -> 10/22 AND cut suite wall time 2097s -> 1221s — a good first
+# candidate saves whole edit turns, so sampling pays for itself. gift-night-20260719.log +
+# run_20260719_191156/193217.json. Resolution order: CAD_CANDIDATES env (CLI --candidates /
+# benchmark legs) > cad.json `candidates` > this default. Read at build time, not import time,
+# so the CLI flag can set the env var after modules load. (Default lives HERE, not cad.json —
+# run_refresh.sh's exit trap rewrites cad.json to {}.)
+CANDIDATE_TEMPS = [0.15, 0.45, 0.7]   # cycled across candidates; index 0 = the classic default
+CANDIDATES_DEFAULT = 3
+
+def first_turn_candidates() -> int:
+    env = os.environ.get("CAD_CANDIDATES")
+    try:
+        if env:
+            return max(1, int(env))
+        return max(1, int(load_config().get("cad", {}).get("candidates", CANDIDATES_DEFAULT)))
+    except Exception:
+        return CANDIDATES_DEFAULT
+
+# Fine-tune data harvest (feeds the budget-gated M6' QLoRA): organic builds record
+# (spec, code) pairs and GIFT-FAIL pairs (render of a wrong turn + the final CORRECT code)
+# here. Images are COPIED in — cad-builds/ rotates at KEEP_BUILDS and must not eat the
+# dataset. Benchmark runs (CAD_BENCH=1) are excluded, same contamination rule as Stage C.
+SFTPAIRS_DIR  = _OPENCLAW / "cad-sftpairs"
+SFTPAIRS_FILE = _OPENCLAW / "cad-sftpairs.jsonl"
+
 # ── Loop config ─────────────────────────────────────────────────────────────--
 MAX_TURNS      = 4
 ESCALATE_AFTER = 2

@@ -1,0 +1,225 @@
+{
+  "ran_at": "2026-07-19T09:11:56.103480+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 1,
+  "geometry": 2,
+  "total_time_s": 2097.0,
+  "acceptance_passed": 5,
+  "acceptance_total": 22,
+  "acceptance_score": 0.227,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 768.3,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 770.8,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 2
+      },
+      "rc": 0,
+      "volume_mm3": 115744.2,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260719_183659_fast/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 618.0,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 620.4,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The object is a solid circular flange viewed from three angles. The top-down view shows a large central bore and an outer circle, but the six bolt holes are missing from both the isometric and top-down views. The cross-section confirms the overall flange shape and bore but also lacks any evidence of the specified bolt holes. Therefore, the part does not match the request because the six bolt holes are missing.",
+      "failures": {
+        "api_misuse": 1,
+        "fillet_chamfer": 2
+      },
+      "rc": 0,
+      "volume_mm3": 60870.4,
+      "solids": 1,
+      "faces": 7,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        25.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260719_183659_fast/02.step",
+      "acceptance": {
+        "score": 0.25,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 1,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 197.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "illet(edges[-1], radius=fillet_radius)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 439, in fillet\n    new_part = target.fillet(radius, list(object_list))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 349, in fillet\n    raise ValueError(\nValueError: Failed creating a fillet with radius of 2, try a smaller value or use max_fillet() to find the largest valid fillet radius\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 115.3,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "build_source.py\", line 8, in <module>\n    result = chamfer(edges, length=1)\n             ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 338, in chamfer\n    new_part = target.chamfer(length, length2, list(object_list), reference)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 265, in chamfer\n    raise ValueError(\nValueError: Failed creating a chamfer, try a smaller length value(s)\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 132.3,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": " File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_awnzlsf8/build_source.py\", line 14, in <module>\n    result = Box(X, Y, Z) - Pos(0, 0, wall_thickness) * Box(X - 2*wall_mm, Y - 2*wall_mm, Z - 2*wall_mm)\n                                      ^^^^^^^^^^^^^^\nNameError: name 'wall_thickness' is not defined. Did you mean: 'floor_thickness'?\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 254.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 439, in fillet\n    new_part = target.fillet(radius, list(object_list))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 349, in fillet\n    raise ValueError(\nValueError: Failed creating a fillet with radius of 2, try a smaller value or use max_fillet() to find the largest valid fillet radius\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}
