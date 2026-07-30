@@ -1,0 +1,235 @@
+{
+ "ran_at": "2026-07-30T04:02:06.071665+00:00",
+ "model": "claude-sonnet-5",
+ "dry_run": true,
+ "specs": 12,
+ "specs_done": 12,
+ "usd_spent": 0.0,
+ "budget": null,
+ "stopped_early": null,
+ "elapsed_s": 1982.5,
+ "outcomes": {
+  "dry-run": 12
+ },
+ "pairs_written": 0,
+ "good": 0,
+ "fail_fix": 0,
+ "per_spec": [
+  {
+   "id": "C01",
+   "tier": 4,
+   "group": "bearing",
+   "spec": "a deep-groove rolling element bearing as three distinct solids: an outer ring 52mm outside diameter and 15mm wide with an internal groove, an inner ring 25mm bore with a matching external groove, and eight 7.5mm spheres seated evenly in the groove between them",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   }
+  },
+  {
+   "id": "C02",
+   "tier": 4,
+   "group": "engine",
+   "spec": "a piston and connecting rod as two separate solids: a 70mm diameter piston 55mm tall with two 3mm ring grooves and a 20mm gudgeon pin bore across its skirt, and a 140mm long rod with a 20mm small-end bore and a 45mm big-end bore",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C03",
+   "tier": 4,
+   "group": "engine",
+   "spec": "a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm diameter big-end journal offset 35mm from the axis, joined by two 60x20mm webs, as one fused solid",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C04",
+   "tier": 4,
+   "group": "transmission",
+   "spec": "a two stage reduction as two separate spur gears on parallel axes: a 20 tooth pinion of 3mm module and 18mm face width with a 15mm bore, meshing with a 60 tooth wheel of the same module and face width with a 30mm bore, spaced at their correct centre distance",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C05",
+   "tier": 4,
+   "group": "transmission",
+   "spec": "a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60mm long with a 6mm axial pitch, and a 40 tooth wheel 90mm outside diameter and 15mm wide, mounted on axes at right angles",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C06",
+   "tier": 4,
+   "group": "transmission",
+   "spec": "a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm module across its top face, and a matching 18 tooth pinion with a 20mm bore positioned in mesh above it",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C07",
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a universal joint as three solids: two identical yokes each with a 30mm shaft 40mm long splitting into two 12mm thick arms 45mm apart bored 10mm, and a cross shaped centre spider with four 10mm trunnions on a common 45mm span",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C08",
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a 15mm bore with 8mm of lift, and a flat faced follower 25mm diameter on a 12mm stem 70mm long resting on the cam",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C09",
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick with six radial slots 12mm wide, and a driver plate 60mm diameter carrying a single 11mm pin at a 40mm radius",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C10",
+   "tier": 4,
+   "group": "power",
+   "spec": "a lead screw and travelling nut as two solids: a 20mm diameter screw 250mm long with a 4mm pitch square thread, and a rectangular nut 50x50x30mm with a matching internal thread and four 6mm mounting holes",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C11",
+   "tier": 4,
+   "group": "power",
+   "spec": "a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, a 8mm keyway and three 9mm bolt holes on a 50mm circle, plus a 70mm diameter 10mm thick elastomer disc between them",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "C12",
+   "tier": 4,
+   "group": "turbo",
+   "spec": "a radial impeller and its scroll housing as two solids: a 90mm diameter impeller with twelve backswept vanes 3mm thick on a 15mm hub, and a surrounding volute housing whose passage area grows from 200 to 900 square mm around 360 degrees",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 0,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  }
+ ]
+}

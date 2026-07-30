@@ -1,0 +1,200 @@
+{
+  "ran_at": "2026-07-30T04:35:06.891937+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 0,
+  "geometry": 0,
+  "total_time_s": 2050.9,
+  "acceptance_passed": 0,
+  "acceptance_total": 22,
+  "acceptance_score": 0.0,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 563.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "7-30 14:10:10,368 [WARNING] [v5] Loop ended with no geometry \u2014 restoring the last gate-verified build instead of discarding it.\n2026-07-30 14:10:10,368 [INFO] [v5] Turn budget exhausted but the last build passed the deterministic gate \u2014 accepting as converged via gate.\n2026-07-30 14:10:14,840 [INFO] [v5] DXF flat pattern: Flat pattern: 100.0 x 60.0 mm  from largest face (area 5799 mm\u00b2)\n2026-07-30 14:10:19,130 [INFO] [v5] Learned: For through-holes, place the cutting Cylinder at z=0 with height greater than the part thickness so it pierces fully.\n\n\u2717 Build failed: name 'fewshots' is not defined\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 160.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "tep\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_78gplnjj/build_source.py\", line 26, in <module>\n    flange.fillet(fillet_radius_mm, top_edges)\n    ^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/build_common.py\", line 830, in __getattr__\n    raise AttributeError(\nAttributeError: 'BuildPart' has no attribute 'fillet'. Did you intend '<BuildPart>.part.fillet'?\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 636.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "y 2 do \u2014 if a through-hole is required, give the cutter height \u2265 2\u00d7 the thickness, centred. \u2014 stopping NOT converged.\n2026-07-30 14:23:29,168 [WARNING] [v5] Turn budget exhausted; build passes the structural gate but measured spec advisories remain ([spec] the spec may want 4 hole(s) to pass fully THROUGH but only 2 do \u2014 if a through-hole is required, give the cutter height \u2265 2\u00d7 the thickness, centred.) \u2014 reporting NOT converged.\n2026-07-30 14:23:35,134 [INFO] [v5] DXF flat pattern: Flat pattern: 26.0 x 80.0 mm  from largest face (area 1705 mm\u00b2)\n\n\u2717 Build failed: name 'fewshots' is not defined\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 264.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "a gate-failing build \u2014 restoring the last gate-verified build instead of discarding it.\n2026-07-30 14:27:49,186 [INFO] [v5] Turn budget exhausted but the last build passed the deterministic gate \u2014 accepting as converged via gate.\n2026-07-30 14:27:53,898 [INFO] [v5] DXF flat pattern: Flat pattern: 18.0 x 18.0 mm  from largest face (area 240 mm\u00b2)\n2026-07-30 14:27:59,876 [INFO] [v5] Learned: For chamfers on circular edges, explicitly select the edge using filter_by(GeomType.CIRCLE) and group_by(SortBy.RADIUS) to ensure the correct edge is filleted.\n\n\u2717 Build failed: name 'fewshots' is not defined\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 219.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "e:  69110.304 mm\u00b3 | Bbox:    100.00 x 70.00 x 30.00 mm\n2026-07-30 14:29:05,086 [INFO] [v5] Inspect valid=True\n2026-07-30 14:29:05,087 [INFO] [v5] Verification gate passed (solids=1 cyl_faces=19 bbox=[100.0, 70.0, 30.0]).\n2026-07-30 14:31:25,024 [INFO] [v5] Critic: PASS: verification questions confirmed \u2014 Are there four cylindrical mounting standoffs positioned at \n2026-07-30 14:31:34,448 [INFO] [v5] Model satisfied \u2014 finalizing.\n2026-07-30 14:31:38,911 [INFO] [v5] DXF flat pattern: Flat pattern: 100.0 x 70.0 mm  from largest face (area 6998 mm\u00b2)\n\n\u2717 Build failed: name 'fewshots' is not defined\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 3
+      },
+      "geometry": false
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 208.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "EP:    /tmp/cadv4__b3xq092/build_output.step | Volume:  146096.055 mm\u00b3 | Bbox:    128.00 x 60.00 x 78.00 mm\n2026-07-30 14:35:02,023 [INFO] [v5] Inspect valid=True\n2026-07-30 14:35:02,023 [WARNING] [v5] Verification gate FAILED: the spec needs a \u00d814mm bore but no bore of that size was measured \u2014 add it (cut a \u00d814mm cylinder into the part where the spec places it).\n2026-07-30 14:35:02,023 [INFO] [v5] failure category: gate_feature\n2026-07-30 14:35:06,878 [INFO] [v5] DXF flat pattern: Flat pattern: 52.0 x 120.0 mm  from largest face (area 5056 mm\u00b2)\n\n\u2717 Build failed: name 'fewshots' is not defined\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}

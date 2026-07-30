@@ -82,7 +82,8 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 # ── Models + loop constants — single source of truth is cad_v5/config.py ──────
 # (previously duplicated here; the two copies drifted independently. Model/timeout/loop
 # tuning now happens in ONE place and both the v4 engine and the v5 package follow.)
-from cad_v5.config import (        # noqa: E402
+from cad_v5.config import (  # noqa: F401
+    use_brief as _cfg_use_brief,        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
@@ -201,6 +202,90 @@ def _code_model() -> str:
 CLOUD_PREFIX = "cloud/"
 _CLOUD_CALLS_LEFT = 0   # per-build cost cap, reset by build() from cad.json cloud.max_calls_per_build
 
+# ── Cloud spend ledger ────────────────────────────────────────────────────────
+# A regular API key CANNOT read /v1/organizations/cost_report (401 — that needs an Admin
+# key), so the only way to know what a long run has cost is to meter it ourselves. Every
+# cloud reply carries its own token counts; we bank them per call so a 1000-spec run can be
+# stopped on a real number instead of an estimate.
+CLOUD_SPEND_FILE = Path.home() / ".openclaw" / "cad-cloud-spend.jsonl"
+
+# USD per million tokens (input, output). Deliberately LIST price, not the promotional rate:
+# budgeting must never under-count, or the cap trips after the money is gone.
+CLOUD_PRICES = {
+    "claude-opus-5":    (5.0, 25.0),
+    "claude-sonnet-5":  (3.0, 15.0),
+    "claude-opus-4-8":  (5.0, 25.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+}
+_CLOUD_SPEND_THIS_RUN = 0.0
+
+
+def cloud_call_cost(model: str, usage: dict) -> float:
+    """USD for one call. Cache reads bill ~0.1x input, cache writes ~1.25x."""
+    pin, pout = CLOUD_PRICES.get(model, (5.0, 25.0))     # unknown model -> price high
+    tin = float(usage.get("input_tokens", 0) or 0)
+    tout = float(usage.get("output_tokens", 0) or 0)
+    tread = float(usage.get("cache_read_input_tokens", 0) or 0)
+    twrite = float(usage.get("cache_creation_input_tokens", 0) or 0)
+    return ((tin + 0.1 * tread + 1.25 * twrite) * pin + tout * pout) / 1_000_000
+
+
+def _record_cloud_spend(model: str, usage: dict) -> float:
+    global _CLOUD_SPEND_THIS_RUN
+    cost = cloud_call_cost(model, usage)
+    _CLOUD_SPEND_THIS_RUN += cost
+    try:
+        CLOUD_SPEND_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with CLOUD_SPEND_FILE.open("a") as f:
+            f.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(), "model": model,
+                "in": usage.get("input_tokens"), "out": usage.get("output_tokens"),
+                "usd": round(cost, 6)}) + "\n")
+    except Exception as e:
+        log.warning("[v5] could not write spend ledger: %s", e)
+    return cost
+
+
+def cloud_spend_this_run() -> float:
+    return _CLOUD_SPEND_THIS_RUN
+
+
+def cloud_spend_total() -> tuple[float, int]:
+    """(usd, calls) over the whole ledger — every cloud call this machine has ever made."""
+    if not CLOUD_SPEND_FILE.exists():
+        return 0.0, 0
+    usd = calls = 0
+    for line in CLOUD_SPEND_FILE.read_text().splitlines():
+        try:
+            usd += float(json.loads(line).get("usd", 0)); calls += 1
+        except Exception:
+            continue
+    return usd, calls
+
+
+def reset_cloud_budget(n: Optional[int] = None) -> int:
+    """Arm the cloud call budget outside a build. _build_impl resets the counter itself, so
+    anything else that drives the cloud rung directly — scripts/teacher_gen.py, one-off probes —
+    would otherwise find it at 0 and silently get "" back from every call (the exhausted-budget
+    path returns empty rather than raising, by design). Returns the armed budget."""
+    global _CLOUD_CALLS_LEFT
+    if n is None:
+        n = int(cloud_config().get("max_calls_per_build", 4) or 4)
+    _CLOUD_CALLS_LEFT = max(0, int(n))
+    return _CLOUD_CALLS_LEFT
+
+# M6' (2026-07-29): the exact (system, user) strings of the most recent coder call.
+# Training examples must be formatted as the engine prompts in production, and the production
+# user prompt is assembled from the BRIEF (dimensions JSON, features, and the Notes block
+# carrying retrieved few-shot idioms + pitfalls) — none of which used to be persisted. The
+# spec alone cannot reconstruct it, and re-running build_brief yields a *different* brief than
+# the one that actually produced the stored code. So capture at the point of use.
+_LAST_PROMPT: dict = {}
+
+def _stash_prompt(kind: str, system: str, prompt: str) -> None:
+    global _LAST_PROMPT
+    _LAST_PROMPT = {"kind": kind, "system": system, "prompt": prompt}
+
 def _ladder() -> list:
     """The live escalation ladder: local rungs + a paid cloud rung when configured."""
     rungs = list(CODE_MODEL_LADDER)
@@ -242,17 +327,33 @@ def _cloud_chat(model: str, system: str, prompt: str,
                            f"({cc.get('api_key_env') or 'default env'} unset)")
     _CLOUD_CALLS_LEFT -= 1
     if cc["provider"] == "anthropic":
+        # Two Claude-API facts the local-model seam doesn't share (2026-07-29):
+        # 1. Current Claude models REMOVED temperature/top_p/top_k — sending one is a
+        #    400, and generate_code() always passes temperature=0.15. So drop it here
+        #    rather than making every caller know which provider it's talking to.
+        # 2. Adaptive thinking is on by default and max_tokens caps thinking + response
+        #    TOGETHER, so the old 4096 would truncate a script mid-generation.
         req = urllib.request.Request(
             "https://api.anthropic.com/v1/messages",
             data=json.dumps({
-                "model": model, "max_tokens": 4096, "system": system,
+                "model": model,
+                "max_tokens": int(cc.get("max_tokens", 16000) or 16000),
+                "system": system,
                 "messages": [{"role": "user", "content": prompt}],
-                **({"temperature": temperature} if temperature is not None else {}),
             }).encode(),
             headers={"Content-Type": "application/json", "x-api-key": key,
                      "anthropic-version": "2023-06-01"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             resp = json.loads(r.read())
+        cost = _record_cloud_spend(model, resp.get("usage") or {})
+        u = resp.get("usage") or {}
+        log.info("[v5] cloud call: in=%s out=%s  $%.4f  (run total $%.2f)",
+                 u.get("input_tokens"), u.get("output_tokens"), cost, _CLOUD_SPEND_THIS_RUN)
+        if resp.get("stop_reason") == "refusal":
+            # Safety classifiers declined: HTTP 200, empty/partial content. Surface it rather
+            # than returning "" and letting it look like an exhausted budget.
+            log.warning("[v5] cloud call refused (%s)",
+                        (resp.get("stop_details") or {}).get("category"))
         return "".join(b.get("text", "") for b in resp.get("content", [])).strip()
     # openrouter (OpenAI-schema chat completions)
     req = urllib.request.Request(
@@ -1009,13 +1110,27 @@ POSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape
 
 COMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)
 
-ASSEMBLY (ONLY when the brief notes say "assembly" or expected has multiple bodies): build each
-part as its OWN labelled solid, position it where it mates, and combine them into a Compound —
+ASSEMBLY (whenever the REQUEST describes more than one component — "as two solids", "a X and
+a Y", "a pair of" — or the brief notes say assembly): build each part as its OWN labelled
+solid, position it where it mates, and combine them into a Compound —
 do NOT fuse distinct parts with '+'. Pattern:
   base = Box(60, 40, 10); base.label = "base"
   lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))
   lid.label = "lid"
   result = Compound(children=[base, lid]); result.label = "assembly"
+Give every part a DISTINCT label ("hub1"/"hub2", not "hub2" twice) — the inspector reports parts
+by label and duplicates make an assembly unreviewable.
+PARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends
+at the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.
+Sub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,
+never left as loose bodies in the Compound.
+MESHING GEARS need TWO conditions, both required — 3 of 12 mechanisms failed this on 2026-07-30:
+  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;
+  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a
+     tooth pitch about its own axis:
+       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)
+     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the
+     pinion) so a pinion tooth lands in a rack gap.
 Position parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a
 bore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.
 
@@ -1127,12 +1242,22 @@ def generate_code(brief: dict, spec: str = "", temperature: float = 0.15) -> str
     helper = (brief.get("helper") or "").strip().rstrip(".")
     if _HELPER_RE.match(helper):
         log.info("[v5] Brief selected domain helper: %s", helper)
+        # No LLM call happened, so there is no prompt→code pair worth training on. Mark it
+        # rather than leaving the previous call's prompt stashed and looking authoritative.
+        _stash_prompt("helper", "", helper)
         return ("from build123d import *\n"
                 "from b123d.domain import structural_section, spur_gear, hex_bolt\n"
                 f"result = {helper}\n")
     if _WH_HELPER_RE.match(helper):
         log.info("[v5] Brief selected bd_warehouse helper: %s", helper)
+        _stash_prompt("helper", "", helper)
         return ("from build123d import *\n" + _WH_IMPORT + f"result = {helper}\n")
+
+    # Brief-less mode (2026-07-30): the coder reads the user's own words, with no 8B paraphrase
+    # in between. Dispatched here rather than at each call site so the loop, escalation and
+    # best-of-N sampling all inherit it unchanged.
+    if brief.get("_raw"):
+        return generate_code_raw(spec, brief.get("notes"), temperature=temperature)
 
     dim_str   = json.dumps(brief.get("dimensions", {}), indent=2)
     feat_str  = "\n".join(f"- {f}" for f in brief.get("features", []))
@@ -1152,9 +1277,91 @@ def generate_code(brief: dict, spec: str = "", temperature: float = 0.15) -> str
         + (f"Notes:\n{notes_str}\n" if notes_str else "")
         + "\nWrite the build123d code:"
     )
+    _stash_prompt("codegen", _CODE_SYSTEM, prompt)
     raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=_code_timeout(),
                   temperature=temperature)
     return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(json.dumps(brief)))
+
+# Deterministic replacement for the ONE job the brief did that was worth keeping: choosing a
+# correct-by-construction bd_warehouse/domain helper. Losing that with the brief would quietly
+# downgrade gears and bolts from exact geometry to LLM-written approximations, so read the
+# helper straight out of the user's numbers instead of asking an 8B to guess it.
+# Searched independently, because English puts these in any order: "24 teeth, module 2.5mm,
+# 12mm face width" / "module of 3mm ... 18mm width ... 20 tooth".
+_GEAR_TEETH_RE = re.compile(r"(\d+)\s*[- ]?t(?:ooth|eeth)\b", re.I)
+_GEAR_MODULE_RE = re.compile(
+    r"module\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*mm?|(\d+(?:\.\d+)?)\s*mm\s*module", re.I)
+_GEAR_WIDTH_RE = re.compile(
+    r"(?:face\s*)?width\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*mm"
+    r"|(\d+(?:\.\d+)?)\s*mm\s*(?:face\s*)?width", re.I)
+_BOLT_SPEC_RE = re.compile(
+    r"\bM(\d+(?:\.\d+)?)\b.{0,40}?\b(?:hex\s*)?bolt\b(?:.{0,40}?(\d+(?:\.\d+)?)\s*mm\s*long)?"
+    r"|\bhex\s*bolt\b.{0,30}?\bM(\d+(?:\.\d+)?)\b(?:.{0,40}?(\d+(?:\.\d+)?)\s*mm)?", re.I | re.S)
+
+
+def spec_helper(spec: str) -> str:
+    """A domain-helper call derived from the SPEC TEXT alone, or "" if none applies.
+
+    Only fires when the user's own numbers pin every argument — a partial match falls through
+    to normal codegen rather than guessing. Multi-component specs are excluded: a gear pair or
+    a bearing needs real modelling, not one canned part (and the 2026-07-30 run showed helper
+    short-circuits produce NO training pair at all, since no model call happens).
+    """
+    spec = spec or ""
+    if _ASSEMBLY_SPEC_RE.search(spec):
+        return ""
+    if re.search(r"\bgear\b", spec, re.I):
+        t = _GEAR_TEETH_RE.search(spec)
+        mo = _GEAR_MODULE_RE.search(spec)
+        w = _GEAR_WIDTH_RE.search(spec)
+        if t and mo and w:
+            module = float(mo.group(1) or mo.group(2))
+            width = float(w.group(1) or w.group(2))
+            return f"spur_gear({int(t.group(1))}, {module:g}, {width:g})"
+    b = _BOLT_SPEC_RE.search(spec)
+    if b:
+        size = b.group(1) or b.group(3)
+        length = b.group(2) or b.group(4)
+        if size and length:
+            return f"hex_bolt({float(size):g}, {float(length):g})"
+    return ""
+
+
+def generate_code_raw(spec: str, notes: Optional[list] = None,
+                      temperature: float = 0.15) -> str:
+    """Codegen straight from the USER'S WORDS — no brief, no 8B paraphrase in between.
+
+    Rationale (2026-07-30, user call): the brief exists to structure a vague request for a
+    small coder. A frontier teacher does not need it, and the layer costs more than it gives:
+      * it is authored by the weakest model in the chain (qwen3:8b) and is non-deterministic —
+        the same spec produced a "needs walls" brief on one run and a clean one on the next;
+      * this file already records that a raw-spec harness one-shotted a flange the brief-fed
+        coder failed 5x (2026-07-11);
+      * with a paraphrase in the middle, no prompt-wording experiment is attributable, because
+        the words the model sees are not the words that were written.
+
+    Consequence to keep in view: production hands the 7B a brief, so training on brief-less
+    prompts is a train/serve mismatch UNLESS production drops the brief too. Measure that on
+    the local suite before changing the live loop.
+    """
+    notes_str = "\n".join(f"- {n}" for n in (notes or []))
+    prompt = (
+        f"USER REQUEST (verbatim — every number here is AUTHORITATIVE):\n{spec}\n\n"
+        + (f"Notes:\n{notes_str}\n\n" if notes_str else "")
+        + "Write the build123d code:"
+    )
+    _stash_prompt("codegen-raw", _CODE_SYSTEM, prompt)
+    raw = _ollama(_code_model(), _CODE_SYSTEM, prompt, timeout=_code_timeout(),
+                  temperature=temperature)
+    return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(spec))
+
+
+def retrieval_notes_for(spec: str, use_fewshots: bool = True) -> list:
+    """The TECHNIQUE REFERENCES + PITFALLS notes for a spec, with no brief to hang them on."""
+    holder: dict = {"notes": []}
+    inject_retrieval_notes(holder, spec, use_fewshots=use_fewshots)
+    return holder.get("notes") or []
+
 
 _HELPER_RESULT_RE = re.compile(
     r"result\s*=\s*(structural_section|spur_gear|hex_bolt|"
@@ -1319,6 +1526,18 @@ Correct build123d API — ALGEBRA MODE (build123d 0.10):
     Z must be 0 (centred), NOT the top-face height; only x,y position it. A cutter offset up
     to z=height makes a shallow/missing hole — the most common mistake.
   Domain helpers: structural_section(d,bf,tf,tw,length), spur_gear(teeth,module,width,bore=0), hex_bolt(size,length).
+  MESHING GEARS — getting this wrong is the most common mechanism failure (3 of 12 in the
+  2026-07-30 run had teeth interpenetrating). Two conditions, BOTH required:
+   1. Same module on both gears, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2.
+   2. PHASE the teeth. Two gears at the right centre distance still collide if a tooth faces a
+      tooth. Rotate the second gear by half a tooth pitch about its own axis:
+        half_pitch_deg = 180.0 / teeth_b
+        gear_b = Pos(centre_distance, 0, 0) * Rot(0, 0, half_pitch_deg) * spur_gear(teeth_b, m, w)
+      For a RACK, the tooth pitch is pi * module along its length; offset the rack (or phase the
+      pinion) so a pinion tooth lands in a rack gap.
+  ASSEMBLIES must not interpenetrate: mating parts TOUCH, they do not overlap. A connecting rod
+  ends at the piston's pin bore, it does not pass through the crown. Sub-features of one part
+  (fins on a hub, arms on a yoke) must be FUSED with '+' into that part, not left as loose bodies.
   Do NOT use: Plane.at_origin(), Rectangle.offset(), or .offset() on a 2D shape — none exist.
   Position solids with Pos(...)*shape, not by offsetting sketches."""
 
@@ -1326,6 +1545,15 @@ _REVISE_SYSTEM = """\
 You are debugging build123d Python code. Fix the problem described — if it is an
 AttributeError or TypeError, you used an API that does not exist; use the correct one below.
 Return ONLY the corrected, complete Python script — no explanation, no markdown fences.
+
+The script MUST assign its final fused solid to a variable named `result` — the runner
+exports `result` and nothing else. If you rewrite the script in builder mode, end with
+`result = <your_builder>.part`. A script that builds correct geometry but never binds
+`result` produces NO output and counts as a total failure.
+
+Change only what the problem requires. If a stated dimension refers to a FEATURE (a hole,
+groove, boss, wall, step or chamfer) rather than the part's overall size, do not resize the
+whole part to match it — the overall envelope is probably already correct.
 
 """ + _B123D_REF
 
@@ -1339,6 +1567,7 @@ def revise_script(spec: str, code: str, problem: str, state: str = "") -> str:
         f"Current code:\n```python\n{code}\n```\n\n"
         f"Return the complete fixed script:"
     )
+    _stash_prompt("revise", _REVISE_SYSTEM, prompt)
     raw = _ollama(_code_model(), _REVISE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
     return _patch_code(_strip_fences(raw), wants=_wanted_edge_features(spec))
 
@@ -1380,6 +1609,7 @@ def decide_or_edit(spec: str, code: str, state: str,
         f"Visual critique:\n{crit_block}\n\n"
         f"Reply {DONE_SENTINEL} if correct, otherwise return the corrected full script:"
     )
+    _stash_prompt("edit", _DECIDE_SYSTEM, prompt)
     raw = _ollama(_code_model(), _DECIDE_SYSTEM, prompt, timeout=_code_timeout(), temperature=0.15)
     # A 'done' verdict is the sentinel, possibly with a short remark; a real edit contains
     # code. Detect code by a fence or an actual import STATEMENT — the old substring test
@@ -1519,12 +1749,49 @@ _SPEC_HOLES_RE = re.compile(r"(an?|one|two|three|four|five|six|\d+)\s+(\d+(?:\.\
 _HOLE_COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
                      "five": 5, "six": 6}
 
+# Nouns that mark a dimension as belonging to a FEATURE rather than the part's envelope.
+# "a 3mm wide groove" / "standoffs 8mm across" / "a chamfer 3mm deep" are all satisfied
+# somewhere inside the part, so they can never match a bbox extent. Checking them against
+# the envelope vetoed 11 correct parts outright in the 2026-07-29 teacher pilot and started
+# the failure chain on ~6 more. Deliberately excludes "thick", which usually IS an envelope
+# dimension ("a 10mm thick plate").
+_FEATURE_NOUN_RE = re.compile(
+    r"\b(hole|bore|groove|slot|chamfer|fillet|standoff|boss|step|keyway|lip|rim|"
+    r"seat(?:ing)?|section|neck|shoulder|web|rib|gusset|wall|floor|thread|pitch|"
+    r"counterbore|countersink|recess|pocket|flute|spigot|shank|"
+    # sub-part nouns: in a compound part or assembly these name a COMPONENT, whose size is
+    # not the assembly's envelope ("a 40mm tall post" on an 8mm plate measures 48mm overall).
+    r"post|leg|upright|ear|arm|stem|pin|peg|column|stud|hub|spindle)\w*\b", re.I)
+
+
+# An ASSEMBLY spec names several components, so its bounding box is an emergent property of
+# how those components are laid out — not a size the user stated. Every dimension in such a
+# spec belongs to a PART ("a 140mm long rod", "a 30mm main journal", "two identical 40x25x5mm
+# ears"), so checking any of them against the envelope is guaranteed to misfire. A growing
+# feature-noun list loses this fight: 5 of 6 real phrases from the 2026-07-30 mechanism run
+# still slipped through. Detect the assembly instead and make no envelope claim at all.
+_ASSEMBLY_SPEC_RE = re.compile(
+    r"\bas\s+(?:two|three|four|five|six|\d+)\s+(?:distinct\s+|separate\s+|identical\s+)*"
+    r"(?:solids?|parts?|pieces?|bodies)\b"
+    r"|\b(?:two|three|four|five|six)\s+(?:identical|separate|distinct)\b"
+    r"|\bassembly\b|\b\w+\s+and\s+(?:its|their)\s+\w+"
+    r"|\b(?:pair|set)\s+(?:of|as)\b", re.I)
+
+
 def _spec_axis_dims(spec: str) -> list[tuple[float, str]]:
     """(value_mm, phrase) for every overall size the user explicitly wrote. Each value must
     match SOME measured bbox axis — permutation-free by design, since "80mm long" pins a
     length without saying which axis the coder laid it along."""
+    spec = spec or ""
+    if _ASSEMBLY_SPEC_RE.search(spec):
+        return []                    # multi-component: no single envelope was specified
     out = []
-    for m in _AXIS_DIM_RE.finditer(spec or ""):
+    for m in _AXIS_DIM_RE.finditer(spec):
+        # A feature noun hugging the phrase on either side means this number describes an
+        # internal feature, not the envelope — the feature checks below own it instead.
+        window = spec[max(0, m.start() - 28):m.end() + 28]
+        if _FEATURE_NOUN_RE.search(window):
+            continue
         out.append((float(m.group(1)), m.group(0)))
     # Only enforce NxNxN when the spec states exactly ONE: a compound part ("a 60x40x6mm base
     # flange and a 6x40x60mm upright") has sub-part dims that are NOT overall extents — the
@@ -1562,6 +1829,66 @@ def _spec_mentions_count(spec: str, n: int) -> bool:
         return True
     return any(v == n and re.search(rf"\b{w}\b", spec or "", re.I)
                for w, v in _COUNT_WORDS.items())
+
+_SPEC_WALL_RE = re.compile(r"wall|shell|thick|hollow|open[ -]?top", re.I)
+_SPEC_PARTCOUNT_RE = re.compile(
+    r"\b(two|three|four|five|six|2|3|4|5|6)\s+(?:part|piece|separate|distinct|solid)", re.I)
+
+
+def corroborate_expected(expected: dict, spec: str) -> dict:
+    """Return a copy of `expected` keeping ONLY claims the SPEC TEXT supports.
+
+    Why (2026-07-30): `expected` is written by the brief (qwen3:8b) — the least capable model
+    in the chain — and it is then used to grade the most capable one. That is the examiner
+    being weaker than the candidate, and it showed: the brief asserted a "80x50x6mm mounting
+    plate" should be HOLLOW, invented bore diameters, and guessed part counts that hard-failed
+    correct assemblies. Individual checks already corroborate against the spec
+    (`_spec_mentions_dim`/`_spec_mentions_count`); this applies the same discipline to the
+    WHOLE block up front, so a hallucinated field cannot reach the gate at all.
+
+    Use for teacher/distillation runs, where the coder is stronger than the brief. The live
+    7B loop still wants the brief's guesses — there, they are better than nothing.
+    """
+    src = expected if isinstance(expected, dict) else {}
+    out: dict = {}
+
+    # forbid_blind_holes is already derived from the spec text deterministically — keep as-is.
+    if "forbid_blind_holes" in src:
+        out["forbid_blind_holes"] = src["forbid_blind_holes"]
+
+    # bbox_mm is ALWAYS the brief's guess at overall size. Numbers the user actually wrote are
+    # enforced by the [spec] axis-dim checks, which read the spec directly. Drop it.
+
+    # wall_mm drives the hollow/cavity complaint — only meaningful if the spec talks walls.
+    if src.get("wall_mm") and _SPEC_WALL_RE.search(spec or ""):
+        out["wall_mm"] = src["wall_mm"]
+
+    # A part count may only come from the spec saying so ("as three distinct solids").
+    if isinstance(src.get("solids"), int):
+        if src["solids"] <= 1 or _SPEC_PARTCOUNT_RE.search(spec or ""):
+            out["solids"] = src["solids"]
+
+    for key in ("min_holes", "min_through_holes"):
+        n = src.get(key)
+        if isinstance(n, int) and n > 0 and _spec_mentions_count(spec, n):
+            out[key] = n
+
+    bores = [d for d in (src.get("bores_mm") or []) if _spec_mentions_dim(spec, d)]
+    if bores:
+        out["bores_mm"] = bores
+
+    checks = []
+    for fc in (src.get("feature_checks") or []):
+        d, n = fc.get("d_mm"), fc.get("count")
+        if d is not None and not _spec_mentions_dim(spec, d):
+            continue                                    # invented feature size
+        if d is None and isinstance(n, int) and not _spec_mentions_count(spec, n):
+            continue                                    # invented feature count
+        checks.append(fc)
+    if checks:
+        out["feature_checks"] = checks
+    return out
+
 
 def _fmt_hole_groups(groups: list) -> str:
     """Human-readable measured hole table: 'Ø20×1 centred; Ø5×4 on circle Ø42'."""
@@ -1607,6 +1934,62 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
         hard.append("the build produced no solid body at all — nothing was created or everything "
                     "was cut away. Re-check that the base shape exists and cuts don't remove it.")
 
+    # ── Assembly can it actually exist? (2026-07-30, from a user review of the mechanism run) ──
+    # Every mechanism in that run was dimensionally clean and several were mechanically
+    # impossible. These two checks are the measurable part of that feedback.
+    #
+    # INTERFERENCE is unambiguous and therefore HARD: two components occupying the same space
+    # cannot be assembled, full stop. It caught a connecting rod passing through a piston crown
+    # (7154 mm3 of overlap) that every dimensional check waved through.
+    for entry in (facts.get("interference") or []):
+        try:
+            a, b, ov = entry[0], entry[1], float(entry[2])
+        except Exception:
+            continue
+        hard.append(
+            f"'{a}' and '{b}' overlap by {ov:.0f}mm³ — two parts cannot occupy the same space, "
+            f"so this assembly could not be built. Move them apart or shorten the intruding "
+            f"part; mating faces should touch, not interpenetrate.")
+
+    # NOT ASSEMBLED: components that merely sit side by side. A user review found a Geneva
+    # mechanism whose two parts were individually correct and 20.7mm apart — it had been
+    # modelled, not assembled. Parts that mesh, seat or fasten must touch (gap ~0); a shaft in
+    # a bore has clearance measured in tenths, not tens. Advisory, since a spec can legitimately
+    # ask for exploded or spaced components.
+    for entry in (facts.get("part_gaps") or []):
+        try:
+            a, b, gap = entry[0], entry[1], float(entry[2])
+        except Exception:
+            continue
+        if gap > 1.0:
+            soft.append(
+                f"'{a}' and '{b}' are {gap:.1f}mm apart and never touch — if they are meant to "
+                f"mesh, seat or fasten, this assembly is not assembled: position the second part "
+                f"so the mating faces meet (running clearance is tenths of a mm, not tens).")
+
+    # A named part with the face count of a bare primitive is missing its features: a swept
+    # helical thread whose sweep() failed silently leaves `core + thread` == core, and the code
+    # reads perfectly (C05, 2026-07-30 — worm volume was exactly a plain cylinder's).
+    for p in (facts.get("parts") or []):
+        if isinstance(p, dict) and (p.get("faces") or 0) and p["faces"] <= 3 \
+                and re.search(r"thread|groove|tooth|teeth|knurl|flute|spline|vane|fin",
+                              spec or "", re.I):
+            soft.append(
+                f"part '{p.get('label')}' has only {p['faces']} faces — that is a bare "
+                f"primitive, so the thread/teeth/grooves the request asks for are NOT in the "
+                f"geometry. A boolean with a failed operand silently returns the original "
+                f"solid: build the feature, then confirm the volume changed.")
+
+    # FRAGMENTATION is ADVISORY, because it is genuinely ambiguous: a rolling bearing's eight
+    # balls SHOULD be eight bodies, while an impeller's twelve fins should be fused to its hub.
+    # Flag it for a human rather than guess (the bearing was accepted, the impeller rejected).
+    for p in (facts.get("parts") or []):
+        if isinstance(p, dict) and (p.get("solids") or 0) > 1:
+            soft.append(
+                f"part '{p.get('label')}' is {p['solids']} disjoint bodies — correct if the spec "
+                f"repeats a component (balls, bolts), WRONG if these should be fused into one "
+                f"part (fins on a hub, arms on a yoke): join them with '+'.")
+
     # Fragmented: more bodies than expected. For a single part (expected 1) this means features
     # were placed but never unioned (unfused plates / floating gussets). For an assembly (expected
     # N>1) it means a part fragmented into extra pieces.
@@ -1620,10 +2003,17 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
                 f"features are not unioned together (unfused plates or floating gussets/bodies). "
                 f"Combine them with '+' so the result is a single watertight solid.")
         else:
-            hard.append(
-                f"this assembly should have {exp_solids} parts but produced {got_solids} separate "
-                f"bodies — a part has fragmented into extra pieces. Make each named part exactly one "
-                f"solid, then put them in a Compound.")
+            # ADVISORY, not hard (2026-07-30). The brief's part count is a guess at how many
+            # components the user described, and it cannot know that "eight 7.5mm spheres" or
+            # "twelve vanes" means eight/twelve BODIES. Hard-failing here killed a correct
+            # rolling-element bearing (2 rings + 8 balls = 10 solids vs a predicted 3) and would
+            # kill every assembly with repeated components. A single part (exp<=1) still hard-
+            # fails above: there, extra bodies really do mean unfused features.
+            soft.append(
+                f"this assembly was expected to have ~{exp_solids} parts but produced "
+                f"{got_solids} separate bodies. That is correct if the spec repeats a component "
+                f"(balls, bolts, vanes); it is wrong if one named part fragmented — in that case "
+                f"make each named part exactly one solid, then put them in a Compound.")
     # ADVISORY: an assembly whose distinct parts got fused into TOO FEW bodies (lost separation).
     if (isinstance(exp_solids, int) and exp_solids > 1 and isinstance(got_solids, int)
             and 0 < got_solids < exp_solids):
@@ -1678,12 +2068,25 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # harvest audit found two shipped brackets at 100mm and 168mm for that same spec). "[spec]"
     # tagged: a measurement contradicting a number the user wrote must block accept-via-gate.
     if got:
+        # Second guard, measurement-based rather than textual: a number the spec states may
+        # be realised as a FEATURE (a Ø20 bore, a Ø8 boss, a 3mm wall) instead of an envelope
+        # axis. inspect already measures those, so ask the geometry before contradicting the
+        # user — the text guard in _spec_axis_dims can only catch the cases that name a noun.
+        feature_sizes = []
+        for key in ("bores", "walls"):
+            feature_sizes += [float(v) for v in (facts.get(key) or [])]
+        for hg in (facts.get("hole_groups") or []):
+            feature_sizes += [float(hg.get(k)) for k in ("d", "circle_d") if hg.get(k)]
+
         for want, phrase in _spec_axis_dims(spec):
-            if all(abs(want - g) > max(1.0, 0.05 * want) for g in got):
-                soft.append(
-                    f"[spec] the request says '{phrase}' but no axis of the part measures "
-                    f"{want:g}mm (extents: {'×'.join(f'{d:.1f}' for d in sorted(got, reverse=True))}mm) "
-                    f"— size the geometry from the numbers in the request.")
+            if any(abs(want - g) <= max(1.0, 0.05 * want) for g in got):
+                continue                                   # matches an envelope axis
+            if any(abs(want - f) <= max(0.6, 0.05 * want) for f in feature_sizes):
+                continue                                   # present, just as a feature
+            soft.append(
+                f"[spec] the request says '{phrase}' but no axis of the part measures "
+                f"{want:g}mm (extents: {'×'.join(f'{d:.1f}' for d in sorted(got, reverse=True))}mm) "
+                f"— size the geometry from the numbers in the request.")
 
     # Exact hole count + spacing from the USER'S TEXT (hole_groups measure both precisely).
     # Count: "two 6mm holes" with five Ø6 present is a WRONG part even though min_holes
@@ -2207,6 +2610,53 @@ def _load_fewshots(spec: str, n: int = 2) -> list[dict]:
 
 # ── Session ───────────────────────────────────────────────────────────────────
 
+def inject_retrieval_notes(brief: dict, spec: str,
+                           use_fewshots: bool = True) -> tuple[list, list]:
+    """Append the retrieved TECHNIQUE REFERENCES + PITFALLS blocks to brief["notes"], in place.
+
+    Extracted from _build_impl (2026-07-29) so that ANY caller assembling a production-shaped
+    coder prompt gets the identical Notes section. scripts/gift_sample.py hand-rolled its own
+    brief and skipped this entirely, so every pair it produced came from a prompt whose Notes
+    block was missing the idioms and pitfalls production always carries — a silent train/serve
+    mismatch. One implementation, one behaviour.
+
+    Returns the (fewshot_rows, lesson_strings) actually injected — the ROWS, not counts, because
+    the caller records which corpus entries fed a build in result["fewshots_used"]. Returning
+    counts here is what broke the live loop on 2026-07-30: the extraction dropped the local
+    `fewshots` list that line was still reading, so every build converged and then died at
+    finalisation with NameError.
+    """
+    fewshots = [fs for fs in _load_fewshots(spec) if fs.get("code")] if use_fewshots else []
+    if fewshots:
+        # STYLE-ONLY references: every numeric literal in the reference code is replaced with
+        # <DIM>. "Adapt the technique, not the geometry" as prose provably failed — coders
+        # copied the gold flange's six Ø6 holes into a four-Ø5 spec (both 7B AND 30B,
+        # 2026-07-11). With no numbers left to copy, only the idiom survives injection.
+        fs_note = (
+            "TECHNIQUE REFERENCES — idioms from past *verified* builds, NOT answers to copy.\n"
+            "Every number in the reference code has been replaced with <DIM>. Study HOW each\n"
+            "one performs its operation (edge selection, boolean, helper call, polar layout),\n"
+            "then write ORIGINAL code for THIS part — every dimension, count and radius must\n"
+            "come from the user's request, never from a reference. Never write <DIM> itself.\n")
+        for fs in fewshots:
+            teaches = fs.get("teaches")
+            fs_note += "\n"
+            fs_note += (f"• Idiom: {teaches}\n" if teaches
+                        else "• Idiom from a past verified build:\n")
+            fs_note += f"  how it's expressed in build123d:\n{_neutralise_numbers(fs['code'][:600])}\n"
+        brief["notes"] = brief.get("notes", []) + [fs_note.strip()]
+
+    # Stage B: inject pitfalls learned from past failures on similar parts.
+    lessons = (cad_retrieval.retrieve_lessons(spec)
+               if (use_fewshots and cad_retrieval is not None) else [])
+    if lessons:
+        brief["notes"] = brief.get("notes", []) + [
+            "PITFALLS to avoid (learned from past builds of similar parts):\n"
+            + "\n".join(f"- {l}" for l in lessons)]
+        log.info("[v5] Injected %d learned pitfall(s).", len(lessons))
+    return fewshots, lessons
+
+
 def _write_session(data: dict) -> None:
     SESSION_FILE.write_text(json.dumps(data, indent=2))
 
@@ -2296,41 +2746,25 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     addendum = image_analysis_text(image_analysis, image_only=image_only)
     brief_spec = spec + ("\n\n" + addendum if addendum else "")
 
-    brief    = brief_override if brief_override is not None else build_brief(brief_spec)
+    if brief_override is not None:
+        brief = brief_override
+    elif _cfg_use_brief():
+        brief = build_brief(brief_spec)
+    else:
+        # Brief-less: the user's words go straight to the coder. The one thing the brief did
+        # that was worth keeping — picking a correct-by-construction helper — is now derived
+        # deterministically from the spec text by spec_helper().
+        brief = {"_raw": True, "notes": [], "expected": {},
+                 "helper": spec_helper(spec), "name": spec[:40], "description": spec}
+        log.info("[v5] brief-less codegen (cad.use_brief=false)%s",
+                 f" — helper: {brief['helper']}" if brief["helper"] else "")
     reconcile_expected(brief, spec)   # deterministically harden the brief's expected block
     want_section = wants_section(spec, brief)   # render a cut-through panel for hollow/internal parts
     questions = verify_questions(spec, brief)   # B5: binary checks the critic answers per turn
     if want_section:
         log.info("[v5] Section view ON — critic gets a mid-plane cut-through panel.")
     name     = brief.get("name", spec[:40])
-    fewshots = [fs for fs in _load_fewshots(spec) if fs.get("code")] if use_fewshots else []
-    if fewshots:
-        # STYLE-ONLY references: every numeric literal in the reference code is replaced with
-        # <DIM>. "Adapt the technique, not the geometry" as prose provably failed — coders
-        # copied the gold flange's six Ø6 holes into a four-Ø5 spec (both 7B AND 30B,
-        # 2026-07-11). With no numbers left to copy, only the idiom survives injection.
-        fs_note = (
-            "TECHNIQUE REFERENCES — idioms from past *verified* builds, NOT answers to copy.\n"
-            "Every number in the reference code has been replaced with <DIM>. Study HOW each\n"
-            "one performs its operation (edge selection, boolean, helper call, polar layout),\n"
-            "then write ORIGINAL code for THIS part — every dimension, count and radius must\n"
-            "come from the user's request, never from a reference. Never write <DIM> itself.\n")
-        for fs in fewshots:
-            teaches = fs.get("teaches")
-            fs_note += "\n"
-            fs_note += (f"• Idiom: {teaches}\n" if teaches
-                        else "• Idiom from a past verified build:\n")
-            fs_note += f"  how it's expressed in build123d:\n{_neutralise_numbers(fs['code'][:600])}\n"
-        brief["notes"] = brief.get("notes", []) + [fs_note.strip()]
-
-    # Stage B: inject pitfalls learned from past failures on similar parts.
-    lessons = (cad_retrieval.retrieve_lessons(spec)
-               if (use_fewshots and cad_retrieval is not None) else [])
-    if lessons:
-        brief["notes"] = brief.get("notes", []) + [
-            "PITFALLS to avoid (learned from past builds of similar parts):\n"
-            + "\n".join(f"- {l}" for l in lessons)]
-        log.info("[v5] Injected %d learned pitfall(s).", len(lessons))
+    fewshots, _lessons = inject_retrieval_notes(brief, spec, use_fewshots=use_fewshots)
 
     # ── Code-model strategy: manual > config pin > auto (triage + escalation) ──
     global _ACTIVE_CODE_MODEL
@@ -2485,8 +2919,12 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
 
             # Per-turn artifact capture (2026-07-19): the loop's intermediates are the raw
             # material for GIFT-FAIL fine-tune pairs and used to die with the tempdir.
+            # _LAST_PROMPT is whatever coder call produced the `code` we just ran — the initial
+            # codegen, an N1 auto-fix revise, or the previous turn's edit. Snapshot it here and
+            # the pair rows carry the prompt that actually generated their code (M6', 2026-07-29).
             turn_rec = {"turn": turn, "code": code, "step": None, "png": None,
-                        "gate_fails": [], "notes": [], "critique": None}
+                        "gate_fails": [], "notes": [], "critique": None,
+                        "prompt": dict(_LAST_PROMPT)}
             turn_records.append(turn_rec)
             try:
                 tdir = work_dir / "turns"
@@ -2770,7 +3208,14 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                 "spec": spec, "image": image or "", "image_only": image_only,
                 "converged": done, "accepted_via": accepted_via,
                 "code_model": _ACTIVE_CODE_MODEL,
-                "turns": [{k: v for k, v in tr.items() if k != "code"}
+                # The brief IS the production prompt's source material (dimensions/features/
+                # notes incl. injected few-shots). Persisted for audit; the verbatim prompt
+                # strings live on the pair rows, not here — three copies of _CODE_SYSTEM would
+                # bloat every build dir for no gain.
+                "brief": brief,
+                "turns": [{k: v for k, v in tr.items()
+                           if k not in ("code", "prompt")}
+                          | {"prompt_kind": (tr.get("prompt") or {}).get("kind", "")}
                           for tr in turn_records],
                 "built_at": datetime.now(timezone.utc).isoformat()}, indent=1))
         except Exception as e:
@@ -2925,10 +3370,21 @@ def _record_sft_pairs(result: dict, build_dir: Path, turn_records: list[dict]) -
         shutil.copy(src, dst)
         return str(dst)
 
+    def _prompt_of(tr: Optional[dict]) -> dict:
+        """The (kind, system, prompt) that produced this turn's code. Empty when the code came
+        from a deterministic helper short-circuit (no LLM call ⇒ nothing to imitate)."""
+        p = (tr or {}).get("prompt") or {}
+        return p if p.get("prompt") else {}
+
     rows = []
-    accepted_png = next((tr["png"] for tr in reversed(turn_records) if tr.get("png")), None)
+    accepted_tr = next((tr for tr in reversed(turn_records) if tr.get("png")), None)
+    accepted_png = (accepted_tr or {}).get("png")
+    final_prompt = _prompt_of(accepted_tr)
     rows.append({"kind": "good", "spec": result["spec"], "code": final_code,
                  "image": _keep_image(accepted_png) if accepted_png else "",
+                 "prompt_kind": final_prompt.get("kind", ""),
+                 "system": final_prompt.get("system", ""),
+                 "prompt": final_prompt.get("prompt", ""),
                  "build_id": build_id, "code_model": result["code_model"],
                  "accepted_via": result["accepted_via"], "timestamp": result["built_at"]})
     for tr in turn_records:
@@ -2942,9 +3398,19 @@ def _record_sft_pairs(result: dict, build_dir: Path, turn_records: list[dict]) -
                    or (tr["critique"] or "").strip())
         if not problem:
             continue
+        # Two prompts matter for an edit-turn example: the one that produced the WRONG code,
+        # and the one that produced the accepted code. Dataset assembly picks which shape to
+        # train on (bad_prompt→bad_code is the error to denoise; prompt→code is the target).
+        bad_prompt = _prompt_of(tr)
         rows.append({"kind": "fail", "spec": result["spec"], "code": final_code,
                      "bad_code": tr["code"], "image": _keep_image(tr["png"]),
                      "problem": problem[:300], "turn": tr["turn"], "build_id": build_id,
+                     "prompt_kind": final_prompt.get("kind", ""),
+                     "system": final_prompt.get("system", ""),
+                     "prompt": final_prompt.get("prompt", ""),
+                     "bad_prompt_kind": bad_prompt.get("kind", ""),
+                     "bad_system": bad_prompt.get("system", ""),
+                     "bad_prompt": bad_prompt.get("prompt", ""),
                      "code_model": result["code_model"], "timestamp": result["built_at"]})
     with SFTPAIRS_FILE.open("a") as f:
         for r in rows:

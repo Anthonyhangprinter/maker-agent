@@ -329,6 +329,73 @@ if len(solids) > 1:
                   f"vol {s.volume:.0f} mm³  @ ({cen.X:.0f},{cen.Y:.0f},{cen.Z:.0f})")
         except Exception:
             continue
+# ── Assembly sanity: fragmentation and interference ──────────────────────────
+# Added 2026-07-30 after a user review of the mechanism run. Every part there was
+# dimensionally clean and several were mechanically impossible: a connecting rod passing
+# through the piston crown, impeller fins not attached to the hub, yoke arms floating in
+# space. Those are not matters of taste — they are measurable, and the gate was blind to
+# both. `parts` gives per-named-component solid counts (a component that is several
+# disjoint bodies is not joined); `interference` gives pairwise overlap volume (two
+# components that share space cannot be assembled).
+part_report = []
+interference = []
+try:
+    kids = list(getattr(shape, "children", []) or [])
+    named = [k for k in kids if (getattr(k, "label", "") or "").strip()] or kids
+    for k in named:
+        try:
+            ks = list(k.solids())
+            # FACES per part matters: a threaded worm has dozens, a plain cylinder has three.
+            # C05 (2026-07-30) swept a helical thread whose sweep() silently produced nothing,
+            # so `core + thread` returned the bare core. The code read perfectly; the feature
+            # was absent. Face count is the cheapest signal that an operation did nothing.
+            part_report.append({"label": (getattr(k, "label", "") or "").strip() or "(unlabeled)",
+                                "solids": len(ks),
+                                "faces": len(k.faces()),
+                                "volume": round(float(k.volume), 3)})
+        except Exception:
+            continue
+
+    # MIN DISTANCE between parts: an assembly whose components merely sit side by side is not
+    # assembled. C09's Geneva parts were individually correct and never engaged. Anything that
+    # should mesh, seat or fasten must be touching (gap ~0) or nearly so.
+    gaps = []
+    if 2 <= len(named) <= 8:
+        for i in range(len(named)):
+            for j in range(i + 1, len(named)):
+                try:
+                    gaps.append([part_report[i]["label"], part_report[j]["label"],
+                                 round(float(named[i].distance_to(named[j])), 3)])
+                except Exception:
+                    continue
+    # Pairwise overlap. Boolean intersection is expensive, so only for a small roster.
+    if 2 <= len(named) <= 8:
+        for i in range(len(named)):
+            for j in range(i + 1, len(named)):
+                try:
+                    ov = float((named[i] & named[j]).volume)
+                except Exception:
+                    continue
+                if ov > 1.0:                      # mm^3; ignore numerical dust
+                    interference.append([part_report[i]["label"] if i < len(part_report) else str(i),
+                                         part_report[j]["label"] if j < len(part_report) else str(j),
+                                         round(ov, 3)])
+except Exception:
+    pass
+
+if part_report:
+    print("Named parts: " + "; ".join(
+        f"{p['label']}={p['solids']} solid{'s' if p['solids'] != 1 else ''}" for p in part_report))
+    frag = [p for p in part_report if p["solids"] > 1]
+    if frag:
+        print("Fragmented parts (bodies NOT joined): " + "; ".join(
+            f"{p['label']} is {p['solids']} disjoint bodies" for p in frag))
+if 'gaps' in dir() and gaps:
+    print("Part gaps: " + "; ".join(f"{a}<->{b}={g:.1f}mm" for a, b, g in gaps))
+if interference:
+    print("INTERFERENCE (parts share space, cannot be assembled): " + "; ".join(
+        f"{a} & {b} overlap {v:.0f} mm³" for a, b, v in interference))
+
 print(f"Shells:  {len(shells)}")
 print(f"Faces:   {len(faces)}")
 print(f"Cylindrical faces: {cyl_faces}")
@@ -368,6 +435,9 @@ print("FACTS_JSON: " + _json.dumps({
     "walls": sorted({round(w, 2) for w in wall_candidates}),
     "bore_axes": sorted({(round(d, 1), o) for d, o in bore_orientations}),
     "volume": round(volume, 3),
+    "parts": part_report,
+    "interference": interference,
+    "part_gaps": (gaps if "gaps" in dir() else []),
     "bbox": [round(bbox.size.X, 2), round(bbox.size.Y, 2), round(bbox.size.Z, 2)],
 }, separators=(",", ":"), default=list))
 print(f"File:    {step_file.stat().st_size // 1024} KB")

@@ -1,0 +1,48 @@
+{
+ "ran_at": "2026-07-30T01:46:21.324446+00:00",
+ "model": "claude-sonnet-5",
+ "dry_run": true,
+ "specs": 3,
+ "elapsed_s": 46.1,
+ "outcomes": {
+  "dry-run": 3
+ },
+ "pairs_written": 0,
+ "good": 0,
+ "fail_fix": 0,
+ "per_spec": [
+  {
+   "id": "C01",
+   "tier": 4,
+   "group": "bearing",
+   "spec": "a deep-groove rolling element bearing as three distinct solids: an outer ring 52mm outside diameter and 15mm wide with an internal groove, an inner ring 25mm bore with a matching external groove, and eight 7.5mm spheres seated evenly in the groove between them",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3
+  },
+  {
+   "id": "C02",
+   "tier": 4,
+   "group": "engine",
+   "spec": "a piston and connecting rod as two separate solids: a 70mm diameter piston 55mm tall with two 3mm ring grooves and a 20mm gudgeon pin bore across its skirt, and a 140mm long rod with a 20mm small-end bore and a 45mm big-end bore",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3
+  },
+  {
+   "id": "C03",
+   "tier": 4,
+   "group": "engine",
+   "spec": "a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm diameter big-end journal offset 35mm from the axis, joined by two 60x20mm webs, as one fused solid",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3
+  }
+ ]
+}

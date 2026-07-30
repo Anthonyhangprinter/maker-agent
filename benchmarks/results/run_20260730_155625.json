@@ -1,0 +1,258 @@
+{
+  "ran_at": "2026-07-30T05:56:25.765938+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 6,
+  "converged": 3,
+  "geometry": 5,
+  "total_time_s": 3551.8,
+  "acceptance_passed": 14,
+  "acceptance_total": 22,
+  "acceptance_score": 0.636,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 381.0,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 383.4,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 1
+      },
+      "rc": 0,
+      "volume_mm3": 115920.1,
+      "solids": 1,
+      "faces": 11,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260730_145713_fast/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 233.6,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 236.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: n/a",
+      "failures": {
+        "gate_feature": 4
+      },
+      "rc": 0,
+      "volume_mm3": 42465.3,
+      "solids": 1,
+      "faces": 24,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260730_145713_fast/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 1099.2,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 1102.6,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The isometric view shows a structure with a horizontal base and a vertical back plate, consistent with an L-bracket shape, and the top-down view clearly shows two circular cutouts on the top face. The cross-section panel is not provided. The part correctly forms the general L-bracket shape, includes two holes on the base and two corresponding holes on the back plate, and the dimensions for the base ($80\\text{mm}\\times50\\text{mm}$) and the back plate ($80\\text{mm}$ in X, $50\\text{mm}$ in Z) appear generally correct, although the specified gussets and the fillet radius need confirmation. I recommend verifying the exact geometry and placement of the two gussets ($30\\text{mm}$ triangle at $\\pm 20\\text{mm}$ X) and ensuring the fillet radius is precisely $2\\text{mm}$ at the inner corner, as these are critical features whose exact dimensions are not fully verifiable from the render alone.",
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 58690.2,
+      "solids": 1,
+      "faces": 44,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        80.0,
+        50.0,
+        55.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260730_145713_fast/03.step",
+      "acceptance": {
+        "score": 0.25,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 1,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 514.9,
+      "turns": 2,
+      "n1_autofixes": 2,
+      "wall_time_s": 517.1,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "syntax": 1,
+        "fillet_chamfer": 1,
+        "api_misuse": 1
+      },
+      "rc": 0,
+      "volume_mm3": 83878.7,
+      "solids": 1,
+      "faces": 14,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        40.0,
+        30.0,
+        120.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260730_145713_fast/04.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 289.6,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 292.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 69280.5,
+      "solids": 1,
+      "faces": 35,
+      "cyl_faces": 16,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 12,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260730_145713_fast/05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 1003.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": " \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_vo3gt_iq/build_source.py\", line 27, in <module>\n    result += lug1\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/build_common.py\", line 818, in __add__\n    return self._invalid_combine()\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/build_common.py\", line 810, in _invalid_combine\n    raise RuntimeError(\nRuntimeError: BuildPart is a builder of Shapes and can't be combined. The object being constructed is accessible via the 'part' attribute.\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    }
+  ]
+}

@@ -472,3 +472,49 @@ acceptance 21/31 (68%)**, ~720s/build. 7B floor (`--coder fast`, tiers 1–2) �
   bracket, 5-hole plate) + their 8 derived pairs → **dataset 30 clean pairs day one, corpus 11
   (10/11 pass audit; the solid "box with holes" gold is a flagged user call)**. Fine-tune
   itself: GPU rental pending (UNSW).
+
+## 2026-07-30 — Teacher distillation built; a user CAD review reset the quality bar
+
+**Teacher pipeline (M6′ data side).** `scripts/teacher_gen.py` distils a Claude teacher into
+verified build123d pairs: production-identical prompts captured from `engine._LAST_PROMPT`
+(never re-derived), deterministic accept/reject with no LLM in the verifier, one repair call per
+failure to harvest fail→fix pairs, a hard contamination guard (exit 2) against text-to-cad /
+organic / heldout-cqe, a per-call spend ledger and a `--budget` cap that stops BEFORE the spec
+that would breach it. Pre-flight estimator projected $2.23 for the 12-mechanism run against
+$2.29 actual (97%).
+
+**Measured runs.** Pilot 40 specs: Sonnet 5 **31/40**, Opus 5 **33/40** — 3 genuine outcome
+differences, a tie inside the noise floor at n=40, Opus 2x faster wall-clock at 2.4x the price.
+Verdict: Sonnet for volume. Tier-4 mechanisms (12 specs, $2.29, $0.191/spec): gate said 6/11.
+
+**The correction that matters.** A user review of all 11 mechanisms in the CAD viewer returned
+**3/11 acceptable** (bearing, crankshaft, cam+follower). The other eight were dimensionally
+clean and mechanically impossible: a connecting rod through a piston crown, gear teeth
+interpenetrating (twice — centre distance was right, tooth PHASE was not), impeller fins
+unattached to the hub, a Geneva mechanism whose parts sat 20.7mm apart, a worm whose swept
+helical thread contributed nothing (volume measured EXACTLY a plain r8x60 cylinder — a boolean
+with a failed operand silently returns the original solid). **The gate measured conformance; the
+user measured whether the object could exist.**
+
+**Five checks derived from that review** took gate/human agreement from 3/11 to **9/11**:
+`interference` (HARD), `part_gaps` (>1mm = not assembled), bare-primitive face count,
+per-part fragmentation, and mesh rules in `_CODE_SYSTEM`. Residual misses are honest: a
+bearing's 8 balls legitimately ARE 8 bodies (flags, asks), and a geometrically valid part that
+simply does not resemble a universal joint needs a human or a vision critic.
+
+**Gate corrections (all regression-tested against the 2026-07-19 audit failures, which still
+fail).** `corroborate_expected()` — the brief (qwen3:8b) no longer grades the teacher; assembly
+overcount demoted to advisory; multi-component specs skip envelope-dim checks. A replay showed
+the pre-revision gate had rejected 5 of 11 correct-by-measurement mechanisms.
+
+**Brief retired from the prompt path, measured not assumed.** A/B on the local 7B, tiers 1-2,
+same engine: WITH brief 3/6 converged / 14/22; BRIEF-LESS **6/6 converged / 15/22**. Acceptance
+is flat at n=6, convergence is not. Production defaults brief-less; `cad.use_brief=true` reverts.
+
+**Regression found and fixed the same day:** extracting the few-shot injection into
+`inject_retrieval_notes()` dropped a local `fewshots` list that `result["fewshots_used"]` still
+read — every live build completed its work then died at finalisation with a NameError. It hid
+because `teacher_gen` bypasses `_build_impl`. Returning the rows (not counts) fixed it.
+
+**Dataset:** 136 pairs; 11 mechanisms human-reviewed (3 accept / 8 reject) with reasons in
+`~/.openclaw/cad-review-decisions.jsonl`. **GPU: UNSW Katana**, not rental.

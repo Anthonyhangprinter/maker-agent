@@ -1,0 +1,52 @@
+{
+  "source": "hand-written for the M6' teacher-distillation pilot (2026-07-29)",
+  "note": "Teacher-generation spec list, NOT an eval suite. Deliberately disjoint from text-to-cad / organic / heldout-cqe (contamination guard enforces this). Tiers: 1 = prismatic + simple features, 2 = multi-feature / compound, 3 = freeform surfaces (spline / loft / sweep / revolve). Group F+G exercise NURBS and surface modelling, where the deterministic gate is weakest and hand-checking matters most.",
+  "benchmarks": [
+    {"id": "P01", "tier": 1, "group": "plate", "spec": "a 80x50x6mm mounting plate with a single 12mm through hole at its centre"},
+    {"id": "P02", "tier": 1, "group": "plate", "spec": "a 120x60x8mm steel strap with four 6mm through holes spaced 30mm apart along its centreline"},
+    {"id": "P03", "tier": 1, "group": "plate", "spec": "a 90x90x5mm square panel with a 40mm square cutout in the middle"},
+    {"id": "P04", "tier": 2, "group": "plate", "spec": "a 100x40x10mm bar with a 10mm wide slot running 60mm along its length, open at one end"},
+    {"id": "P05", "tier": 2, "group": "plate", "spec": "a 70x70x8mm plate with a 20mm central bore and four 5mm holes on a 50mm bolt circle"},
+    {"id": "P06", "tier": 2, "group": "bracket", "spec": "an angle bracket with a 70x45x5mm horizontal leg and a 45x45x5mm vertical leg, two 6mm holes in each leg"},
+    {"id": "P07", "tier": 2, "group": "bracket", "spec": "a 60x60x6mm gusseted corner bracket with a triangular rib 5mm thick between the two legs"},
+    {"id": "P08", "tier": 2, "group": "bracket", "spec": "a 110x35x8mm tie plate with a 14mm hole at each end and its four outside corners rounded to 8mm radius"},
+
+    {"id": "P09", "tier": 2, "group": "enclosure", "spec": "an open-top tray 120x80x25mm with 3mm walls and a 3mm floor"},
+    {"id": "P10", "tier": 2, "group": "enclosure", "spec": "a hollow project case 90x60x35mm with 2.5mm walls, open at the top, with a 5mm wide lip recessed around the inside of the rim"},
+    {"id": "P11", "tier": 2, "group": "enclosure", "spec": "an open-top box 80x80x40mm with 3mm walls and four cylindrical standoffs 8mm across and 10mm tall rising from the floor at the corners, each drilled with a 3mm blind hole"},
+    {"id": "P12", "tier": 2, "group": "enclosure", "spec": "a hollow rectangular duct 150mm long with a 60x40mm outer cross-section and 3mm walls, open at both ends"},
+    {"id": "P13", "tier": 3, "group": "enclosure", "spec": "a cylindrical pot 70mm outside diameter and 90mm tall with 4mm walls and a 6mm thick base, open at the top"},
+
+    {"id": "P14", "tier": 1, "group": "shaft", "spec": "a plain cylindrical shaft 25mm diameter and 120mm long"},
+    {"id": "P15", "tier": 2, "group": "shaft", "spec": "a stepped shaft 100mm long: 30mm diameter for the first 40mm, then 20mm diameter for the remaining 60mm"},
+    {"id": "P16", "tier": 2, "group": "shaft", "spec": "a 40mm diameter 80mm long shaft with a 8mm wide by 4mm deep keyway cut along 50mm of its length"},
+    {"id": "P17", "tier": 2, "group": "shaft", "spec": "a 50mm diameter 60mm long cylinder with a 20mm central through bore and a 3mm wide retaining groove cut around the outside 15mm from one end"},
+    {"id": "P18", "tier": 2, "group": "shaft", "spec": "a 35mm diameter 70mm long spindle with a 45 degree chamfer 3mm deep on both ends"},
+
+    {"id": "P19", "tier": 2, "group": "flange", "spec": "a round flange 110mm outside diameter and 12mm thick with a 45mm central bore and six 9mm holes on a 85mm bolt circle"},
+    {"id": "P20", "tier": 2, "group": "flange", "spec": "a square flange 90x90x10mm with a 35mm central bore and four 8mm holes on a 70mm bolt circle"},
+    {"id": "P21", "tier": 2, "group": "flange", "spec": "a blind flange 100mm diameter and 14mm thick with eight 7mm holes on a 78mm bolt circle and no central bore"},
+    {"id": "P22", "tier": 3, "group": "flange", "spec": "a pipe flange 120mm diameter 15mm thick with a 50mm bore, a 65mm diameter raised face 2mm proud of the front, and four 10mm bolt holes on a 95mm circle"},
+
+    {"id": "P23", "tier": 3, "group": "assembly", "spec": "a two part assembly: a 60x60x8mm base plate and a separate 30mm diameter 40mm tall post, kept as two distinct solids"},
+    {"id": "P24", "tier": 3, "group": "assembly", "spec": "a clevis: two parallel 40x25x5mm ears 20mm apart joined by a 40x25x8mm back, with a 10mm hole through both ears"},
+    {"id": "P25", "tier": 3, "group": "assembly", "spec": "a pillow block: a 80x30x10mm base with two 7mm mounting holes and a 40mm diameter boss rising 35mm from the middle, bored 22mm through"},
+
+    {"id": "P26", "tier": 3, "group": "surface", "spec": "a lofted transition duct 100mm tall, square 60x60mm at the bottom blending to a 40mm diameter circle at the top, with 3mm walls"},
+    {"id": "P27", "tier": 3, "group": "surface", "spec": "a solid of revolution 100mm tall formed by revolving a smooth spline profile whose radius grows from 15mm at the base to 35mm at mid height and narrows back to 20mm at the top"},
+    {"id": "P28", "tier": 3, "group": "surface", "spec": "a 20mm diameter rod swept along a smooth S-shaped spline path 150mm end to end"},
+    {"id": "P29", "tier": 3, "group": "surface", "spec": "a teardrop shaped boss: a 50mm diameter hemisphere blended smoothly into a 30mm tall tapering neck ending at 18mm diameter"},
+    {"id": "P30", "tier": 3, "group": "surface", "spec": "a lofted blade 80mm tall twisting 45 degrees from root to tip, with an aerofoil-like cross-section 40mm chord at the root and 25mm chord at the tip"},
+    {"id": "P31", "tier": 3, "group": "surface", "spec": "a helical sweep: a 6mm diameter circular section swept along a helix of 40mm pitch, 30mm radius, over three full turns"},
+    {"id": "P32", "tier": 3, "group": "surface", "spec": "a hollow bowl formed by revolving a smooth curved profile, 140mm across the rim, 60mm deep, with a 4mm wall thickness"},
+    {"id": "P33", "tier": 3, "group": "surface", "spec": "a bottle-like body 180mm tall: a 60mm diameter cylindrical base blending through a smooth shoulder curve into a 25mm diameter neck over the top 50mm"},
+    {"id": "P34", "tier": 3, "group": "surface", "spec": "a rounded organic handle: a 22mm diameter section swept along a C-shaped spline arc 120mm across, with both ends blended flat into a 40x20x6mm mounting pad"},
+    {"id": "P35", "tier": 3, "group": "surface", "spec": "a torus-like ring 90mm across with a 15mm circular cross-section, cut flat on the bottom to a 6mm wide seating face"},
+    {"id": "P36", "tier": 3, "group": "surface", "spec": "a smooth fillet-blended junction between a 40mm diameter vertical cylinder 60mm tall and a 25mm diameter horizontal cylinder 80mm long meeting at their centres, with a 8mm blend radius at the intersection"},
+    {"id": "P37", "tier": 3, "group": "surface", "spec": "a saddle-shaped surface panel 100x100mm and 4mm thick whose surface curves upward along one diagonal and downward along the other"},
+
+    {"id": "P38", "tier": 3, "group": "pattern", "spec": "a 100mm diameter 5mm thick disc perforated by a hexagonal grid of 6mm holes on 12mm centres, leaving a 8mm solid rim"},
+    {"id": "P39", "tier": 3, "group": "pattern", "spec": "a 120x60x4mm ventilation panel with sixteen 40x4mm rounded slots arranged in four rows"},
+    {"id": "P40", "tier": 3, "group": "pattern", "spec": "a cylindrical shade 80mm diameter and 120mm tall with 2mm walls, pierced by a spiral pattern of 8mm circular openings"}
+  ]
+}

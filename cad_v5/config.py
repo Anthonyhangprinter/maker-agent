@@ -128,7 +128,9 @@ BUILD_TIMEOUT  = 1800
 STEP_TIMEOUT   = 120
 RENDER_TIMEOUT = 120
 STL_TIMEOUT    = 120
-INSPECT_TIMEOUT = 60
+INSPECT_TIMEOUT = 240   # was 60: sized for plates. A helical thread or a vaned
+                        # impeller has orders more faces — the 2026-07-30 lead-screw
+                        # spec (C10) timed out at 60s and was lost as an 'error'.
 TRANSLATE_TIMEOUT = 120
 BASE_URL       = "https://cad.onshape.com"
 DONE_SENTINEL  = "###DONE###"
@@ -199,6 +201,16 @@ def creds() -> tuple[str, str]:
     ak = env.get("ONSHAPE_ACCESS_KEY") or os.environ.get("ONSHAPE_ACCESS_KEY", "")
     sk = env.get("ONSHAPE_SECRET_KEY") or os.environ.get("ONSHAPE_SECRET_KEY", "")
     return ak, sk
+
+def use_brief() -> bool:
+    """Should the qwen3:8b brief shape the coder prompt? Default FALSE (2026-07-30).
+
+    The brief existed to structure a vague request for a small coder, but it is authored by the
+    weakest model in the chain, is non-deterministic, and makes prompt-wording experiments
+    unattributable. Set cad.use_brief=true in ~/.openclaw/cad.json to restore the legacy path.
+    """
+    return bool(load_config().get("cad", {}).get("use_brief", False))
+
 
 def public_uploads() -> bool:
     # Free Onshape accounts can ONLY create public documents, so public is the default.

@@ -1,0 +1,57 @@
+{
+ "ran_at": "2026-07-29T12:23:35.342104+00:00",
+ "model": "claude-sonnet-5",
+ "dry_run": false,
+ "specs": 3,
+ "elapsed_s": 116.6,
+ "outcomes": {
+  "failed-after-repair": 3
+ },
+ "pairs_written": 0,
+ "good": 0,
+ "fail_fix": 0,
+ "per_spec": [
+  {
+   "id": "P01",
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 80x50x6mm mounting plate with a single 12mm through hole at its centre",
+   "outcome": "failed-after-repair",
+   "turns": 2,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3,
+   "first_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P01/t1/build_source.py'",
+   "second_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P01/t2/build_source.py'",
+   "elapsed_s": 17.5
+  },
+  {
+   "id": "P11",
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top box 80x80x40mm with 3mm walls and four cylindrical standoffs 8mm across and 10mm tall rising from the floor at the corners, each drilled with a 3mm blind hole",
+   "outcome": "failed-after-repair",
+   "turns": 2,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3,
+   "first_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P11/t1/build_source.py'",
+   "second_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P11/t2/build_source.py'",
+   "elapsed_s": 51.4
+  },
+  {
+   "id": "P27",
+   "tier": 3,
+   "group": "surface",
+   "spec": "a solid of revolution 100mm tall formed by revolving a smooth spline profile whose radius grows from 15mm at the base to 35mm at mid height and narrows back to 20mm at the top",
+   "outcome": "failed-after-repair",
+   "turns": 2,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3,
+   "first_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P27/t1/build_source.py'",
+   "second_problem": "[Errno 2] No such file or directory: '/tmp/teacher_gen_s1zcl_d5/P27/t2/build_source.py'",
+   "elapsed_s": 47.6
+  }
+ ]
+}

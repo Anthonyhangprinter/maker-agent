@@ -1,0 +1,37 @@
+{
+ "ran_at": "2026-07-29T12:22:01.987800+00:00",
+ "model": "claude-sonnet-5",
+ "dry_run": true,
+ "specs": 2,
+ "elapsed_s": 82.1,
+ "outcomes": {
+  "dry-run": 2
+ },
+ "pairs_written": 0,
+ "good": 0,
+ "fail_fix": 0,
+ "per_spec": [
+  {
+   "id": "P01",
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 80x50x6mm mounting plate with a single 12mm through hole at its centre",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3
+  },
+  {
+   "id": "P02",
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 120x60x8mm steel strap with four 6mm through holes spaced 30mm apart along its centreline",
+   "outcome": "dry-run",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "lessons": 3
+  }
+ ]
+}
