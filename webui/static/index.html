@@ -7,18 +7,24 @@
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { background: #111315; color: #e6e6e6; font: 15px/1.5 system-ui, sans-serif;
-         min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+         min-height: 100vh; min-height: 100dvh;
+         display: flex; flex-direction: column; align-items: center; }
   main { width: min(720px, 94vw); padding: 6vh 0 4rem; }
-  h1 { font-size: 1.9rem; font-weight: 600; text-align: center; margin-bottom: 1.6rem; }
+  h1 { font-size: 1.9rem; font-weight: 600; text-align: center; margin-bottom: 1.6rem;
+       text-wrap: balance; }
   .composer { background: #1b1e21; border: 1px solid #2c3136; border-radius: 14px; padding: 0.9rem; }
+  /* 16px minimum on the input: below that iOS Safari force-zooms the page on focus */
   textarea { width: 100%; background: transparent; border: 0; color: inherit; resize: vertical;
-             min-height: 3.2rem; font: inherit; outline: none; }
+             min-height: 3.2rem; font: inherit; font-size: 16px; outline: none; }
   .row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .row .spacer { flex: 1; }
   button, select, label.filebtn { background: #262b30; color: #e6e6e6; border: 1px solid #383f46;
-    border-radius: 9px; padding: 0.45rem 0.9rem; font: inherit; cursor: pointer; }
+    border-radius: 9px; padding: 0.45rem 0.9rem; font: inherit; cursor: pointer;
+    min-height: 40px; }
   button.primary { background: #2f6fed; border-color: #2f6fed; color: #fff; font-weight: 600; }
+  #meshmode.on { background: #3a2a5b; border-color: #7a5bd6; color: #cdbcff; }
   button:disabled { opacity: 0.5; cursor: default; }
   input[type=file] { display: none; }
   .hint { color: #8b949e; font-size: 0.82rem; margin-top: 0.7rem; }
@@ -40,7 +46,24 @@
   .meta { color: #8b949e; font-size: 0.84rem; margin-top: 0.55rem; }
   .warn { color: #e0b05c; font-size: 0.88rem; margin-top: 0.55rem; }
   .qbox { margin-top: 0.8rem; } .qbox ol { padding-left: 1.2rem; }
-  footer { color: #6b7480; font-size: 0.78rem; padding: 0 0 1.4rem; text-align: center; }
+  footer { color: #6b7480; font-size: 0.78rem; padding: 0 1rem 1.4rem; text-align: center; }
+  /* Phone layout: comfortable touch targets, full-width Build, tighter chrome. */
+  @media (max-width: 520px) {
+    main { width: 100%; padding: 1.2rem 0.8rem 3rem; }
+    h1 { font-size: 1.45rem; margin-bottom: 1rem; }
+    button, select, label.filebtn { min-height: 44px; padding: 0.55rem 1rem; }
+    .row { gap: 0.5rem; }
+    .row .spacer { display: none; }
+    #coder { flex: 1 1 40%; }
+    #go { flex: 1 1 100%; order: 10; min-height: 48px; font-size: 16px; }
+    .log { max-height: 140px; }
+    .downloads a { padding: 0.55rem 1rem; min-height: 40px; display: inline-flex;
+                   align-items: center; }
+    .hint { font-size: 0.8rem; }
+  }
+  @media (pointer: coarse) {
+    button, select, label.filebtn { min-height: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -53,6 +76,7 @@
       <input type="file" id="image" accept="image/jpeg,image/png,image/webp">
       <img id="thumb" class="thumb" alt="">
       <button id="clearimg" style="display:none" title="Remove image">✕</button>
+      <button id="meshmode" title="Mesh mode: sculpted organic 3D (GLB/OBJ) instead of parametric CAD">⬡ Mesh</button>
       <span class="spacer"></span>
       <select id="coder" title="Coder model: auto picks and escalates">
         <option value="auto" selected>auto</option>
@@ -90,20 +114,31 @@ $("clearimg").onclick = () => {
   $("clearimg").style.display = "none";
 };
 
+let meshMode = false;
+$("meshmode").onclick = () => {
+  meshMode = !meshMode;
+  $("meshmode").classList.toggle("on", meshMode);
+  $("coder").style.display = meshMode ? "none" : "";
+  $("spec").placeholder = meshMode
+    ? "a weathered dragon head wall trophy…  (sculpted mesh, not engineering CAD)"
+    : "a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor…";
+  $("go").textContent = meshMode ? "Generate mesh" : "Build";
+};
+
 $("go").onclick = async () => {
   const spec = $("spec").value.trim();
   if (!spec && !$("image").files[0]) return $("spec").focus();  // image alone is a full request
   const fd = new FormData();
   fd.append("spec", spec);
-  fd.append("coder", $("coder").value);
+  if (!meshMode) fd.append("coder", $("coder").value);
   if ($("image").files[0]) fd.append("image", $("image").files[0]);
   $("go").disabled = true;
   try {
-    const r = await fetch("/api/build", { method: "POST", body: fd });
+    const r = await fetch(meshMode ? "/api/mesh" : "/api/build", { method: "POST", body: fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.statusText);
     track(j.job_id);
-  } catch (e) { alert("Build request failed: " + e.message); }
+  } catch (e) { alert((meshMode ? "Mesh" : "Build") + " request failed: " + e.message); }
   finally { $("go").disabled = false; }
 };
 
@@ -124,6 +159,7 @@ function render(j) {
   const el = card(j.id), r = j.result || {}, a = r.artifacts || {};
   let h = `<span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>
            <b style="margin-left:.6rem">${esc((j.spec || "image-only build").slice(0, 120))}</b>`;
+  if (j.kind === "mesh") h += ` <span class="pill" style="background:#3a2a5b">mesh</span>`;
   if (j.has_image) h += ` <span title="image-conditioned">📷</span>`;
   if (["queued", "running", "waiting_gpu"].includes(j.status))
     h += `<div class="log">${esc((j.log_tail || []).join("\n")) || "…"}</div>`;
@@ -134,7 +170,7 @@ function render(j) {
   }
   if (a.render) h += `<img class="render" src="${a.render}?t=${Date.now()}" alt="render">`;
   if (j.status === "done") {
-    const dl = ["step", "stl", "dxf", "source", "reference"]
+    const dl = ["step", "stl", "dxf", "glb", "obj", "source", "reference"]
       .filter(k => a[k]).map(k => `<a href="${a[k]}" download>${k.toUpperCase()}</a>`);
     if (dl.length) h += `<div class="downloads">${dl.join("")}</div>`;
     h += `<div class="meta">${r.converged ? "converged" : "NOT converged"}`

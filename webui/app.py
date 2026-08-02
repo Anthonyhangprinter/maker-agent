@@ -33,6 +33,8 @@ ENGINE_PYTHON = "/usr/bin/python3"
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
+import mesh as meshmod
+
 SKILL_ROOT  = Path(__file__).resolve().parent.parent          # …/skills/cad-builder
 STATIC_DIR  = Path(__file__).resolve().parent / "static"
 BUILDS_DIR  = (Path.home() / ".openclaw" / "cad-builds").resolve()
@@ -51,6 +53,9 @@ app = FastAPI(title="CAD agent", docs_url=None, redoc_url=None)
 _jobs: dict[str, dict] = {}             # job_id -> job (in-memory, v1)
 _jobs_lock = threading.Lock()
 _queue: "queue.Queue[str]" = queue.Queue()
+# Mesh jobs run remotely (no GPU, no build lock) — their own queue so a mesh generation
+# never waits behind a CAD build or vice versa.
+_mesh_queue: "queue.Queue[str]" = queue.Queue()
 
 _WAIT_RE = re.compile(r"waiting for build lock")
 
@@ -58,6 +63,7 @@ _WAIT_RE = re.compile(r"waiting for build lock")
 def _job_public(job: dict) -> dict:
     return {
         "id": job["id"], "spec": job["spec"], "coder": job["coder"],
+        "kind": job.get("kind", "cad"),
         "has_image": bool(job["image"]), "status": job["status"],
         "queued_ahead": job.get("queued_ahead", 0),
         "log_tail": list(job["log"])[-LOG_TAIL:],
@@ -211,6 +217,67 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
     return {"job_id": job["id"], "queued_ahead": job["queued_ahead"]}
 
 
+@app.post("/api/mesh")
+async def api_mesh(spec: str = Form(""), image: UploadFile | None = File(None)):
+    """CADAM-style Mesh mode: prompt and/or image -> organic mesh via the provider seam."""
+    if not meshmod.api_key():
+        raise HTTPException(503, "Mesh needs a Meshy API key: create one free at meshy.ai "
+                                 "(Settings → API Keys) and add MESHY_API_KEY to the env "
+                                 "block of ~/.openclaw/openclaw.json, then restart cad-web.")
+    spec = spec.strip()
+    if not spec and not (image is not None and image.filename):
+        raise HTTPException(400, "provide a prompt, an image, or both")
+    image_path = None
+    if image is not None and image.filename:
+        data = await image.read()
+        if len(data) > MAX_UPLOAD:
+            raise HTTPException(413, "image too large (max 10 MB)")
+        ext = _sniff_ext(data[:16])
+        if ext is None:
+            raise HTTPException(400, "unsupported image type (jpg/png/webp)")
+        UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        image_path = str(UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}")
+        Path(image_path).write_bytes(data)
+    job = {
+        "id": uuid.uuid4().hex[:12], "spec": spec, "coder": "-", "image": image_path,
+        "kind": "mesh", "status": "queued", "log": deque(maxlen=300),
+        "result": None, "error": None, "created_at": time.time(),
+    }
+    with _jobs_lock:
+        _jobs[job["id"]] = job
+    _mesh_queue.put(job["id"])
+    return {"job_id": job["id"]}
+
+
+@app.get("/meshes/{job_id}/{filename}")
+def meshes(job_id: str, filename: str):
+    target = (meshmod.MESHES_DIR / job_id / filename).resolve()
+    if not str(target).startswith(str(meshmod.MESHES_DIR.resolve()) + os.sep):
+        raise HTTPException(404, "not found")
+    if target.suffix.lower() not in {".glb", ".obj", ".png"}:
+        raise HTTPException(404, "not found")
+    if not target.is_file():
+        raise HTTPException(404, "not found")
+    media = {".png": "image/png", ".glb": "model/gltf-binary"} \
+        .get(target.suffix.lower(), "application/octet-stream")
+    return FileResponse(target, media_type=media, filename=filename)
+
+
+def _mesh_worker():
+    while True:
+        job_id = _mesh_queue.get()
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+        if job is None:
+            continue
+        try:
+            meshmod.run_mesh_job(job)
+        except Exception as e:
+            job["status"], job["error"] = "error", f"internal error: {e}"
+        finally:
+            _mesh_queue.task_done()
+
+
 @app.get("/api/jobs/{job_id}")
 def api_job(job_id: str):
     with _jobs_lock:
@@ -252,6 +319,7 @@ def healthz():
 
 
 threading.Thread(target=_worker, daemon=True).start()
+threading.Thread(target=_mesh_worker, daemon=True).start()
 
 if __name__ == "__main__":
     import uvicorn

@@ -365,3 +365,13 @@ summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/t
 [batch] ended: ok=38 err=0 processing=0
 2026-08-02 23:14:09,823 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
 2026-08-02 23:14:10,212 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5/results "HTTP/1.1 200 OK"
+2026-08-02 23:20:04,539 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[batch] msgbatch_014Gx3JViK7Sn9viYSDdB6Je  (11 requests) submitted
+2026-08-02 23:20:04,986 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014Gx3JViK7Sn9viYSDdB6Je "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=11
+2026-08-02 23:20:25,317 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014Gx3JViK7Sn9viYSDdB6Je "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=11
+2026-08-02 23:20:45,701 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014Gx3JViK7Sn9viYSDdB6Je "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=11
+2026-08-02 23:21:06,053 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014Gx3JViK7Sn9viYSDdB6Je "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=11
