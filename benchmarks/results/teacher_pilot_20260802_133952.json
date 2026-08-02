@@ -1,0 +1,1241 @@
+{
+ "ran_at": "2026-08-02T13:24:18.354918+00:00",
+ "model": "claude-sonnet-5",
+ "mode": "batch",
+ "dry_run": false,
+ "specs": 56,
+ "specs_done": 56,
+ "usd_spent": 6.1969,
+ "budget": 10.0,
+ "stopped_early": "repair round skipped (budget)",
+ "elapsed_s": 933.7,
+ "outcomes": {
+  "accepted-first-try": 9,
+  "repair-skipped-budget": 44,
+  "error": 3
+ },
+ "pairs_written": 9,
+ "good": 9,
+ "fail_fix": 0,
+ "per_spec": [
+  {
+   "id": "H001",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned engine cylinder barrel 85mm outside diameter and 130mm tall with a 62mm through bore, eight 2.5mm thick cooling fins spaced 6mm apart around the exterior, and a 100mm diameter head flange 8mm thick at the top pierced by four 7mm stud holes on an 88mm bolt circle",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a finned engine cylinder barrel 85mm outside diameter and 130mm tall with a 62mm through bore, eight 2.5mm thick cooling fins spaced 6mm apart around the exterior, and a 100mm diameter head flange 8mm thick at the top pierced by four 7mm stud holes on an 88mm bolt circle",
+     "code": "from build123d import *\nfrom b123d.domain import bolt_circle\n\n# ---- Parameters (mm) ----\nouter_d = 85.0          # overall barrel/fin outside diameter\nheight = 130.0          # total barrel height (incl. flange at top)\nbore_d = 62.0           # through bore diameter\ncore_d = 70.0           # base tube (un-finned) outside diameter\nfin_count = 8           # number of cooling fins\nfin_thickness = 2.5     # axial thickness of each fin\nfin_gap = 6.0           # axial gap between adjacent fins\nflange_d = 100.0        # head flange diameter\nflange_t = 8.0          # head flange thickness\nstud_hole_d = 7.0       # stud clearance hole diameter\nbolt_circle_d = 88.0    # stud bolt circle diameter\nstud_count = 4          # number of stud holes\n\n# ---- Derived layout (centred coordinates) ----\nz_bottom = -height / 2\nz_top = height / 2\n\ncore_height = height - flange_t\ncore_center_z = z_bottom + core_height / 2\n\nflange_center_z = z_top - flange_t / 2\nflange_bottom_z = z_top - flange_t  # top surface of fin stack area\n\nfin_radius = outer_d / 2\ncore_radius = core_d / 2\npitch = fin_thickness + fin_gap\n\n# ---- Base tube ----\nbody = Pos(0, 0, core_center_z) * Cylinder(radius=core_radius, height=core_height)\n\n# ---- Cooling fins (solid discs union'd onto the tube) ----\nfor i in range(fin_count):\n    top_i = flange_bottom_z - i * pitch\n    center_i = top_i - fin_thickness / 2\n    body += Pos(0, 0, center_i) * Cylinder(radius=fin_radius, height=fin_thickness)\n\n# ---- Head flange ----\nbody += Pos(0, 0, flange_center_z) * Cylinder(radius=flange_d / 2, height=flange_t)\n\n# ---- Through bore (fully pierces the whole part) ----\nbody -= Cylinder(radius=bore_d / 2, height=height * 2)\n\n# ---- Stud holes on bolt circle through the flange ----\nbody -= Pos(0, 0, z_top) * bolt_circle(stud_count, bolt_circle_d, stud_hole_d, flange_t * 2)\n\nresult = body",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H001-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na finned engine cylinder barrel 85mm outside diameter and 130mm tall with a 62mm through bore, eight 2.5mm thick cooling fins spaced 6mm apart around the exterior, and a 100mm diameter head flange 8mm thick at the top pierced by four 7mm stud holes on an 88mm bolt circle\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: A bore through the SIDE/skirt of a cylinder is RADIAL \u2014 use cross_bore(d, length) (a plain Cylinder points up +Z and bores the top/bottom, the wrong way). Ring grooves are SHALLOW circumferential surface cuts \u2014 use ring_groove(part_r, depth, width) at each height, never a deep Cylinder that hollows the whole part into a cup.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import cross_bore, ring_groove\n\n# Solid body: base at z=<DIM>, crown at z=<DIM> (Cylinder is centred, so shift up by half-height)\nbody = Pos(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n\n# Three ring grooves below the crown \u2014 SHALLOW surface cuts, not deep bores\nfor z in (<DIM>, <DIM>, <DIM>):\n    body -= Pos(<DIM>, <DIM>, z) * ring_groove(<DIM>, <DIM>, <DIM>)\n\n# 20mm wrist-pin bore through the SKIRT \u2014 RADIAL (horizontal axis), not a vertical Cylinder\nbody -= Pos(<DIM>, <DIM>, <DIM>) * cross_bore(<DIM>, <DIM>)\n\nresult = body\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n- For through-holes, use a Cylinder with height twice the part thickness to ensure full penetration through the flange.\n- For bolt holes on a bolt circle, ensure the Cylinder used for the hole has a height equal to twice the thickness so it fully pierces through the part.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H001",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       100.0,
+       100.0,
+       130.0
+      ],
+      "volume_mm3": 175153.215,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H005",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small two-stroke cylinder 65mm OD by 95mm tall with a 48mm bore, five annular fins 2mm thick and 12mm deep, an exhaust port 18mm diameter cut through the wall at mid-height, and a 78mm base flange 7mm thick with four 6mm mounting holes",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the request says '12mm deep' but no axis of the part measures 12mm (extents: 102.0\u00d789.0\u00d789.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H007",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust manifold stub 50mm diameter and 80mm long with a 36mm gas passage, six 2.5mm external ribs radiating from the tube, and a triangular 60mm mounting flange 8mm thick with three 9mm bolt holes",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '80mm long' but no axis of the part measures 80mm (extents: 88.0\u00d766.0\u00d758.4mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H008",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned aircooled cylinder barrel 95mm OD and 145mm tall with a 66mm through bore, twelve fins each 3mm thick spaced 5mm apart, and a 118mm diameter head flange 12mm thick with eight 8mm stud holes on a 100mm circle",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a finned aircooled cylinder barrel 95mm OD and 145mm tall with a 66mm through bore, twelve fins each 3mm thick spaced 5mm apart, and a 118mm diameter head flange 12mm thick with eight 8mm stud holes on a 100mm circle",
+     "code": "from build123d import *\nfrom b123d.domain import bolt_circle\n\n# ---- barrel geometry ----\nbore_d          = 66.0     # through-bore diameter\nfin_od          = 95.0     # OD across the cooling fins\nbody_d          = 80.0     # root diameter of the finned barrel body\nbarrel_height   = 145.0    # overall barrel height\n\n# ---- cooling fins ----\nfin_count       = 12\nfin_thickness   = 3.0\nfin_gap         = 5.0\n\n# ---- head flange ----\nflange_d        = 118.0\nflange_t        = 12.0\nstud_count      = 8\nstud_circle_d   = 100.0\nstud_hole_d     = 8.0\n\nfin_pitch = fin_thickness + fin_gap\n\n# core barrel body (finned section root diameter)\nbody = Cylinder(radius=body_d / 2, height=barrel_height)\n\n# head flange fused onto the top of the barrel\nflange_z = barrel_height / 2 - flange_t / 2\nbody += Pos(0, 0, flange_z) * Cylinder(radius=flange_d / 2, height=flange_t)\n\n# twelve cooling fins stacked below the flange, touching its underside\nflange_bottom_z = barrel_height / 2 - flange_t\nfor i in range(fin_count):\n    z = flange_bottom_z - i * fin_pitch - fin_thickness / 2\n    body += Pos(0, 0, z) * Cylinder(radius=fin_od / 2, height=fin_thickness)\n\n# 66mm through bore, full length + margin so it fully pierces the part\nbody -= Cylinder(radius=bore_d / 2, height=barrel_height * 1.5)\n\n# eight stud holes on a 100mm bolt circle, through the head flange\nbody -= Pos(0, 0, barrel_height / 2) * bolt_circle(\n    stud_count, stud_circle_d, stud_hole_d, flange_t * 2\n)\n\nresult = body\n\n# decorative chamfer on the outer top rim of the flange only\ntry:\n    top_group = result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n    outer_edge = top_group.sort_by(SortBy.RADIUS)[-1]\n    result = chamfer(outer_edge, length=1.5)\nexcept Exception as e:\n    print(f\"WARN: decorative chamfer skipped: {e}\")",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H008-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na finned aircooled cylinder barrel 95mm OD and 145mm tall with a 66mm through bore, twelve fins each 3mm thick spaced 5mm apart, and a 118mm diameter head flange 12mm thick with eight 8mm stud holes on a 100mm circle\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: A bore through the SIDE/skirt of a cylinder is RADIAL \u2014 use cross_bore(d, length) (a plain Cylinder points up +Z and bores the top/bottom, the wrong way). Ring grooves are SHALLOW circumferential surface cuts \u2014 use ring_groove(part_r, depth, width) at each height, never a deep Cylinder that hollows the whole part into a cup.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import cross_bore, ring_groove\n\n# Solid body: base at z=<DIM>, crown at z=<DIM> (Cylinder is centred, so shift up by half-height)\nbody = Pos(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n\n# Three ring grooves below the crown \u2014 SHALLOW surface cuts, not deep bores\nfor z in (<DIM>, <DIM>, <DIM>):\n    body -= Pos(<DIM>, <DIM>, z) * ring_groove(<DIM>, <DIM>, <DIM>)\n\n# 20mm wrist-pin bore through the SKIRT \u2014 RADIAL (horizontal axis), not a vertical Cylinder\nbody -= Pos(<DIM>, <DIM>, <DIM>) * cross_bore(<DIM>, <DIM>)\n\nresult = body\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n- For through-holes, use a Cylinder with height twice the part thickness to ensure full penetration through the flange.\n- For bolt holes on a bolt circle, ensure the Cylinder used for the hole has a height equal to twice the thickness so it fully pierces through the part.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H008",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       118.0,
+       118.0,
+       145.0
+      ],
+      "volume_mm3": 372669.465,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H012",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed turbo exhaust stub 55mm diameter and 90mm long with a 40mm through passage, five 3mm ribs running the full length, and a 75mm diameter mounting flange 10mm thick with four 10mm bolt holes on a 62mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '75mm diameter' but no axis of the part measures 75mm (extents: 90.0\u00d755.0\u00d755.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H014",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small exhaust manifold stub 42mm diameter and 60mm long with a 30mm gas channel, three 2.5mm external stiffening ribs, and a rectangular 65x50mm mounting flange 8mm thick with four 7mm corner bolt holes",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '60mm long' but no axis of the part measures 60mm (extents: 68.0\u00d765.0\u00d750.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H015",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a large industrial cylinder barrel 130mm OD and 180mm tall with a 95mm through bore, fourteen 4mm fins spaced 7mm apart, and a 155mm diameter head flange 15mm thick with ten 10mm stud holes on a 135mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '7mm apart' but the measured hole-centre spacing/circle is 135.0mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H016",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a compact air-cooled cylinder 58mm OD by 75mm tall with a 38mm bore, six fins 1.8mm thick spaced 3.5mm apart, and a 70mm round head flange 7mm thick pierced by four 5mm stud holes on a 58mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '3.5mm apart' but the measured hole-centre spacing/circle is 58.0mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H019",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned generator engine cylinder 82mm OD and 115mm tall with a 60mm bore, eight 3mm fins spaced 5mm apart, and a 105mm diameter base flange 10mm thick with six 7mm stud holes on a 88mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '5mm apart' but the measured hole-centre spacing/circle is 88.0mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H021",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a chainsaw engine cylinder 52mm OD by 70mm tall with a 34mm bore, five thin fins 1.5mm thick spaced 3mm apart, and a 65mm base flange 6mm thick with three 5mm mounting holes on a 52mm circle",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a chainsaw engine cylinder 52mm OD by 70mm tall with a 34mm bore, five thin fins 1.5mm thick spaced 3mm apart, and a 65mm base flange 6mm thick with three 5mm mounting holes on a 52mm circle",
+     "code": "from build123d import *\nfrom b123d.domain import bolt_circle\n\n# ---- parameters (mm) ----\ncyl_od = 52.0                 # outer diameter of the cylinder body\ncyl_height = 70.0             # height of the cylinder body\nbore_d = 34.0                 # bore diameter\n\nfin_count = 5                 # number of cooling fins\nfin_thickness = 1.5           # thickness of each fin\nfin_spacing = 3.0             # gap between adjacent fins\nfin_od = 64.0                 # outer diameter of each fin\n\nflange_d = 65.0               # base flange diameter\nflange_thickness = 6.0        # base flange thickness\n\nmount_hole_d = 5.0            # mounting hole diameter\nmount_bolt_circle_d = 52.0    # bolt circle diameter for mounting holes\nmount_hole_count = 3          # number of mounting holes\n\n# ---- derived layout (local coords, flange bottom at z=0) ----\ntotal_height = flange_thickness + cyl_height\nflange_z = flange_thickness / 2\ncyl_z = flange_thickness + cyl_height / 2\n\n# base flange + cylinder body\nbody = Pos(0, 0, flange_z) * Cylinder(radius=flange_d / 2, height=flange_thickness)\nbody += Pos(0, 0, cyl_z) * Cylinder(radius=cyl_od / 2, height=cyl_height)\n\n# through bore, full length with generous margin\nbody -= Pos(0, 0, total_height / 2) * Cylinder(radius=bore_d / 2, height=total_height * 1.5)\n\n# mounting holes on bolt circle, cut fully through the flange\nbody -= Pos(0, 0, flange_thickness) * bolt_circle(\n    mount_hole_count, mount_bolt_circle_d, mount_hole_d, flange_thickness * 2\n)\n\n# cooling fins: thin annular rings fused onto the cylinder body, centred on its height\nfin_pitch = fin_thickness + fin_spacing\nfin_center_z = cyl_z\nfor i in range(fin_count):\n    offset = (i - (fin_count - 1) / 2) * fin_pitch\n    z = fin_center_z + offset\n    fin = Pos(0, 0, z) * Cylinder(radius=fin_od / 2, height=fin_thickness)\n    fin -= Pos(0, 0, z) * Cylinder(radius=cyl_od / 2, height=fin_thickness * 3)\n    body += fin\n\n# centre the whole part at the origin along Z\nresult = Pos(0, 0, -total_height / 2) * body",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H021-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na chainsaw engine cylinder 52mm OD by 70mm tall with a 34mm bore, five thin fins 1.5mm thick spaced 3mm apart, and a 65mm base flange 6mm thick with three 5mm mounting holes on a 52mm circle\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: compose two flanges at a right angle with + (base + upright sharing the inner corner), brace that corner with gusset() placed at it (legs run +X/+Z from the corner), and put holes on TWO different faces: through-Z on the base vs through-X on the upright via Rot(0,90,0)*Cylinder.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import gusset\nbase    = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nupright = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nresult  = base + upright\nresult += Pos(<DIM>, <DIM>, <DIM>) * gusset(<DIM>, <DIM>, <DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Rot(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For through-holes, ensure the bolt circle height is twice the flange thickness to fully extrude the holes through the part.\n- For through-holes, use the correct radius (half the diameter) in the Cylinder constructor to ensure the hole size matches the specification.\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H021",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       65.0,
+       65.0,
+       76.0
+      ],
+      "volume_mm3": 107241.086,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H022",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust riser stub 60mm diameter and 110mm long with a 44mm gas passage, six 2.5mm external ribs, and a 90mm diameter mounting flange 11mm thick with six 8mm bolt holes on a 75mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '110mm long' but no axis of the part measures 110mm (extents: 121.0\u00d790.0\u00d790.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H023",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small aircraft engine cylinder 88mm OD and 125mm tall with a 64mm bore, eleven 2.5mm cooling fins spaced 4mm apart, and a 110mm diameter head flange 12mm thick with eight 8mm stud holes on a 92mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '4mm apart' but the measured hole-centre spacing/circle is 92.0mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H027",
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust collector stub 65mm diameter and 120mm long with a 48mm through passage, five 3.5mm external ribs, and a 100mm diameter mounting flange 13mm thick with six 10mm bolt holes on an 82mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '120mm long' but no axis of the part measures 120mm (extents: 133.0\u00d7100.0\u00d7100.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H036",
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mount base 100x100x10mm with a central 55mm diameter clearance bore, four 30mm long by 6mm wide adjustment slots arranged radially around the bore, four 15mm triangular corner gussets, and two 35x15x5mm raised pads for anti-vibration mounts.",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "A motor mount base 100x100x10mm with a central 55mm diameter clearance bore, four 30mm long by 6mm wide adjustment slots arranged radially around the bore, four 15mm triangular corner gussets, and two 35x15x5mm raised pads for anti-vibration mounts.",
+     "code": "from build123d import *\nfrom b123d.domain import gusset\nimport math\n\n# ---- Parameters (mm) ----\nbase_size          = 100.0   # square base length x width\nbase_thickness     = 10.0    # base plate thickness\nbore_dia           = 55.0    # central clearance bore diameter\nslot_length        = 30.0    # adjustment slot length (radial direction)\nslot_width         = 6.0     # adjustment slot width\nslot_center_radius = 43.0    # distance from centre to slot centre\ngusset_leg         = 15.0    # triangular corner gusset leg length\ngusset_thickness   = 5.0     # gusset height added on top of base\npad_length         = 35.0    # raised anti-vibration pad length (along Y)\npad_width          = 15.0    # raised anti-vibration pad width (along X)\npad_height         = 5.0     # raised pad height\npad_center_x       = 38.0    # pad centre distance from Y axis\n\nhalf = base_size / 2.0\ntop_z = base_thickness / 2.0\n\n# ---- Base plate with central bore ----\nresult = Box(base_size, base_size, base_thickness)\nresult -= Cylinder(radius=bore_dia / 2.0, height=base_thickness * 2)\n\n# ---- Four radial adjustment slots (arranged around the bore) ----\nslot_angles = (45.0, 135.0, 225.0, 315.0)\nfor angle in slot_angles:\n    rad = math.radians(angle)\n    cx = slot_center_radius * math.cos(rad)\n    cy = slot_center_radius * math.sin(rad)\n    result -= (\n        Pos(cx, cy, 0)\n        * Rotation(0, 0, angle)\n        * Box(slot_length, slot_width, base_thickness * 2)\n    )\n\n# ---- Four triangular corner gussets (raised pads on top, at each corner) ----\n# base state: legs +X, -Y, thickness +Z  -> fits corner (-half, +half)\ngusset_A = Rotation(90, 0, 0) * gusset(gusset_leg, gusset_leg, gusset_thickness)\n# rotate 180 about Z: legs -X, +Y -> fits corner (+half, -half)\ngusset_B = Rotation(0, 0, 180) * gusset_A\n# mirror A about YZ plane: legs -X, -Y -> fits corner (+half, +half)\ngusset_C = mirror(gusset_A, about=Plane.YZ)\n# mirror B about YZ plane: legs +X, +Y -> fits corner (-half, -half)\ngusset_D = mirror(gusset_B, about=Plane.YZ)\n\nresult += Pos(-half, half, top_z) * gusset_A\nresult += Pos(half, -half, top_z) * gusset_B\nresult += Pos(half, half, top_z) * gusset_C\nresult += Pos(-half, -half, top_z) * gusset_D\n\n# ---- Two raised anti-vibration mounting pads on top of the base ----\npad_z = top_z + pad_height / 2.0\nresult += Pos(pad_center_x, 0, pad_z) * Box(pad_width, pad_length, pad_height)\nresult += Pos(-pad_center_x, 0, pad_z) * Box(pad_width, pad_length, pad_height)",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H036-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\nA motor mount base 100x100x10mm with a central 55mm diameter clearance bore, four 30mm long by 6mm wide adjustment slots arranged radially around the bore, four 15mm triangular corner gussets, and two 35x15x5mm raised pads for anti-vibration mounts.\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: compose two flanges at a right angle with + (base + upright sharing the inner corner), brace that corner with gusset() placed at it (legs run +X/+Z from the corner), and put holes on TWO different faces: through-Z on the base vs through-X on the upright via Rot(0,90,0)*Cylinder.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import gusset\nbase    = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nupright = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nresult  = base + upright\nresult += Pos(<DIM>, <DIM>, <DIM>) * gusset(<DIM>, <DIM>, <DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Rot(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For cylindrical features like ring grooves, ensure the subtraction operation is applied to the correct orientation and position to avoid unfused bodies.\n- For through-holes, ensure the bolt circle height is twice the flange thickness to fully extrude the holes through the part.\n- A THROUGH bore/hole in a part that is CENTRED on the origin must ALSO be centred \u2014 do not shift the cutting cylinder to a face. build123d primitives are centred at the origin: a 10mm-thick flange spans z=-5..+5. WRONG: result -= Pos(0,0,-10)*Cylinder(radius=15, height=20)  # shifts cut to z=-20..0, clears only the bottom half -> BLIND. RIGHT: result -= Cylinder(radius=15, height=20)  # centred, spans z=-10..+10, clears the full z=-5..+5 thickness -> THROUGH. Rule: give the cutter height >= 2x the part thickness AND leave it centred (no Z offset, or Pos(0,0,0)) so it overhangs both faces equally. Only add a Z offset if the part itself is NOT centred on z=0.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H036",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       100.0,
+       100.0,
+       15.0
+      ],
+      "volume_mm3": 75416.706,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H045",
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing 52mm outside diameter and 60mm long with a 25mm through-bore, a triangular flange 80mm across corners 9mm thick with three 7mm bolt holes, two 5mm ribs joining the flange to the barrel, and a grease port drilled 9mm diameter through the flange thickness.",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "ERROR: the script builds geometry but never assigns it to `result`.\nSolid variables found: barrel, flange.\nFix: add a final line  result = flange  (the FINISHED part, after all boolean cuts/joins).\n"
+  },
+  {
+   "id": "H050",
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing 65mm outside diameter and 75mm long with a 32mm through-bore, a 95mm diameter round flange 11mm thick drilled with five 8mm bolt holes on an 82mm circle, three 5mm ribs strengthening the barrel-to-flange junction, and a grease port drilled 8mm diameter and tapped 1/8 NPT on the flange face.",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "A bearing housing 65mm outside diameter and 75mm long with a 32mm through-bore, a 95mm diameter round flange 11mm thick drilled with five 8mm bolt holes on an 82mm circle, three 5mm ribs strengthening the barrel-to-flange junction, and a grease port drilled 8mm diameter and tapped 1/8 NPT on the flange face.",
+     "code": "from build123d import *\nimport math\nfrom b123d.domain import bolt_circle, gusset\n\n# ---- Parameters (mm) ----\nbarrel_od         = 65.0     # bearing housing barrel outside diameter\nbarrel_length     = 75.0     # overall barrel length\nbore_d            = 32.0     # through bore diameter\nflange_od         = 95.0     # mounting flange outside diameter\nflange_t          = 11.0     # flange thickness\nbolt_circle_d     = 82.0     # bolt hole circle diameter\nbolt_hole_d       = 8.0      # bolt clearance hole diameter\nbolt_count        = 5        # number of bolt holes\nrib_count         = 3        # number of strengthening ribs\nrib_thickness     = 5.0      # rib thickness\nrib_height        = 20.0     # rib height climbing up the barrel from the flange face\ngrease_port_d     = 8.0      # grease port drill diameter (tapped 1/8 NPT)\ngrease_port_radius = 27.0    # radial position of grease port on the flange face\n\n# ---- Derived dimensions ----\nbarrel_r  = barrel_od / 2.0\nbore_r    = bore_d / 2.0\nflange_r  = flange_od / 2.0\nrib_radial_len = (flange_od - barrel_od) / 2.0   # radial extent of rib from barrel OD to flange OD\n\n# Barrel centred on Z axis (spans -barrel_length/2 .. +barrel_length/2)\nbarrel = Cylinder(radius=barrel_r, height=barrel_length)\n\n# Flange sits flush with one end of the barrel (bottom end)\nflange_z = -barrel_length / 2.0 + flange_t / 2.0\nflange = Pos(0, 0, flange_z) * Cylinder(radius=flange_r, height=flange_t)\n\nresult = barrel + flange\n\n# Through bore (bore centred on origin, oversized height so it fully pierces barrel + flange)\nresult -= Cylinder(radius=bore_r, height=barrel_length * 2)\n\n# Bolt holes on the flange (through the flange thickness only)\nflange_top_z = flange_z + flange_t / 2.0     # face where flange meets the plain barrel\nbolt_depth = flange_t + 5.0\nresult -= Pos(0, 0, flange_top_z) * bolt_circle(bolt_count, bolt_circle_d, bolt_hole_d, bolt_depth)\n\n# Grease port: single 8mm hole drilled through the flange face (tapped 1/8 NPT)\nport_angle = math.radians(36.0)   # offset between bolt holes\nport_x = grease_port_radius * math.cos(port_angle)\nport_y = grease_port_radius * math.sin(port_angle)\nresult -= Pos(port_x, port_y, flange_z) * Cylinder(radius=grease_port_d / 2.0, height=flange_t * 2)\n\n# Three ribs strengthening the barrel-to-flange junction, evenly spaced\nfor i in range(rib_count):\n    angle = 360.0 / rib_count * i\n    result += Rotation(0, 0, angle) * (\n        Pos(barrel_r, 0, flange_top_z) * gusset(rib_radial_len, rib_height, rib_thickness)\n    )",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H050-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\nA bearing housing 65mm outside diameter and 75mm long with a 32mm through-bore, a 95mm diameter round flange 11mm thick drilled with five 8mm bolt holes on an 82mm circle, three 5mm ribs strengthening the barrel-to-flange junction, and a grease port drilled 8mm diameter and tapped 1/8 NPT on the flange face.\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: compose two flanges at a right angle with + (base + upright sharing the inner corner), brace that corner with gusset() placed at it (legs run +X/+Z from the corner), and put holes on TWO different faces: through-Z on the base vs through-X on the upright via Rot(0,90,0)*Cylinder.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import gusset\nbase    = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nupright = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nresult  = base + upright\nresult += Pos(<DIM>, <DIM>, <DIM>) * gusset(<DIM>, <DIM>, <DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Rot(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- A THROUGH bore/hole in a part that is CENTRED on the origin must ALSO be centred \u2014 do not shift the cutting cylinder to a face. build123d primitives are centred at the origin: a 10mm-thick flange spans z=-5..+5. WRONG: result -= Pos(0,0,-10)*Cylinder(radius=15, height=20)  # shifts cut to z=-20..0, clears only the bottom half -> BLIND. RIGHT: result -= Cylinder(radius=15, height=20)  # centred, spans z=-10..+10, clears the full z=-5..+5 thickness -> THROUGH. Rule: give the cutter height >= 2x the part thickness AND leave it centred (no Z offset, or Pos(0,0,0)) so it overhangs both faces equally. Only add a Z offset if the part itself is NOT centred on z=0.\n- For through-holes, ensure the bolt circle height is twice the flange thickness to fully extrude the holes through the part.\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H050",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       95.0,
+       95.0,
+       75.0
+      ],
+      "volume_mm3": 229433.487,
+      "advisories": [
+       "1 hole(s) came out blind \u2014 if the spec intended them to pass through (no pocket/groove/counterbore was named), deepen and centre the cutter to clear both faces."
+      ]
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H055",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 120x80x30mm steel mounting block with a 30mm diameter keyed bore through the center (6mm keyway 3mm deep), four 9mm counterbored holes (16mm diameter, 8mm deep) at the corners, and a 15mm chamfer on all four top edges",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen run"
+  },
+  {
+   "id": "H056",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x60x25mm angle bracket with one face milled at 30 degrees, a 20mm T-slot 8mm deep running the length of the flat face, two 12mm counterbored holes (20mm diameter, 6mm deep) through the angled face, and a 5x5mm chamfered relief pocket at the inside corner",
+   "outcome": "error",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "error": "no batch result (errored/expired/refused)"
+  },
+  {
+   "id": "H058",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 110x60x20mm base plate with a 30mm wide T-slot 10mm deep down the middle, four corners chamfered 8x8mm, two 14mm counterbored holes (22mm diameter, 7mm deep) flanking the slot, and a 45 degree ramped face 15mm high on one end",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the request says '15mm high' but no axis of the part measures 15mm (extents: 110.0\u00d760.0\u00d720.0mm) \u2014 size the geometry from the numbers in the request.; [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the "
+  },
+  {
+   "id": "H059",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 70x70x50mm cubic bracket with a 35mm diameter keyed bore (8mm keyway, 4mm deep) through one axis, a cross-drilled 6mm passage through the side wall intersecting the bore, a 20x20mm chamfered pocket 10mm deep in the top face, and four 6mm mounting holes at the base corners",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) and apply chamfer(edge, length) WITHOUT wrapping"
+  },
+  {
+   "id": "H060",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 130x50x30mm rail block with a 25mm dovetail groove 12mm deep running the full length, three 10mm counterbored holes (18mm diameter, 6mm deep) spaced 40mm apart along the top, and a 20 degree angled end face",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a 130x50x30mm rail block with a 25mm dovetail groove 12mm deep running the full length, three 10mm counterbored holes (18mm diameter, 6mm deep) spaced 40mm apart along the top, and a 20 degree angled end face",
+     "code": "from build123d import *\nfrom math import tan, radians\nfrom b123d.domain import counterbore_cutter\n\n# ---- Parameters (mm / degrees) ----\nlength = 130.0          # rail block length (X)\nwidth = 50.0            # rail block width (Y)\nheight = 30.0           # rail block height (Z)\n\ngroove_width = 25.0     # dovetail groove nominal (opening) width\ngroove_depth = 12.0     # dovetail groove depth\ndovetail_angle = 15.0   # flare half-angle of dovetail walls from vertical (deg)\ngroove_length_buffer = 20.0  # overshoot so groove cutter clears both ends\n\nhole_count = 3\nhole_spacing = 40.0     # spacing between counterbored holes along length\nthrough_hole_d = 10.0   # through-hole diameter\ncounterbore_d = 18.0    # counterbore diameter\ncounterbore_depth = 6.0 # counterbore depth\n\nend_angle = 20.0        # angled end face, degrees from vertical\nend_cutter_size = 100.0        # oversized cutting-tool block edge length\nend_cutter_width_buffer = 20.0 # extra width so cutter fully spans block width\n\n# ---- Base block ----\nblock = Box(length, width, height)\n\n# ---- Dovetail groove (full length, cut into the BOTTOM face) ----\nopen_z = -height / 2                 # groove opening at bottom surface\ninner_z = open_z + groove_depth      # deepest point of groove (into the part)\n\nflare = 2 * groove_depth * tan(radians(dovetail_angle))\ninner_width = groove_width + flare   # wider at the deepest point -> retains a mating rail\n\nprofile_pts = [\n    (-groove_width / 2, open_z),\n    (groove_width / 2, open_z),\n    (inner_width / 2, inner_z),\n    (-inner_width / 2, inner_z),\n]\n\ngroove_face = Plane.YZ * Polygon(*profile_pts)\ngroove_extrude_half = (length + groove_length_buffer) / 2\ngroove_cutter = extrude(groove_face, amount=groove_extrude_half, both=True)\n\nblock -= groove_cutter\n\n# ---- Three counterbored holes along the top, spaced hole_spacing apart ----\nfor i in range(hole_count):\n    x = (i - (hole_count - 1) / 2) * hole_spacing\n    block -= Pos(x, 0, height / 2) * counterbore_cutter(\n        through_hole_d, counterbore_d, counterbore_depth, height\n    )\n\n# ---- 20-degree angled end face (at the +X end) ----\nend_cutter = (\n    Pos(length / 2, 0, 0)\n    * Rotation(0, end_angle, 0)\n    * Pos(end_cutter_size / 2, 0, 0)\n    * Box(end_cutter_size, width + end_cutter_width_buffer, end_cutter_size)\n)\n\nblock -= end_cutter\n\nresult = block",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H060-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na 130x50x30mm rail block with a 25mm dovetail groove 12mm deep running the full length, three 10mm counterbored holes (18mm diameter, 6mm deep) spaced 40mm apart along the top, and a 20 degree angled end face\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: drill a corner grid of through-holes: nested loops over the \u00b1x/\u00b1y corner positions subtracting a full-depth Pos*Cylinder at each.\n  how it's expressed in build123d:\nfrom build123d import *\nresult = Box(<DIM>, <DIM>, <DIM>)\nfor x in (-<DIM>, <DIM>):\n    for y in (-<DIM>, <DIM>):\n        result -= Pos(x, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n\n\u2022 Idiom from a past verified build:\n  how it's expressed in build123d:\nfrom build123d import *\n\n# Dimensions from user request\nlength = <DIM>\nwidth = <DIM>\nheight = <DIM>\n\n# Create a solid block with a central through hole\nresult = Box(length, width, height)\nresult -= Pos(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=height*<DIM>)\n\n# Fillet only the largest outer circular edge\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n# Export the result (this line is not needed as the runner will export `result`)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For through-holes, use the correct radius (half the diameter) in the Cylinder constructor to ensure the hole size matches the specification.\n- For through-holes, position the Cylinder's base at z=0 with height equal to the total part height to ensure full penetration through all sections.\n- For through-holes, ensure the bolt circle height is twice the flange thickness to fully extrude the holes through the part.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H060",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       130.0,
+       50.0,
+       30.0
+      ],
+      "volume_mm3": 141699.592,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   }
+  },
+  {
+   "id": "H061",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x100x40mm square housing with a 45mm diameter keyed bore (10mm keyway 5mm deep) through the center, four 12mm counterbored holes (20mm diameter, 8mm deep) near the corners, and a 10mm chamfer around the bottom perimeter",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen run"
+  },
+  {
+   "id": "H062",
+   "tier": 3,
+   "group": "machined",
+   "spec": "an 80x60x25mm wedge bracket with one face angled at 40 degrees, a 15mm T-slot 6mm deep cut into the angled face, two 8mm cross-drilled passages through the thick end, and a 5mm chamfered pocket 15x15mm on the flat back face",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) and apply chamfer(edge, length) WITHOUT wrapping"
+  },
+  {
+   "id": "H063",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a cylindrical 95mm diameter, 60mm tall machined boss with a 32mm keyed bore (9mm keyway 4.5mm deep) through the center, six 8mm counterbored holes (14mm diameter, 6mm deep) on a 75mm bolt circle, and a 3mm chamfer on both end faces",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H064",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 140x90x30mm base block with two parallel 30mm dovetail slides 15mm deep running the full length, a 20mm through bore centered between them, and four 10mm counterbored mounting holes (18mm diameter, 5mm deep) at the corners",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the request says '15mm deep' but no axis of the part measures 15mm (extents: 140.0\u00d790.0\u00d730.0mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "id": "H066",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 160x60x25mm rail with a 25mm wide T-slot 9mm deep centered on top, five 8mm through holes spaced 25mm apart, chamfered 5mm on all top edges, and one end face angled at 15 degrees",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the request says '25mm apart' but the measured hole-centre spacing/circle is 64.0, 107.7mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm).; [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Se"
+  },
+  {
+   "id": "H067",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 120x45x30mm dovetail slider with a 30mm dovetail rail 14mm deep along one edge, two 9mm cross-drilled holes through the body at 20mm and 80mm from one end, and a 6mm chamfer along all long edges",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H068",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x70x35mm bracket with a 50 degree angled top face, a 26mm keyed bore (7mm keyway 3.5mm deep) through the thick section, three 8mm counterbored holes (14mm diameter, 5mm deep) along the base, and a 12x12mm chamfered relief pocket where the angle meets the base",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) and apply chamfer(edge, length) WITHOUT wrapping"
+  },
+  {
+   "id": "H071",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 110x55x28mm wedge block with a 35 degree ramped face on one end, a 20mm T-slot 7mm deep along the flat top, two 10mm counterbored holes (16mm diameter, 6mm deep), and a 5mm chamfer along the ramped edge",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H073",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 95x60x30mm angled housing with a 60 degree beveled face carrying a cross-drilled 10mm passage, a 30mm keyed bore (8mm keyway 4mm deep) through the main body, and a chamfered 15x15mm pocket 8mm deep on the back face",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) and apply chamfer(edge, length) WITHOUT wrapping"
+  },
+  {
+   "id": "H074",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 150x100x45mm machined block with a 50mm diameter keyed bore (12mm keyway 6mm deep) through the center, six 10mm counterbored holes (18mm diameter, 8mm deep) arranged in two rows of three, and a 45 degree chamfer 10mm wide around the top rim",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1].sort_by(SortBy.RADIUS)[-1]) and apply chamfer(edge, length) WITHOUT wrapping"
+  },
+  {
+   "id": "H075",
+   "tier": 3,
+   "group": "machined",
+   "spec": "an 85x50x25mm slider with a 20mm dovetail groove 10mm deep on the underside, a 14mm through hole at each end counterbored 22mm diameter 5mm deep, and a 20 degree angled face at the front edge",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "[spec] the request says 'a 14mm through hole' (1\u00d7\u00d814) but the solid has 2 hole(s) of that size (measured: \u00d814\u00d71; \u00d814\u00d71; \u00d822\u00d71; \u00d822\u00d71) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H076",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 70x70x35mm angled mount with a face milled at 20 degrees holding two 8mm counterbored holes (14mm diameter, 5mm deep), a 24mm keyed bore (6mm keyway 3mm deep) through the base, and a 6mm chamfer around the top perimeter",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H077",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 180x60x30mm rail block with a 28mm wide T-slot 11mm deep running the length, a 20mm cross-drilled hole at the midpoint intersecting the slot from below, and chamfered 5mm edges along both long sides",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H078",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 105x65x35mm dovetail bracket with a 32mm dovetail slide 16mm deep on the top face, a 20mm keyed through-bore (5mm keyway 2.5mm deep) offset to one side, and three 7mm counterbored holes (13mm diameter, 4mm deep) along the base edge",
+   "outcome": "error",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "error": "no batch result (errored/expired/refused)"
+  },
+  {
+   "id": "H079",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 90x90x30mm plate-block with a 40 degree beveled corner, a 25mm chamfered pocket 12mm deep centered on the flat face, a 30mm keyed bore (8mm keyway 4mm deep) through the body, and four 9mm counterbored mounting holes (16mm diameter, 6mm deep)",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a 90x90x30mm plate-block with a 40 degree beveled corner, a 25mm chamfered pocket 12mm deep centered on the flat face, a 30mm keyed bore (8mm keyway 4mm deep) through the body, and four 9mm counterbored mounting holes (16mm diameter, 6mm deep)",
+     "code": "from build123d import *\nfrom b123d.domain import counterbore_cutter\n\n# ---- Parameters (mm) ----\nplate_length = 90.0\nplate_width = 90.0\nplate_height = 30.0\n\ncorner_bevel_leg = 10.0\ncorner_bevel_angle = 40.0\n\npocket_dia = 25.0\npocket_depth = 12.0\npocket_chamfer = 3.0\npocket_overhang = 2.0\n\nbore_dia = 30.0\nkeyway_width = 8.0\nkeyway_depth = 4.0\n\nmount_hole_dia = 9.0\ncounterbore_dia = 16.0\ncounterbore_depth = 6.0\nmount_hole_offset = 30.0\n\n# ---- Derived values ----\npocket_r = pocket_dia / 2\nbore_r = bore_dia / 2\ntop_z = plate_height / 2\n\n# ---- Base block ----\nresult = Box(plate_length, plate_width, plate_height)\n\n# ---- 25mm chamfered pocket, 12mm deep, centered on the top (flat) face ----\npocket_h = pocket_depth + pocket_overhang\npocket_cz = top_z - pocket_depth / 2 + pocket_overhang / 2\nresult -= Pos(0, 0, pocket_cz) * Cylinder(radius=pocket_r, height=pocket_h)\n\n# chamfer the pocket's entrance rim (the top-most circular edge right now,\n# selected before any other circular features are cut)\npocket_rim = result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\nresult = chamfer(pocket_rim, length=pocket_chamfer)\n\n# ---- 40 degree beveled corner (the +X, +Y vertical edge) ----\nvertical_edges = result.edges().filter_by(Axis.Z)\ncorner_edge = vertical_edges.group_by(Axis.X)[-1].group_by(Axis.Y)[-1]\nresult = chamfer(corner_edge, length=corner_bevel_leg, angle=corner_bevel_angle)\n\n# ---- 30mm keyed bore through the body (8mm keyway, 4mm deep) ----\nbore_h = plate_height * 2\nbore_cutter = Cylinder(radius=bore_r, height=bore_h)\nkeyway_overlap = 0.5\nkeyway_cy = bore_r + keyway_depth / 2 - keyway_overlap\nkeyway_cutter = Pos(0, keyway_cy, 0) * Box(keyway_width, keyway_depth + keyway_overlap, bore_h)\nresult -= (bore_cutter + keyway_cutter)\n\n# ---- four counterbored mounting holes (9mm through, 16mm x 6mm deep counterbore) ----\ncb_depth_total = plate_height + 5\nfor x in (-mount_hole_offset, mount_hole_offset):\n    for y in (-mount_hole_offset, mount_hole_offset):\n        result -= Pos(x, y, top_z) * counterbore_cutter(\n            mount_hole_dia, counterbore_dia, counterbore_depth, cb_depth_total\n        )",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H079-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na 90x90x30mm plate-block with a 40 degree beveled corner, a 25mm chamfered pocket 12mm deep centered on the flat face, a 30mm keyed bore (8mm keyway 4mm deep) through the body, and four 9mm counterbored mounting holes (16mm diameter, 6mm deep)\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: drill a corner grid of through-holes: nested loops over the \u00b1x/\u00b1y corner positions subtracting a full-depth Pos*Cylinder at each.\n  how it's expressed in build123d:\nfrom build123d import *\nresult = Box(<DIM>, <DIM>, <DIM>)\nfor x in (-<DIM>, <DIM>):\n    for y in (-<DIM>, <DIM>):\n        result -= Pos(x, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n\n\u2022 Idiom from a past verified build:\n  how it's expressed in build123d:\nfrom build123d import *\n\n# Dimensions from user request\nlength = <DIM>\nwidth = <DIM>\nheight = <DIM>\n\n# Create a solid block with a central through hole\nresult = Box(length, width, height)\nresult -= Pos(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=height*<DIM>)\n\n# Fillet only the largest outer circular edge\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n# Export the result (this line is not needed as the runner will export `result`)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For counterbored holes, ensure the counterbore cylinder's height is sufficient to fully pierce the plate so it is cut entirely within the main hole's depth.\n- For counterbored holes, use a Cylinder with height equal to the counterbore diameter plus depth, positioned so the smaller hole is fully within the counterbore's base.\n- For counterbored holes, ensure the cutting Cylinder's height is set to the counterbore diameter plus depth to accurately represent the recessed feature.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H079",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       90.0,
+       90.0,
+       30.0
+      ],
+      "volume_mm3": 208648.824,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   }
+  },
+  {
+   "id": "H080",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 140x70x40mm machined housing with a 38mm keyed bore (9mm keyway 4.5mm deep) through the center, a cross-drilled 10mm passage intersecting the bore at 90 degrees, a 20mm T-slot 8mm deep on the top face, and a 10mm chamfer around the base",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 261, in chamfer\n    new_shape = self.__class__(chamfer_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BR"
+  },
+  {
+   "id": "H081",
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x60x30mm bracket combining a 25 degree angled front face with a 30mm dovetail rail 14mm deep on top, a 18mm through bore counterbored 28mm diameter 8mm deep from the back, and two 6mm cross-drilled passages near the base",
+   "outcome": "error",
+   "turns": 0,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": false
+   },
+   "brief_expected": {
+    "forbid_blind_holes": false
+   },
+   "error": "no batch result (errored/expired/refused)"
+  },
+  {
+   "id": "H082",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a 90-degree elbow manifold with 60mm outside diameter passages and 4mm wall thickness, each end terminating in a 100mm diameter flange 12mm thick with a 40mm bore and four 9mm bolt holes on a 78mm circle",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a 90-degree elbow manifold with 60mm outside diameter passages and 4mm wall thickness, each end terminating in a 100mm diameter flange 12mm thick with a 40mm bore and four 9mm bolt holes on a 78mm circle",
+     "code": "from build123d import *\nfrom b123d.domain import bolt_circle\n\n# ---- Parameters (mm) ----\nouter_d       = 60.0   # pipe passage outer diameter\nwall_t        = 4.0    # pipe wall thickness\nflange_d      = 100.0  # flange outside diameter\nflange_t      = 12.0   # flange thickness\nflange_bore_d = 40.0   # flange through-bore diameter\nbolt_circle_d = 78.0   # bolt circle diameter\nbolt_hole_d   = 9.0    # bolt clearance hole diameter\nbolt_count    = 4      # number of bolt holes per flange\nleg_length    = 80.0   # distance from the bend apex to each flange's outer face\n\n# ---- Derived dimensions ----\nouter_r       = outer_d / 2\ninner_r       = outer_r - wall_t\nflange_r      = flange_d / 2\nflange_bore_r = flange_bore_d / 2\ntube_len      = leg_length - flange_t\n\n\ndef make_flange():\n    # Local flange, axis along Z, centred at origin (spans -flange_t/2 .. +flange_t/2)\n    f = Cylinder(radius=flange_r, height=flange_t)\n    f -= Cylinder(radius=flange_bore_r, height=flange_t * 2)\n    f -= Pos(0, 0, flange_t / 2) * bolt_circle(bolt_count, bolt_circle_d, bolt_hole_d, flange_t * 2)\n    return f\n\n\n# Leg 1 - runs along +X from the bend apex (origin) out to its flange\ntube1   = Pos(tube_len / 2, 0, 0) * Rotation(0, 90, 0) * Cylinder(radius=outer_r, height=tube_len)\nbore1   = Pos(tube_len / 2, 0, 0) * Rotation(0, 90, 0) * Cylinder(radius=inner_r, height=tube_len)\nflange1 = Pos(leg_length - flange_t / 2, 0, 0) * Rotation(0, 90, 0) * make_flange()\n\n# Leg 2 - runs along +Y from the bend apex (origin) out to its flange\ntube2   = Pos(0, tube_len / 2, 0) * Rotation(-90, 0, 0) * Cylinder(radius=outer_r, height=tube_len)\nbore2   = Pos(0, tube_len / 2, 0) * Rotation(-90, 0, 0) * Cylinder(radius=inner_r, height=tube_len)\nflange2 = Pos(0, leg_length - flange_t / 2, 0) * Rotation(-90, 0, 0) * make_flange()\n\nbody   = tube1 + tube2 + flange1 + flange2\nresult = body - bore1 - bore2\n\n# Centre the overall L-shaped elbow manifold roughly on the origin\ncenter_shift = (leg_length - flange_r) / 2\nresult = Pos(-center_shift, -center_shift, 0) * result",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H082-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na 90-degree elbow manifold with 60mm outside diameter passages and 4mm wall thickness, each end terminating in a 100mm diameter flange 12mm thick with a 40mm bore and four 9mm bolt holes on a 78mm circle\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: compose two flanges at a right angle with + (base + upright sharing the inner corner), brace that corner with gusset() placed at it (legs run +X/+Z from the corner), and put holes on TWO different faces: through-Z on the base vs through-X on the upright via Rot(0,90,0)*Cylinder.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import gusset\nbase    = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nupright = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nresult  = base + upright\nresult += Pos(<DIM>, <DIM>, <DIM>) * gusset(<DIM>, <DIM>, <DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Rot(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n- For through-holes, use a Cylinder with height twice the part thickness to ensure full penetration through the flange.\n- For bolt holes on a bolt circle, ensure the Cylinder used for the hole has a height equal to twice the thickness so it fully pierces through the part.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H082",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       130.0,
+       130.0,
+       100.0
+      ],
+      "volume_mm3": 235369.159,
+      "advisories": []
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H083",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a three-port tee manifold, main run 80mm OD with 5mm walls and a 45mm through bore, branch port 50mm OD tapping in perpendicular, all three faces flanged to 110mm diameter 14mm thick discs with six 8mm holes on a 90mm bolt circle",
+   "outcome": "accepted-first-try",
+   "turns": 1,
+   "rows": [
+    {
+     "kind": "good",
+     "source": "teacher",
+     "spec": "a three-port tee manifold, main run 80mm OD with 5mm walls and a 45mm through bore, branch port 50mm OD tapping in perpendicular, all three faces flanged to 110mm diameter 14mm thick discs with six 8mm holes on a 90mm bolt circle",
+     "code": "from build123d import *\nimport math\n\n# ---- Parameters (mm) ----\nmain_run_od      = 80.0    # main run outer diameter\nmain_run_wall    = 5.0     # main run nominal wall thickness (informational)\nmain_bore_d      = 45.0    # main run through-bore diameter\nmain_run_length  = 200.0   # length of the main run pipe section (excludes flanges)\n\nbranch_od        = 50.0    # branch port outer diameter\nbranch_wall      = 5.0     # branch nominal wall thickness (informational)\nbranch_bore_d    = 40.0    # branch through-bore diameter\nbranch_height    = 90.0    # branch pipe section height from main-run centreline to its flange\n\nflange_d         = 110.0   # flange disc diameter\nflange_t         = 14.0    # flange disc thickness\nbolt_circle_d    = 90.0    # bolt circle diameter\nbolt_hole_d      = 8.0     # bolt clearance hole diameter\nbolt_count       = 6       # number of bolt holes per flange\n\n# ---- Main run pipe (axis along X, centred at origin) ----\nmain_tube = Rotation(0, 90, 0) * Cylinder(radius=main_run_od / 2, height=main_run_length)\n\n# ---- Branch port (axis along Z, tapping in perpendicular from the main run) ----\nbranch_tube = Pos(0, 0, branch_height / 2) * Cylinder(radius=branch_od / 2, height=branch_height)\n\n# ---- Flange discs ----\nflange_x_pos = main_run_length / 2 + flange_t / 2\nflange1 = Pos(flange_x_pos, 0, 0) * Rotation(0, 90, 0) * Cylinder(radius=flange_d / 2, height=flange_t)\nflange2 = Pos(-flange_x_pos, 0, 0) * Rotation(0, 90, 0) * Cylinder(radius=flange_d / 2, height=flange_t)\n\nflange_z_pos = branch_height + flange_t / 2\nflange3 = Pos(0, 0, flange_z_pos) * Cylinder(radius=flange_d / 2, height=flange_t)\n\n# ---- Fuse the manifold body ----\nresult = main_tube + branch_tube + flange1 + flange2 + flange3\n\n# ---- Main run through-bore (cuts through both end flanges too) ----\nmain_bore_len = main_run_length + 2 * flange_t + 20.0\nresult -= Rotation(0, 90, 0) * Cylinder(radius=main_bore_d / 2, height=main_bore_len)\n\n# ---- Branch through-bore (reaches down past the main-run centreline so the ports connect) ----\nbranch_bore_len = branch_height + flange_t + main_run_od\nbranch_bore_center_z = (branch_height + flange_t) / 2 - main_run_od / 4\nresult -= Pos(0, 0, branch_bore_center_z) * Cylinder(radius=branch_bore_d / 2, height=branch_bore_len)\n\n# ---- Bolt circles (six holes, 90mm PCD, on all three flanges) ----\nbolt_r = bolt_circle_d / 2\nhole_r = bolt_hole_d / 2\nhole_len = flange_t * 2\n\n# Flange 1 (+X end, axis along X)\nfor i in range(bolt_count):\n    a = math.radians(360.0 / bolt_count * i)\n    y = bolt_r * math.cos(a)\n    z = bolt_r * math.sin(a)\n    result -= Pos(flange_x_pos, y, z) * Rotation(0, 90, 0) * Cylinder(radius=hole_r, height=hole_len)\n\n# Flange 2 (-X end, axis along X)\nfor i in range(bolt_count):\n    a = math.radians(360.0 / bolt_count * i)\n    y = bolt_r * math.cos(a)\n    z = bolt_r * math.sin(a)\n    result -= Pos(-flange_x_pos, y, z) * Rotation(0, 90, 0) * Cylinder(radius=hole_r, height=hole_len)\n\n# Flange 3 (branch, axis along Z)\nfor i in range(bolt_count):\n    a = math.radians(360.0 / bolt_count * i)\n    x = bolt_r * math.cos(a)\n    y = bolt_r * math.sin(a)\n    result -= Pos(x, y, flange_z_pos) * Cylinder(radius=hole_r, height=hole_len)",
+     "image": "/home/theultimatecunt/.openclaw/cad-sftpairs/teacher-claude-sonnet-5-H083-t1.png",
+     "prompt_kind": "codegen-raw",
+     "system": "You are a build123d expert. Write a complete, runnable build123d script using ALGEBRA MODE \u2014\ncombine solid primitives with the + - & operators. Algebra mode is far simpler and more\nreliable than BuildPart/BuildSketch; prefer it for everything.\n\nRULES:\n1. First line: from build123d import *\n   (optionally) from b123d.domain import structural_section, spur_gear, hex_bolt\n2. All dimensions in MILLIMETRES. Centre the part at the origin.\n3. Build solids, combine them, and assign the final solid to `result`.\n4. Do NOT call export_step() \u2014 the runner exports `result`.\n5. Return ONLY Python code \u2014 no prose, no markdown fences.\n6. PARAMETERS: define every key dimension as a named constant at the TOP of the script,\n   directly after the imports (e.g. `wall = 2.0`, `cable_hole_d = 20.0`), and use those\n   names in the geometry. This makes the part editable without an AI: the user can change\n   a number and regenerate. Plain numeric assignments only \u2014 no expressions on those lines.\n\nCOORDINATE SYSTEM \u2014 CRITICAL: every primitive is CENTRED on the origin.\n  Box(120, 80, 40) spans X \u221260..+60, Y \u221240..+40, Z \u221220..+20 \u2014 it does NOT start at 0.\n  So the TOP face is at z = +height/2 (here +20), the bottom at \u2212height/2 (here \u221220).\n  Place every feature in these centred coordinates. A subtracted feature MUST overlap the\n  solid or it removes nothing (a hole at z=35 on a box that ends at z=20 cuts NOTHING).\n\n  VERTICAL THROUGH-HOLES (holes through the top/bottom face) \u2014 follow this EXACTLY:\n    subtract  Pos(x, y, 0) * Cylinder(radius=r, height=BIG)\n    \u2022 Z is 0 (centred), NOT the top-face height. Do NOT offset the cylinder up to the top.\n    \u2022 height = at least 2\u00d7 the part thickness, so it pierces the FULL thickness.\n    \u2022 ONLY x and y position the hole (e.g. corners of a 100x60 part are near x=\u00b145, y=\u00b125).\n  A hole at \"z = height\" is the #1 mistake \u2014 it makes a shallow blind hole or misses entirely.\n\nPRIMITIVES (each centred at the origin):\n  Box(length, width, height)   Cylinder(radius, height)   Sphere(radius)\n  Cone(bottom_radius, top_radius, height)              # Cylinder axis is along +Z\n\nPOSITION / ROTATE by multiplying with a location (do NOT call .offset on a shape):\n  Pos(x, y, z) * Cylinder(radius=6, height=40)         # translate\n  Rotation(0, 90, 0) * Cylinder(radius=4, height=20)   # rotate, degrees about X,Y,Z\n\nCOMBINE:   a + b  (union)    a - b  (cut a hole)    a & b  (intersect)\n\nASSEMBLY (whenever the REQUEST describes more than one component \u2014 \"as two solids\", \"a X and\na Y\", \"a pair of\" \u2014 or the brief notes say assembly): build each part as its OWN labelled\nsolid, position it where it mates, and combine them into a Compound \u2014\ndo NOT fuse distinct parts with '+'. Pattern:\n  base = Box(60, 40, 10); base.label = \"base\"\n  lid  = Pos(0, 0, 11) * (Box(60, 40, 6) - Pos(0, 0, 0) * Cylinder(radius=5, height=20))\n  lid.label = \"lid\"\n  result = Compound(children=[base, lid]); result.label = \"assembly\"\nGive every part a DISTINCT label (\"hub1\"/\"hub2\", not \"hub2\" twice) \u2014 the inspector reports parts\nby label and duplicates make an assembly unreviewable.\nPARTS MUST NOT INTERPENETRATE. Mating parts TOUCH; they never share space. A connecting rod ends\nat the piston's pin bore, it does not pass through the crown. Overlapping solids are a hard fail.\nSub-features of one part (fins on a hub, arms on a yoke) must be FUSED with '+' INTO that part,\nnever left as loose bodies in the Compound.\nMESHING GEARS need TWO conditions, both required \u2014 3 of 12 mechanisms failed this on 2026-07-30:\n  1. same module on both, and centre distance EXACTLY (teeth_a + teeth_b) * module / 2;\n  2. PHASE the teeth, or a tooth meets a tooth and they collide. Rotate the second gear half a\n     tooth pitch about its own axis:\n       gear_b = Pos(cd, 0, 0) * Rot(0, 0, 180.0 / teeth_b) * spur_gear(teeth_b, m, w)\n     For a RACK the tooth pitch is pi * module along its length; offset the rack (or phase the\n     pinion) so a pinion tooth lands in a rack gap.\nPosition parts so they actually mate (a lid sits ON the base's top face; a shaft passes THROUGH a\nbore). For a normal SINGLE part, ignore this and assign one fused solid to `result` as usual.\n\nFILLET / CHAMFER operate on a solid's edges:\n  result = fillet(result.edges().filter_by(Axis.Z), radius=3)        # vertical edges\n  result = chamfer(result.edges().group_by(Axis.Z)[-1], length=2)    # top edges\n  # the single top OUTER circular edge of a round part (flange/disc rim):\n  result = chamfer(result.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1]\n                   .sort_by(SortBy.RADIUS)[-1], length=1)\nWhen the SPEC asks for a fillet/chamfer it is a REQUIRED FEATURE \u2014 never wrap it in try/except:\na silent drop ships a wrong part, and a loud failure gets auto-repaired by the loop. Do the\ncut/hole operations FIRST and fillet/chamfer LAST (booleans after a fillet re-split edges).\nOnly a purely decorative fillet the spec never asked for may be guarded, and even then log it:\n  try:\n      result = fillet(result.edges().filter_by(Axis.Z), radius=3)   # decorative only\n  except Exception as e:\n      print(f\"WARN: decorative fillet skipped: {e}\")   # NEVER a bare pass\nKeep radii small relative to the part (radius < half the thinnest adjacent wall), and select a\nSPECIFIC edge set (filter_by / group_by) \u2014 never fillet result.edges() blindly. chamfer() takes\nlength=, fillet() takes radius= \u2014 don't swap them, and don't substitute one for the other.\n\nCylinder/Cone take keyword args: Cylinder(radius=R, height=H) \u2014 NOT r=/h=.\nA hole/bore DIAMETER D means radius = D/2 (a 4mm-diameter hole \u2192 radius=2). An M3 bolt clearance\nhole is radius\u22481.75.\n\nIf the brief notes recommend a domain helper (e.g. \"Use structural_section(...)\"), you MUST call\nthat helper \u2014 never hand-build an I/H/C-beam, gear, or bolt from boxes/cylinders:\n  structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm, mitre=False)\n  spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)\n  hex_bolt(size_mm, length_mm, pitch_mm=None)\n\nFEATURE HELPERS \u2014 PREFER THESE over hand-rolled geometry; they are verified-correct and compose\nwith algebra mode. Import what you use: `from b123d.domain import countersink_cutter, counterbore_cutter, bolt_circle, gusset, cross_bore, ring_groove`\n  countersink_cutter(through_d, head_d, depth)        # SUBTRACT: countersunk (flat-head) hole\n  counterbore_cutter(through_d, bore_d, bore_depth, depth)  # SUBTRACT: counterbored (socket-head) hole\n  bolt_circle(count, bolt_circle_d, hole_d, depth)    # SUBTRACT: N holes equally spaced on a bolt circle (centred on origin)\n  cross_bore(diameter, length, axis='x')              # SUBTRACT: a RADIAL hole through the SIDE wall (axis horizontal)\n  ring_groove(part_radius, depth, width)              # SUBTRACT: a shallow circumferential surface groove (axis +Z)\n  gusset(leg_h, leg_v, thickness)                     # ADD: right-triangle corner brace (legs +X and +Z)\n  \u2022 Cutters open at local z=0 and cut DOWNWARD \u2014 place with Pos(x, y, top_z) and use depth \u2265 part thickness:\n      result -= Pos(25, 0, 5) * countersink_cutter(6, 12, 20)        # countersunk M6 in a part whose top is z=5\n      result -= bolt_circle(6, 60, 6, 20)                            # 6-hole bolt circle (flange/hub), centred\n  \u2022 gusset adds a brace; rotate/position it onto the inner corner, e.g. result += Pos(20, 0, 0) * gusset(25, 40, 8)\n  Use bolt_circle for ANY ring of equally-spaced holes (flanges, hubs, engine cylinders); use the\n  countersink/counterbore cutters for any chamfered/recessed screw hole; use gusset to brace L/T corners.\n\nRADIAL / SIDE / CROSS BORES \u2014 a hole through the SIDE WALL (perpendicular to a cylinder's axis): a\nwrist-pin bore through a piston/cylinder SKIRT, a cross-hole in a shaft, a port through a tube wall.\nA plain Cylinder() points up +Z and would bore the TOP/BOTTOM \u2014 WRONG for a side hole. ALWAYS use\ncross_bore (or an explicit Rotation), positioned at the bore's HEIGHT:\n    result -= Pos(0, 0, 22) * cross_bore(20, 200)        # \u00d820 RADIAL bore through the side at z=22\n  Make length \u2265 the part's full width so it pierces both walls. NEVER use a bare vertical Cylinder\n  for a hole the spec says goes through the side / skirt / wall.\n\nRING GROOVES \u2014 shallow circumferential grooves on a cylinder's OUTER surface (piston rings, snap-ring\n/ circlip, O-ring glands). Each is a SHALLOW surface cut, NOT a deep bore. Subtracting a plain\nCylinder of nearly the body radius hollows the whole part (the #1 groove mistake). Use ring_groove,\none per groove height:\n    body = Pos(0, 0, 30) * Cylinder(radius=40, height=60)   # base at z=0, top at z=60\n    for z in (40, 47, 54):\n        body -= Pos(0, 0, z) * ring_groove(40, 3, 3)        # three 3mm-deep x 3mm-wide surface grooves\n    result = body\n\nEXAMPLES (study the style, then write ONE script):\n\n# 60x40x25 box with a 12mm hole through the top\nfrom build123d import *\nresult = Box(60, 40, 25) - Cylinder(radius=6, height=30)\n\n# 100x60x20 enclosure, 2mm walls, open top\nfrom build123d import *\nresult = Box(100, 60, 20) - Pos(0, 0, 2) * Box(96, 56, 20)\n\n# 80x50x5 bracket with two M4 clearance holes\nfrom build123d import *\nplate = Box(80, 50, 5)\nresult = plate - Pos(-25, 0, 0) * Cylinder(radius=2.25, height=10) \\\n               - Pos( 25, 0, 0) * Cylinder(radius=2.25, height=10)\n\n# 100x60x30 box with four 4mm holes THROUGH the top face, near the corners\n# (centred coords: corners \u2248 x=\u00b145, y=\u00b125; cutters at z=0, height>thickness \u2192 fully through)\nfrom build123d import *\nresult = Box(100, 60, 30)\nfor x in (-45, 45):\n    for y in (-25, 25):\n        result -= Pos(x, y, 0) * Cylinder(radius=2, height=60)\n\n# W200x100 I-beam, 1500mm \u2014 use the domain helper, don't hand-build the section\nfrom build123d import *\nfrom b123d.domain import structural_section\nresult = structural_section(200, 100, 10, 6, 1500)",
+     "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na three-port tee manifold, main run 80mm OD with 5mm walls and a 45mm through bore, branch port 50mm OD tapping in perpendicular, all three faces flanged to 110mm diameter 14mm thick discs with six 8mm holes on a 90mm bolt circle\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: fillet only the largest outer circular edge: filter_by(GeomType.CIRCLE) then group_by(SortBy.RADIUS)[-1]; lay out a bolt circle with a math.cos/sin polar loop.\n  how it's expressed in build123d:\nfrom build123d import *\nimport math\nresult = Cylinder(radius=<DIM>, height=<DIM>) - Cylinder(radius=<DIM>, height=<DIM>)\nfor i in range(<DIM>):\n    a = math.radians(<DIM> * i)\n    result -= Pos(<DIM> * math.cos(a), <DIM> * math.sin(a), <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nresult = fillet(result.edges().filter_by(GeomType.CIRCLE).group_by(SortBy.RADIUS)[-<DIM>], radius=<DIM>)\n\n\u2022 Idiom: compose two flanges at a right angle with + (base + upright sharing the inner corner), brace that corner with gusset() placed at it (legs run +X/+Z from the corner), and put holes on TWO different faces: through-Z on the base vs through-X on the upright via Rot(0,90,0)*Cylinder.\n  how it's expressed in build123d:\nfrom build123d import *\nfrom b123d.domain import gusset\nbase    = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nupright = Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\nresult  = base + upright\nresult += Pos(<DIM>, <DIM>, <DIM>) * gusset(<DIM>, <DIM>, <DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\nfor y in (-<DIM>, <DIM>):\n    result -= Pos(<DIM>, y, <DIM>) * Rot(<DIM>, <DIM>, <DIM>) * Cylinder(radius=<DIM>, height=<DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For bolt holes in a flange, use the bolt_circle helper with the correct diameter and ensure the height of the subtracted cylinders matches the flange thickness to avoid oversized hole appearances.\n- For through-holes, use a Cylinder with height twice the part thickness to ensure full penetration through the flange.\n- For bolt holes on a bolt circle, ensure the Cylinder used for the hole has a height equal to twice the thickness so it fully pierces through the part.\n\nWrite the build123d code:",
+     "code_model": "claude-sonnet-5",
+     "teacher_spec_id": "H083",
+     "verified": {
+      "solids": 1,
+      "bbox_mm": [
+       228.0,
+       110.0,
+       159.0
+      ],
+      "volume_mm3": 1002249.256,
+      "advisories": [
+       "6 hole(s) came out blind \u2014 if the spec intended them to pass through (no pocket/groove/counterbore was named), deepen and centre the cutter to clear both faces."
+      ]
+     },
+     "timestamp": "2026-08-02T13:24:18.354918+00:00"
+    }
+   ],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   }
+  },
+  {
+   "id": "H084",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 45-degree Y-branch fitting with 70mm OD legs and 6mm wall thickness, a 35mm through passage in each leg, and each of the three port flanges 95mm diameter 10mm thick carrying four 8mm bolt holes on a 74mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'four 8mm bolt holes' (4\u00d7\u00d88) but the solid has 10 hole(s) of that size (measured: \u00d88\u00d710 on circle \u00d874.4; \u00d835\u00d73 on circle \u00d81.4; \u00d870\u00d73 on circle \u00d81.4; \u00d895\u00d73 on circle \u00d81.4) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H085",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a cross manifold with four 65mm OD ports arranged at 90 degrees, 4.5mm wall thickness throughout, a shared 40mm through bore, and each port flanged 90mm diameter 11mm thick with four 8mm bolt holes on a 70mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'four 8mm bolt holes' (4\u00d7\u00d88) but the solid has 8 hole(s) of that size (measured: \u00d88\u00d78 on circle \u00d870; \u00d840\u00d72 centred) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H086",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a large 90-degree pipe elbow 150mm OD with 8mm walls and a 110mm bore, each end flanged to 200mm diameter 20mm thick faces, an 8mm raised face 2.5mm proud, and eight 14mm bolt holes on a 165mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'a 110mm bore' (1\u00d7\u00d8110) but the solid has 2 hole(s) of that size (measured: \u00d814\u00d74 on circle \u00d8120.7; \u00d8110\u00d72 on circle \u00d8147.5) \u2014 cut exactly the holes the request names, no extras.; [spec] the request says '165mm circle' but the measured hole-centre spacing/circle is 120.7, 147"
+  },
+  {
+   "id": "H088",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a 60-degree lateral wye manifold, main leg 90mm OD with 5mm walls and a 55mm through passage, branch leg 60mm OD with a 32mm bore, each port flanged to 120mm diameter 13mm thick with six 9mm bolt holes on a 98mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'six 9mm bolt holes' (6\u00d7\u00d89) but the solid has 9 hole(s) of that size (measured: \u00d89\u00d72 on circle \u00d855.3; \u00d89\u00d71; \u00d89\u00d74 on circle \u00d8115.1; \u00d89\u00d72 on circle \u00d8152.2; \u00d832\u00d71; \u00d855\u00d71; \u00d860\u00d71; \u00d890\u00d71) \u2014 cut exactly the holes the request names, no extras.; [spec] the request says '98mm circle' b"
+  },
+  {
+   "id": "H090",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a four-port cross manifold in a single casting, all ports 45mm OD with 3.5mm walls and a common 28mm bore, each face flanged 75mm diameter 9mm thick with four 7mm bolt holes on a 58mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'four 7mm bolt holes' (4\u00d7\u00d87) but the solid has 8 hole(s) of that size (measured: \u00d87\u00d78 on circle \u00d858; \u00d838\u00d72 centred) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H091",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a low-profile tee manifold 40mm OD with 3mm walls and a 24mm through passage, branch and run flanges both 65mm diameter 7mm thick with four 6mm bolt holes on a 50mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '50mm circle' but the measured hole-centre spacing/circle is 35.4mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H092",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a heavy-duty 90-degree elbow manifold 130mm OD with 7mm walls and a 95mm bore, each end flanged to 175mm diameter 18mm thick with an 8mm raised face and eight 12mm bolt holes on a 145mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'a 95mm bore' (1\u00d7\u00d895) but the solid has 2 hole(s) of that size (measured: \u00d895\u00d72 on circle \u00d8138.5) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H093",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a three-way cross-tee manifold with two inline 75mm OD ports and one perpendicular 50mm OD branch, 4.5mm wall thickness, a shared 48mm bore, all faces flanged 100mm diameter 11mm thick with four 9mm holes on a 80mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'four 9mm holes' (4\u00d7\u00d89) but the solid has 5 hole(s) of that size (measured: \u00d89\u00d74 on circle \u00d882.1; \u00d89\u00d71; \u00d848\u00d71 centred; \u00d848\u00d71; \u00d850\u00d71 centred; \u00d875\u00d71) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H094",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a symmetric Y-manifold with two 55mm OD inlet legs at 30 degrees merging into a single 75mm OD outlet, 4mm wall thickness, 32mm bores in the inlets and a 42mm bore in the outlet, each port flanged 90mm diameter 10mm thick with four 8mm bolt holes",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 345, in fillet\n    new_shape = self.__class__(fillet_builder.Shape())\n                               ^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BRep_"
+  },
+  {
+   "id": "H095",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a boxy tee manifold with a straight 85mm OD run and a 90-degree side branch of 55mm OD, 5mm walls throughout, a 55mm through bore in the run and 30mm in the branch, all three flanges 110mm diameter 12mm thick with six 9mm holes on a 88mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '88mm circle' but the measured hole-centre spacing/circle is 49.8, 132.8, 181.1mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H097",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 90-degree elbow 45mm OD with 3mm walls and a 28mm bore, both ports flanged to 70mm diameter 8mm thick faces, a 1.5mm raised face, and four 7mm bolt holes on a 55mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'a 28mm bore' (1\u00d7\u00d828) but the solid has 2 hole(s) of that size (measured: \u00d828\u00d72 on circle \u00d816.5) \u2014 cut exactly the holes the request names, no extras.; [spec] the request says '55mm circle' but the measured hole-centre spacing/circle is 16.5mm \u2014 position the hole centres from"
+  },
+  {
+   "id": "H098",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a straight-through manifold with a mid-mounted 90-degree side outlet, main run 95mm OD with 5.5mm walls and a 65mm bore, side branch 50mm OD with a 28mm bore, all three faces flanged with four to six 8mm bolt holes on circles from 74mm to 100mm",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'six 8mm bolt holes' (6\u00d7\u00d88) but the solid has 8 hole(s) of that size (measured: \u00d88\u00d74 on circle \u00d872.2; \u00d88\u00d72 on circle \u00d8106.6; \u00d88\u00d72 on circle \u00d8133.3; \u00d861\u00d71 centred; \u00d865\u00d71) \u2014 cut exactly the holes the request names, no extras."
+  },
+  {
+   "id": "H100",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a small 45-degree elbow fitting 30mm OD with 2mm walls and an 18mm through bore, each end flanged to 48mm diameter 6mm thick with four 5mm bolt holes on a 37mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says 'an 18mm through bore' (1\u00d7\u00d818) but the solid has 2 hole(s) of that size (measured: \u00d818\u00d72 on circle \u00d813.4) \u2014 cut exactly the holes the request names, no extras.; [spec] the request says '37mm circle' but the measured hole-centre spacing/circle is 13.4mm \u2014 position the hole cen"
+  },
+  {
+   "id": "H101",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a robust tee manifold for high pressure service, 110mm OD run with 9mm walls and a 70mm bore, 70mm OD branch with a 40mm bore, all three flanges 145mm diameter 16mm thick with an 8mm raised face and eight 12mm bolt holes on a 120mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '120mm circle' but the measured hole-centre spacing/circle is 111.1, 197.2mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  },
+  {
+   "id": "H102",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 180-degree return bend manifold 60mm OD with 4mm walls and a 38mm through passage looping back on itself, both parallel end flanges 90mm diameter 10mm thick with four 8mm bolt holes on a 70mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "Traceback (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen run"
+  },
+  {
+   "id": "H103",
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a large-radius 90-degree elbow manifold 105mm OD with 6mm walls and a 72mm through bore, each end flanged to 140mm diameter 15mm thick with a 2mm raised face and eight 11mm bolt holes on a 118mm circle",
+   "outcome": "repair-skipped-budget",
+   "turns": 1,
+   "rows": [],
+   "fewshots": 2,
+   "no_brief": true,
+   "graded_expected": {
+    "forbid_blind_holes": true
+   },
+   "brief_expected": {
+    "forbid_blind_holes": true
+   },
+   "first_problem": "[spec] the request says '118mm circle' but the measured hole-centre spacing/circle is 83.7, 104.9mm \u2014 position the hole centres from the request's numbers (e.g. 34mm apart = centres at \u00b117mm)."
+  }
+ ]
+}

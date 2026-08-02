@@ -43,7 +43,7 @@ UPLOADS_DIR = Path.home() / ".openclaw" / "cad-web" / "uploads"
 MAX_UPLOAD  = 10 * 1024 * 1024          # 10 MB
 BUILD_TIMEOUT = 2 * 1860                # engine budget + a full lock wait (matches Satine)
 LOG_TAIL    = 40
-ARTIFACT_EXTS = {".step", ".stl", ".dxf", ".png", ".py", ".jpg"}
+ARTIFACT_EXTS = {".step", ".stl", ".dxf", ".png", ".py", ".jpg", ".scad"}
 CODERS = {"auto", "fast", "strong"}
 
 # magic bytes → extension (content decides, not the filename)
@@ -99,8 +99,12 @@ def _worker():
 
 def _run_build(job: dict):
     job["status"] = "running"
-    cmd = [ENGINE_PYTHON, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
-           "--coder", job["coder"], "--target", "file"]
+    if job.get("lang") == "openscad":
+        cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "openscad_gen.py"),
+               job["spec"], "--json"]
+    else:
+        cmd = [ENGINE_PYTHON, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
+               "--coder", job["coder"], "--target", "file"]
     if job["image"]:
         cmd += ["--image", job["image"]]
     if not job.get("fewshots", True):
@@ -175,7 +179,7 @@ def _result_public(result: dict) -> dict:
     """Strip the result to what the page needs, with artifact paths rewritten to URLs."""
     out = {k: result.get(k) for k in
            ("ok", "converged", "accepted_via", "code_model", "turns", "build_time_s",
-            "last_critique", "warning", "image_analysis", "image_only",
+            "last_critique", "warning", "image_analysis", "image_only", "lang", "params",
             "needs_clarification", "questions", "spec", "error")}
     build_dir = result.get("build_dir") or ""
     if build_dir:
@@ -183,6 +187,7 @@ def _result_public(result: dict) -> dict:
         arts = {}
         for key, fname in (("render", "build.png"), ("step", "build.step"),
                            ("stl", "build.stl"), ("dxf", "build.dxf"),
+                           ("scad", "build.scad"),
                            ("reference", "reference.jpg"), ("source", "build_source.py")):
             if (BUILDS_DIR / bid / fname).exists():
                 arts[key] = f"/artifacts/{bid}/{fname}"
@@ -193,10 +198,15 @@ def _result_public(result: dict) -> dict:
 @app.post("/api/build")
 async def api_build(spec: str = Form(""), coder: str = Form("auto"),
                     candidates: str = Form(""), fewshots: str = Form("on"),
+                    lang: str = Form("build123d"),
                     image: UploadFile | None = File(None)):
     spec = spec.strip()
     if candidates and candidates not in {"1", "3", "5"}:
         raise HTTPException(400, "candidates must be 1, 3 or 5")
+    if lang not in {"build123d", "openscad"}:
+        raise HTTPException(400, "lang must be build123d or openscad")
+    if lang == "openscad" and image is not None and image.filename:
+        raise HTTPException(400, "openscad backend is text-only for now")
     if not spec and not (image is not None and image.filename):
         raise HTTPException(400, "provide a spec, an image, or both")
     if coder not in CODERS:
@@ -214,7 +224,7 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
         Path(image_path).write_bytes(data)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
-        "candidates": candidates, "fewshots": fewshots != "off",
+        "candidates": candidates, "fewshots": fewshots != "off", "lang": lang,
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(),
     }
@@ -224,6 +234,42 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
         _jobs[job["id"]] = job
     _queue.put(job["id"])
     return {"job_id": job["id"], "queued_ahead": job["queued_ahead"]}
+
+
+@app.post("/api/rescale")
+def api_rescale(payload: dict):
+    """The CADAM slider loop: substitute parameter values in a build's .scad and recompile
+    locally. Zero LLM — pure text substitution + OpenSCAD. Runs in FastAPI's threadpool."""
+    build_id = str(payload.get("build_id", ""))
+    params = payload.get("params") or {}
+    if not re.fullmatch(r"scad_[0-9_]+", build_id):
+        raise HTTPException(400, "not an openscad build")
+    build_dir = BUILDS_DIR / build_id
+    scad = build_dir / "build.scad"
+    if not scad.is_file():
+        raise HTTPException(404, "build not found")
+    code = scad.read_text()
+    for name, val in params.items():
+        if not re.fullmatch(r"\$?\w+", str(name)):
+            continue
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            continue
+        vs = str(int(v)) if v == int(v) else f"{v:g}"
+        code = re.sub(rf"^(\s*{re.escape(str(name))}\s*=\s*)-?[0-9.]+(\s*;)",
+                      rf"\g<1>{vs}\g<2>", code, count=1, flags=re.M)
+    scad.write_text(code)
+    import importlib.util as ilu
+    spec_ = ilu.spec_from_file_location("og", SKILL_ROOT / "scripts" / "openscad_gen.py")
+    og = ilu.module_from_spec(spec_)
+    spec_.loader.exec_module(og)
+    ok, err = og.compile_scad(scad, build_dir / "build.stl")
+    if not ok:
+        raise HTTPException(422, f"recompile failed: {err[:300]}")
+    return {"ok": True, "facts": og.stl_facts(build_dir / "build.stl"),
+            "stl": f"/artifacts/{build_id}/build.stl",
+            "params": og.parse_params(code)}
 
 
 @app.post("/api/mesh")

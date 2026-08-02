@@ -523,3 +523,47 @@ recovering: H001,H005,H007,H008,H012,H014,H015,H016,H019,H021,H022,H023,H027,H03
 [batch] in_progress: ok=0 err=0 processing=56
 2026-08-02 23:27:03,453 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
 [batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:27:23,840 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:27:44,334 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:28:04,696 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:28:25,027 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:28:45,345 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:29:05,673 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:29:26,151 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:29:46,816 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:30:07,436 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:30:27,889 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:30:48,260 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:31:08,687 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:31:29,087 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:31:49,582 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:32:10,194 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=56
+2026-08-02 23:32:31,707 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+[batch] ended: ok=56 err=0 processing=0
+2026-08-02 23:32:32,194 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX "HTTP/1.1 200 OK"
+2026-08-02 23:32:33,288 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_012QGh4fsnhPaH1bcDygF9aX/results "HTTP/1.1 200 OK"
+  [H056] EMPTY reply (stop_reason=max_tokens, out=32000tok) — raise --max-tokens
+  [H081] EMPTY reply (stop_reason=max_tokens, out=32000tok) — raise --max-tokens
+  [H078] EMPTY reply (stop_reason=max_tokens, out=32000tok) — raise --max-tokens
+[spend] skipping repair round: $6.20 spent + ~$6.69 projected repairs exceeds cap $10.00
+
+outcomes: {'accepted-first-try': 9, 'repair-skipped-budget': 44, 'error': 3}
+spend this run: $6.20 (batch rates, list-derived)
+pairs written: 9 (9 good, 0 fail->fix)
+summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/teacher_pilot_20260802_133952.json
+V2-RECOVERY-DONE

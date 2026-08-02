@@ -112,6 +112,20 @@
   .meta { color: var(--dim); font: 0.78rem/1.6 var(--mono); margin-top: 0.55rem; }
   .warn { color: var(--warn); font-size: 0.88rem; margin-top: 0.55rem; }
   .qbox { margin-top: 0.8rem; } .qbox ol { padding-left: 1.2rem; }
+  .params { margin-top: 0.9rem; border-top: 1px dashed var(--line); padding-top: 0.7rem; }
+  .params h4 { font: 600 0.72rem/1.6 var(--mono); letter-spacing: 0.14em;
+               text-transform: uppercase; color: var(--faint); margin-bottom: 0.4rem; }
+  .pgroup { font: 600 0.7rem/2 var(--mono); color: var(--accent); text-transform: uppercase;
+            letter-spacing: 0.1em; margin-top: 0.4rem; }
+  .param { display: grid; grid-template-columns: minmax(90px, 1fr) 2fr 3.6rem;
+           gap: 0.6rem; align-items: center; font-size: 0.85rem; padding: 0.15rem 0; }
+  .param label { color: var(--dim); font-family: var(--mono); font-size: 0.78rem;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .param input[type=range] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+  .param .pval { font: 600 0.8rem/1 var(--mono); color: var(--ink); text-align: right;
+                 font-variant-numeric: tabular-nums; }
+  .params .apply { margin-top: 0.55rem; }
+  .params .busy { color: var(--warn); font: 0.78rem var(--mono); margin-left: 0.6rem; }
   footer { color: var(--faint); font-size: 0.76rem; padding: 0 1rem 1.4rem; text-align: center; }
 
   @media (max-width: 520px) {
@@ -150,6 +164,12 @@
   <details class="dev">
     <summary>Developer</summary>
     <div class="devgrid">
+      <label>lang
+        <select id="lang">
+          <option value="build123d" selected>build123d · B-rep + gate</option>
+          <option value="openscad">openscad · params + sliders</option>
+        </select>
+      </label>
       <label>coder
         <select id="coder">
           <option value="auto" selected>auto (triage + escalate)</option>
@@ -216,6 +236,7 @@ $("go").onclick = async () => {
   const fd = new FormData();
   fd.append("spec", spec);
   if (!meshMode) {
+    fd.append("lang", $("lang").value);
     fd.append("coder", $("coder").value);
     if ($("candidates").value) fd.append("candidates", $("candidates").value);
     fd.append("fewshots", $("fewshots").checked ? "on" : "off");
@@ -281,8 +302,49 @@ function render(j) {
         + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
   }
   if (j.status === "error") h += `<div class="warn">✗ ${esc(j.error || "failed")}</div>`;
+  if (j.status === "done" && r.lang === "openscad" && (r.params || []).length) {
+    const bid = (r.artifacts && r.artifacts.scad || "").split("/")[2] || "";
+    let pg = "";
+    h += `<div class="params" data-bid="${esc(bid)}"><h4>Parameters — drag &amp; apply, no AI involved</h4>`;
+    for (const p of r.params) {
+      if (p.name === "$fn") continue;
+      if (p.group && p.group !== pg) { pg = p.group; h += `<div class="pgroup">${esc(pg)}</div>`; }
+      h += `<div class="param"><label title="${esc(p.name)}">${esc(p.name)}</label>
+        <input type="range" min="${p.min}" max="${p.max}" step="${p.step || 1}"
+               value="${p.value}" data-p="${esc(p.name)}"
+               oninput="this.parentElement.querySelector('.pval').textContent = this.value">
+        <span class="pval">${p.value}</span></div>`;
+    }
+    h += `<button class="dl apply" onclick="rescale('${j.id}')">↻ Rebuild with these values</button>
+          <span class="busy" id="busy-${j.id}"></span></div>`;
+  }
   el.innerHTML = h;
   el.dataset.stl = a.stl || ""; el.dataset.glb = a.glb || "";
+}
+
+async function rescale(id) {
+  const el = document.getElementById("job-" + id);
+  const box = el && el.querySelector(".params");
+  if (!box) return;
+  const params = {};
+  box.querySelectorAll("input[type=range]").forEach(s => params[s.dataset.p] = s.value);
+  const busy = document.getElementById("busy-" + id);
+  busy.textContent = "recompiling…";
+  try {
+    const r = await fetch("/api/rescale", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ build_id: box.dataset.bid, params }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    busy.textContent = j.facts && j.facts.bbox
+      ? `done — ${j.facts.bbox.join("×")} mm, ${j.facts.volume_mm3} mm³` : "done";
+    el.dataset.stl = j.stl + "?t=" + Date.now();
+    const disposer = viewers.get(id);
+    if (disposer) { disposer(); viewers.delete(id); }
+    const holder = document.getElementById("viewer-" + id);
+    if (holder) { holder.innerHTML = ""; holder.style.display = "none"; }
+    preview(id);
+  } catch (e) { busy.textContent = "✗ " + e.message; }
 }
 
 /* ── inline 3D preview (three.js, vendored — fully local) ── */
