@@ -37,6 +37,28 @@ OUT_BATCH2 = HERE / "benchmarks" / "teacher-batch2" / "specs.json"
 OUT_MECH2 = HERE / "benchmarks" / "teacher-mech2" / "specs.json"
 DECISIONS = Path.home() / ".openclaw" / "cad-review-decisions.jsonl"
 
+# v2 hard mode (2026-08-02, after the v1 NO-SHIP): specs deliberately in the zone the stock
+# 7B fails — MULTI-FEATURE SINGLE BODIES and mechanisms WITH their fastening pins (user
+# review: "across the board a lot are missing a certain fastening pin"). 15 are reserved
+# into benchmarks/hard-eval/ (guarded as a suite) so v2 can be measured on unseen hard specs.
+HARD_FAMILIES = [
+    ("engine",    30, "tier 3: ONE body composing 4+ features — finned cylinders with a "
+                      "central bore, head flange and stud holes; cooling-jacketed sleeves; "
+                      "ribbed exhaust stubs with mounting flanges"),
+    ("housing",   30, "tier 3: ONE body composing 4+ features — bearing housings with bore, "
+                      "bolt flange, ribs and grease port; gearbox end covers with recesses, "
+                      "bosses and seal grooves; motor mounts with slots, gussets and pads"),
+    ("machined",  30, "tier 3: ONE body composing 4+ features — brackets/blocks combining "
+                      "angled faces, counterbored holes, keyed bores, T-slots, dovetails, "
+                      "chamfered pockets, cross-drilled passages"),
+    ("manifold",  25, "tier 3: ONE body — flanged manifolds/elbows/tees with through "
+                      "passages, bolt circles on each port face, wall thickness stated"),
+    ("mechanism", 40, "tier 4: 2-4 separate solids that genuinely assemble, ALWAYS "
+                      "including the fastening elements as their own solids (clevis pins, "
+                      "wrist pins, pivot pins, shoulder bolts) sized to their holes with "
+                      "running clearance; correct centre distances and phasing"),
+]
+
 # (group, n, tier guidance)
 FAMILIES = [
     ("plate",     26, "tier 1-2: flat plates with holes, slots, chamfered edges, counterbores"),
@@ -127,11 +149,86 @@ def gen_mechanisms(n: int) -> list[dict]:
             for x in items if x.get("spec")]
 
 
+OUT_HARD = HERE / "benchmarks" / "teacher-hard" / "specs.json"
+OUT_HARD_EVAL = HERE / "benchmarks" / "hard-eval" / "specs.json"
+
+
+def main_hard(args) -> int:
+    """v2: generate the hard-spec corpus + a reserved 15-spec hard-eval suite."""
+    hc = _load_census()
+    suite = hc.suite_slugs()
+    existing = {hc._slug(s["spec"], 40) for s in
+                _load_specs(PILOT) + _load_specs(COMPLEX)}
+    for extra in (HERE / "benchmarks" / "teacher-batch2" / "specs.json",
+                  HERE / "benchmarks" / "teacher-mech2" / "specs.json"):
+        if extra.exists():
+            existing |= {hc._slug(s["spec"], 40) for s in _load_specs(extra)}
+    seen = set(existing)
+
+    def admit(items, label):
+        out = []
+        for it in items:
+            slug = hc._slug(it["spec"], 40)
+            if slug in suite:
+                print(f"  [guard] DROPPED suite collision in {label}", file=sys.stderr)
+                continue
+            if slug in seen:
+                continue
+            seen.add(slug)
+            out.append(it)
+        return out
+
+    pilot = _load_specs(PILOT)
+    hard = []
+    for group, n, guidance in HARD_FAMILIES:
+        seeds = [s["spec"] for s in _load_specs(COMPLEX)[:4]] if group == "mechanism" \
+            else [s["spec"] for s in pilot if s.get("tier") == 3][:5]
+        try:
+            items = admit(gen_family(group, n, guidance, seeds), group)
+        except Exception as e:
+            print(f"  [{group}] FAILED: {e}", file=sys.stderr)
+            continue
+        for it in items:
+            it["tier"] = 4 if group == "mechanism" else 3
+        print(f"  [{group}] {len(items)} specs")
+        hard.extend(items)
+
+    # Reserve every 10th spec (spread across families) as the unseen hard-eval suite.
+    hard_eval, train = [], []
+    for i, it in enumerate(hard):
+        (hard_eval if i % 10 == 3 and len(hard_eval) < 15 else train).append(it)
+    for i, it in enumerate(train, 1):
+        it["id"] = f"H{i:03d}"
+    for i, it in enumerate(hard_eval, 1):
+        it["id"] = f"E{i:02d}"
+    OUT_HARD.parent.mkdir(parents=True, exist_ok=True)
+    OUT_HARD_EVAL.parent.mkdir(parents=True, exist_ok=True)
+    OUT_HARD.write_text(json.dumps({
+        "_meta": {"generated": "teacher_specgen.py --hard", "note":
+                  "v2 hard-spec training corpus; NOT an eval suite"},
+        "benchmarks": train}, indent=1))
+    OUT_HARD_EVAL.write_text(json.dumps({
+        "_meta": {"generated": "teacher_specgen.py --hard", "heldout": True, "note":
+                  "reserved hard-eval suite — guarded via harvest_census.suite_slugs(); "
+                  "NEVER train on these"},
+        "benchmarks": hard_eval}, indent=1))
+    usd, calls = engine.cloud_spend_total()
+    print(f"\n[specgen-hard] wrote {len(train)} -> {OUT_HARD}")
+    print(f"[specgen-hard] reserved {len(hard_eval)} -> {OUT_HARD_EVAL}")
+    print(f"[specgen-hard] ledger total ${usd:.2f} over {calls} calls")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--mech-n", type=int, default=30)
+    ap.add_argument("--hard", action="store_true",
+                    help="v2 mode: hard multi-feature + mechanism specs, 15 reserved "
+                         "into benchmarks/hard-eval/")
     args = ap.parse_args()
+    if args.hard and not args.dry_run:
+        return main_hard(args)
 
     hc = _load_census()
     suite = hc.suite_slugs()

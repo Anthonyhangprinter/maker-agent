@@ -1,0 +1,367 @@
+=== v2 batch 1: hard singles, Sonnet, accept-soft ===
+2026-08-02 22:48:13,315 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.785, a piston, 80mm bore diameter, 60mm tall,~0.769
+2026-08-02 22:48:13,599 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:13,909 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.804, a piston, 80mm bore diameter, 60mm tall,~0.783
+2026-08-02 22:48:14,189 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:14,798 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.72, a solid circular flange 80mm diameter 10~0.706
+2026-08-02 22:48:15,334 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:15,644 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.786, a piston, 80mm bore diameter, 60mm tall,~0.731
+2026-08-02 22:48:15,925 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:16,234 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.766, a solid circular flange 80mm diameter 10~0.746
+2026-08-02 22:48:16,516 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:16,817 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.674, a piston, 80mm bore diameter, 60mm tall,~0.657
+2026-08-02 22:48:17,099 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:17,403 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.777, a solid circular flange 80mm diameter 10~0.767
+2026-08-02 22:48:17,685 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:17,986 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.779, a piston, 80mm bore diameter, 60mm tall,~0.728
+2026-08-02 22:48:18,268 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:18,574 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.799, an L-bracket: a 60x40x6mm base flange an~0.761
+2026-08-02 22:48:18,861 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:19,170 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.717, a solid circular flange 80mm diameter 10~0.692
+2026-08-02 22:48:19,454 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:19,762 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.743, a solid circular flange 80mm diameter 10~0.714
+2026-08-02 22:48:20,048 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:20,357 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.771, an L-bracket: a 60x40x6mm base flange an~0.751
+2026-08-02 22:48:20,643 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:20,951 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.732, a piston, 80mm bore diameter, 60mm tall,~0.713
+2026-08-02 22:48:21,237 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:21,547 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.788, a solid circular flange 80mm diameter 10~0.786
+2026-08-02 22:48:21,835 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:22,151 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.8, a piston, 80mm bore diameter, 60mm tall,~0.759
+2026-08-02 22:48:22,441 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:22,750 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.798, a piston, 80mm bore diameter, 60mm tall,~0.754
+2026-08-02 22:48:23,042 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:23,358 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.763, an L-bracket: a 60x40x6mm base flange an~0.758
+2026-08-02 22:48:23,648 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:23,960 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.695, a solid circular flange 80mm diameter 10~0.677
+2026-08-02 22:48:24,251 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:24,568 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.744, an L-bracket: a 60x40x6mm base flange an~0.733
+2026-08-02 22:48:24,859 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:25,175 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.784, an L-bracket: a 60x40x6mm base flange an~0.768
+2026-08-02 22:48:25,466 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:25,784 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.764, an L-bracket: a 60x40x6mm base flange an~0.742
+2026-08-02 22:48:26,077 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:26,392 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.763, an L-bracket: a 60x40x6mm base flange an~0.756
+2026-08-02 22:48:26,685 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:26,999 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.748, a solid circular flange 80mm diameter 10~0.745
+2026-08-02 22:48:27,295 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:27,611 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.792, an L-bracket: a 60x40x6mm base flange an~0.768
+2026-08-02 22:48:27,903 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:28,220 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.774, a solid circular flange 80mm diameter 10~0.688
+2026-08-02 22:48:28,515 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:28,831 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.759, a 100x60x30mm solid block with four 4mm ~0.747
+2026-08-02 22:48:29,129 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:29,446 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.772, an L-bracket: a 60x40x6mm base flange an~0.746
+2026-08-02 22:48:29,748 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:30,074 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.79, an L-bracket: a 60x40x6mm base flange an~0.788
+2026-08-02 22:48:30,371 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:30,694 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.781, a solid circular flange 80mm diameter 10~0.768
+2026-08-02 22:48:30,987 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:31,308 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.729, an L-bracket: a 60x40x6mm base flange an~0.695
+2026-08-02 22:48:31,607 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:31,934 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.876, an L-bracket: a 60x40x6mm base flange an~0.838
+2026-08-02 22:48:32,234 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:32,555 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.739, an L-bracket: a 60x40x6mm base flange an~0.73
+2026-08-02 22:48:32,854 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:33,174 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.801, a piston, 80mm bore diameter, 60mm tall,~0.703
+2026-08-02 22:48:33,476 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:33,795 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.817, an L-bracket: a 60x40x6mm base flange an~0.793
+2026-08-02 22:48:34,100 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:34,427 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.748, Model a plate with overall dimensions of~0.722
+2026-08-02 22:48:34,726 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:35,050 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.754, a solid circular flange 80mm diameter 10~0.71
+2026-08-02 22:48:35,374 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:35,706 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.768, an L-bracket: a 60x40x6mm base flange an~0.763
+2026-08-02 22:48:36,002 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:36,325 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.751, an L-bracket: a 60x40x6mm base flange an~0.728
+2026-08-02 22:48:36,625 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:36,948 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.785, a piston, 80mm bore diameter, 60mm tall,~0.712
+2026-08-02 22:48:37,250 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:37,576 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.71, a solid circular flange 80mm diameter 10~0.696
+2026-08-02 22:48:37,873 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:38,200 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.74, Model a plate with overall dimensions of~0.702
+2026-08-02 22:48:38,500 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:38,825 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.771, a 100x60x30mm solid block with four 4mm ~0.734
+2026-08-02 22:48:39,128 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:39,463 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.762, an L-bracket: a 60x40x6mm base flange an~0.731
+2026-08-02 22:48:39,766 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:40,092 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.787, a piston, 80mm bore diameter, 60mm tall,~0.726
+2026-08-02 22:48:40,391 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:40,721 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.814, an L-bracket: a 60x40x6mm base flange an~0.789
+2026-08-02 22:48:41,031 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:41,359 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.74, an L-bracket: a 60x40x6mm base flange an~0.74
+2026-08-02 22:48:41,663 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:41,989 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.755, a piston, 80mm bore diameter, 60mm tall,~0.73
+2026-08-02 22:48:42,292 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:42,625 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.849, an L-bracket: a 60x40x6mm base flange an~0.835
+2026-08-02 22:48:42,931 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:43,260 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.718, a piston, 80mm bore diameter, 60mm tall,~0.706
+2026-08-02 22:48:43,567 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:43,899 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.826, an L-bracket: a 60x40x6mm base flange an~0.796
+2026-08-02 22:48:44,208 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:44,543 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.751, an L-bracket: a 60x40x6mm base flange an~0.716
+2026-08-02 22:48:44,850 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:45,183 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.781, a solid circular flange 80mm diameter 10~0.687
+2026-08-02 22:48:45,495 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:45,829 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.816, an L-bracket: a 60x40x6mm base flange an~0.798
+2026-08-02 22:48:46,141 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:46,485 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.725, an L-bracket: a 60x40x6mm base flange an~0.722
+2026-08-02 22:48:46,794 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:47,130 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.857, a solid rectangular calibration block 10~0.802
+2026-08-02 22:48:47,444 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:47,778 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.848, a 100x60x30mm solid block with four 4mm ~0.778
+2026-08-02 22:48:48,085 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:48,420 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.814, a piston, 80mm bore diameter, 60mm tall,~0.736
+2026-08-02 22:48:48,734 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:49,066 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.826, a 40x40x8mm plate with a 10mm hole in th~0.81
+2026-08-02 22:48:49,380 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:49,720 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.859, a solid circular flange 80mm diameter 10~0.786
+2026-08-02 22:48:50,030 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:50,363 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.814, a solid 40x40x10mm block with a 10mm thr~0.772
+2026-08-02 22:48:50,672 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:51,009 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.835, a solid circular flange 80mm diameter 10~0.794
+2026-08-02 22:48:51,325 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:51,662 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.828, a solid circular flange 80mm diameter 10~0.752
+2026-08-02 22:48:51,979 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:52,321 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.786, a piston, 80mm bore diameter, 60mm tall,~0.755
+2026-08-02 22:48:52,638 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:52,975 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.835, a solid 40x40x10mm block with a 10mm thr~0.797
+2026-08-02 22:48:53,286 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:53,631 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.806, a 100x60x30mm solid block with four 4mm ~0.777
+2026-08-02 22:48:53,939 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:54,275 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.755, a solid circular flange 80mm diameter 10~0.737
+2026-08-02 22:48:54,589 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:54,928 [INFO] [v5] Few-shots (cosine): a 30mm diameter 12mm tall cylindrical sp~0.7, a solid circular flange 80mm diameter 10~0.687
+2026-08-02 22:48:55,236 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:55,575 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.864, a solid circular flange 80mm diameter 10~0.795
+2026-08-02 22:48:55,887 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:56,225 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.713, a solid circular flange 80mm diameter 10~0.708
+2026-08-02 22:48:56,536 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:56,882 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.825, a solid circular flange 80mm diameter 10~0.78
+2026-08-02 22:48:57,202 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:57,550 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.847, a solid 40x40x10mm block with a 10mm thr~0.796
+2026-08-02 22:48:57,865 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:58,205 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.873, a solid circular flange 80mm diameter 10~0.778
+2026-08-02 22:48:58,522 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:58,872 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.763, a 100x60x30mm solid block with four 4mm ~0.76
+2026-08-02 22:48:59,246 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:48:59,592 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.868, a solid 40x40x10mm block with a 10mm thr~0.822
+2026-08-02 22:48:59,905 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:00,248 [INFO] [v5] Few-shots (cosine): a 30mm diameter 12mm tall cylindrical sp~0.704, a solid circular flange 80mm diameter 10~0.702
+2026-08-02 22:49:00,561 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:00,905 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.792, a solid rectangular calibration block 10~0.768
+2026-08-02 22:49:01,221 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:01,567 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.808, a solid rectangular calibration block 10~0.769
+2026-08-02 22:49:01,887 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:02,236 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.843, a solid circular flange 80mm diameter 10~0.773
+2026-08-02 22:49:02,561 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:02,916 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.848, a solid 40x40x10mm block with a 10mm thr~0.782
+2026-08-02 22:49:03,234 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:03,585 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.785, a 100x60x30mm solid block with four 4mm ~0.757
+2026-08-02 22:49:03,900 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:04,253 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.884, a solid circular flange 80mm diameter 10~0.797
+2026-08-02 22:49:04,575 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:04,919 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.833, an L-bracket: a 60x40x6mm base flange an~0.755
+2026-08-02 22:49:05,236 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:05,586 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.714, an L-bracket: a 60x40x6mm base flange an~0.701
+2026-08-02 22:49:05,904 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:06,256 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.801, an L-bracket: a 60x40x6mm base flange an~0.772
+2026-08-02 22:49:06,575 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:06,920 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.741, an L-bracket: a 60x40x6mm base flange an~0.72
+2026-08-02 22:49:07,239 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:07,592 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.802, a piston, 80mm bore diameter, 60mm tall,~0.72
+2026-08-02 22:49:07,918 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:08,274 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.737, a 100x60x30mm solid block with four 4mm ~0.736
+2026-08-02 22:49:08,599 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:08,949 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.748, an L-bracket: a 60x40x6mm base flange an~0.745
+2026-08-02 22:49:09,271 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:09,623 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.794, an L-bracket: a 60x40x6mm base flange an~0.717
+2026-08-02 22:49:09,944 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:10,296 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.745, a 100x60x30mm solid block with four 4mm ~0.724
+2026-08-02 22:49:10,712 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:11,090 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.748, an L-bracket: a 60x40x6mm base flange an~0.747
+2026-08-02 22:49:11,416 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:11,769 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.802, an L-bracket: a 60x40x6mm base flange an~0.748
+2026-08-02 22:49:12,095 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:12,447 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.719, a solid circular flange 80mm diameter 10~0.715
+2026-08-02 22:49:12,779 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:13,138 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.751, an L-bracket: a 60x40x6mm base flange an~0.733
+2026-08-02 22:49:13,471 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:13,839 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.766, a solid circular flange 80mm diameter 10~0.752
+2026-08-02 22:49:14,169 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:14,527 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.748, an L-bracket: a 60x40x6mm base flange an~0.72
+2026-08-02 22:49:14,858 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:15,222 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.785, a piston, 80mm bore diameter, 60mm tall,~0.718
+2026-08-02 22:49:15,555 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:15,913 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.784, an L-bracket: a 60x40x6mm base flange an~0.752
+2026-08-02 22:49:16,248 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:16,930 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.792, an L-bracket: a 60x40x6mm base flange an~0.775
+2026-08-02 22:49:17,288 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:17,651 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.831, an L-bracket: a 60x40x6mm base flange an~0.75
+2026-08-02 22:49:17,983 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:18,345 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.731, an L-bracket: a 60x40x6mm base flange an~0.716
+2026-08-02 22:49:18,683 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:19,051 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.768, an L-bracket: a 60x40x6mm base flange an~0.756
+2026-08-02 22:49:19,385 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:19,750 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.798, an L-bracket: a 60x40x6mm base flange an~0.731
+2026-08-02 22:49:20,080 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 22:49:21,194 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[guard] 141 spec(s) checked against 54 suite slug(s) — no collisions.
+[teacher-batch] model=claude-sonnet-5 specs=103 projected≈$2.17 at batch rates
+[batch] msgbatch_01Xegta7m3rpDv9xAd9CkjNe  (103 requests) submitted
+2026-08-02 22:49:21,712 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:49:42,095 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:50:02,504 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:50:22,863 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:50:43,210 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:51:03,820 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:51:24,230 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:51:44,633 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:52:10,062 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:52:30,454 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:52:50,790 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:53:12,752 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:53:33,121 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:53:53,612 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=103
+2026-08-02 22:54:13,993 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+[batch] ended: ok=103 err=0 processing=0
+2026-08-02 22:54:14,309 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe "HTTP/1.1 200 OK"
+2026-08-02 22:54:14,734 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Xegta7m3rpDv9xAd9CkjNe/results "HTTP/1.1 200 OK"
+  [H081] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H058] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H036] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H100] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H085] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H056] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+  [H076] EMPTY reply (stop_reason=max_tokens, out=24000tok) — raise --max-tokens
+[spend] skipping repair round: $9.56 spent + ~$6.34 projected repairs exceeds cap $10.00
+
+outcomes: {'repair-skipped-budget': 49, 'accepted-first-try': 47, 'error': 7}
+spend this run: $9.56 (batch rates, list-derived)
+pairs written: 47 (47 good, 0 fail->fix)
+summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/teacher_pilot_20260802_130910.json
+=== v2 batch 2: mechanisms, Opus 32k, accept-soft ===
+2026-08-02 23:09:11,897 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.715, a solid circular flange 80mm diameter 10~0.71
+2026-08-02 23:09:12,356 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:12,753 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.761, a piston, 80mm bore diameter, 60mm tall,~0.734
+2026-08-02 23:09:13,101 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:13,475 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.673, a solid circular flange 80mm diameter 10~0.658
+2026-08-02 23:09:13,827 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:14,198 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.716, a piston, 80mm bore diameter, 60mm tall,~0.693
+2026-08-02 23:09:14,550 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:14,925 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.751, a solid circular flange 80mm diameter 10~0.724
+2026-08-02 23:09:15,276 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:15,647 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.732, a solid circular flange 80mm diameter 10~0.673
+2026-08-02 23:09:15,997 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:16,379 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.728, a solid circular flange 80mm diameter 10~0.714
+2026-08-02 23:09:16,731 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:17,110 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.725, a solid circular flange 80mm diameter 10~0.716
+2026-08-02 23:09:17,466 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:17,849 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.725, a 100x60x30mm solid block with four 4mm ~0.696
+2026-08-02 23:09:18,600 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:18,979 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.73, an L-bracket: a 60x40x6mm base flange an~0.706
+2026-08-02 23:09:19,364 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:19,743 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.75, a piston, 80mm bore diameter, 60mm tall,~0.748
+2026-08-02 23:09:20,096 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:20,472 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.708, a solid circular flange 80mm diameter 10~0.707
+2026-08-02 23:09:20,824 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:21,201 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.74, an L-bracket: a 60x40x6mm base flange an~0.732
+2026-08-02 23:09:21,555 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:21,935 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.669, a solid circular flange 80mm diameter 10~0.663
+2026-08-02 23:09:22,369 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:22,779 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.706, a solid circular flange 80mm diameter 10~0.655
+2026-08-02 23:09:23,231 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:23,636 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.745, a solid circular flange 80mm diameter 10~0.744
+2026-08-02 23:09:23,996 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:24,381 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.716, a solid circular flange 80mm diameter 10~0.708
+2026-08-02 23:09:24,738 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:25,119 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.738, an L-bracket: a 60x40x6mm base flange an~0.725
+2026-08-02 23:09:25,478 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:25,862 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.731, a solid circular flange 80mm diameter 10~0.73
+2026-08-02 23:09:26,212 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:26,590 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.742, a 100x60x30mm solid block with four 4mm ~0.741
+2026-08-02 23:09:26,976 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:27,352 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.748, a solid circular flange 80mm diameter 10~0.72
+2026-08-02 23:09:27,706 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:28,090 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.897, a solid circular flange 80mm diameter 10~0.744
+2026-08-02 23:09:28,530 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:28,917 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.755, a solid circular flange 80mm diameter 10~0.729
+2026-08-02 23:09:29,274 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:29,659 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.735, a solid circular flange 80mm diameter 10~0.689
+2026-08-02 23:09:30,015 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:30,404 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.691, a solid circular flange 80mm diameter 10~0.682
+2026-08-02 23:09:30,759 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:31,139 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.745, a solid circular flange 80mm diameter 10~0.719
+2026-08-02 23:09:31,496 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:31,879 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.785, a solid circular flange 80mm diameter 10~0.719
+2026-08-02 23:09:32,236 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:32,618 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.679, an L-bracket: a 60x40x6mm base flange an~0.67
+2026-08-02 23:09:33,019 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:33,421 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.746, a piston, 80mm bore diameter, 60mm tall,~0.683
+2026-08-02 23:09:33,779 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:34,168 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.74, a solid circular flange 80mm diameter 10~0.718
+2026-08-02 23:09:34,602 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:35,006 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.736, a solid circular flange 80mm diameter 10~0.716
+2026-08-02 23:09:35,367 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:35,752 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.705, an L-bracket: a 60x40x6mm base flange an~0.693
+2026-08-02 23:09:36,114 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:36,501 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.714, a solid circular flange 80mm diameter 10~0.712
+2026-08-02 23:09:36,863 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:37,252 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.749, a solid circular flange 80mm diameter 10~0.682
+2026-08-02 23:09:37,616 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:38,010 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.773, a solid circular flange 80mm diameter 10~0.705
+2026-08-02 23:09:38,374 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:38,766 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.696, an L-bracket: a 60x40x6mm base flange an~0.696
+2026-08-02 23:09:39,151 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:39,544 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.67, an L-bracket: a 60x40x6mm base flange an~0.664
+2026-08-02 23:09:39,944 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:40,338 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.814, a solid circular flange 80mm diameter 10~0.7
+2026-08-02 23:09:40,702 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 23:09:41,632 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[guard] 141 spec(s) checked against 54 suite slug(s) — no collisions.
+[teacher-batch] model=claude-opus-5 specs=38 projected≈$2.23 at batch rates
+[batch] msgbatch_014BorgynkjdrurAzzTt7kV5  (38 requests) submitted
+2026-08-02 23:09:41,902 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:10:02,260 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:10:22,974 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:10:43,805 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:11:04,471 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:11:25,628 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:11:46,146 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:12:06,574 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:12:26,916 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:12:47,298 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:13:07,812 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:13:28,292 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:13:48,723 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=38
+2026-08-02 23:14:09,486 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+[batch] ended: ok=38 err=0 processing=0
+2026-08-02 23:14:09,823 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5 "HTTP/1.1 200 OK"
+2026-08-02 23:14:10,212 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_014BorgynkjdrurAzzTt7kV5/results "HTTP/1.1 200 OK"

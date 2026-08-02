@@ -157,7 +157,7 @@ def verify_pair(code: str, spec: str) -> tuple[bool, str]:
 
 def suite_slugs() -> set[str]:
     slugs = set()
-    for suite in ("text-to-cad", "organic", "heldout-cqe"):
+    for suite in ("text-to-cad", "organic", "heldout-cqe", "hard-eval"):
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
             data = json.loads(f.read_text())

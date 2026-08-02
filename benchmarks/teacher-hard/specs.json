@@ -1,0 +1,854 @@
+{
+ "_meta": {
+  "generated": "teacher_specgen.py --hard",
+  "note": "v2 hard-spec training corpus; NOT an eval suite"
+ },
+ "benchmarks": [
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned engine cylinder barrel 85mm outside diameter and 130mm tall with a 62mm through bore, eight 2.5mm thick cooling fins spaced 6mm apart around the exterior, and a 100mm diameter head flange 8mm thick at the top pierced by four 7mm stud holes on an 88mm bolt circle",
+   "id": "H001"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a single-cylinder motor barrel 78mm OD by 110mm long with a 58mm bore, six radial fins 20mm deep and 3mm thick running the length, and a 95mm square head flange 10mm thick with six 6.5mm stud holes on a 82mm circle",
+   "id": "H002"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a cooling-jacketed cylinder sleeve 90mm outer diameter and 140mm tall with a 70mm inner bore, a concentric 4mm water jacket cavity between the 82mm inner wall and 90mm outer wall, and two 12mm coolant ports drilled radially through the jacket",
+   "id": "H003"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned cylinder head casting blank 100mm diameter and 45mm thick with a 55mm central bore, ten cooling fins 15mm deep spaced every 12 degrees around the perimeter, and six 6mm stud holes on a 90mm bolt circle",
+   "id": "H004"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small two-stroke cylinder 65mm OD by 95mm tall with a 48mm bore, five annular fins 2mm thick and 12mm deep, an exhaust port 18mm diameter cut through the wall at mid-height, and a 78mm base flange 7mm thick with four 6mm mounting holes",
+   "id": "H005"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a cooling jacket sleeve for a diesel liner, 112mm outer diameter and 160mm long with a 92mm bore, a 5mm annular water gap between the liner wall and outer shell, and three 10mm coolant inlet bosses spaced 120 degrees apart",
+   "id": "H006"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust manifold stub 50mm diameter and 80mm long with a 36mm gas passage, six 2.5mm external ribs radiating from the tube, and a triangular 60mm mounting flange 8mm thick with three 9mm bolt holes",
+   "id": "H007"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned aircooled cylinder barrel 95mm OD and 145mm tall with a 66mm through bore, twelve fins each 3mm thick spaced 5mm apart, and a 118mm diameter head flange 12mm thick with eight 8mm stud holes on a 100mm circle",
+   "id": "H008"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a compact exhaust stub 38mm diameter and 55mm long with a 26mm bore, four 2mm longitudinal ribs, and a round 55mm mounting flange 6mm thick pierced by three 6mm bolt holes at 120 degree spacing",
+   "id": "H009"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a water-jacketed cylinder sleeve 100mm outer diameter by 150mm long with an 80mm central bore, a 6mm coolant annulus between inner and outer walls, and two 14mm diameter coolant ports on opposite sides near the top",
+   "id": "H010"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned lawnmower engine cylinder 60mm OD and 80mm tall with a 42mm bore, seven 2mm fins spaced 4mm apart around the barrel, and an 80mm square base flange 8mm thick with four 6mm stud holes at the corners",
+   "id": "H011"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed turbo exhaust stub 55mm diameter and 90mm long with a 40mm through passage, five 3mm ribs running the full length, and a 75mm diameter mounting flange 10mm thick with four 10mm bolt holes on a 62mm circle",
+   "id": "H012"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a jacketed cylinder liner 105mm outer diameter and 155mm long with a 85mm bore, a 4.5mm water passage cavity concentric with the bore, and four 8mm coolant transfer holes drilled through the jacket wall near the base",
+   "id": "H013"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small exhaust manifold stub 42mm diameter and 60mm long with a 30mm gas channel, three 2.5mm external stiffening ribs, and a rectangular 65x50mm mounting flange 8mm thick with four 7mm corner bolt holes",
+   "id": "H014"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a large industrial cylinder barrel 130mm OD and 180mm tall with a 95mm through bore, fourteen 4mm fins spaced 7mm apart, and a 155mm diameter head flange 15mm thick with ten 10mm stud holes on a 135mm circle",
+   "id": "H015"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a compact air-cooled cylinder 58mm OD by 75mm tall with a 38mm bore, six fins 1.8mm thick spaced 3.5mm apart, and a 70mm round head flange 7mm thick pierced by four 5mm stud holes on a 58mm circle",
+   "id": "H016"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust down-pipe stub 48mm diameter and 100mm long with a 34mm through passage, four 3mm longitudinal ribs, and an oval 70x55mm mounting flange 9mm thick with two 9mm bolt holes on the long axis",
+   "id": "H017"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a cooling-jacketed sleeve for a marine engine, 120mm outer diameter and 170mm long with a 98mm bore, a 5.5mm annular coolant gap, and three 12mm coolant ports spaced evenly around the circumference",
+   "id": "H018"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned generator engine cylinder 82mm OD and 115mm tall with a 60mm bore, eight 3mm fins spaced 5mm apart, and a 105mm diameter base flange 10mm thick with six 7mm stud holes on a 88mm circle",
+   "id": "H019"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a stubby exhaust connector 35mm diameter and 45mm long with a 24mm bore, three 2mm ribs on the exterior, and a 50mm square mounting flange 6mm thick with four 5mm bolt holes at the corners",
+   "id": "H020"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a chainsaw engine cylinder 52mm OD by 70mm tall with a 34mm bore, five thin fins 1.5mm thick spaced 3mm apart, and a 65mm base flange 6mm thick with three 5mm mounting holes on a 52mm circle",
+   "id": "H021"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust riser stub 60mm diameter and 110mm long with a 44mm gas passage, six 2.5mm external ribs, and a 90mm diameter mounting flange 11mm thick with six 8mm bolt holes on a 75mm circle",
+   "id": "H022"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a small aircraft engine cylinder 88mm OD and 125mm tall with a 64mm bore, eleven 2.5mm cooling fins spaced 4mm apart, and a 110mm diameter head flange 12mm thick with eight 8mm stud holes on a 92mm circle",
+   "id": "H023"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a compact ribbed exhaust stub 40mm diameter and 58mm long with a 28mm through hole, three 2mm ribs running lengthwise, and a 58mm round mounting flange 7mm thick with three 6mm bolt holes at 120 degrees",
+   "id": "H024"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a cooling-jacketed cylinder for a small pump engine, 70mm outer diameter and 100mm long with a 50mm bore, a 3.5mm water gap between walls, and two 8mm coolant nipples projecting radially near the top",
+   "id": "H025"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a finned twin-cylinder block section 145mm long by 90mm tall with two 45mm bores spaced 60mm apart, seven fins 3mm thick per cylinder, and a shared 130x50mm head flange 10mm thick with eight 7mm stud holes",
+   "id": "H026"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust collector stub 65mm diameter and 120mm long with a 48mm through passage, five 3.5mm external ribs, and a 100mm diameter mounting flange 13mm thick with six 10mm bolt holes on an 82mm circle",
+   "id": "H027"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing with a 55mm outside diameter cylindrical body 65mm long, a 30mm through-bore for the shaft, a 90mm square mounting flange 10mm thick with four 9mm bolt holes at the corners, three 6mm wide radial stiffening ribs running from the flange to the barrel, and a threaded 1/8 NPT grease port drilled 8mm into the side.",
+   "id": "H028"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A pillow-style bearing housing 100mm long with a 40mm diameter bore through the center, a 120x40mm base flange 12mm thick carrying four 11mm bolt holes on 100mm centers, two 8mm thick triangular ribs bracing each end of the boss, and an M6 grease nipple port drilled radially 15mm deep.",
+   "id": "H029"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end cover, a 95mm diameter disc 12mm thick, with a 60mm diameter recessed pocket 4mm deep on the inner face, a 35mm diameter boss projecting 10mm from the outer face bored to 20mm, a 2mm wide by 1.5mm deep seal groove cut 3mm from the bore edge, and six 6mm bolt holes on an 80mm bolt circle.",
+   "id": "H030"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A flanged bearing housing 70mm outer diameter and 80mm tall with a 35mm center bore, a 110mm diameter bolt flange 8mm thick pierced by six 8mm holes on a 95mm circle, four 5mm wide axial ribs spaced evenly around the barrel, and a grease fitting boss 12mm diameter tapped for a straight zerk on the flange face.",
+   "id": "H031"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end cover 110mm square and 14mm thick with a 50mm diameter stepped recess 6mm deep for the output bearing, a 42mm diameter boss rising 8mm on the opposite face bored to 25mm, a 1.8mm wide seal groove around the bore at 30mm diameter, and four corner mounting holes 7mm diameter.",
+   "id": "H032"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mounting bracket 150x90x12mm with two parallel 70mm long slots 10mm wide slotting the base for belt tension adjustment, three 25mm gussets triangulating the vertical support wall, two 50x25x8mm raised bosses machined flat for motor feet, and a 60mm bore through the upright for the motor shaft.",
+   "id": "H033"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A compact bearing housing 48mm outside diameter and 55mm long with a 22mm through-bore, a hexagonal 65mm across-flats flange 9mm thick with three 6mm bolt holes at 120 degrees, two 4mm ribs stiffening the flange-to-barrel transition, and a 10mm diameter grease port drilled through the flange wall.",
+   "id": "H034"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end plate 140mm diameter and 16mm thick featuring a 75mm diameter recessed pocket 5mm deep, a 50mm diameter output boss extending 12mm and bored to 28mm, a 2.5mm deep lip seal groove at 55mm diameter, and eight 6.5mm bolt holes evenly spaced on a 120mm bolt circle.",
+   "id": "H035"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mount base 100x100x10mm with a central 55mm diameter clearance bore, four 30mm long by 6mm wide adjustment slots arranged radially around the bore, four 15mm triangular corner gussets, and two 35x15x5mm raised pads for anti-vibration mounts.",
+   "id": "H036"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A split-line bearing housing 85mm long with a 38mm bore, a rectangular 115x50mm base flange 14mm thick drilled with four 10mm bolt holes on 90mm centers, three 7mm ribs running the length of the barrel for rigidity, and a grease port bushing 12mm diameter set into the top of the housing.",
+   "id": "H037"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox rear cover 90mm diameter and 11mm thick with a 48mm diameter shallow recess 3mm deep for the bearing shoulder, a 30mm diameter boss projecting 9mm bored through 18mm, a narrow 1.5mm seal groove machined 2mm inboard of the bore, and five 5mm bolt holes on a 72mm circle.",
+   "id": "H038"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A right-angle motor mount 120x70x60mm with a 50mm diameter shaft clearance hole through the vertical face, two 45mm long by 9mm wide horizontal slots for belt tensioning, three 18mm gussets bracing the corner joint, and a 60x20x6mm mounting pad machined on the base.",
+   "id": "H039"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end cover 105mm square and 13mm thick with a 58mm diameter recessed pocket 4.5mm deep on the inside, a 38mm diameter boss extending 11mm and bored to 22mm, a 2mm wide seal groove at 42mm diameter, and four 7mm mounting holes near the corners.",
+   "id": "H040"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mounting plate 160x100x12mm with two 80mm long by 12mm wide slots for tensioning adjustment, five 22mm gussets stiffening the plate edges, two 45x20x7mm raised bosses for isolator pads, and a 50mm diameter shaft clearance bore centered on the plate.",
+   "id": "H041"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A pillow block bearing housing 90mm long with a 32mm bore, a 105x35mm rectangular base flange 11mm thick with two 9mm mounting holes, three 5mm triangular ribs supporting the boss on either side, and a grease zerk port 10mm diameter drilled into the top of the boss.",
+   "id": "H042"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox front cover 125mm diameter and 15mm thick with a 65mm diameter recess 5mm deep for the input bearing, a 40mm diameter boss rising 10mm and bored through 24mm, a 2.2mm wide seal groove positioned 3mm from the bore, and six 6mm bolt holes on a 100mm circle.",
+   "id": "H043"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "An L-shaped motor mount 140x90x50mm with a 55mm diameter clearance hole through the upright, two 60mm long by 8mm wide slots for adjustable positioning, four 20mm gussets triangulating the base-to-upright joint, and a 55x25x6mm mounting pad on the horizontal leg.",
+   "id": "H044"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing 52mm outside diameter and 60mm long with a 25mm through-bore, a triangular flange 80mm across corners 9mm thick with three 7mm bolt holes, two 5mm ribs joining the flange to the barrel, and a grease port drilled 9mm diameter through the flange thickness.",
+   "id": "H045"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end cap 100mm diameter and 12mm thick with a 55mm diameter pocket recessed 4mm for the bearing seat, a 34mm diameter boss extending 9mm bored to 19mm, a 1.5mm seal groove cut at 38mm diameter, and five 5.5mm holes spaced on an 82mm bolt circle.",
+   "id": "H046"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mounting base 110x110x14mm with a central 48mm diameter shaft clearance hole, three 40mm long by 7mm wide adjustment slots angled around the bore, four 16mm corner gussets, and two 38x18x5mm raised feet pads on the underside.",
+   "id": "H047"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A double-flange bearing housing 75mm outside diameter and 85mm long with a 34mm through-bore, two 100mm diameter mounting flanges 10mm thick each with four 9mm bolt holes on a 85mm circle, three 6mm axial ribs joining the flanges, and a grease port boss 12mm diameter tapped centrally on the barrel.",
+   "id": "H048"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A compact motor mount 95x95x10mm with a 40mm diameter clearance bore, two 35mm long by 6mm wide slots either side of the bore, four 12mm triangular gussets at the corners, and a single 40x18x5mm raised mounting pad centered on the underside.",
+   "id": "H049"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing 65mm outside diameter and 75mm long with a 32mm through-bore, a 95mm diameter round flange 11mm thick drilled with five 8mm bolt holes on an 82mm circle, three 5mm ribs strengthening the barrel-to-flange junction, and a grease port drilled 8mm diameter and tapped 1/8 NPT on the flange face.",
+   "id": "H050"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox end cover 130mm diameter and 16mm thick with a 70mm diameter recess 6mm deep on the inner face, a 46mm diameter boss extending 12mm bored to 30mm, a 2.5mm wide seal groove positioned 4mm from the bore edge, and eight 6mm bolt holes on a 110mm circle.",
+   "id": "H051"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mount frame 145x85x55mm with a 52mm diameter clearance hole through the vertical wall, two 65mm long by 10mm wide slots for tensioning, three 24mm gussets bracing the base-to-wall transition, and a 50x22x6mm raised mounting pad machined into the base.",
+   "id": "H052"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A bearing housing 58mm outside diameter and 68mm long with a 26mm through-bore, a hexagonal flange 88mm across flats 10mm thick with six 7mm bolt holes, two 6mm reinforcing ribs on opposite sides of the barrel, and a grease nipple port 10mm diameter drilled radially through the flange.",
+   "id": "H053"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox rear cover 118mm diameter and 13mm thick with a 64mm diameter recessed pocket 4.5mm deep for the seal carrier, a 40mm diameter boss rising 10mm bored through 23mm, a 2mm seal groove cut 3mm inboard from the bore edge, and six 6.5mm bolt holes evenly spaced on a 95mm circle.",
+   "id": "H054"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 120x80x30mm steel mounting block with a 30mm diameter keyed bore through the center (6mm keyway 3mm deep), four 9mm counterbored holes (16mm diameter, 8mm deep) at the corners, and a 15mm chamfer on all four top edges",
+   "id": "H055"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x60x25mm angle bracket with one face milled at 30 degrees, a 20mm T-slot 8mm deep running the length of the flat face, two 12mm counterbored holes (20mm diameter, 6mm deep) through the angled face, and a 5x5mm chamfered relief pocket at the inside corner",
+   "id": "H056"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 90mm diameter, 40mm thick cylindrical hub with a 25mm keyed bore (7mm keyway 3.5mm deep) through the center, a cross-drilled 8mm passage perpendicular to the bore for a set screw, and four 6mm counterbored holes (11mm diameter, 5mm deep) on a 70mm bolt circle",
+   "id": "H057"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 110x60x20mm base plate with a 30mm wide T-slot 10mm deep down the middle, four corners chamfered 8x8mm, two 14mm counterbored holes (22mm diameter, 7mm deep) flanking the slot, and a 45 degree ramped face 15mm high on one end",
+   "id": "H058"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 70x70x50mm cubic bracket with a 35mm diameter keyed bore (8mm keyway, 4mm deep) through one axis, a cross-drilled 6mm passage through the side wall intersecting the bore, a 20x20mm chamfered pocket 10mm deep in the top face, and four 6mm mounting holes at the base corners",
+   "id": "H059"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 130x50x30mm rail block with a 25mm dovetail groove 12mm deep running the full length, three 10mm counterbored holes (18mm diameter, 6mm deep) spaced 40mm apart along the top, and a 20 degree angled end face",
+   "id": "H060"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x100x40mm square housing with a 45mm diameter keyed bore (10mm keyway 5mm deep) through the center, four 12mm counterbored holes (20mm diameter, 8mm deep) near the corners, and a 10mm chamfer around the bottom perimeter",
+   "id": "H061"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "an 80x60x25mm wedge bracket with one face angled at 40 degrees, a 15mm T-slot 6mm deep cut into the angled face, two 8mm cross-drilled passages through the thick end, and a 5mm chamfered pocket 15x15mm on the flat back face",
+   "id": "H062"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a cylindrical 95mm diameter, 60mm tall machined boss with a 32mm keyed bore (9mm keyway 4.5mm deep) through the center, six 8mm counterbored holes (14mm diameter, 6mm deep) on a 75mm bolt circle, and a 3mm chamfer on both end faces",
+   "id": "H063"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 140x90x30mm base block with two parallel 30mm dovetail slides 15mm deep running the full length, a 20mm through bore centered between them, and four 10mm counterbored mounting holes (18mm diameter, 5mm deep) at the corners",
+   "id": "H064"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 75x75x40mm angled housing with a face milled at 25 degrees carrying two 10mm counterbored holes (17mm diameter, 6mm deep), a 22mm keyed bore (6mm keyway 3mm deep) through the body, and a cross-drilled 5mm passage intersecting the bore",
+   "id": "H065"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 160x60x25mm rail with a 25mm wide T-slot 9mm deep centered on top, five 8mm through holes spaced 25mm apart, chamfered 5mm on all top edges, and one end face angled at 15 degrees",
+   "id": "H066"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 120x45x30mm dovetail slider with a 30mm dovetail rail 14mm deep along one edge, two 9mm cross-drilled holes through the body at 20mm and 80mm from one end, and a 6mm chamfer along all long edges",
+   "id": "H067"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x70x35mm bracket with a 50 degree angled top face, a 26mm keyed bore (7mm keyway 3.5mm deep) through the thick section, three 8mm counterbored holes (14mm diameter, 5mm deep) along the base, and a 12x12mm chamfered relief pocket where the angle meets the base",
+   "id": "H068"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 200x80x40mm machine bed segment with a 35mm wide T-slot 15mm deep running the full length, two 40mm counterbored through-bores (50mm diameter, 12mm deep) at each end, and a cross-drilled 8mm lubrication passage connecting them",
+   "id": "H069"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 65mm diameter, 45mm tall cylindrical block with a 28mm keyed bore (8mm keyway 4mm deep) through the axis, a 6mm cross-drilled passage perpendicular to the bore, and a 3mm chamfer on both circular faces plus four 5mm mounting holes on a 50mm circle",
+   "id": "H070"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 110x55x28mm wedge block with a 35 degree ramped face on one end, a 20mm T-slot 7mm deep along the flat top, two 10mm counterbored holes (16mm diameter, 6mm deep), and a 5mm chamfer along the ramped edge",
+   "id": "H071"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 130x70x35mm bracket with two 25mm dovetail slots 12mm deep cut on opposite faces, a 22mm keyed through-bore (6mm keyway 3mm deep) centered between them, and four 8mm counterbored mounting holes (14mm diameter, 5mm deep) at the corners",
+   "id": "H072"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 95x60x30mm angled housing with a 60 degree beveled face carrying a cross-drilled 10mm passage, a 30mm keyed bore (8mm keyway 4mm deep) through the main body, and a chamfered 15x15mm pocket 8mm deep on the back face",
+   "id": "H073"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 150x100x45mm machined block with a 50mm diameter keyed bore (12mm keyway 6mm deep) through the center, six 10mm counterbored holes (18mm diameter, 8mm deep) arranged in two rows of three, and a 45 degree chamfer 10mm wide around the top rim",
+   "id": "H074"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "an 85x50x25mm slider with a 20mm dovetail groove 10mm deep on the underside, a 14mm through hole at each end counterbored 22mm diameter 5mm deep, and a 20 degree angled face at the front edge",
+   "id": "H075"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 70x70x35mm angled mount with a face milled at 20 degrees holding two 8mm counterbored holes (14mm diameter, 5mm deep), a 24mm keyed bore (6mm keyway 3mm deep) through the base, and a 6mm chamfer around the top perimeter",
+   "id": "H076"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 180x60x30mm rail block with a 28mm wide T-slot 11mm deep running the length, a 20mm cross-drilled hole at the midpoint intersecting the slot from below, and chamfered 5mm edges along both long sides",
+   "id": "H077"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 105x65x35mm dovetail bracket with a 32mm dovetail slide 16mm deep on the top face, a 20mm keyed through-bore (5mm keyway 2.5mm deep) offset to one side, and three 7mm counterbored holes (13mm diameter, 4mm deep) along the base edge",
+   "id": "H078"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 90x90x30mm plate-block with a 40 degree beveled corner, a 25mm chamfered pocket 12mm deep centered on the flat face, a 30mm keyed bore (8mm keyway 4mm deep) through the body, and four 9mm counterbored mounting holes (16mm diameter, 6mm deep)",
+   "id": "H079"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 140x70x40mm machined housing with a 38mm keyed bore (9mm keyway 4.5mm deep) through the center, a cross-drilled 10mm passage intersecting the bore at 90 degrees, a 20mm T-slot 8mm deep on the top face, and a 10mm chamfer around the base",
+   "id": "H080"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x60x30mm bracket combining a 25 degree angled front face with a 30mm dovetail rail 14mm deep on top, a 18mm through bore counterbored 28mm diameter 8mm deep from the back, and two 6mm cross-drilled passages near the base",
+   "id": "H081"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a 90-degree elbow manifold with 60mm outside diameter passages and 4mm wall thickness, each end terminating in a 100mm diameter flange 12mm thick with a 40mm bore and four 9mm bolt holes on a 78mm circle",
+   "id": "H082"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a three-port tee manifold, main run 80mm OD with 5mm walls and a 45mm through bore, branch port 50mm OD tapping in perpendicular, all three faces flanged to 110mm diameter 14mm thick discs with six 8mm holes on a 90mm bolt circle",
+   "id": "H083"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 45-degree Y-branch fitting with 70mm OD legs and 6mm wall thickness, a 35mm through passage in each leg, and each of the three port flanges 95mm diameter 10mm thick carrying four 8mm bolt holes on a 74mm circle",
+   "id": "H084"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a cross manifold with four 65mm OD ports arranged at 90 degrees, 4.5mm wall thickness throughout, a shared 40mm through bore, and each port flanged 90mm diameter 11mm thick with four 8mm bolt holes on a 70mm circle",
+   "id": "H085"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a large 90-degree pipe elbow 150mm OD with 8mm walls and a 110mm bore, each end flanged to 200mm diameter 20mm thick faces, an 8mm raised face 2.5mm proud, and eight 14mm bolt holes on a 165mm circle",
+   "id": "H086"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a symmetric tee manifold 55mm OD run with 4mm walls and a 32mm bore, the perpendicular branch reduced to 40mm OD with a 22mm bore, all three faces flanged 85mm diameter 9mm thick with four 8mm holes on a 66mm circle",
+   "id": "H087"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a 60-degree lateral wye manifold, main leg 90mm OD with 5mm walls and a 55mm through passage, branch leg 60mm OD with a 32mm bore, each port flanged to 120mm diameter 13mm thick with six 9mm bolt holes on a 98mm circle",
+   "id": "H088"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 90-degree elbow with unequal legs, 100mm OD inlet reducing to 70mm OD outlet, 5mm wall thickness, a stepped 60mm to 45mm through bore, inlet flange 135mm diameter and outlet flange 105mm diameter both 12mm thick with four 10mm bolt holes",
+   "id": "H089"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a four-port cross manifold in a single casting, all ports 45mm OD with 3.5mm walls and a common 28mm bore, each face flanged 75mm diameter 9mm thick with four 7mm bolt holes on a 58mm circle",
+   "id": "H090"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a low-profile tee manifold 40mm OD with 3mm walls and a 24mm through passage, branch and run flanges both 65mm diameter 7mm thick with four 6mm bolt holes on a 50mm circle",
+   "id": "H091"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a heavy-duty 90-degree elbow manifold 130mm OD with 7mm walls and a 95mm bore, each end flanged to 175mm diameter 18mm thick with an 8mm raised face and eight 12mm bolt holes on a 145mm circle",
+   "id": "H092"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a three-way cross-tee manifold with two inline 75mm OD ports and one perpendicular 50mm OD branch, 4.5mm wall thickness, a shared 48mm bore, all faces flanged 100mm diameter 11mm thick with four 9mm holes on a 80mm circle",
+   "id": "H093"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a symmetric Y-manifold with two 55mm OD inlet legs at 30 degrees merging into a single 75mm OD outlet, 4mm wall thickness, 32mm bores in the inlets and a 42mm bore in the outlet, each port flanged 90mm diameter 10mm thick with four 8mm bolt holes",
+   "id": "H094"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a boxy tee manifold with a straight 85mm OD run and a 90-degree side branch of 55mm OD, 5mm walls throughout, a 55mm through bore in the run and 30mm in the branch, all three flanges 110mm diameter 12mm thick with six 9mm holes on a 88mm circle",
+   "id": "H095"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a five-port distribution manifold, one 100mm OD main inlet and four 40mm OD radial outlets each 90 degrees apart, 5mm wall thickness, a 60mm main bore reducing to 22mm at each outlet, all flanges 65mm to 130mm diameter with four bolt holes each on matching circles",
+   "id": "H096"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 90-degree elbow 45mm OD with 3mm walls and a 28mm bore, both ports flanged to 70mm diameter 8mm thick faces, a 1.5mm raised face, and four 7mm bolt holes on a 55mm circle",
+   "id": "H097"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a straight-through manifold with a mid-mounted 90-degree side outlet, main run 95mm OD with 5.5mm walls and a 65mm bore, side branch 50mm OD with a 28mm bore, all three faces flanged with four to six 8mm bolt holes on circles from 74mm to 100mm",
+   "id": "H098"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a triple-branch manifold shaped like an asymmetric cross, central 70mm OD body with 4mm walls, one 70mm through bore and two opposing 45mm OD branch bores of 25mm, all four flanges 90mm to 100mm diameter 10mm thick with four 8mm bolt holes each",
+   "id": "H099"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a small 45-degree elbow fitting 30mm OD with 2mm walls and an 18mm through bore, each end flanged to 48mm diameter 6mm thick with four 5mm bolt holes on a 37mm circle",
+   "id": "H100"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a robust tee manifold for high pressure service, 110mm OD run with 9mm walls and a 70mm bore, 70mm OD branch with a 40mm bore, all three flanges 145mm diameter 16mm thick with an 8mm raised face and eight 12mm bolt holes on a 120mm circle",
+   "id": "H101"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a single-body 180-degree return bend manifold 60mm OD with 4mm walls and a 38mm through passage looping back on itself, both parallel end flanges 90mm diameter 10mm thick with four 8mm bolt holes on a 70mm circle",
+   "id": "H102"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a large-radius 90-degree elbow manifold 105mm OD with 6mm walls and a 72mm through bore, each end flanged to 140mm diameter 15mm thick with a 2mm raised face and eight 11mm bolt holes on a 118mm circle",
+   "id": "H103"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a clevis joint as three separate solids: a forked clevis body with two 8mm thick ears spaced 22mm apart each bored to 10.1mm, a straight tang 60mm long and 20mm wide with a matching 10.1mm hole, and a 10mm diameter clevis pin 45mm long with a 2mm cross-hole near its tip for a retaining cotter, sized for running clearance in the ear bores",
+   "id": "H104"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a bell-crank lever as three solids: an L-shaped crank body with a 60mm arm and a 40mm arm meeting at a 10.1mm pivot bore, a 10mm diameter pivot pin 30mm long fitted through the bore with running clearance, and a mounting bracket with two ears spaced 25mm apart supporting the pin",
+   "id": "H105"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a universal joint as three solids: a cross-shaped spider with four 10mm diameter trunnions, a driving yoke with two forked ears each bored to 10.1mm, and a driven yoke of identical geometry rotated 90 degrees, phased so all four trunnions engage both yokes with running clearance",
+   "id": "H106"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a scotch-yoke mechanism as three solids: a 60mm diameter crank disc with a 12mm crank pin offset 20mm from its centre, a slotted yoke block with a 12.2mm wide slot sized for running clearance on the pin, and a straight guide rod 150mm long fixed to the yoke",
+   "id": "H107"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a toggle clamp linkage as four solids: an 80mm long handle link, a 60mm long clamp arm, a base bracket with two mounting ears, and two 6mm diameter pivot pins each 30mm long with 0.2mm running clearance connecting the links at their correct 45mm and 30mm centre distances",
+   "id": "H108"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a suspension wishbone arm as three solids: an A-shaped arm with two mounting eyes 90mm apart each bored to 16.1mm, a ball-joint stub at the apex, and two 16mm diameter pivot pins 50mm long fitted through the eyes with running clearance",
+   "id": "H109"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "an idler pulley assembly as three solids: a 50mm diameter pulley with a 10.2mm bore and a 6mm wide V-groove, a 10mm diameter axle pin 40mm long, and a mounting bracket with a 10.1mm hole spaced to hold the pulley centred with 0.1mm axial clearance",
+   "id": "H110"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a ratchet and pawl mechanism as three solids: a 24-tooth ratchet wheel 80mm diameter with a 15mm bore, a pawl arm 45mm long with a 6.1mm pivot hole and a hooked tip engaging the teeth, and a 6mm diameter pivot pin 20mm long mounted 50mm from the wheel centre with running clearance",
+   "id": "H111"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a piano hinge segment as three solids: two 100mm long hinge leaves each rolled into 6.1mm diameter knuckles with alternating 12mm gaps, and a 6mm diameter hinge pin 100mm long running through both sets of knuckles with running clearance",
+   "id": "H112"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a rigid pin-type shaft coupling as three solids: two 40mm diameter hub halves each with a 20mm bore for the shaft and a radial 8.1mm cross-hole, and an 8mm diameter transverse pin 50mm long fitted through both hubs with running clearance to lock them together",
+   "id": "H113"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a trunnion-mounted cylinder as three solids: a 60mm diameter cylinder body with two opposite 14.1mm trunnion bosses, two 14mm diameter trunnion pins 35mm long, and a fixed yoke bracket with bearing bores spaced 80mm apart to receive the pins with running clearance",
+   "id": "H114"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a motorcycle swing-arm pivot as four solids: a swing arm with a 25mm pivot bore, two bronze bushings pressed into the bore with a 20.1mm inner diameter, a frame pivot lug 60mm wide, and a 20mm diameter pivot shaft 90mm long fitted through the bushings with running clearance",
+   "id": "H115"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a spring latch mechanism as three solids: a 70mm long latch bar with an angled hook end and a 6.1mm pivot hole, a fixed strike plate with a 15mm catch slot, and a 6mm diameter pivot pin 25mm long mounted 20mm from the hook with running clearance in the latch bar bore",
+   "id": "H116"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a parallel gripper mechanism as three solids: two identical jaw plates 55mm long each with a 10.1mm pivot bore 15mm from the tip, and a 10mm diameter pivot pin 25mm long joining them at their crossing point with running clearance for scissor action",
+   "id": "H117"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a scissor-lift linkage stage as three solids: two 200mm long link arms each with a 12.1mm centre pivot bore and matching 12.1mm end bores, and a 12mm diameter centre pivot pin 40mm long joining the arms at their midpoint with running clearance for the scissoring motion",
+   "id": "H118"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a compound lever assembly as four solids: a primary lever 150mm long with a 10.1mm fulcrum bore, a secondary lever 90mm long with a matching 10.1mm bore spaced 60mm from the primary lever's load point, and two 10mm diameter pivot pins 35mm long each fitted with running clearance to their respective bores",
+   "id": "H119"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a cam and follower mechanism as four solids: a 70mm diameter eccentric cam disc with a 15mm bore, a follower arm 110mm long with a forked roller end, a 20mm diameter roller free to spin on a 10mm diameter roller pin 25mm long, and the pin fitted through the fork with 0.15mm running clearance",
+   "id": "H120"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a turnbuckle assembly as three solids: a threaded body 80mm long with opposing left and right hand internal threads, two eye-bolts each with a 30mm long shank and a 12.1mm diameter eye, and two 12mm diameter clevis pins 22mm long fitted through the eyes and mating fork brackets with running clearance",
+   "id": "H121"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a cotter joint as three solids: a 30mm diameter rod with a rectangular 8mm slot near its end, a socket sleeve 60mm long with a matching 8.2mm slot aligned when the rod is inserted, and a tapered cotter pin 8mm thick and 50mm long fitted through both slots with running clearance to lock the joint",
+   "id": "H122"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a pillow-block shaft mount as three solids: a cast housing block 80mm long with a 30.1mm bore, a 30mm diameter shaft 150mm long running through the bore, and a 6mm diameter transverse retaining pin 40mm long fitted through a cross-hole in both housing and shaft with running clearance to prevent axial travel",
+   "id": "H123"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a pivoting lever assembly as three solids: a lever arm 130mm long with an 8.1mm pivot bore at one end, a fixed mounting bracket with a matching 8.1mm threaded hole spaced 100mm from the lever's load point, and an 8mm diameter shoulder bolt with a 12mm long shoulder sized for running clearance through the lever bore into the bracket",
+   "id": "H124"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a piston, connecting rod and wrist pin as three separate solids: a 65mm diameter piston 50mm tall with an 18.1mm gudgeon-pin bore across its skirt, a connecting rod 120mm long with an 18.1mm small-end bore and a 42mm big-end bore, and an 18mm diameter wrist pin 46mm long fitted through both bores with 0.1mm running clearance",
+   "id": "H125"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a trailer drawbar coupling as three solids: a drawbar tongue with a 25.1mm through-hole, a receiver tube with a matching 25.1mm hole spaced to align when the tongue is inserted, and a 25mm diameter hitch pin 90mm long with a 5mm retaining clip groove near its tip for running clearance in both holes",
+   "id": "H126"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a walking-beam suspension linkage as four solids: a central beam 250mm long with two 20.1mm end bores 200mm apart, two trailing arms each 150mm long with matching 20.1mm bores, and two 20mm diameter pivot pins 60mm long fitted through the beam-to-arm joints with running clearance",
+   "id": "H127"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a butterfly valve disc assembly as three solids: a 100mm diameter disc with a 12.1mm cross-bore, a 12mm diameter shaft 140mm long passing through the disc bore, and a 4mm diameter retaining pin 20mm long fitted through aligned cross-holes in the disc and shaft with running clearance to prevent relative rotation",
+   "id": "H128"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a D-shackle as two solids: a forged shackle body with a 40mm internal width and two 16.1mm through-holes in its ears, and a 16mm diameter shackle pin 70mm long with a screwed collar head, fitted through the ears with running clearance",
+   "id": "H129"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a folding leg hinge as four solids: a fixed leaf bracket with a 10.1mm knuckle bore, a folding leg bracket with a matching 10.1mm knuckle bore offset to interleave with it, a 10mm diameter hinge pin 45mm long fitted through both knuckles with running clearance, and a 6mm diameter spring-loaded locking pin 20mm long that engages a detent hole when the leg is extended",
+   "id": "H130"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a weather-vane pivot as three solids: a 12mm diameter vertical shaft 300mm long, a base bushing housing with a 12.1mm bore for running clearance, and a 4mm diameter transverse retaining pin 15mm long fitted through a cross-hole near the shaft's base to prevent it lifting out of the bushing",
+   "id": "H131"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a dead-bolt lock mechanism as three solids: a 20mm square bolt throw 60mm long with a 6.1mm cam-slot hole, a lock case housing the throw with a matching guide channel, and a 6mm diameter actuator pin 25mm long fitted through the cam slot with running clearance to translate rotary motion into linear bolt travel",
+   "id": "H132"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a two-bar door check linkage as three solids: a check arm 180mm long with a 9.1mm end bore, a stay bracket fixed to the door frame with a matching 9.1mm bore spaced 160mm away, and a 9mm diameter pivot pin 28mm long fitted with running clearance connecting the arm to the bracket",
+   "id": "H133"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a lifting eye and shackle assembly as three solids: a forged lifting eye plate with a 20.1mm through-hole, a bow shackle body with two 20.1mm ear holes spaced 45mm apart, and a 20mm diameter shackle pin 80mm long fitted through both parts with running clearance",
+   "id": "H134"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a rocker arm valve-train assembly as three solids: a 90mm long rocker arm with a 12.1mm centre pivot bore, a bronze pivot bushing with a 12.05mm bore pressed into the arm, and a 12mm diameter pivot shaft 60mm long fitted through the bushing with running clearance",
+   "id": "H135"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "an over-centre draw latch as four solids: a hook keeper fixed to the panel, a strike pin 8mm diameter mounted 40mm from the hinge line, a latch lever 100mm long with an 8.1mm slot to engage the strike pin, and an 8mm diameter pivot pin 25mm long joining the lever to its base bracket with running clearance",
+   "id": "H136"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a landing-gear trunnion strut as three solids: a strut tube 220mm long with a 16.1mm cross-bore near its upper end, a fixed trunnion bracket with a matching 16.1mm bore, and a 16mm diameter trunnion pin 50mm long fitted through both with running clearance and phased so the strut swings freely about the bracket axis",
+   "id": "H137"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a folding tripod leg hinge as three solids: a leg bracket with a 8.1mm knuckle bore, a central hub with three matching 8.1mm knuckle bores spaced 120 degrees apart, and an 8mm diameter hinge pin 35mm long fitted through each joint with running clearance",
+   "id": "H138"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a chain tensioner arm as three solids: a pivoting arm 140mm long with a 10.1mm pivot bore at one end and a 30mm diameter idler wheel bore at the other, a fixed pivot bracket with a matching 10.1mm bore, and a 10mm diameter pivot pin 32mm long fitted with running clearance to allow the arm to sweep through 20 degrees",
+   "id": "H139"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a garden shear pivot as three solids: two blade halves each with a 6.1mm pivot bore 20mm from the handle end, and a 6mm diameter pivot bolt shank 18mm long with a 10mm head, fitted through both bores with running clearance so the blades scissor about a common centre",
+   "id": "H140"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a fold-down table bracket as four solids: a wall-mounted hinge plate with a 9.1mm knuckle bore, a table-side hinge plate with a matching 9.1mm bore offset to interleave, a 9mm diameter hinge pin 50mm long fitted with running clearance, and a fold-out support leg with an 6mm pivot pin 20mm long connecting it to a slotted bracket on the underside of the table",
+   "id": "H141"
+  }
+ ]
+}

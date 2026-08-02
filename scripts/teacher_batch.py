@@ -153,6 +153,10 @@ def main() -> int:
     ap.add_argument("--max-tokens", type=int, default=0,
                     help="override cad.json cloud.max_tokens (thinking + response share it; "
                          "hard tier-4 specs can need 32000)")
+    ap.add_argument("--accept-soft", action="store_true",
+                    help="v2 (2026-08-02): also keep parts that build, are watertight and "
+                         "pass ALL structural checks but trip a [spec] dimension advisory — "
+                         "rows tagged source=teacher-soft. Broken geometry still excluded.")
     ap.add_argument("--resume-batch", default="",
                     help="msgbatch id of an already-paid round-1 batch: skip submission, "
                          "fetch its results, and continue (spend not re-ledgered)")
@@ -302,6 +306,22 @@ def main() -> int:
         v0, code, p0, p1, problem = c["v0"], c["code"], c["p0"], c["p1"], c["problem"]
         if not tg._accepted(v1):
             only_spec = (v1["valid"] and not v1["hard"] and v1["spec_notes"])
+            if only_spec and args.accept_soft:
+                rec["outcome"] = "accepted-soft"
+                img = tg._keep_render(v1["step"], tmp_root / sid / "t2",
+                                      f"{tg._slugify(model)}-{sid}-t2")
+                rec["rows"].append({
+                    "kind": "good", "source": "teacher-soft", "spec": spec, "code": code2,
+                    "image": img, "prompt_kind": p1.get("kind", ""),
+                    "system": p1.get("system", ""), "prompt": p1.get("prompt", ""),
+                    "code_model": model, "teacher_spec_id": sid,
+                    "verified": {"solids": v1["facts"].get("solids"),
+                                 "bbox_mm": v1["facts"].get("bbox"),
+                                 "volume_mm3": v1["facts"].get("volume"),
+                                 "advisories": v1["notes"],
+                                 "soft_spec_notes": v1["spec_notes"]},
+                    "timestamp": stamp})
+                continue
             same = (tg._problem_text(v0).strip() == tg._problem_text(v1).strip())
             rec["outcome"] = ("gate-suspect" if same else
                               "spec-vetoed" if only_spec else "failed-after-repair")

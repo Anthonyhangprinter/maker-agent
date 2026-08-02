@@ -1,0 +1,15 @@
+2026-08-02 22:43:24,795 [INFO] [v5] cloud call: in=698 out=3394  $0.0530  (run total $0.05)
+2026-08-02 22:44:09,208 [INFO] [v5] cloud call: in=706 out=4679  $0.0723  (run total $0.13)
+2026-08-02 22:44:44,534 [INFO] [v5] cloud call: in=699 out=3494  $0.0545  (run total $0.18)
+2026-08-02 22:45:11,465 [INFO] [v5] cloud call: in=676 out=2838  $0.0446  (run total $0.22)
+2026-08-02 22:47:11,713 [INFO] [v5] cloud call: in=807 out=12692  $0.1928  (run total $0.42)
+  [engine] 30 specs
+  [housing] 30 specs
+  [machined] 30 specs
+  [manifold] 25 specs
+  [mechanism] 41 specs
+
+[specgen-hard] wrote 141 -> /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/teacher-hard/specs.json
+[specgen-hard] reserved 15 -> /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/hard-eval/specs.json
+[specgen-hard] ledger total $17.29 over 317 calls
+SPECGEN-HARD-EXIT=0

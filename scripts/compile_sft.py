@@ -123,7 +123,9 @@ def revalidate(rows: list[dict], tg, tmp_root: Path) -> tuple[list[dict], list[d
             CACHE_FILE.write_text(json.dumps(cache))   # per-row: a crash keeps progress
             print(f"  [reverify {i}/{len(rows)}] {r.get('teacher_spec_id') or r.get('source')}"
                   f" -> {'ok' if v['accepted'] else 'FAIL'}", flush=True)
-        if v["accepted"]:
+        soft_ok = (r.get("source") == "teacher-soft" and not v["hard"] and not v["error"]
+                   and v.get("spec_notes") is not None)
+        if v["accepted"] or soft_ok:
             keep.append(r)
         else:
             r["_why"] = ("hardened gate: "

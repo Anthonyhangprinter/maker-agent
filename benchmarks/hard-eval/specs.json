@@ -1,0 +1,99 @@
+{
+ "_meta": {
+  "generated": "teacher_specgen.py --hard",
+  "heldout": true,
+  "note": "reserved hard-eval suite \u2014 guarded via harvest_census.suite_slugs(); NEVER train on these"
+ },
+ "benchmarks": [
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a ribbed exhaust stub 45mm diameter and 65mm long with a 32mm through passage, four 3mm reinforcing ribs running lengthwise on the outside, and a 70mm square mounting flange 9mm thick with four 8mm bolt holes at the corners",
+   "id": "E01"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a motorcycle cylinder barrel 72mm OD by 105mm tall with a 52mm bore, nine 2.5mm cooling fins spaced 4.5mm apart, and a 90mm hexagonal head flange 9mm thick with six 6mm stud holes on an 80mm bolt circle",
+   "id": "E02"
+  },
+  {
+   "tier": 3,
+   "group": "engine",
+   "spec": "a jacketed cylinder sleeve 95mm outer diameter and 135mm long with a 74mm bore, a 4mm water jacket cavity, and two 10mm diameter coolant bosses positioned 180 degrees apart near the flange end",
+   "id": "E03"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A motor mount plate 130x80x10mm with two 60mm long by 8mm wide slots for adjustable motor positioning, four triangular 20mm gussets reinforcing the corners, two 40x20x6mm raised mounting pads on the underside, and a central 45mm clearance hole for the motor shaft.",
+   "id": "E04"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A flanged bearing housing 60mm diameter and 70mm long with a 28mm through-bore, an oval 100x60mm flange 10mm thick carrying four 8.5mm bolt holes, two 6mm reinforcing ribs cast between the flange and barrel, and a 1/4-28 threaded grease port drilled 10mm into the flange edge.",
+   "id": "E05"
+  },
+  {
+   "tier": 3,
+   "group": "housing",
+   "spec": "A gearbox side cover 115mm square and 14mm thick with a 62mm diameter recessed step 5mm deep, a 44mm diameter boss projecting 10mm bored to 26mm, a 2mm seal groove machined at 48mm diameter, and four 8mm bolt holes near the corners.",
+   "id": "E06"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 150x70x35mm machined block with a 40mm wide dovetail slide cut along the top at 55 degrees, a 20mm diameter bore through the center counterbored 30mm diameter by 10mm deep from one end, and two 10mm cross-drilled holes intersecting the bore at right angles",
+   "id": "E07"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 90x90x50mm pillow-style block with a 40mm diameter boss rising 20mm from the top bored 28mm through with a 6mm keyway, four 10mm counterbored base holes (18mm diameter, 6mm deep), and a chamfered 10x10mm pocket at each top corner",
+   "id": "E08"
+  },
+  {
+   "tier": 3,
+   "group": "machined",
+   "spec": "a 100x80x40mm cross-drilled block with two perpendicular 12mm through passages intersecting at the center, a 30mm keyed bore (8mm keyway 4mm deep) parallel to one passage, and four 8mm counterbored corner holes (14mm diameter, 5mm deep)",
+   "id": "E09"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a compact 90-degree elbow manifold 50mm OD with 3.5mm walls and a 30mm bore, both ends flanged to 80mm diameter 8mm thick faces with a 2mm raised face and four 7mm bolt holes on a 62mm circle",
+   "id": "E10"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a slim 90-degree elbow 35mm OD with 2.5mm walls and a 20mm through passage, each end flanged 55mm diameter 6mm thick with four 6mm bolt holes on a 42mm circle",
+   "id": "E11"
+  },
+  {
+   "tier": 3,
+   "group": "manifold",
+   "spec": "a compact cross-tee manifold with three 50mm OD ports and one reduced 35mm OD port, 3.5mm wall thickness, a common 30mm bore stepping down to 20mm at the reduced port, each flange 70mm to 85mm diameter 9mm thick with four 7mm bolt holes",
+   "id": "E12"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a roller chain link as four solids: two identical 32mm long side plates each bored to 8.1mm at a 25.4mm centre distance, two 8mm diameter connecting pins 20mm long with 0.1mm running clearance in the plate bores, and a 12mm outside diameter roller free-spinning on each pin between the plates",
+   "id": "E13"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a slider-crank mechanism as four solids: a 50mm diameter crank disc with a 10mm crank pin offset 18mm from centre, a connecting rod 90mm long with matching big-end and small-end bores, a slider block 30mm square with a 10.1mm wrist-pin bore, and a 10mm diameter wrist pin 24mm long fitted with running clearance connecting the rod's small end to the slider",
+   "id": "E14"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a clevis rod-end assembly as three solids: a forked clevis body with two 10.1mm eared holes 18mm apart threaded onto a 100mm rod, a mating tang 50mm long with a matching 10.1mm hole, and a 10mm diameter clevis pin 35mm long fitted through all three holes with running clearance and a 2mm cross-hole for a retaining cotter",
+   "id": "E15"
+  }
+ ]
+}

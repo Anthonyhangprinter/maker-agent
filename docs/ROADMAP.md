@@ -243,3 +243,20 @@ measured delta.
 - CADmium (fine-tuning code LLMs for CAD): https://arxiv.org/pdf/2507.09792
 - Text2CAD-Bench: https://arxiv.org/pdf/2605.18430 · Zero-to-CAD (synthetic agentic data): https://arxiv.org/pdf/2604.24479
 - Obico AI failure detection (photo→defect precedent): https://www.obico.io/blog/ai-failure-detection-in-3d-printing/
+
+## Track E — CADAM feature parity on our stack (2026-08-02, user direction: no fork)
+
+Port the patterns, keep our engine + gate + learning loop. Reference: docs/CADAM-REFERENCE.md.
+1. **Parameter recognition + sliders** (highest value): prompt codegen to emit a customizer-style
+   parameter block (`width = 50  # [10:1:200] mm` for build123d; native Customizer syntax for
+   OpenSCAD); port their ~290-line parseParameters.ts to Python; webui renders sliders; slider
+   edit = text substitution + re-run, ZERO LLM. Works identically for both backends.
+2. **Side-chat in webui**: conversational iterate loop against the running build (their
+   chat-left / viewer-center / params-right layout).
+3. **OpenSCAD backend + switcher**: second codegen target on the CLOUD rung (M8's 0/6 was the
+   local 7B freestyle — CADAM proves frontier + compiler-stderr repair + BOSL2 steering works);
+   compile via local openscad CLI, STL-first preview; gate keeps measuring (mesh checks or
+   B-rep import). `--lang build123d|openscad` as the developer switch.
+4. **7-view ortho render sheet** for the critic (their trick; cheap, backend-agnostic).
+5. **Train both languages locally**: v2 build123d hard-set now; OpenSCAD teacher corpus later
+   via the same teacher_batch pipeline (prompts from their benchmarks/ are seed candidates).
