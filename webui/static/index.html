@@ -3,72 +3,138 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CAD agent</title>
+<title>Maker Agent</title>
 <style>
-  :root { color-scheme: dark; }
+  /* ── drafting-table dark: graphite ground, blueprint grid, laser-cyan accent ── */
+  :root {
+    color-scheme: dark;
+    --bg: #0d1013; --panel: #14181c; --panel2: #0a0c0e;
+    --line: #232a31; --line2: #2e3740;
+    --ink: #dfe6ec; --dim: #8a97a3; --faint: #5c6873;
+    --accent: #43c6e0;          /* laser cyan — parametric CAD */
+    --accent2: #e0a743;         /* hot amber — mesh / creative */
+    --ok: #46c078; --bad: #e0645c; --warn: #e0b05c;
+    --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", monospace;
+  }
   * { box-sizing: border-box; margin: 0; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  body { background: #111315; color: #e6e6e6; font: 15px/1.5 system-ui, sans-serif;
-         min-height: 100vh; min-height: 100dvh;
-         display: flex; flex-direction: column; align-items: center; }
-  main { width: min(720px, 94vw); padding: 6vh 0 4rem; }
-  h1 { font-size: 1.9rem; font-weight: 600; text-align: center; margin-bottom: 1.6rem;
-       text-wrap: balance; }
-  .composer { background: #1b1e21; border: 1px solid #2c3136; border-radius: 14px; padding: 0.9rem; }
-  /* 16px minimum on the input: below that iOS Safari force-zooms the page on focus */
+  body {
+    background:
+      linear-gradient(rgba(67,198,224,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(67,198,224,0.022) 1px, transparent 1px),
+      var(--bg);
+    background-size: 28px 28px, 28px 28px, auto;
+    color: var(--ink); font: 15px/1.55 system-ui, sans-serif;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  main { width: min(760px, 94vw); padding: 4.5vh 0 4rem; }
+
+  header.brand { display: flex; align-items: baseline; gap: 0.7rem; margin-bottom: 2rem; }
+  .wordmark { font: 700 1.05rem/1 var(--mono); letter-spacing: 0.18em; color: var(--accent); }
+  .wordmark::before { content: "▞ "; color: var(--faint); }
+  .brand .sub { color: var(--faint); font: 0.72rem/1 var(--mono); letter-spacing: 0.1em;
+                text-transform: uppercase; }
+  h1 { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.01em;
+       margin-bottom: 1.4rem; text-wrap: balance; }
+  h1 .cursor { color: var(--accent); animation: blink 1.2s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { h1 .cursor { animation: none; } }
+
+  .composer { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+              padding: 0.9rem; box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset,
+              0 12px 40px -18px rgba(0,0,0,0.8); }
+  .composer:focus-within { border-color: color-mix(in srgb, var(--mode-accent, var(--accent)) 55%, var(--line)); }
+  body.mesh .composer { --mode-accent: var(--accent2); }
   textarea { width: 100%; background: transparent; border: 0; color: inherit; resize: vertical;
-             min-height: 3.2rem; font: inherit; font-size: 16px; outline: none; }
-  .row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
+             min-height: 3.4rem; font: inherit; font-size: 16px; outline: none; }
+  .row { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.65rem; flex-wrap: wrap; }
   .row .spacer { flex: 1; }
-  button, select, label.filebtn { background: #262b30; color: #e6e6e6; border: 1px solid #383f46;
-    border-radius: 9px; padding: 0.45rem 0.9rem; font: inherit; cursor: pointer;
-    min-height: 40px; }
-  button.primary { background: #2f6fed; border-color: #2f6fed; color: #fff; font-weight: 600; }
-  #meshmode.on { background: #3a2a5b; border-color: #7a5bd6; color: #cdbcff; }
+  button, select, label.filebtn {
+    background: #1c2126; color: var(--ink); border: 1px solid var(--line2);
+    border-radius: 8px; padding: 0.45rem 0.9rem; font: inherit; cursor: pointer;
+    min-height: 40px; transition: border-color 0.15s, background 0.15s; }
+  button:hover, label.filebtn:hover { border-color: #45525f; }
+  button.primary { background: var(--accent); border-color: var(--accent);
+                   color: #06272e; font-weight: 650; }
+  body.mesh button.primary { background: var(--accent2); border-color: var(--accent2); color: #2e2206; }
   button:disabled { opacity: 0.5; cursor: default; }
+  #meshmode.on { background: #33270f; border-color: var(--accent2); color: var(--accent2); }
   input[type=file] { display: none; }
-  .hint { color: #8b949e; font-size: 0.82rem; margin-top: 0.7rem; }
-  .thumb { max-height: 52px; border-radius: 7px; display: none; }
-  .job { background: #1b1e21; border: 1px solid #2c3136; border-radius: 14px;
-         padding: 1rem; margin-top: 1.3rem; }
-  .pill { display: inline-block; padding: 0.12rem 0.65rem; border-radius: 999px;
-          font-size: 0.8rem; font-weight: 600; background: #333; }
-  .pill.queued { background: #4d4a1f; } .pill.running { background: #1f4d2c; }
-  .pill.waiting_gpu { background: #4d3a1f; } .pill.done { background: #1f4d2c; }
-  .pill.error { background: #5b2320; } .pill.needs_clarification { background: #23405b; }
-  .log { background: #0d0f10; border-radius: 9px; padding: 0.6rem 0.8rem; margin-top: 0.8rem;
-         font: 12px/1.45 ui-monospace, monospace; color: #9aa4ad; max-height: 200px;
+  .thumb { max-height: 52px; border-radius: 6px; display: none; }
+  .hint { color: var(--dim); font-size: 0.82rem; margin-top: 0.7rem; }
+
+  details.dev { margin-top: 0.8rem; border: 1px dashed var(--line); border-radius: 10px;
+                padding: 0.55rem 0.8rem; color: var(--dim); }
+  details.dev summary { cursor: pointer; font: 600 0.72rem/1.6 var(--mono);
+                        letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  details.dev[open] summary { color: var(--accent); }
+  .devgrid { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 0.6rem;
+             font-size: 0.86rem; align-items: center; }
+  .devgrid label { display: flex; gap: 0.45rem; align-items: center; color: var(--dim); }
+  .devgrid select { min-height: 34px; padding: 0.25rem 0.5rem; }
+
+  .job { position: relative; background: var(--panel); border: 1px solid var(--line);
+         border-radius: 12px; padding: 1rem 1rem 1rem 1.15rem; margin-top: 1.2rem;
+         overflow: hidden; }
+  .job::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+                 background: var(--stripe, var(--faint)); }
+  .job.s-running::before, .job.s-queued::before { background: var(--accent); }
+  .job.s-waiting_gpu::before { background: var(--warn); }
+  .job.s-done::before { background: var(--ok); }
+  .job.s-error::before { background: var(--bad); }
+  .job.s-needs_clarification::before { background: #6f8fd0; }
+  .job.mesh::before { background: var(--accent2); }
+
+  .pill { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px;
+          font: 600 0.72rem/1.7 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+          background: #23282e; color: var(--dim); }
+  .pill.running, .pill.queued { color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+  .pill.waiting_gpu { color: var(--warn); }
+  .pill.done { color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
+  .pill.error { color: var(--bad); }
+  .pill.needs_clarification { color: #8fb0f0; }
+  .pill.kind { background: #2a2010; color: var(--accent2); }
+
+  .log { background: var(--panel2); border-radius: 8px; padding: 0.6rem 0.8rem; margin-top: 0.8rem;
+         font: 12px/1.45 var(--mono); color: #93a0ab; max-height: 190px;
          overflow: auto; white-space: pre-wrap; word-break: break-all; }
-  .render { width: 100%; border-radius: 9px; margin-top: 0.8rem; background: #fff; }
-  .downloads { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
-  .downloads a { color: #7ab3ff; text-decoration: none; border: 1px solid #383f46;
-                 border-radius: 9px; padding: 0.35rem 0.8rem; font-size: 0.88rem; }
-  .meta { color: #8b949e; font-size: 0.84rem; margin-top: 0.55rem; }
-  .warn { color: #e0b05c; font-size: 0.88rem; margin-top: 0.55rem; }
+  .render { width: 100%; border-radius: 8px; margin-top: 0.8rem; background: #fff; cursor: zoom-in; }
+  .viewer { width: 100%; height: 340px; border-radius: 8px; margin-top: 0.8rem;
+            background: radial-gradient(ellipse at 50% 40%, #1a2027 0%, #0b0e11 75%);
+            border: 1px solid var(--line); display: none; touch-action: none; }
+  .downloads { display: flex; gap: 0.55rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .downloads a, .downloads button.dl { color: var(--accent); text-decoration: none;
+    border: 1px solid var(--line2); border-radius: 8px; padding: 0.35rem 0.8rem;
+    font: 600 0.8rem/1.6 var(--mono); background: transparent; cursor: pointer;
+    min-height: 36px; display: inline-flex; align-items: center; }
+  .downloads a:hover, .downloads button.dl:hover { border-color: var(--accent); }
+  .meta { color: var(--dim); font: 0.78rem/1.6 var(--mono); margin-top: 0.55rem; }
+  .warn { color: var(--warn); font-size: 0.88rem; margin-top: 0.55rem; }
   .qbox { margin-top: 0.8rem; } .qbox ol { padding-left: 1.2rem; }
-  footer { color: #6b7480; font-size: 0.78rem; padding: 0 1rem 1.4rem; text-align: center; }
-  /* Phone layout: comfortable touch targets, full-width Build, tighter chrome. */
+  footer { color: var(--faint); font-size: 0.76rem; padding: 0 1rem 1.4rem; text-align: center; }
+
   @media (max-width: 520px) {
-    main { width: 100%; padding: 1.2rem 0.8rem 3rem; }
-    h1 { font-size: 1.45rem; margin-bottom: 1rem; }
+    main { width: 100%; padding: 1.1rem 0.8rem 3rem; }
+    h1 { font-size: 1.3rem; margin-bottom: 1rem; }
     button, select, label.filebtn { min-height: 44px; padding: 0.55rem 1rem; }
     .row { gap: 0.5rem; }
     .row .spacer { display: none; }
-    #coder { flex: 1 1 40%; }
     #go { flex: 1 1 100%; order: 10; min-height: 48px; font-size: 16px; }
-    .log { max-height: 140px; }
-    .downloads a { padding: 0.55rem 1rem; min-height: 40px; display: inline-flex;
-                   align-items: center; }
+    .log { max-height: 130px; }
+    .viewer { height: 260px; }
     .hint { font-size: 0.8rem; }
   }
-  @media (pointer: coarse) {
-    button, select, label.filebtn { min-height: 44px; }
-  }
+  @media (pointer: coarse) { button, select, label.filebtn { min-height: 44px; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>What should we build?</h1>
+  <header class="brand">
+    <span class="wordmark">MAKER&nbsp;AGENT</span>
+    <span class="sub">local cad · hp-z2 · rx6600</span>
+  </header>
+  <h1 id="tagline">What should we build?<span class="cursor">▍</span></h1>
   <div class="composer">
     <textarea id="spec" placeholder="a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor…"></textarea>
     <div class="row">
@@ -76,31 +142,49 @@
       <input type="file" id="image" accept="image/jpeg,image/png,image/webp">
       <img id="thumb" class="thumb" alt="">
       <button id="clearimg" style="display:none" title="Remove image">✕</button>
-      <button id="meshmode" title="Mesh mode: sculpted organic 3D (GLB/OBJ) instead of parametric CAD">⬡ Mesh</button>
+      <button id="meshmode" title="Mesh mode: sculpted organic 3D instead of parametric CAD">⬡ Mesh</button>
       <span class="spacer"></span>
-      <select id="coder" title="Coder model: auto picks and escalates">
-        <option value="auto" selected>auto</option>
-        <option value="fast">fast (8B)</option>
-        <option value="strong">strong (30B)</option>
-      </select>
       <button class="primary" id="go">Build</button>
     </div>
   </div>
+  <details class="dev">
+    <summary>Developer</summary>
+    <div class="devgrid">
+      <label>coder
+        <select id="coder">
+          <option value="auto" selected>auto (triage + escalate)</option>
+          <option value="fast">fast · 7B</option>
+          <option value="strong">strong · 30B</option>
+        </select>
+      </label>
+      <label>candidates
+        <select id="candidates">
+          <option value="" selected>default (3)</option>
+          <option value="1">1 — fastest</option>
+          <option value="3">3</option>
+          <option value="5">5 — widest</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="fewshots" checked> retrieval few-shots</label>
+    </div>
+  </details>
   <div class="hint">
     Good prompts say <b>Size</b> (envelope in mm) · <b>Specs</b> (counts + diameters) ·
-    <b>Surfaces</b> (which face) · <b>Symmetry</b> (patterns/spacing). With a photo + words:
-    shape comes from the image, your mm win. A photo <b>alone</b> works too — the shape is read
-    from the image and sensible sizes are chosen for you.
+    <b>Surfaces</b> (which face) · <b>Symmetry</b> (patterns/spacing). Photo + words: shape from
+    the image, your mm win. A photo alone works too.
   </div>
   <div id="jobs"></div>
 </main>
 <footer>
-  One build at a time (single GPU) — you'll see “waiting for GPU” if another agent is building.
-  In-flight builds are lost if the server restarts.
+  one build at a time (single gpu) · in-flight builds are lost if the server restarts
 </footer>
+<script src="/static/vendor/three.min.js"></script>
+<script src="/static/vendor/OrbitControls.js"></script>
+<script src="/static/vendor/STLLoader.js"></script>
+<script src="/static/vendor/GLTFLoader.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const jobsEl = $("jobs"), tracked = new Map();
+const jobsEl = $("jobs"), tracked = new Map(), viewers = new Map();
 
 $("image").onchange = () => {
   const f = $("image").files[0];
@@ -117,20 +201,25 @@ $("clearimg").onclick = () => {
 let meshMode = false;
 $("meshmode").onclick = () => {
   meshMode = !meshMode;
+  document.body.classList.toggle("mesh", meshMode);
   $("meshmode").classList.toggle("on", meshMode);
-  $("coder").style.display = meshMode ? "none" : "";
+  $("tagline").firstChild.textContent = meshMode ? "What should we sculpt?" : "What should we build?";
   $("spec").placeholder = meshMode
-    ? "a weathered dragon head wall trophy…  (sculpted mesh, not engineering CAD)"
+    ? "a weathered dragon head wall trophy…  (organic mesh — no dimensions, no gate)"
     : "a 120x80x40mm enclosure, 2mm walls, 4x M3 mounting holes in the floor…";
   $("go").textContent = meshMode ? "Generate mesh" : "Build";
 };
 
 $("go").onclick = async () => {
   const spec = $("spec").value.trim();
-  if (!spec && !$("image").files[0]) return $("spec").focus();  // image alone is a full request
+  if (!spec && !$("image").files[0]) return $("spec").focus();
   const fd = new FormData();
   fd.append("spec", spec);
-  if (!meshMode) fd.append("coder", $("coder").value);
+  if (!meshMode) {
+    fd.append("coder", $("coder").value);
+    if ($("candidates").value) fd.append("candidates", $("candidates").value);
+    fd.append("fewshots", $("fewshots").checked ? "on" : "off");
+  }
   if ($("image").files[0]) fd.append("image", $("image").files[0]);
   $("go").disabled = true;
   try {
@@ -152,14 +241,15 @@ function card(id) {
   return el;
 }
 
-const STATUS_LABEL = { queued: "queued", running: "building", waiting_gpu: "waiting for GPU",
+const STATUS_LABEL = { queued: "queued", running: "building", waiting_gpu: "waiting for gpu",
   done: "done", error: "failed", needs_clarification: "needs answers" };
 
 function render(j) {
   const el = card(j.id), r = j.result || {}, a = r.artifacts || {};
-  let h = `<span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>
-           <b style="margin-left:.6rem">${esc((j.spec || "image-only build").slice(0, 120))}</b>`;
-  if (j.kind === "mesh") h += ` <span class="pill" style="background:#3a2a5b">mesh</span>`;
+  el.className = "job s-" + j.status + (j.kind === "mesh" ? " mesh" : "");
+  let h = `<span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>`;
+  if (j.kind === "mesh") h += ` <span class="pill kind">mesh</span>`;
+  h += ` <b style="margin-left:.5rem">${esc((j.spec || "image-only build").slice(0, 120))}</b>`;
   if (j.has_image) h += ` <span title="image-conditioned">📷</span>`;
   if (["queued", "running", "waiting_gpu"].includes(j.status))
     h += `<div class="log">${esc((j.log_tail || []).join("\n")) || "…"}</div>`;
@@ -168,25 +258,79 @@ function render(j) {
          r.questions.map(q => `<li>${esc(q)}</li>`).join("") +
          `</ol><i>Add the answers to your spec above and Build again.</i></div>`;
   }
-  if (a.render) h += `<img class="render" src="${a.render}?t=${Date.now()}" alt="render">`;
+  if (a.render) h += `<img class="render" src="${a.render}?t=${Date.now()}" alt="render"
+                          onclick="preview('${j.id}')" title="click for 3D preview">`;
+  h += `<div class="viewer" id="viewer-${j.id}"></div>`;
   if (j.status === "done") {
     const dl = ["step", "stl", "dxf", "glb", "obj", "source", "reference"]
       .filter(k => a[k]).map(k => `<a href="${a[k]}" download>${k.toUpperCase()}</a>`);
+    if (a.stl || a.glb)
+      dl.unshift(`<button class="dl" onclick="preview('${j.id}')">⟳ 3D preview</button>`);
     if (dl.length) h += `<div class="downloads">${dl.join("")}</div>`;
-    h += `<div class="meta">${r.converged ? "converged" : "NOT converged"}`
+    h += `<div class="meta">${r.converged === undefined ? "" : (r.converged ? "converged" : "NOT converged")}`
       + (r.accepted_via ? ` via ${r.accepted_via}` : "")
       + (r.code_model ? ` · coder ${esc(r.code_model)}` : "")
+      + (r.provider ? ` · ${esc(r.provider)}` : "")
       + (r.build_time_s ? ` · ${Math.round(r.build_time_s)}s` : "")
       + (r.turns ? ` · ${r.turns} turn(s)` : "") + `</div>`;
     if (r.warning) h += `<div class="warn">⚠ ${esc(r.warning)}</div>`;
     if (r.image_only && r.spec)
-      h += `<div class="meta">built from your image as: ${esc(r.spec.slice(0, 200))} — sizes were chosen for you; rebuild with real mm in the prompt to correct them</div>`;
+      h += `<div class="meta">built from your image as: ${esc(r.spec.slice(0, 200))}</div>`;
     else if (r.image_analysis && r.image_analysis.shape_family)
       h += `<div class="meta">image read as: ${esc(r.image_analysis.shape_family)}`
         + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
   }
   if (j.status === "error") h += `<div class="warn">✗ ${esc(j.error || "failed")}</div>`;
   el.innerHTML = h;
+  el.dataset.stl = a.stl || ""; el.dataset.glb = a.glb || "";
+}
+
+/* ── inline 3D preview (three.js, vendored — fully local) ── */
+function preview(id) {
+  const el = document.getElementById("job-" + id);
+  const holder = document.getElementById("viewer-" + id);
+  if (!el || !holder) return;
+  if (holder.style.display === "block") { holder.style.display = "none"; return; }
+  holder.style.display = "block";
+  if (viewers.has(id)) return;                       // already initialized
+  const url = el.dataset.glb || el.dataset.stl;
+  if (!url) return;
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(45, holder.clientWidth / holder.clientHeight, 0.1, 5000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(holder.clientWidth, holder.clientHeight);
+  holder.appendChild(renderer.domElement);
+  scene.add(new THREE.HemisphereLight(0xdfe8f0, 0x22282e, 1.1));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(1, 2, 1.4);
+  scene.add(key);
+  const controls = new THREE.OrbitControls(cam, renderer.domElement);
+  controls.enableDamping = true;
+
+  const fit = obj => {
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+    obj.position.sub(center);
+    const d = Math.max(size.x, size.y, size.z);
+    cam.position.set(d * 0.9, d * 0.7, d * 1.2); cam.lookAt(0, 0, 0);
+    scene.add(new THREE.GridHelper(d * 2.2, 22, 0x2a3340, 0x1b2129));
+    controls.update();
+  };
+  if (el.dataset.glb) {
+    new THREE.GLTFLoader().load(url, g => { scene.add(g.scene); fit(g.scene); });
+  } else {
+    new THREE.STLLoader().load(url, geo => {
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial(
+        { color: 0x9fc4d8, metalness: 0.15, roughness: 0.55 }));
+      mesh.rotation.x = -Math.PI / 2;                // STEP z-up -> three y-up
+      const grp = new THREE.Group(); grp.add(mesh); scene.add(grp); fit(grp);
+    });
+  }
+  let alive = true;
+  (function loop() { if (!alive) return; requestAnimationFrame(loop);
+                     controls.update(); renderer.render(scene, cam); })();
+  viewers.set(id, () => { alive = false; renderer.dispose(); });
 }
 
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g,
@@ -206,7 +350,6 @@ function track(id) {
   tracked.set(id, timer);
 }
 
-// On load, show recent jobs (resume polling for any still running).
 fetch("/api/jobs").then(r => r.json()).then(list => {
   list.reverse().forEach(j => {
     render(j);

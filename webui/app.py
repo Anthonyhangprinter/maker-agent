@@ -32,6 +32,7 @@ ENGINE_PYTHON = "/usr/bin/python3"
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 import mesh as meshmod
 
@@ -102,7 +103,11 @@ def _run_build(job: dict):
            "--coder", job["coder"], "--target", "file"]
     if job["image"]:
         cmd += ["--image", job["image"]]
+    if not job.get("fewshots", True):
+        cmd += ["--no-fewshots"]
     env = {**os.environ, "CAD_FRONTEND": "web"}
+    if job.get("candidates"):
+        env["CAD_CANDIDATES"] = job["candidates"]      # best-of-N first-turn sampling
     proc = subprocess.Popen(cmd, cwd=str(SKILL_ROOT), env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -187,8 +192,11 @@ def _result_public(result: dict) -> dict:
 
 @app.post("/api/build")
 async def api_build(spec: str = Form(""), coder: str = Form("auto"),
+                    candidates: str = Form(""), fewshots: str = Form("on"),
                     image: UploadFile | None = File(None)):
     spec = spec.strip()
+    if candidates and candidates not in {"1", "3", "5"}:
+        raise HTTPException(400, "candidates must be 1, 3 or 5")
     if not spec and not (image is not None and image.filename):
         raise HTTPException(400, "provide a spec, an image, or both")
     if coder not in CODERS:
@@ -206,6 +214,7 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
         Path(image_path).write_bytes(data)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
+        "candidates": candidates, "fewshots": fewshots != "off",
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(),
     }
@@ -311,6 +320,9 @@ def artifacts(build_id: str, filename: str):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/healthz")
