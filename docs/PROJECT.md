@@ -539,3 +539,15 @@ both runs (stock is streakier there) but lost stock's occasional tier-3 wins —
 skewed toward teacher-easy specs. v2: ~600 tier-3-heavy pairs (~$20 batch), r32/4-epoch
 retrain (~$1.50), ablate gift valid-band rows. Artifacts kept: ~/cad-coder-q4_k_m.gguf,
 ~/cad-coder-adapter.safetensors.
+
+## 2026-08-02/03 — Track E: CADAM parity + fluid mode (no fork)
+
+Direction: port CADAM's patterns (GPL-3.0 → ideas only), keep our engine; the web UI is the
+primary surface; gates OFF the interactive path — "the human is the gatekeeper".
+Shipped (ffc623d..923cfa3): webui redesign + mobile + vendored three.js 3D preview +
+Developer panel; OpenSCAD backend (openscad_gen.py: Customizer params, AppImage compile,
+stderr repair, ~11s/part) with zero-LLM parameter sliders (/api/rescale); fluid mode
+(fluid_gen.py + /api/chat: single-turn builds ~30s on the local 7B, verbatim chat revisions,
+one auto-salvage, spec_helper short-circuit, gate demoted to an "instruments" info line);
+mesh provider seam (local TripoSR being installed; cloud Meshy written but rejected as
+default). teacher_batch_scad.py built with proper repair-budget reservation — unspent.
