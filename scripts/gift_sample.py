@@ -49,7 +49,7 @@ from cad_v5.config import SFTPAIRS_DIR, SFTPAIRS_FILE    # noqa: E402
 TEMPS = [0.2, 0.4, 0.6, 0.8]
 
 
-def sample_spec(row: dict, k: int, results: list) -> dict:
+def sample_spec(row: dict, k: int, results: list, use_raw: bool = True) -> dict:
     spec, ref_code = row["spec"], row["code"]
     counts = {"match": 0, "valid": 0, "near_miss": 0, "fail": 0, "no_run": 0, "dup": 0}
     stats = {"spec": spec, "counts": counts}
@@ -64,21 +64,32 @@ def sample_spec(row: dict, k: int, results: list) -> dict:
         except Exception as e:
             stats["error"] = f"reference code failed: {str(e)[:150]}"
             return stats
-        try:
-            brief = engine.build_brief(spec)
-            engine.reconcile_expected(brief, spec)
-        except Exception as e:
-            stats["error"] = f"brief failed: {str(e)[:150]}"
-            return stats
+        # Raw mode (default, matches the brief-less production path AND the teacher rows):
+        # verbatim spec + retrieval notes, no qwen3:8b brief. --brief restores the old path.
+        notes = None
+        brief = None
+        if use_raw:
+            notes = engine.retrieval_notes_for(spec)
+        else:
+            try:
+                brief = engine.build_brief(spec)
+                engine.reconcile_expected(brief, spec)
+            except Exception as e:
+                stats["error"] = f"brief failed: {str(e)[:150]}"
+                return stats
 
         seen: set = {hashlib.sha1(ref_code.encode()).hexdigest()}
         for i in range(k):
             t = TEMPS[i % len(TEMPS)]
             try:
-                cand = engine.generate_code(brief, spec, temperature=t)
+                cand = (engine.generate_code_raw(spec, notes, temperature=t) if use_raw
+                        else engine.generate_code(brief, spec, temperature=t))
             except Exception:
                 counts["no_run"] += 1
                 continue
+            # The exact production prompt that produced this candidate — persisted with the
+            # row so training never has to re-derive it (gift_sample's old rows had none).
+            p = dict(engine._LAST_PROMPT)
             h = hashlib.sha1(cand.encode()).hexdigest()
             if h in seen:
                 counts["dup"] += 1
@@ -98,6 +109,7 @@ def sample_spec(row: dict, k: int, results: list) -> dict:
                 try:
                     cand = engine.revise_script(spec, cand,
                                                 f"The script failed to run:\n{str(e)[:600]}")
+                    p = dict(engine._LAST_PROMPT)   # the code now comes from the revise call
                     if engine._check_syntax(cand):
                         raise RuntimeError("still broken")
                     cstep, _ = engine.run_step(cand, cdir)
@@ -113,23 +125,33 @@ def sample_spec(row: dict, k: int, results: list) -> dict:
             if band in ("match", "valid"):
                 results.append({"kind": "good", "source": "gift-reject", "band": band,
                                 "spec": spec, "code": cand, "image": "",
+                                "prompt_kind": p.get("kind", ""),
+                                "system": p.get("system", ""), "prompt": p.get("prompt", ""),
                                 "code_model": engine._code_model(), "timestamp": ts, **meta})
             elif band == "near_miss":
                 png = ""
                 try:
-                    p = engine.run_render(cstep, cdir)
+                    # NB: do not name this `p` — that's the candidate's prompt dict above.
+                    render_path = engine.run_render(cstep, cdir)
                     SFTPAIRS_DIR.mkdir(parents=True, exist_ok=True)
                     dst = SFTPAIRS_DIR / f"gift-{h[:12]}.png"
-                    dst.write_bytes(Path(p).read_bytes())
+                    dst.write_bytes(Path(render_path).read_bytes())
                     png = str(dst)
                 except Exception:
                     pass
                 problem = (f"near-miss geometry: chamfer {meta['chamfer_mm']:.1f}mm from "
                            f"reference, volume off {meta['volume_diff_pct']}%"
                            if meta["chamfer_mm"] is not None else "near-miss geometry")
+                # The fix-turn (system, prompt) whose completion is ref_code was never sent
+                # to a model, so only the bad side's prompt is real — persist it; the
+                # compiler reconstructs the revise-turn prompt from (spec, bad_code, problem).
                 results.append({"kind": "fail", "source": "gift-fail", "spec": spec,
                                 "code": ref_code, "bad_code": cand, "image": png,
-                                "problem": problem, "code_model": engine._code_model(),
+                                "problem": problem,
+                                "bad_prompt_kind": p.get("kind", ""),
+                                "bad_system": p.get("system", ""),
+                                "bad_prompt": p.get("prompt", ""),
+                                "code_model": engine._code_model(),
                                 "timestamp": ts, **meta})
     return stats
 
@@ -139,6 +161,9 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=8, help="candidates per spec (default 8)")
     ap.add_argument("--limit", type=int, default=0, help="max specs (0 = all)")
     ap.add_argument("--model", default=None, help="coder to sample (default: fast rung)")
+    ap.add_argument("--brief", action="store_true",
+                    help="legacy qwen3:8b brief path (default is raw: verbatim spec + "
+                         "retrieval notes, matching brief-less production)")
     a = ap.parse_args()
 
     engine._ACTIVE_CODE_MODEL = a.model or engine.CODE_MODEL_FAST
@@ -154,7 +179,7 @@ def main() -> None:
         # (minutes), not the whole run (hours).
         fh = engine._acquire_build_lock(f"gift_sample: {row['spec'][:60]}")
         try:
-            st = sample_spec(row, a.k, results)
+            st = sample_spec(row, a.k, results, use_raw=not a.brief)
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
             fh.close()

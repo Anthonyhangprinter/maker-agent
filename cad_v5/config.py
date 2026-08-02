@@ -53,7 +53,10 @@ BRIEF_MODEL        = "qwen3:8b"
 # (qwen3:8b) -> coder swap costs a VRAM reload per build (7B suite 2068s vs 8B 1164s).
 # The 2026-07-12 result (old q5 quant, pre-N1/style-only-fewshot engine: 8/22) is superseded.
 # Results: benchmarks/results/ run_20260717_15*/16* (2x2 legs).
-CODE_MODEL_FAST    = "qwen2.5-coder:7b-instruct-q4_K_M"
+# CAD_CODE_MODEL_FAST env override exists for A/B evals (e.g. the M6' fine-tune vs stock);
+# the constant below stays the shipped default.
+CODE_MODEL_FAST    = os.environ.get("CAD_CODE_MODEL_FAST",
+                                    "qwen2.5-coder:7b-instruct-q4_K_M")
 CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # CPU offload, ~7min/call — last resort
 # Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
 # the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged

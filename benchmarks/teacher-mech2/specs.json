@@ -1,0 +1,158 @@
+{
+ "_meta": {
+  "generated": "teacher_specgen.py",
+  "note": "tier-4 mechanism specs incl. rewords of human-rejected C mechanisms"
+ },
+ "benchmarks": [
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a piston and connecting rod assembly as two solids: a 70mm diameter, 55mm tall piston that is hollow beneath its 6mm thick crown (open skirt with two internal pin bosses), carrying two 3mm compression-ring grooves and a 20mm gudgeon-pin bore located 18mm below the crown so the connecting rod's small end never crosses the crown plane, mated to a 140mm long rod with a 20mm small-end bore fitted onto the pin and a 45mm big-end bore, with the rod shank clearing the piston skirt walls by at least 2mm on both sides",
+   "id": "M01"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a two-stage gear reduction as two separate spur gears on parallel axes: a 20-tooth pinion of 3mm module, 18mm face width and 15mm bore, meshing with a 60-tooth wheel of the same 3mm module, 18mm face width and 30mm bore, with the two axes set exactly 120mm apart (module times half the tooth sum) so the tooth flanks engage correctly rather than clash or float apart",
+   "id": "M02"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a flexible shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, an 8mm keyway slot cut fully through the hub length, and three 9mm bolt holes on a 50mm bolt circle, sandwiching a 70mm diameter, 10mm thick elastomer disc that has the same three 9mm holes on the same bolt circle passing completely through it so a single bolt through each hole clamps all three parts together",
+   "id": "M03"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a cam and roller-follower assembly as two solids: a 50mm base circle plate cam 15mm thick with a 12mm rise profile over 120 degrees of rotation on a 10mm centre bore, paired with a 20mm diameter roller follower on an 8mm pin that remains in continuous surface contact with the cam at every rotation angle with zero interpenetration, its stem sliding in a fixed 20mm bore guide offset 60mm from the cam axis",
+   "id": "M04"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a ratchet and pawl mechanism as two solids: an 80mm diameter ratchet wheel 10mm thick with 24 asymmetric teeth around its rim on a 15mm bore, engaged by a 40mm long pivoting pawl 8mm thick pinned at one end on a 6mm pivot located 50mm from the wheel centre so its tip seats fully into the tooth root without gapping or overlapping the wheel body",
+   "id": "M05"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a four-bar linkage as three solids: a 100mm fixed frame link with pivot bores 90mm apart, a 40mm crank link pinned at one end to the frame with a 10mm pivot bore, and a 110mm coupler link connecting the crank's free end to a 60mm rocker link pinned back to the frame, all pivot bores 10mm with 0.2mm clearance so the links rotate about aligned pin axes without any link overlapping another",
+   "id": "M06"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a toggle clamp mechanism as three solids: a 120mm long base bracket with two upright ears bored 8mm apart at 40mm centres, a 90mm handle link pinned to one ear, and a 70mm clamping arm pinned between the handle and the second ear so rotating the handle through 180 degrees drives the arm's pad onto a fixed 30mm by 30mm work-stop without the arm ever intersecting the bracket during its travel",
+   "id": "M07"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a piano hinge as two interleaved solids: a 150mm long leaf with five 10mm diameter knuckles spaced 20mm apart along its edge, mating with a second identical 150mm leaf whose five knuckles are offset to interleave exactly into the first leaf's gaps, joined by one 4mm diameter pin running the full length through all ten aligned knuckle bores so the leaves swing freely without their faces colliding",
+   "id": "M08"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a V-belt pulley pair as two solids on parallel shafts: a 60mm pitch diameter driver pulley with a 34-degree, 12mm deep V-groove and a 15mm bore, and a 180mm pitch diameter driven pulley with the same groove profile and a 25mm bore, shaft centres set 250mm apart so a single 12mm wide belt wraps both grooves at matching pitch-line tangency without interference",
+   "id": "M09"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a right-angle bevel gear pair as two solids: a 20-tooth pinion bevel gear of 4mm module with a 30mm pitch cone apex, and a 40-tooth mating bevel gear of the same module, mounted with their pitch cone apexes coincident at one point and their axes at 90 degrees so the tooth faces mesh along the full cone length without gapping or interference",
+   "id": "M10"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a roller chain drive as two solids: a 15-tooth drive sprocket of 12.7mm pitch and a 12mm bore, and a 45-tooth driven sprocket of the same pitch and a 20mm bore, their shafts positioned 300mm apart so a modelled chain loop of matching pitch wraps both sprockets tangent to their pitch circles with no slack or interference",
+   "id": "M11"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a scissor lift mechanism as three solids: two identical 200mm long cross-arms pivoted at their midpoints on a common 10mm centre pin, a fixed base rail with a 15mm slot letting one arm's lower end slide 60mm while the other lower end pivots fixed, and a top platform pinned to the arms' upper ends, all bores 10mm with 0.2mm clearance so the arms scissor through travel without the platform ever contacting the base rail",
+   "id": "M12"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a ball-and-socket joint as two solids: a 25mm diameter ball on a 10mm stem 40mm long, seated inside a matching 25.4mm internal diameter socket housing with a 30-degree entry cone, giving a 0.4mm diametral clearance so the ball rotates freely inside the socket without either solid clipping the other through its full 45-degree swing range",
+   "id": "M13"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a screw clamp as two solids: a C-shaped frame 120mm deep with a threaded 16mm bore through its upper arm, and a matching 16mm threaded spindle 100mm long with a swivel pad 20mm diameter on its tip, engaging the frame's bore over a full 60mm of thread length so the pad advances and retracts without the threads ever disengaging",
+   "id": "M14"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a dovetail slide assembly as two solids: a 150mm long base with a 60-degree dovetail groove 20mm wide and 12mm deep along its length, and a matching 140mm long dovetail slider sized 0.1mm smaller in width so it fits and travels the full length inside the groove without protruding above the base surface or binding at either end",
+   "id": "M15"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a quarter-turn cam latch as two solids: a 30mm diameter cam lobe on an 8mm square-drive shaft 25mm long, and a mating strike plate with a 20mm wide slot the lobe engages after a 90-degree turn, the lobe's swept envelope and slot depth sized so the cam clears the slot walls when open and seats fully against the strike face when closed with no interference in either state",
+   "id": "M16"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a single-stage planetary gear set as four solids: a 24-tooth sun gear of 2mm module on a 10mm bore, three 16-tooth planet gears of the same module each on 6mm bores mounted on a planet carrier with pins spaced 120 degrees apart at a 40mm radius, and an internal 56-tooth ring gear of the same module surrounding the planets, with sun-to-planet and planet-to-ring centre distances both equal to 40mm so all three mesh points engage simultaneously without backlash gaps",
+   "id": "M17"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a slider-crank mechanism as three solids: a 40mm throw crank disc 20mm thick pinned to a fixed 15mm shaft, a 120mm long connecting rod with a 15mm small-end bore fitted over a crank pin 40mm from the disc centre and a 25mm big-end bore, and a slider 50mm diameter and 45mm tall bored 25mm for the rod's wrist pin, sized so the rod sweeps through full crank rotation without the slider ever striking the crank disc",
+   "id": "M18"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a detent indexing mechanism as two solids: an indexing plate 100mm diameter with eight 6mm hemispherical detent dimples on a 70mm radius, and a spring-loaded plunger housing 12mm diameter containing a 6mm ball that seats fully into each dimple at the same 70mm radius as the plate rotates, sized so the ball never contacts the plate body outside the dimple pockets",
+   "id": "M19"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a collet chuck assembly as two solids: a 32mm diameter collet with three longitudinal slots and a 20-degree external taper matching a 32.4mm internal taper bore in a surrounding closing nut, sized so tightening the nut 8mm axially compresses the collet's 20mm internal bore by 1mm without the collet's outer taper ever separating from the nut's internal taper surface",
+   "id": "M20"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a roller-ramp overrunning clutch as two solids: an inner hub 40mm diameter with six 5mm deep ramped pockets around its rim, and a surrounding outer race 70mm internal diameter containing six 10mm diameter rollers seated in the pockets, sized so each roller wedges into a 3mm engagement gap in one rotational direction and rolls free with 0.5mm clearance in the other, without any roller escaping its pocket",
+   "id": "M21"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a bell-crank lever mechanism as two solids: a fixed bracket with a 10mm pivot bore mounted 50mm above a baseplate, and an L-shaped bell-crank lever with two arms of 80mm and 60mm length meeting at a 10mm pivot bore fitting the bracket's bore with 0.2mm clearance, so the lever rotates freely about the pin without its arms ever touching the baseplate through a full 45-degree swing",
+   "id": "M22"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a lead-screw slide as two solids: a 200mm long base with two parallel 12mm dovetail rails and a fixed 10mm diameter, 4mm pitch lead screw supported at both ends, and an 80mm long carriage with a matching internally threaded 10mm bore engaging the full screw length and dovetail ways matching the base rails, so rotating the screw drives the carriage through 120mm of travel without lifting off the rails or the thread disengaging",
+   "id": "M23"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "a spring-loaded check valve as two solids: a valve body with a 25mm diameter seat bore and a 30-degree conical seating face, and a matching 25mm diameter poppet disc on a 6mm stem guided through a bore in the body, sized so the poppet's conical face seats fully against the body's seat when closed and lifts 4mm clear when open without the stem binding in its guide",
+   "id": "M24"
+  },
+  {
+   "tier": 4,
+   "group": "mechanism",
+   "spec": "an oscillating cam-arm mechanism as two solids: a 70mm diameter eccentric cam plate 10mm thick offset 15mm from its 12mm bore, and a slotted follower arm 150mm long with a 20mm wide slot straddling the cam so its eccentric motion drives the arm to oscillate through 30 degrees about a fixed 12mm pivot at the arm's far end, the slot walls maintaining continuous contact with the cam rim and never overlapping its solid body",
+   "id": "M25"
+  }
+ ]
+}

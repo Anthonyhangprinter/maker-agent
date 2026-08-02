@@ -1,0 +1,8 @@
+=== waiting for baseline run 2 ===
+=== smoke test: cad-coder:7b via env override ===
+"code_model": "cad-coder:7b"
+=== FT suite run A ===
+=== FT suite run B ===
+=== FT heldout-cqe ===
+=== stock heldout-cqe ===
+EVAL-CHAIN-DONE

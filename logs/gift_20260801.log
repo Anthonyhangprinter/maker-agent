@@ -1,0 +1,109 @@
+gift_sample: 13 specs × K=6 on qwen2.5-coder:7b-instruct-q4_K_M
+2026-08-01 00:06:13,937 [INFO] [v5] Few-shots (cosine): a solid rectangular calibration block 10~1.04, a 100x60x30mm solid block with four 4mm ~0.861
+2026-08-01 00:06:14,286 [INFO] [v5] Injected 3 learned pitfall(s).
+[1/13] a solid rectangular calibration block 100x60x20mm with four  -> {'match': 0, 'valid': 2, 'near_miss': 0, 'fail': 0, 'no_run': 4, 'dup': 0}
+2026-08-01 00:25:44,698 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~1.04, an L-bracket: a 60x40x6mm base flange an~0.813
+2026-08-01 00:25:44,958 [INFO] [v5] Injected 3 learned pitfall(s).
+[2/13] a solid circular flange 80mm diameter 10mm thick with a 30mm -> {'match': 2, 'valid': 3, 'near_miss': 1, 'fail': 0, 'no_run': 0, 'dup': 0}
+2026-08-01 00:40:37,161 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~1.04, a solid open-top electronics enclosure b~0.825
+2026-08-01 00:40:37,413 [INFO] [v5] Injected 3 learned pitfall(s).
+[3/13] a 100x60x30mm enclosure with 2mm walls, hollow and open at t -> {'match': 0, 'valid': 0, 'near_miss': 0, 'fail': 1, 'no_run': 5, 'dup': 0}
+2026-08-01 00:46:45,599 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~1.04, a solid 40x40x10mm block with a 10mm thr~0.887
+2026-08-01 00:46:45,848 [INFO] [v5] Injected 3 learned pitfall(s).
+[4/13] a 100x60x30mm solid block with four 4mm diameter holes throu -> {'match': 2, 'valid': 0, 'near_miss': 0, 'fail': 0, 'no_run': 2, 'dup': 2}
+2026-08-01 00:49:18,623 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~1.04, a solid circular flange 80mm diameter 10~0.813
+2026-08-01 00:49:18,876 [INFO] [v5] Injected 3 learned pitfall(s).
+[5/13] an L-bracket: a 60x40x6mm base flange and a 6x40x60mm uprigh -> {'match': 0, 'valid': 0, 'near_miss': 0, 'fail': 0, 'no_run': 6, 'dup': 0}
+2026-08-01 00:58:43,242 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~1.04, a solid circular flange 80mm diameter 10~0.753
+2026-08-01 00:58:43,490 [INFO] [v5] Injected 3 learned pitfall(s).
+[6/13] a piston, 80mm bore diameter, 60mm tall, with three ring gro -> {'match': 0, 'valid': 2, 'near_miss': 0, 'fail': 0, 'no_run': 4, 'dup': 0}
+2026-08-01 01:06:05,824 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~1.04, a hexagonal vase 60mm across flats and 1~0.937
+2026-08-01 01:06:06,072 [INFO] [v5] Injected 3 learned pitfall(s).
+[7/13] a vase 120mm tall with a circular cross-section whose outer  -> {'match': 0, 'valid': 0, 'near_miss': 0, 'fail': 0, 'no_run': 6, 'dup': 0}
+2026-08-01 01:15:30,520 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~1.04, a vase 120mm tall with a circular cross-~0.937
+2026-08-01 01:15:30,766 [INFO] [v5] Injected 3 learned pitfall(s).
+[8/13] a hexagonal vase 60mm across flats and 150mm tall whose cros -> {'match': 0, 'valid': 1, 'near_miss': 1, 'fail': 2, 'no_run': 2, 'dup': 0}
+2026-08-01 01:21:04,129 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~1.02, a 100x60x30mm enclosure with 2mm walls, ~0.845
+2026-08-01 01:21:04,382 [INFO] [v5] Injected 3 learned pitfall(s).
+[9/13] a solid open-top electronics enclosure box 100x70x30mm with  -> {'match': 0, 'valid': 1, 'near_miss': 2, 'fail': 0, 'no_run': 3, 'dup': 0}
+2026-08-01 01:26:42,420 [INFO] [v5] Few-shots (cosine): a 30mm diameter 12mm tall cylindrical sp~1.0, a solid circular flange 80mm diameter 10~0.747
+2026-08-01 01:26:42,668 [INFO] [v5] Injected 3 learned pitfall(s).
+[10/13] a 30mm diameter 12mm tall cylindrical spacer with an 11mm ce -> {'match': 1, 'valid': 3, 'near_miss': 0, 'fail': 0, 'no_run': 0, 'dup': 2}
+2026-08-01 01:28:31,939 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~1.0, a 40x40x8mm plate with a 10mm hole in th~0.828
+2026-08-01 01:28:32,190 [INFO] [v5] Injected 3 learned pitfall(s).
+[11/13] Model a plate with overall dimensions of 126 by 120 by 41 mm -> {'match': 0, 'valid': 6, 'near_miss': 0, 'fail': 0, 'no_run': 0, 'dup': 0}
+2026-08-01 01:31:40,649 [INFO] [v5] Few-shots (cosine): a solid 40x40x10mm block with a 10mm thr~1.0, a 100x60x30mm solid block with four 4mm ~0.927
+2026-08-01 01:31:40,908 [INFO] [v5] Injected 3 learned pitfall(s).
+[12/13] a solid 40x40x10mm block with a 10mm through hole in the cen -> {'match': 6, 'valid': 0, 'near_miss': 0, 'fail': 0, 'no_run': 0, 'dup': 0}
+2026-08-01 01:33:22,846 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~1.0, Model a plate with overall dimensions of~0.828
+2026-08-01 01:33:23,095 [INFO] [v5] Injected 3 learned pitfall(s).
+[13/13] a 40x40x8mm plate with a 10mm hole in the centre -> {'match': 5, 'valid': 0, 'near_miss': 0, 'fail': 0, 'no_run': 0, 'dup': 1}
+
+totals {'match': 16, 'valid': 18, 'near_miss': 4, 'fail': 3, 'no_run': 32, 'dup': 5}  -> 38 pairs appended to /home/theultimatecunt/.openclaw/cad-sftpairs.jsonl
+/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/gift_sample_20260801_013506.json
+[1;33m[Open3D WARNING] Too few correspondences (43) after mutual filter, fall back to original correspondences.[0;m
+[1;33m[Open3D WARNING] Too few correspondences (39) after mutual filter, fall back to original correspondences.[0;m
+[1;33m[Open3D WARNING] Too few correspondences (40) after mutual filter, fall back to original correspondences.[0;m
+[1;33m[Open3D WARNING] Too few correspondences (65) after mutual filter, fall back to original correspondences.[0;m
+[1;33m[Open3D WARNING] Too few correspondences (12) after mutual filter, fall back to original correspondences.[0;m
+[compile] 409 rows loaded, 27 human verdicts on file
+[exclude] -5 human-rejected -> 404
+  [reverify 367/404] gift-reject -> FAIL
+  [reverify 368/404] gift-reject -> FAIL
+  [reverify 369/404] gift-reject -> ok
+  [reverify 370/404] gift-reject -> ok
+  [reverify 371/404] gift-reject -> ok
+  [reverify 372/404] gift-fail -> ok
+  [reverify 373/404] gift-reject -> ok
+  [reverify 374/404] gift-reject -> ok
+  [reverify 375/404] gift-reject -> ok
+  [reverify 376/404] gift-reject -> ok
+  [reverify 377/404] gift-reject -> ok
+  [reverify 378/404] gift-reject -> ok
+  [reverify 379/404] gift-fail -> FAIL
+  [reverify 380/404] gift-reject -> FAIL
+  [reverify 381/404] gift-fail -> ok
+  [reverify 382/404] gift-reject -> ok
+  [reverify 384/404] gift-reject -> ok
+  [reverify 385/404] gift-reject -> ok
+  [reverify 386/404] gift-reject -> ok
+  [reverify 387/404] gift-reject -> ok
+  [reverify 388/404] gift-reject -> ok
+  [reverify 389/404] gift-reject -> ok
+  [reverify 390/404] gift-reject -> ok
+  [reverify 391/404] gift-reject -> ok
+  [reverify 392/404] gift-reject -> ok
+  [reverify 393/404] gift-reject -> ok
+  [reverify 394/404] gift-reject -> ok
+  [reverify 395/404] gift-reject -> ok
+  [reverify 396/404] gift-reject -> ok
+  [reverify 397/404] gift-reject -> ok
+  [reverify 398/404] gift-reject -> ok
+  [reverify 399/404] gift-reject -> ok
+  [reverify 400/404] gift-reject -> ok
+  [reverify 401/404] gift-reject -> ok
+  [reverify 402/404] gift-reject -> ok
+  [reverify 403/404] gift-reject -> ok
+  [reverify 404/404] gift-reject -> ok
+[reverify] -11 fail hardened gate -> 393
+[dedup] -20 duplicates -> 373
+
+[report] /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/sft_compile_20260731_153756.json
+{
+ "loaded": 409,
+ "surviving": 373,
+ "surviving_by_source": {
+  "retro": 2,
+  "gift-fail": 15,
+  "gift-reject": 40,
+  "none": 3,
+  "teacher": 281,
+  "teacher-repair": 31,
+  "teacher-human-accepted": 1
+ },
+ "surviving_by_kind": {
+  "good": 326,
+  "fail": 47
+ }
+}
+GIFT-CHAIN DONE

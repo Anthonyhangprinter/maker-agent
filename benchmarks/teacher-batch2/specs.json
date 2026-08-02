@@ -1,0 +1,1184 @@
+{
+ "_meta": {
+  "generated": "teacher_specgen.py",
+  "note": "teacher-training specs, NOT an eval suite; guarded against suite slugs"
+ },
+ "benchmarks": [
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 150x100x6mm aluminium plate with four 8mm through holes located 15mm in from each corner",
+   "id": "V001"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 110x75x5mm mounting plate with a 25mm central through hole and a 45mm diameter counterbore 3mm deep on one face",
+   "id": "V002"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 200x80x10mm steel bar with a 15mm wide slot running the full 200mm length, centred and open at both ends",
+   "id": "V003"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 60x60x4mm square tab with a single 6mm corner hole 10mm from each of two adjacent edges",
+   "id": "V004"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 130x90x8mm plate with all four edges chamfered 2mm and a 30mm square cutout offset 20mm from the left edge",
+   "id": "V005"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 95x45x6mm bracket blank with two 8mm through holes spaced 60mm apart along its centreline",
+   "id": "V006"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 160x100x12mm base plate with a 50mm bolt circle of six 6mm holes centred on the plate",
+   "id": "V007"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 75x75x5mm panel with a 30mm diameter through hole centred and four 3mm corner holes 8mm from each edge",
+   "id": "V008"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 140x60x8mm plate with a 12mm wide slot running 80mm along its length, closed at both ends and centred lengthwise",
+   "id": "V009"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 50x50x3mm shim with a single 5mm through hole offset 15mm from the centre along the diagonal",
+   "id": "V010"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 220x110x10mm strap with eight 5mm holes spaced 25mm apart in two rows of four along its length",
+   "id": "V011"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 100x100x6mm square plate with a 60mm square cutout centred and all outer edges chamfered 1.5mm",
+   "id": "V012"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 85x85x8mm plate with a 18mm central bore counterbored to 35mm diameter and 4mm deep from the top face",
+   "id": "V013"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 65x40x4mm tab with two 4mm through holes on a 30mm bolt circle spaced 180 degrees apart",
+   "id": "V014"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 180x70x6mm plate with a 10mm wide slot running 100mm along its length, open at one end and rounded at the closed end",
+   "id": "V015"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 90x60x5mm plate with a 15mm through hole at each corner and a 25mm central through hole",
+   "id": "V016"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 130x130x10mm square base with a 70mm bolt circle carrying six 8mm holes and a 40mm central counterbore 5mm deep",
+   "id": "V017"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 55x55x3mm plate with a 20mm square cutout centred and 1mm chamfers on all four outer edges",
+   "id": "V018"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 240x80x8mm bar with a 20mm wide slot running 150mm along its length, closed at both ends and offset 10mm from centre",
+   "id": "V019"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 70x50x6mm plate with a single 16mm counterbore 6mm deep surrounding a 8mm through hole at its centre",
+   "id": "V020"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 105x105x8mm panel with four 10mm through holes on a 80mm bolt circle and a 30mm central through hole",
+   "id": "V021"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 80x30x5mm strip with three 5mm through holes spaced 20mm apart along its centreline",
+   "id": "V022"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 150x150x12mm plate with a 100mm square cutout centred and 3mm chamfers on all outer edges",
+   "id": "V023"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 45x45x4mm square pad with a single 10mm through hole centred and 2mm chamfers on the top edges",
+   "id": "V024"
+  },
+  {
+   "tier": 2,
+   "group": "plate",
+   "spec": "a 175x95x10mm plate with a 14mm wide slot running 120mm along its length, open at one end and a 6mm hole 20mm from the closed end",
+   "id": "V025"
+  },
+  {
+   "tier": 1,
+   "group": "plate",
+   "spec": "a 115x65x6mm plate with two 10mm through holes 70mm apart and a 30mm diameter counterbore 4mm deep centred between them",
+   "id": "V026"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "an L-bracket with a 90x50x6mm base leg and a 50x50x6mm upright leg, each leg drilled with two 8mm holes on a 20mm bolt spacing",
+   "id": "V027"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a U-shaped mounting bracket 80mm wide with two 40mm tall side walls 5mm thick and a 60mm flat base, four 6mm holes through the base",
+   "id": "V028"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a T-bracket formed from a 100x30x5mm flat bar with a perpendicular 60x30x5mm stem centered along its length, 7mm holes at each end of the flat bar",
+   "id": "V029"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a 55x55x4mm right-angle bracket with a stiffening gusset 4mm thick spanning the inside corner, one 10mm clearance hole in each leg",
+   "id": "V030"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a mounting tab 40x25x3mm with a single 6.5mm bolt hole centered 8mm from one edge and both corners on that edge rounded to 4mm radius",
+   "id": "V031"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "an L-shaped corner bracket with a 120x40x7mm horizontal leg and an 80x40x7mm vertical leg, three 9mm holes evenly spaced along the horizontal leg",
+   "id": "V032"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a shelf support bracket shaped like a right triangle with 70mm and 70mm legs and a 6mm thick web, a 5mm gusset rib running along the hypotenuse",
+   "id": "V033"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a U-channel bracket 65mm wide with 30mm tall flanges 4mm thick and a 45mm base, two 6mm holes in each flange aligned across from each other",
+   "id": "V034"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a small mounting tab 35x35x4mm with two 5mm holes on a 20mm diagonal spacing and all four corners rounded to 5mm radius",
+   "id": "V035"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "an angle bracket with a 100x60x8mm horizontal leg and a 60x60x8mm vertical leg, a triangular gusset 6mm thick reinforcing the bend",
+   "id": "V036"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a T-shaped bracket with a 90x25x5mm crossbar and a 50x25x5mm stem, two 6mm holes in the crossbar and one 8mm hole in the stem",
+   "id": "V037"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a corner gusset plate 50x50x5mm with a quarter-circle cutout of 20mm radius removed from the outer corner and a 6mm hole in each remaining tab",
+   "id": "V038"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a wall mounting bracket with a 75x45x6mm vertical plate and a 45x45x6mm horizontal shelf, four 8mm holes arranged in a square pattern on the vertical plate",
+   "id": "V039"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a small L-bracket 30x30x3mm with a single 4mm hole in each leg positioned 10mm from the bend",
+   "id": "V040"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a heavy-duty angle bracket with a 130x70x10mm horizontal leg and a 70x70x10mm vertical leg, two 12mm holes in each leg and a 8mm thick gusset between them",
+   "id": "V041"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a U-bracket 90mm wide with 50mm tall side arms 6mm thick, each arm carrying a single 10mm hole 15mm from its top edge",
+   "id": "V042"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a flat mounting tab 60x20x4mm with two 5mm holes spaced 40mm apart along its centerline",
+   "id": "V043"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a right-angle bracket with a 65x40x5mm base leg and a 40x40x5mm upright leg, a rounded fillet gusset 4mm thick blending the inside corner",
+   "id": "V044"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a T-bracket with a 110x35x6mm base bar and a 70x35x6mm perpendicular rib centered on it, two 9mm holes near each end of the base bar",
+   "id": "V045"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a compact corner bracket 45x45x4mm with a diagonal gusset rib 3mm thick and a 5mm hole centered in each leg",
+   "id": "V046"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a tie-down bracket 95x30x6mm with a 12mm hole at each end and its long edges rounded to 6mm radius",
+   "id": "V047"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "an L-bracket with a 85x55x5mm horizontal leg and a 55x55x5mm vertical leg, three 6mm holes along the horizontal leg spaced 20mm apart",
+   "id": "V048"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a U-shaped bracket 100mm wide with 35mm tall flanges 5mm thick, each flange featuring two 7mm holes on a 25mm bolt pattern",
+   "id": "V049"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a mounting tab 50x30x3mm with a slotted hole 6mm wide by 15mm long centered along its length",
+   "id": "V050"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a gusseted L-bracket with a 70x50x6mm horizontal leg and a 50x50x6mm vertical leg, a triangular rib 5mm thick set 10mm in from each edge",
+   "id": "V051"
+  },
+  {
+   "tier": 2,
+   "group": "bracket",
+   "spec": "a small T-shaped tab 40x40x4mm with a 20mm wide stem and a single 6mm hole centered in the crossbar portion",
+   "id": "V052"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top enclosure 140x100x50mm with 3mm walls and a 4mm floor, with four M3 clearance holes 3.2mm diameter drilled through the floor near the corners for mounting",
+   "id": "V053"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a two-piece electronics case 130x90x40mm with 2mm walls, the base having a 3mm deep recessed ledge around the inside perimeter to seat a separate flat lid, and a 20x10mm rectangular cutout on one short side for a connector",
+   "id": "V054"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a hollow junction box 100x100x60mm with 3.5mm walls, closed on all sides except a 60x40mm rectangular opening on top with a 2mm deep recessed lip for a sliding cover",
+   "id": "V055"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a battery compartment case 85x55x30mm with 2.5mm walls and a 3mm floor, featuring two internal rib walls 1.5mm thick spaced 25mm apart dividing the cavity into three cells, open at the top",
+   "id": "V056"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top instrument housing 160x110x45mm with 3mm walls and a 3.5mm floor, with six cylindrical bosses 10mm across and 12mm tall arranged in two rows of three, each bored with a 2.5mm blind hole 8mm deep",
+   "id": "V057"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a snap-fit enclosure base 95x65x28mm with 2mm walls, a 3mm floor, and four small 4mm tall snap tabs 6mm wide protruding inward from the top edge of each long wall to engage a mating lid",
+   "id": "V058"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a hollow control panel box 200x120x70mm with 4mm walls and a 5mm floor, open at the top, with a 15mm diameter circular cutout centered on one long wall for a cable grommet",
+   "id": "V059"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a stacked-tray enclosure 110x80x60mm with 3mm walls split into two open compartments by an internal horizontal shelf 3mm thick located 25mm above the floor, with a 30x15mm notch cut into one end of the shelf for wiring access",
+   "id": "V060"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top sensor housing 70x50x30mm with 2.5mm walls and a 3mm floor, with two cylindrical standoffs 6mm across and 8mm tall rising from the floor along the centerline, each drilled with a 2mm blind hole",
+   "id": "V061"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a two-part clamshell case 150x100x45mm with 2.5mm walls, the lower half having a 4mm wide recessed groove running around the inside rim to accept an O-ring seal, plus a 25mm diameter circular boss on the floor with a 12mm blind bore for a shaft bushing",
+   "id": "V062"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a rectangular relay box 120x70x50mm with 3mm walls and a 4mm floor, open at the top, with a 10mm wide rectangular slot cut through one short wall near the base for a cable pass-through",
+   "id": "V063"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a hollow enclosure 180x130x55mm with 3.5mm walls and a 4mm floor, having a stepped recessed lip 6mm wide and 2mm deep around the inner rim for a snap-on lid, plus four corner bosses 9mm across and 14mm tall each with a 3.2mm through hole for machine screws",
+   "id": "V064"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top storage bin 100x70x40mm with 3mm walls and a 3mm floor, with a 5mm radius fillet along all internal corners and a 40x20mm rectangular cutout centered in the floor for drainage",
+   "id": "V065"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through",
+   "id": "V066"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a hollow cable junction case 90x90x45mm with 3mm walls and a 3.5mm floor, open at the top, with three 8mm diameter circular cutouts arranged in a row along one side wall for cable glands",
+   "id": "V067"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a lidded utility case 160x110x50mm with 3mm walls, the base featuring a 4mm deep recessed pocket 8mm wide around the inside rim to seat a separate lid with matching lip, and two internal bosses 7mm across and 10mm tall for circuit board mounting each drilled with a 2.5mm blind hole",
+   "id": "V068"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top junction enclosure 75x55x35mm with 2.5mm walls and a 3mm floor, with a single cylindrical boss 12mm across and 15mm tall centered on the floor drilled with a 5mm blind hole",
+   "id": "V069"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a two-chamber splitter box 130x80x40mm with 2.5mm walls divided by a full-height internal wall 2.5mm thick down the center, each chamber having its own 20x10mm rectangular cutout on the outer wall for connectors",
+   "id": "V070"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a hollow project enclosure 100x60x30mm with 2mm walls and a 3mm floor, open at the top, with a 3mm wide lip recessed 2mm around the inside of the rim and four 3mm diameter mounting holes through the floor near each corner",
+   "id": "V071"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a rugged field case 220x150x80mm with 4mm walls and a 5mm floor, featuring a 6mm wide gasket groove 3mm deep around the top rim, eight internal bosses 10mm across and 12mm tall along the perimeter each with a 4mm blind hole, and a 50x30mm rectangular cutout on one end wall",
+   "id": "V072"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top display housing 130x90x25mm with 3mm walls and a 3mm floor, with a stepped recess 5mm deep and 10mm wide around the entire top opening to seat a clear acrylic window",
+   "id": "V073"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a hinged enclosure base 115x75x40mm with 2.5mm walls and a 3mm floor, with two small cylindrical hinge knuckles 6mm diameter and 8mm tall protruding from one long edge, each bored with a 3mm through hole for a hinge pin",
+   "id": "V074"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "a hollow terminal block housing 95x65x35mm with 3mm walls and a 3.5mm floor, open at the top, with five 4mm diameter holes drilled through the floor in a row spaced 12mm apart for wire feed-throughs",
+   "id": "V075"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a compact dual-cavity enclosure 105x70x35mm with 2.5mm walls, split lengthwise by an internal wall 2mm thick, one cavity containing two bosses 6mm across and 9mm tall with 2.5mm blind holes and the other cavity left open",
+   "id": "V076"
+  },
+  {
+   "tier": 2,
+   "group": "enclosure",
+   "spec": "an open-top weatherproof box 175x125x60mm with 4mm walls and a 4.5mm floor, with a 5mm wide flat rim around the top opening drilled with eight 3.5mm through holes spaced evenly for a bolted lid",
+   "id": "V077"
+  },
+  {
+   "tier": 3,
+   "group": "enclosure",
+   "spec": "a nested tray enclosure 140x95x50mm with 3mm walls, featuring an inner raised platform 3mm thick and 10mm tall covering 80x60mm of the floor area, surrounded by a lower channel 15mm wide for wiring, open at the top",
+   "id": "V078"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a stepped shaft 150mm long with 35mm diameter for the first 60mm, stepping down to 22mm diameter for the remaining 90mm, with a 1.5mm x 45 degree chamfer on both ends",
+   "id": "V079"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 28mm diameter 95mm long shaft with a single 6mm wide flat milled 4mm deep along a 30mm section near one end for set-screw clamping",
+   "id": "V080"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 32mm diameter 140mm long shaft with a 10mm wide by 5mm deep keyway running 45mm from one end and a 3mm wide circlip groove cut 8mm from the opposite end",
+   "id": "V081"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 45mm diameter 200mm long shaft stepping down to 30mm diameter for the last 70mm, with a 6mm diameter cross-hole drilled through the smaller section 20mm from its end",
+   "id": "V082"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a three-step shaft 180mm long: 40mm diameter for 50mm, 30mm diameter for 70mm, then 20mm diameter for the remaining 60mm, with a 6mm wide by 3mm deep keyway cut along the final 20mm section",
+   "id": "V083"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 22mm diameter 110mm long shaft with two opposing 5mm deep flats machined on the last 25mm to form a 12mm across-flats wrench grip",
+   "id": "V084"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 38mm diameter 160mm long stepped shaft with a 25mm diameter reduced section for the last 55mm, a 2.5mm wide retaining ring groove 6mm from the shoulder, and an 8mm diameter cross-hole through the reduced end",
+   "id": "V085"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 50mm diameter 90mm long shaft with a 4mm wide circlip groove cut 10mm from each end",
+   "id": "V086"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a stepped shaft 220mm long with 42mm diameter for 80mm then 28mm diameter for 140mm, featuring an 8mm wide by 4mm deep keyway along 60mm of the smaller section and a 5mm diameter cross-hole through the larger section 15mm from the shoulder",
+   "id": "V087"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 30mm diameter 100mm long shaft with a single 6mm diameter cross-hole drilled straight through its center",
+   "id": "V088"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 26mm diameter 130mm long shaft with a 5mm wide by 3mm deep keyway running the first 40mm and a 2mm wide circlip groove 5mm from that same end",
+   "id": "V089"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a stepped shaft 160mm long stepping from 48mm diameter down to 36mm diameter halfway along, with a 45 degree by 2mm chamfer at both shoulder edges",
+   "id": "V090"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 34mm diameter 175mm long shaft with two flats machined 180 degrees apart to 28mm across-flats over a 35mm section, plus a 6mm diameter cross-hole through the flatted region",
+   "id": "V091"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 55mm diameter 75mm long shaft with a 3mm wide retaining groove cut around the outside 12mm from one end and a 1mm x 45 degree chamfer on both ends",
+   "id": "V092"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a two-step shaft 190mm long: 44mm diameter for 90mm then 32mm diameter for 100mm, with a 10mm wide by 4mm deep keyway cut along 70mm of the smaller diameter section",
+   "id": "V093"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 20mm diameter 80mm long shaft with a 4mm wide by 2mm deep keyway running its full length",
+   "id": "V094"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 42mm diameter 145mm long shaft stepping to 33mm diameter for the final 45mm, with a 3mm circlip groove at the step shoulder and a 6mm diameter cross-hole drilled through the reduced section 15mm from the end",
+   "id": "V095"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 36mm diameter 120mm long shaft with a single flat milled 3mm deep along a 40mm section positioned 20mm from one end",
+   "id": "V096"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a stepped shaft 210mm long with 46mm diameter for 70mm, 34mm diameter for 80mm, and 24mm diameter for the remaining 60mm, including a 3mm wide circlip groove at each step transition",
+   "id": "V097"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 48mm diameter 100mm long shaft with an 8mm diameter through-hole drilled perpendicular to the axis 25mm from one end",
+   "id": "V098"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a 40mm diameter 165mm long shaft with a 12mm wide by 5mm deep keyway along the first 50mm, a 2.5mm wide circlip groove 8mm past the keyway, and a 20mm diameter reduced section for the final 55mm",
+   "id": "V099"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 25mm diameter 105mm long shaft with two opposing flats machined to 18mm across-flats over the middle 30mm of its length",
+   "id": "V100"
+  },
+  {
+   "tier": 3,
+   "group": "shaft",
+   "spec": "a stepped shaft 230mm long stepping from 50mm diameter down to 38mm diameter then to 26mm diameter in three equal 76mm-ish sections, with a 6mm wide by 3mm deep keyway on the smallest section and a 5mm diameter cross-hole through the middle section",
+   "id": "V101"
+  },
+  {
+   "tier": 2,
+   "group": "shaft",
+   "spec": "a 33mm diameter 85mm long shaft with a 3mm wide circlip groove cut 6mm from one end and a 45 degree 2mm chamfer on the opposite end",
+   "id": "V102"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a round pipe flange 130mm outside diameter and 16mm thick with a 60mm bore, a 3mm raised face 70mm across, and eight 11mm bolt holes on a 100mm circle",
+   "id": "V103"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a square mounting flange 80x80x8mm with a 30mm central bore and four 7mm corner holes on a 60mm bolt circle",
+   "id": "V104"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a hubbed pipe flange with a 140mm diameter faceplate 18mm thick, a 40mm long hub projecting 25mm outside diameter, a 55mm through bore, and six 12mm bolt holes on a 105mm circle",
+   "id": "V105"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a blind flange 90mm diameter and 10mm thick with six 6mm holes evenly spaced on a 68mm bolt circle and no bore through the center",
+   "id": "V106"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a round flange 150mm outside diameter and 20mm thick with a 70mm central bore, a 2.5mm raised face 90mm across, and twelve 13mm holes on a 120mm bolt circle",
+   "id": "V107"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a rectangular mounting flange 100x60x9mm with a 25mm central bore and four 8mm holes positioned 8mm in from each corner",
+   "id": "V108"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a hub-style pipe flange 160mm diameter and 22mm thick with a 65mm bore, a 50mm long hub stepping down to 90mm outside diameter, and eight 14mm bolt holes on a 128mm circle",
+   "id": "V109"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a small blind flange 70mm diameter and 8mm thick with four 5mm holes on a 52mm bolt circle and a solid unbored face",
+   "id": "V110"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a round flange 200mm outside diameter and 25mm thick with an 85mm central bore and twelve 16mm holes on a 165mm bolt circle",
+   "id": "V111"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a raised-face pipe flange 110mm diameter 14mm thick with a 45mm bore, a 3mm raised face 62mm across, and six 10mm bolt holes on an 88mm circle, plus a 20mm long hub extending from the back",
+   "id": "V112"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a square flange 120x120x12mm with a 50mm central bore and eight 9mm holes arranged on a 95mm bolt circle",
+   "id": "V113"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a thin round flange 95mm diameter and 6mm thick with a 32mm bore and four 6mm holes on a 75mm bolt circle",
+   "id": "V114"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a heavy pipe flange 180mm diameter and 28mm thick with a 90mm bore, a 4mm raised face 105mm across, a 35mm hub of 130mm outside diameter, and eight 17mm bolt holes on a 145mm circle",
+   "id": "V115"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a blind flange 115mm diameter and 15mm thick with ten 8mm holes on a 90mm bolt circle and no central penetration",
+   "id": "V116"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a round flange 75mm outside diameter and 9mm thick with a 25mm central bore and four 7mm holes on a 58mm bolt circle",
+   "id": "V117"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a hubbed mounting flange 145mm diameter and 19mm thick with a 58mm bore, a 30mm long hub projecting to 100mm outside diameter, and six 12mm holes on a 112mm bolt circle",
+   "id": "V118"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a rectangular flange 140x70x11mm with a 40mm central bore and six 8mm holes spaced along the long edges",
+   "id": "V119"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a compact round flange 60mm diameter and 7mm thick with a 20mm bore and three 6mm holes on a 46mm bolt circle",
+   "id": "V120"
+  },
+  {
+   "tier": 3,
+   "group": "flange",
+   "spec": "a raised-face pipe flange 125mm diameter 17mm thick with a 48mm bore, a 3mm raised face 70mm across, an 18mm hub stub of 85mm outside diameter, and eight 11mm bolt holes on a 98mm circle",
+   "id": "V121"
+  },
+  {
+   "tier": 2,
+   "group": "flange",
+   "spec": "a large blind flange 220mm diameter and 30mm thick with sixteen 15mm holes on a 180mm bolt circle and a fully solid center face",
+   "id": "V122"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted transition duct 120mm long, rectangular 80x50mm at the inlet blending to a circular 45mm diameter outlet, with 2.5mm walls throughout",
+   "id": "V123"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved vase 200mm tall whose wall profile grows from 20mm radius at the base to a 60mm shoulder bulge then necks down to a 15mm diameter opening, shelled to 3mm wall thickness",
+   "id": "V124"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 12mm diameter tube swept along a helical path with an 80mm coil diameter, 150mm pitch, and 3 full turns",
+   "id": "V125"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a teardrop boss formed by a 40mm diameter hemisphere blending smoothly into a 25mm tall tapering neck ending at 12mm diameter",
+   "id": "V126"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted turbine blade 60mm tall twisting 30 degrees from root to tip, with an aerofoil cross-section 35mm chord at the root narrowing to 20mm at the tip",
+   "id": "V127"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted rectangular enclosure shell 150x100x60mm with 3 degree draft on every side wall, 2mm uniform wall thickness, and 5mm fillets on all vertical corners",
+   "id": "V128"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted hex-to-round transition 90mm tall, hexagonal 70mm across flats at the base narrowing to a 50mm diameter circle at the top, with 2mm walls",
+   "id": "V129"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved control knob 40mm tall whose radius sweeps from 10mm at the base to 25mm at the crown, finished with a 4mm fillet at the top edge",
+   "id": "V130"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 15mm diameter handle rod swept along a C-shaped spline path spanning 120mm width and 60mm height",
+   "id": "V131"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted funnel 140mm tall, 100mm diameter at the rim narrowing to a 20mm diameter spout, shelled to a 1.5mm wall",
+   "id": "V132"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved bottle body 130mm tall with a 35mm base radius, waisting to 18mm at 90mm height, then flaring into a 22mm neck, shelled with a 2mm wall",
+   "id": "V133"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted storage tray shell 200x120mm at the base with 40mm tall walls carrying a 2 degree draft, 1.5mm wall thickness, and 6mm fillets along the base perimeter",
+   "id": "V134"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted intake manifold section 160mm long, oval 90x50mm at one end blending to a 55mm diameter circle at the other, with 3mm walls",
+   "id": "V135"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 25mm diameter pipe swept along an S-shaped spline path 200mm end to end, with a 3mm wall thickness",
+   "id": "V136"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a teardrop pin formed by a 20mm diameter sphere blending into a 15mm tall tapering shank that ends at 8mm diameter",
+   "id": "V137"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted cooling fan blade 100mm long twisting 50 degrees from root to tip, chord tapering from 45mm at the root to 18mm at the tip",
+   "id": "V138"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved pedestal 150mm tall with a 50mm base radius tapering to 20mm at mid height before flaring back out to a 30mm diameter top rim",
+   "id": "V139"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted cylindrical housing shell 80mm diameter and 100mm tall with a 2 degree draft on the outer wall, 2mm wall thickness, and a 5mm fillet at the base",
+   "id": "V140"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted square-to-rectangle transition duct 100mm long, 50x50mm at the inlet opening to 80x30mm at the outlet, with 2mm walls",
+   "id": "V141"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 10mm square cross-section rail swept along a helical path with a 60mm coil diameter, 4 turns, and 200mm overall length",
+   "id": "V142"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved finial 60mm tall whose radius bulges from 8mm at the base to 22mm at mid height and tapers to a point at the top",
+   "id": "V143"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted air scoop 80mm long, circular 60mm diameter at the inlet flattening to a 40x15mm rectangular outlet, with 2mm walls",
+   "id": "V144"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted lid shell 180x90mm with 25mm tall walls carrying a 1.5 degree draft, 1.2mm wall thickness, and 4mm fillets along every top edge",
+   "id": "V145"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 30mm diameter duct swept along a gentle arc with a 250mm radius of curvature and 180mm arc length, with a 2mm wall thickness",
+   "id": "V146"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a teardrop housing formed by a 45mm diameter hemisphere blending into a 35mm tall neck ending at 22mm diameter, shelled to a 2mm wall",
+   "id": "V147"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted impeller blade 70mm tall twisting 60 degrees from root to tip, chord narrowing from 30mm at the root to 12mm at the tip",
+   "id": "V148"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved sealing plug 60mm tall whose radius grows from 12mm at the tip to 28mm at 40mm height before running straight to the top",
+   "id": "V149"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted circular bezel shell 100mm diameter and 15mm tall with a 3 degree draft, 1.5mm wall thickness, and a 3mm fillet along the top edge",
+   "id": "V150"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted air horn 110mm tall, square 45x45mm at the base flaring to a circular 70mm diameter opening at the top, with 2.5mm walls",
+   "id": "V151"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a 22mm diameter handle grip swept along an S-curve path 140mm long, with 5mm fillets blending both end faces",
+   "id": "V152"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a revolved mixing bowl 50mm tall whose profile radius rises from 5mm at the center to 80mm at the rim, shelled to a 2mm wall",
+   "id": "V153"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a lofted round-to-triangle transition 90mm long, 35mm diameter circle at one end blending to a triangular profile 60mm per side at the other, with 2mm walls",
+   "id": "V154"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a drafted electronics case shell 220x140x70mm with a 2 degree draft on all four walls, 2mm wall thickness, and 8mm fillets on every corner",
+   "id": "V155"
+  },
+  {
+   "tier": 3,
+   "group": "surface",
+   "spec": "a teardrop stylus tip formed by a 16mm diameter sphere blending into a 20mm tall tapering shaft ending at 6mm diameter",
+   "id": "V156"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 90mm diameter 6mm thick circular plate with twelve 5mm holes arranged in a bolt circle of 70mm diameter and a single 20mm center bore",
+   "id": "V157"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 150x100x3mm rectangular grille with a 10x8 grid of 4mm diameter holes spaced 12mm apart in both directions, leaving a 10mm solid border",
+   "id": "V158"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 200mm outer diameter, 8mm thick flywheel-style disc with a radial pattern of eight 15mm slots angled 20 degrees from center, spaced 45 degrees apart around a 30mm center bore",
+   "id": "V159"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 130x80x5mm mounting bracket plate with a 4x3 grid of 6mm clearance holes on 25mm centres, positioned symmetrically about the plate centerline",
+   "id": "V160"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a cylindrical heat-sink shell 60mm diameter and 100mm tall with 2.5mm walls, pierced by six vertical columns of eight 6mm circular vents evenly spaced around the circumference",
+   "id": "V161"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 110mm diameter 4mm thick disc with a hexagonal array of 5mm holes on 10mm centres covering the central 80mm zone, leaving a 15mm solid outer rim",
+   "id": "V162"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 180x40x3mm ventilation strip with twenty 25x3mm rounded slots arranged in two staggered rows of ten, spaced 8mm apart",
+   "id": "V163"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 95mm diameter 5mm thick flange plate with sixteen 4mm bolt holes evenly spaced on a 78mm bolt circle diameter",
+   "id": "V164"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 250mm long, 50mm wide, 6mm thick rail with a linear pattern of eighteen 8mm diameter holes spaced 12mm apart along its centerline",
+   "id": "V165"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 160mm diameter 4mm thick speaker grille disc perforated by a spiral pattern of eighty 3mm holes winding from center to a 12mm solid rim",
+   "id": "V166"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 100x100x4mm square panel with a 5x5 grid of 3mm holes on 15mm centres, leaving a 12.5mm margin on all sides",
+   "id": "V167"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a cylindrical lampshade 90mm diameter and 140mm tall with 1.5mm walls, featuring twelve vertical rows of six elongated 6x20mm slots arranged radially around the shell",
+   "id": "V168"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 75mm diameter 6mm thick disc with a polar array of ten 4mm holes on a 55mm bolt circle and a central 10mm through hole",
+   "id": "V169"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 220x120x3mm access panel with a grid of forty 10x4mm rounded ventilation slots arranged in five rows of eight, evenly spaced 15mm apart",
+   "id": "V170"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 140mm diameter 5mm thick plate with an octagonal pattern of eight 12mm slots cut radially near the rim, each spaced 45 degrees apart around a 40mm center bore",
+   "id": "V171"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 300x80x4mm perforated tray floor with a 20x4 grid of 5mm drainage holes spaced 14mm apart, leaving a 10mm unperforated border",
+   "id": "V172"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 105mm diameter 4mm thick disc perforated by a triangular grid of 4mm holes on 9mm centres, leaving an 18mm solid rim around the edge",
+   "id": "V173"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a cylindrical enclosure 70mm diameter and 90mm tall with 2mm walls, pierced by four horizontal bands of twelve 5mm circular vents each, evenly spaced along the height",
+   "id": "V174"
+  },
+  {
+   "tier": 2,
+   "group": "pattern",
+   "spec": "a 130mm diameter 6mm thick disc with six radial slots 30mm long and 5mm wide cut at 60 degree intervals starting 15mm from the center bore",
+   "id": "V175"
+  },
+  {
+   "tier": 3,
+   "group": "pattern",
+   "spec": "a 160x60x3mm rectangular duct cover with twenty-four 30x5mm rounded slots arranged in three staggered rows of eight running the length of the panel",
+   "id": "V176"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a shaft-and-collar assembly: a 250mm long 18mm diameter shaft passing through a separate 35mm outer diameter, 20mm tall collar bored 18mm through with an 8mm radial set-screw hole, the collar free to slide along the shaft as two distinct solids",
+   "id": "V177"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a flanged pipe coupling made of two identical 70mm diameter, 12mm thick circular flanges each with a 40mm through-bore and a 4-hole 55mm bolt circle of 6mm holes, positioned face to face 2mm apart as separate solids",
+   "id": "V178"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a hinge knuckle assembly: two 30x20x6mm leaves each with a rolled 10mm diameter, 25mm long barrel offset 4mm apart, joined by a separate 9.5mm diameter, 60mm long pin passing through both barrels",
+   "id": "V179"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a dovetail slide assembly: a 100x40x15mm base with a 60-degree dovetail groove 12mm deep running its length, mating with a separate 60x38x10mm slider block cut with a matching dovetail tongue, the two kept as distinct solids",
+   "id": "V180"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a bushing-in-plate assembly: a 50x50x10mm plate with a 20mm through-hole, and a separate press-fit bronze bushing 20mm outer diameter, 12mm inner diameter, 15mm long, seated in the hole as two solids",
+   "id": "V181"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a three-piece spacer stack: a 60x60x6mm base plate and a 60x60x6mm top plate each with four 6mm corner holes, separated by four 8mm diameter, 20mm long cylindrical spacers positioned at the corners, all kept as distinct solids",
+   "id": "V182"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a T-slot fastener assembly: a 30x18x10mm T-shaped slot nut with a threaded 8mm hole through its top, engaged by a separate 8mm diameter, 40mm long bolt with a 14mm hex head, shown seated together but modeled as two solids",
+   "id": "V183"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a ball-joint assembly: a 22mm diameter ball on a 6mm diameter, 30mm long stud, nested inside a separate 30mm outer diameter socket housing with a matching 22.4mm internal spherical cavity open on one face, kept as two solids",
+   "id": "V184"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a keyed hub-and-shaft assembly: a 20mm diameter, 80mm long shaft with a 5x5mm keyway cut 30mm long near one end, fitted with a separate 45mm diameter, 25mm tall hub bored 20mm through with a matching 5x5mm keyway, plus a 5x5x28mm key as a third solid",
+   "id": "V185"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a wedge clamp assembly: a 50x50x20mm block with a 10-degree angled face, mated against a separate 50x30x15mm wedge with the same 10-degree taper, held together conceptually but modeled as two distinct solids",
+   "id": "V186"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a lid-and-box assembly: a 80x60x40mm open-top box with 3mm wall thickness, and a separate 84x64x5mm lid with a 2mm deep recessed lip that overlaps the box rim, the two shown as separate solids",
+   "id": "V187"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a yoke-and-ear pivot assembly: a U-shaped yoke with two 15mm thick arms 35mm apart each bored 12mm, and a separate 30mm wide, 12mm thick ear tab bored 12mm that sits between the arms, connected by a 12mm diameter, 70mm long pin as a third solid",
+   "id": "V188"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a roller-on-axle bracket: an L-shaped bracket 60x40x8mm with a 10mm diameter hole 15mm from the vertical edge, carrying a separate 25mm diameter, 20mm wide roller bored 10mm through, mounted on a 10mm diameter, 45mm long axle pin as a third solid",
+   "id": "V189"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a threaded-rod-and-nut assembly: a 10mm diameter, 100mm long threaded rod passing through a separate 20mm across-flats hex nut 8mm thick with a matching 10mm threaded bore, positioned mid-rod as two solids",
+   "id": "V190"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a two-part shaft coupling: two identical 30mm diameter, 25mm long cylindrical hubs each bored 12mm through with a 4mm keyway, butted end to end and joined conceptually by four 5mm bolt holes on a 22mm bolt circle, modeled as two separate solids",
+   "id": "V191"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a base-post-cap assembly: a 70x70x10mm base plate, a separate 25mm diameter, 60mm tall post rising from its center, and a separate 30mm diameter, 8mm tall cap with a 25.2mm blind bore that slips over the post's top end, three distinct solids",
+   "id": "V192"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a clamp-collar assembly: a split 40mm outer diameter, 22mm tall collar bored 20mm through with a 2mm gap and two 5mm clearance holes, fitted around a separate 20mm diameter, 100mm long shaft, kept as two solids",
+   "id": "V193"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a bracket-and-dowel assembly: an angled 45x45x6mm bracket with two 6mm dowel holes 30mm apart, mated to a flat 45x30x6mm plate with matching 6mm holes, aligned by two separate 6mm diameter, 15mm long dowel pins as additional solids",
+   "id": "V194"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a sleeve bearing housing assembly: a 60x60x25mm block bored 32mm through at its center, fitted with a separate bronze sleeve bearing 32mm outer diameter, 24mm inner diameter, 30mm long, protruding 5mm from each face as two solids",
+   "id": "V195"
+  },
+  {
+   "tier": 3,
+   "group": "assembly",
+   "spec": "a socket-head screw and tapped block assembly: a 40x40x20mm block with a threaded M8 blind hole 15mm deep, engaged by a separate M8 socket-head cap screw 35mm long with a 13mm diameter head, modeled as two distinct solids seated together",
+   "id": "V196"
+  }
+ ]
+}

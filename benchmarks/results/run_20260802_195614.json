@@ -1,0 +1,933 @@
+{
+  "ran_at": "2026-08-02T09:56:14.799464+00:00",
+  "agent": "v5",
+  "suite": "heldout-cqe",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 25,
+  "converged": 16,
+  "geometry": 18,
+  "total_time_s": 8050.1,
+  "acceptance_passed": 26,
+  "acceptance_total": 50,
+  "acceptance_score": 0.52,
+  "results": [
+    {
+      "id": "H01",
+      "name": "cqe task1",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 188.6,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 191.0,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 394.5,
+      "solids": 1,
+      "faces": 9,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        10.0,
+        10.0,
+        5.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H02",
+      "name": "cqe task2",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 461.6,
+      "turns": 2,
+      "n1_autofixes": 1,
+      "wall_time_s": 464.0,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 1
+      },
+      "rc": 0,
+      "volume_mm3": 1696.3,
+      "solids": 1,
+      "faces": 10,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        18.0,
+        32.0,
+        3.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H03",
+      "name": "cqe task3",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 287.2,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 289.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 98880.6,
+      "solids": 1,
+      "faces": 10,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        100.0,
+        100.0,
+        10.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H03.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H04",
+      "name": "cqe task4",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 266.6,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 268.8,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 31385.6,
+      "solids": 1,
+      "faces": 7,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        35.0,
+        35.0,
+        60.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H04.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false
+        },
+        "passed": 1,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H05",
+      "name": "cqe task5",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 271.4,
+      "turns": 1,
+      "n1_autofixes": 2,
+      "wall_time_s": 273.8,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 2
+      },
+      "rc": 0,
+      "volume_mm3": 225357.6,
+      "solids": 1,
+      "faces": 13,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        50.0,
+        50.0,
+        100.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H05.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H06",
+      "name": "cqe task6",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 208.2,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 210.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 3927.6,
+      "solids": 1,
+      "faces": 9,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        20.0,
+        40.0,
+        5.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H06.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H07",
+      "name": "cqe task7",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 473.0,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 475.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 36442.5,
+      "solids": 1,
+      "faces": 4,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        60.0,
+        60.0,
+        100.0
+      ],
+      "through_holes": 1,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H07.step",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H08",
+      "name": "cqe task8",
+      "tier": 1,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 643.2,
+      "turns": 4,
+      "n1_autofixes": 0,
+      "wall_time_s": 645.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\nDoes the part have a uniform chamfer along all edges? -> NO (The isometric view appears to show chamfering, but the top-down view shows a clean rectangular profile, making confirmation of uniform chamfers impossible.)\nFix these specific issues.",
+      "failures": {
+        "fillet_chamfer": 1
+      },
+      "rc": 0,
+      "volume_mm3": 31765.3,
+      "solids": 1,
+      "faces": 26,
+      "cyl_faces": 0,
+      "bbox_mm": [
+        20.0,
+        20.0,
+        80.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H08.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H09",
+      "name": "cqe task9",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 249.4,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 251.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 60922.7,
+      "solids": 1,
+      "faces": 19,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        50.0,
+        50.0,
+        50.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 8,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H09.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H10",
+      "name": "cqe task10",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 305.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": " line 27, in rainbow_arc_solid\n    Line(pts_outer[-1], (R_OUTER, pts_outer[-1][1]))  # profile end -> axis\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/objects_curve.py\", line 973, in __init__\n    new_edge = Edge.make_line(lines_pts[0], lines_pts[1])\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/one_d.py\", line 2267, in make_line\n    ).Edge()\n      ^^^^^^\nOCP.OCP.StdFail.StdFail_NotDone: BRep_API: command not done\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H11",
+      "name": "cqe task11",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 187.6,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 189.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 3897.7,
+      "solids": 1,
+      "faces": 5,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        10.0,
+        10.0,
+        50.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H11.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false
+        },
+        "passed": 1,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H12",
+      "name": "cqe task12",
+      "tier": 2,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 572.2,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 574.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: Verification questions FAILED:\n2. Is the handle positioned orthogonally to the shank to form a T shape? -> NO (The handle appears to be coaxial or aligned in a way that does not form a T shape.)\nFix these specific issues.",
+      "failures": {
+        "unknown": 4
+      },
+      "rc": 0,
+      "volume_mm3": 1223.1,
+      "solids": 3,
+      "faces": 9,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        15.0,
+        15.0,
+        65.5
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H12.step",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H13",
+      "name": "cqe task13",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 277.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_y2l78x17/build_source.py\", line 35, in <module>\n    outer_shell = sine_vase_solid(OUTER_RADIUS, INNER_RADIUS, H)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/cadv4_y2l78x17/build_source.py\", line 24, in sine_vase_solid\n    pts = [(r_base + (r_mid - r_base) * math.sin(math.pi * i / N), z0 + h * i / N)\n                                                                   ^^\nNameError: name 'z0' is not defined. Did you mean: 'Z0'?\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H14",
+      "name": "cqe task14",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 478.9,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 481.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 35172.2,
+      "solids": 1,
+      "faces": 7,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        60.0,
+        60.0,
+        35.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 1,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H14.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false
+        },
+        "passed": 1,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H15",
+      "name": "cqe task15",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 125.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": ".12/site-packages/build123d/operations_part.py\", line 323, in loft\n    new_solid = Solid.make_loft(loft_sections, ruled)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 1074, in make_loft\n    return cls(_make_loft(objs, True, ruled))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/utils.py\", line 196, in _make_loft\n    loft_builder.Build()\nOCP.OCP.Standard.Standard_NoSuchObject: NCollection_DataMap::Find\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H16",
+      "name": "cqe task16",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 445.1,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 447.5,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 51393.8,
+      "solids": 1,
+      "faces": 15,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        80.0,
+        40.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H16.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H17",
+      "name": "cqe task17",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 191.2,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 193.7,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 28115.1,
+      "solids": 1,
+      "faces": 13,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        80.0,
+        40.0,
+        10.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H17.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H18",
+      "name": "cqe task18",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 488.2,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 490.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 3837.5,
+      "solids": 1,
+      "faces": 11,
+      "cyl_faces": 2,
+      "bbox_mm": [
+        40.0,
+        20.0,
+        5.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H18.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H19",
+      "name": "cqe task19",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 223.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "Fi3d_Builder:only 2 faces\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_1_z_za52/build_source.py\", line 36, in <module>\n    except OCP.OCP.Standard.Standard_ConstructionError:\n           ^^^\nNameError: name 'OCP' is not defined\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H20",
+      "name": "cqe task20",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 247.3,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "ges, radius=slot_fillet_radius)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 439, in fillet\n    new_part = target.fillet(radius, list(object_list))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 349, in fillet\n    raise ValueError(\nValueError: Failed creating a fillet with radius of 5.0, try a smaller value or use max_fillet() to find the largest valid fillet radius\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H21",
+      "name": "cqe task21",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 493.0,
+      "turns": 2,
+      "n1_autofixes": 2,
+      "wall_time_s": 495.9,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 2
+      },
+      "rc": 0,
+      "volume_mm3": 22717.5,
+      "solids": 1,
+      "faces": 17,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        45.0,
+        60.0,
+        10.0
+      ],
+      "through_holes": 3,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H21.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true
+        },
+        "passed": 2,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H22",
+      "name": "cqe task22",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 175.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 338, in chamfer\n    new_part = target.chamfer(length, length2, list(object_list), reference)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 254, in chamfer\n    topo_face = edge_face_map.FindFromKey(native_edge).First()\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.Standard.Standard_NoSuchObject: NCollection_IndexedDataMap::FindFromKey\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H23",
+      "name": "cqe task23",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 188.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "ge, radius=fillet_radius_arm))\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_generic.py\", line 439, in fillet\n    new_part = target.fillet(radius, list(object_list))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/three_d.py\", line 349, in fillet\n    raise ValueError(\nValueError: Failed creating a fillet with radius of 10.0, try a smaller value or use max_fillet() to find the largest valid fillet radius\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": false
+    },
+    {
+      "id": "H24",
+      "name": "cqe task24",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 326.6,
+      "turns": 1,
+      "n1_autofixes": 2,
+      "wall_time_s": 328.8,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "api_misuse": 2
+      },
+      "rc": 0,
+      "volume_mm3": 58825.0,
+      "solids": 1,
+      "faces": 15,
+      "cyl_faces": 0,
+      "bbox_mm": [
+        75.0,
+        50.0,
+        32.5
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H24.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false
+        },
+        "passed": 1,
+        "total": 2
+      },
+      "geometry": true
+    },
+    {
+      "id": "H25",
+      "name": "cqe task25",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 188.2,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 190.4,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 96211.3,
+      "solids": 3,
+      "faces": 10,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        50.0,
+        50.0,
+        100.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_174204_fast/H25.step",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false
+        },
+        "passed": 0,
+        "total": 2
+      },
+      "geometry": true
+    }
+  ]
+}

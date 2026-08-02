@@ -518,3 +518,24 @@ because `teacher_gen` bypasses `_build_impl`. Returning the rows (not counts) fi
 
 **Dataset:** 136 pairs; 11 mechanisms human-reviewed (3 accept / 8 reject) with reasons in
 `~/.openclaw/cad-review-decisions.jsonl`. **GPU: UNSW Katana**, not rental.
+
+## 2026-08-01/02 — M6′ v1: trained, evaluated, NO-SHIP (measured)
+
+Campaign per Andrew Vassili's plan, ~$34 all-in. Dataset 369 gate-verified ChatML pairs
+(compile report benchmarks/results/sft_compile_20260801_003801.json). New pipeline pieces:
+scripts/teacher_specgen.py, scripts/teacher_batch.py (Batch API, 50% price, resume + empty-reply
+guards), scripts/compile_sft.py, scripts/train_qlora.py, docs/RUNPOD_RUNBOOK.md, and the
+CAD_CODE_MODEL_FAST env override in cad_v5/config.py for rung A/Bs.
+
+QLoRA r16/α32, 3 epochs, RunPod 4090, train loss 0.4623 → Q4_K_M GGUF → Ollama `cad-coder:7b`.
+
+Measured (honest scorer, 2-run variance protocol):
+- text-to-cad: stock 6/10 (19/31) + 6/10 (17/31)  vs  FT 5/10 (17/31) + 5/10 (14/31)
+- heldout-cqe: FT 17/25 conv (27/50 acc) vs stock 16/25 (26/50); FT strict-STL 3/18
+  (stock strict not scored — run 20260802_195614 wrote no artifacts dir; re-run if needed)
+
+Verdict: NO-SHIP (bar was ≥7/10 and > variance over stock). Signal: FT is 5/5 on tiers 1-2 in
+both runs (stock is streakier there) but lost stock's occasional tier-3 wins — training set
+skewed toward teacher-easy specs. v2: ~600 tier-3-heavy pairs (~$20 batch), r32/4-epoch
+retrain (~$1.50), ablate gift valid-band rows. Artifacts kept: ~/cad-coder-q4_k_m.gguf,
+~/cad-coder-adapter.safetensors.

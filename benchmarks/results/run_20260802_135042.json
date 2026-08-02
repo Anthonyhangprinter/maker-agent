@@ -1,0 +1,408 @@
+{
+  "ran_at": "2026-08-02T03:50:42.353996+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 10,
+  "converged": 5,
+  "geometry": 8,
+  "total_time_s": 4534.5,
+  "acceptance_passed": 17,
+  "acceptance_total": 31,
+  "acceptance_score": 0.548,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 624.5,
+      "turns": 3,
+      "n1_autofixes": 0,
+      "wall_time_s": 626.9,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 115920.1,
+      "solids": 1,
+      "faces": 11,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 210.1,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 212.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 41259.8,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 377.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "egory: api_misuse\n\n\u2717 Build failed: Build failed after 4 turn(s).\nTraceback (most recent call last):\n  File \"/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/step\", line 44, in <module>\n    ns = runpy.run_path(\n         ^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 286, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/tmp/cadv4_x6722_6h/build_source.py\", line 50, in <module>\n    result += Pos(x, 0, 0) * extrude(\n                             ^^^^^^^^\nTypeError: extrude() got multiple values for argument 'amount'\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 323.5,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 325.8,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 52830.7,
+      "solids": 3,
+      "faces": 15,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        102.5,
+        30.0,
+        40.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/04.step",
+      "acceptance": {
+        "score": 0.333,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 223.8,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 226.1,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 69195.7,
+      "solids": 5,
+      "faces": 39,
+      "cyl_faces": 16,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/05.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": false,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "gate",
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 643.1,
+      "turns": 1,
+      "n1_autofixes": 1,
+      "wall_time_s": 645.9,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "syntax": 1
+      },
+      "rc": 0,
+      "volume_mm3": 110803.1,
+      "solids": 5,
+      "faces": 34,
+      "cyl_faces": 10,
+      "bbox_mm": [
+        120.0,
+        100.0,
+        31.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/06.step",
+      "acceptance": {
+        "score": 0.25,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 1,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "07",
+      "name": "Radial engine cylinder",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 760.6,
+      "turns": 3,
+      "n1_autofixes": 3,
+      "wall_time_s": 763.4,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The isometric view shows a cylinder with a central bore and appears to have some peripheral features, while the top-down view clearly shows six holes arranged on a circle. The section view reveals a complex cross-section, consistent with multiple radial elements. The geometry matches the general concept of a radial engine cylinder, but the specific features are incorrect: the base flange appears to be much thicker and the top cap structure is missing; furthermore, the central bore is 36mm but the surrounding features and flange do not correspond to the specified 56mm bolt circle or the correct dimensions for the cooling fins and top cap. **The overall shape and proportions are significantly incorrect based on the detailed component list.**",
+      "failures": {
+        "api_misuse": 1,
+        "syntax": 2
+      },
+      "rc": 0,
+      "volume_mm3": 89883.7,
+      "solids": 1,
+      "faces": 26,
+      "cyl_faces": 9,
+      "bbox_mm": [
+        70.0,
+        70.0,
+        70.0
+      ],
+      "through_holes": 6,
+      "blind_holes": 2,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/07.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 3,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "08",
+      "name": "Centrifugal impeller",
+      "tier": 3,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 406.4,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "h no output\n2026-08-02 13:34:49,166 [INFO] [v5] failure category: degenerate_input\n2026-08-02 13:34:49,166 [INFO] [v5] N1 auto-fix retry 2/2: The script failed to run: scripts/step exited non-zero with no output  A primitive or boolean got a degenerate dimension (zero/negative size, or a cut that misses the solid entirely). Re-check every d\n2026-08-02 13:35:09,303 [WARNING] [v5] Run failed: scripts/step exited non-zero with no output\n2026-08-02 13:35:09,303 [INFO] [v5] failure category: degenerate_input\n\n\u2717 Build failed: Build failed after 4 turn(s).\nscripts/step exited non-zero with no output\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "09",
+      "name": "Spiral staircase",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 481.6,
+      "turns": 4,
+      "n1_autofixes": 7,
+      "wall_time_s": 483.9,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The rendered part shows a small, solid vertical column on a very small base, which bears no resemblance to a miniature spiral staircase. The top-down view only shows a tiny, centralized feature, and the section view confirms a very narrow cross-section, indicating the requested large structure is entirely missing. The geometry is fundamentally incorrect; it does not match the requested miniature spiral staircase at all.",
+      "failures": {
+        "api_misuse": 1,
+        "no_result": 8,
+        "fillet_chamfer": 1
+      },
+      "rc": 0,
+      "volume_mm3": 1080.0,
+      "solids": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "bbox_mm": [
+        3.8,
+        3.8,
+        120.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/09.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    },
+    {
+      "id": "10",
+      "name": "Planetary gear stage",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "cad-coder:7b",
+      "agent_build_time_s": 440.6,
+      "turns": 2,
+      "n1_autofixes": 0,
+      "wall_time_s": 443.8,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: PASS: verification questions confirmed \u2014 1. Is the sun gear centered on the carrier plate?; 2. Are there three planet gears placed 120 degrees apart on ; 3. Is the ring gear surrounding the sun and planet gears wit",
+      "failures": {
+        "unknown": 1
+      },
+      "rc": 0,
+      "volume_mm3": 116391.7,
+      "solids": 1,
+      "faces": 42,
+      "cyl_faces": 20,
+      "bbox_mm": [
+        221.0,
+        140.0,
+        14.0
+      ],
+      "through_holes": 3,
+      "blind_holes": 8,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_123507_fast/10.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    }
+  ]
+}

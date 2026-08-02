@@ -1,0 +1,450 @@
+2026-07-31 22:51:15,591 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.853, Model a plate with overall dimensions of~0.815
+2026-07-31 22:51:15,847 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:16,129 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.835, a 100x60x30mm solid block with four 4mm ~0.767
+2026-07-31 22:51:16,385 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:16,640 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.721, a 100x60x30mm enclosure with 2mm walls, ~0.716
+2026-07-31 22:51:16,898 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:17,154 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.787, a 40x40x8mm plate with a 10mm hole in th~0.728
+2026-07-31 22:51:17,410 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:17,665 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.816, a 40x40x8mm plate with a 10mm hole in th~0.8
+2026-07-31 22:51:17,919 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:18,176 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.849, a solid circular flange 80mm diameter 10~0.767
+2026-07-31 22:51:18,431 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:18,687 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.82, a solid circular flange 80mm diameter 10~0.812
+2026-07-31 22:51:18,941 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:19,196 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.821, a 40x40x8mm plate with a 10mm hole in th~0.78
+2026-07-31 22:51:19,453 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:19,710 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.82, a 40x40x8mm plate with a 10mm hole in th~0.815
+2026-07-31 22:51:19,967 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:20,224 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.721, a solid 40x40x10mm block with a 10mm thr~0.714
+2026-07-31 22:51:20,482 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:20,738 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.71, a 40x40x8mm plate with a 10mm hole in th~0.707
+2026-07-31 22:51:20,996 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:21,256 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.807, a 40x40x8mm plate with a 10mm hole in th~0.78
+2026-07-31 22:51:21,514 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:21,771 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.799, Model a plate with overall dimensions of~0.768
+2026-07-31 22:51:22,027 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:22,279 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.775, a 100x60x30mm solid block with four 4mm ~0.746
+2026-07-31 22:51:22,535 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:22,789 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.837, Model a plate with overall dimensions of~0.818
+2026-07-31 22:51:23,042 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:23,293 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.899, Model a plate with overall dimensions of~0.834
+2026-07-31 22:51:23,549 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:23,804 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.841, a 100x60x30mm solid block with four 4mm ~0.801
+2026-07-31 22:51:24,060 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:24,316 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.788, a 40x40x8mm plate with a 10mm hole in th~0.777
+2026-07-31 22:51:24,571 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:24,827 [INFO] [v5] Few-shots (cosine): a solid rectangular calibration block 10~0.722, a 100x60x30mm enclosure with 2mm walls, ~0.699
+2026-07-31 22:51:25,081 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:25,333 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.874, Model a plate with overall dimensions of~0.805
+2026-07-31 22:51:25,589 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:25,840 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.797, a solid circular flange 80mm diameter 10~0.791
+2026-07-31 22:51:26,094 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:26,351 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.77, a 100x60x30mm solid block with four 4mm ~0.764
+2026-07-31 22:51:26,609 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:26,864 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.794, a 40x40x8mm plate with a 10mm hole in th~0.769
+2026-07-31 22:51:27,120 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:27,374 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.791, a solid 40x40x10mm block with a 10mm thr~0.756
+2026-07-31 22:51:27,629 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:27,882 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.85, Model a plate with overall dimensions of~0.844
+2026-07-31 22:51:28,137 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:28,393 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.877, Model a plate with overall dimensions of~0.805
+2026-07-31 22:51:28,646 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:28,896 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.892, a solid circular flange 80mm diameter 10~0.744
+2026-07-31 22:51:29,152 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:29,405 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.883, a 100x60x30mm solid block with four 4mm ~0.761
+2026-07-31 22:51:29,658 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:29,911 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.907, a solid circular flange 80mm diameter 10~0.743
+2026-07-31 22:51:30,165 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:30,419 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.893, a 100x60x30mm solid block with four 4mm ~0.786
+2026-07-31 22:51:30,672 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:30,924 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.756, an L-bracket: a 60x40x6mm base flange an~0.752
+2026-07-31 22:51:31,178 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:31,432 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.862, a 100x60x30mm solid block with four 4mm ~0.781
+2026-07-31 22:51:31,690 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:31,946 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.818, a hexagonal vase 60mm across flats and 1~0.676
+2026-07-31 22:51:32,202 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:32,455 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.944, a solid circular flange 80mm diameter 10~0.83
+2026-07-31 22:51:32,706 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:32,958 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.759, an L-bracket: a 60x40x6mm base flange an~0.731
+2026-07-31 22:51:33,210 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:33,467 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.849, a solid circular flange 80mm diameter 10~0.73
+2026-07-31 22:51:33,722 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:33,975 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.885, a 100x60x30mm solid block with four 4mm ~0.72
+2026-07-31 22:51:34,230 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:34,485 [INFO] [v5] Few-shots (cosine): Model a plate with overall dimensions of~0.818, a 40x40x8mm plate with a 10mm hole in th~0.787
+2026-07-31 22:51:34,736 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:34,988 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.833, a 100x60x30mm solid block with four 4mm ~0.754
+2026-07-31 22:51:35,242 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:35,497 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.865, a 100x60x30mm solid block with four 4mm ~0.77
+2026-07-31 22:51:35,749 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:36,004 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.859, a solid circular flange 80mm diameter 10~0.76
+2026-07-31 22:51:36,260 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:36,515 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.88, a 100x60x30mm solid block with four 4mm ~0.775
+2026-07-31 22:51:36,770 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:37,027 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.741, an L-bracket: a 60x40x6mm base flange an~0.737
+2026-07-31 22:51:37,290 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:37,549 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.865, a solid circular flange 80mm diameter 10~0.728
+2026-07-31 22:51:37,805 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:38,062 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.91, a 100x60x30mm solid block with four 4mm ~0.739
+2026-07-31 22:51:38,317 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:38,573 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.848, a 100x60x30mm solid block with four 4mm ~0.792
+2026-07-31 22:51:38,828 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:39,083 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.84, a solid circular flange 80mm diameter 10~0.738
+2026-07-31 22:51:39,337 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:39,592 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.912, a 100x60x30mm solid block with four 4mm ~0.741
+2026-07-31 22:51:39,845 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:40,099 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.946, a solid circular flange 80mm diameter 10~0.863
+2026-07-31 22:51:40,354 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:40,608 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.732, a 40x40x8mm plate with a 10mm hole in th~0.72
+2026-07-31 22:51:40,862 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:41,115 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.889, a solid circular flange 80mm diameter 10~0.72
+2026-07-31 22:51:41,368 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:41,621 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.703, an L-bracket: a 60x40x6mm base flange an~0.686
+2026-07-31 22:51:41,873 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:42,126 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.845, a solid open-top electronics enclosure b~0.823
+2026-07-31 22:51:42,380 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:42,635 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.803, a 100x60x30mm enclosure with 2mm walls, ~0.773
+2026-07-31 22:51:42,891 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:43,146 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.831, a solid open-top electronics enclosure b~0.774
+2026-07-31 22:51:43,401 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:43,655 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.779, a solid open-top electronics enclosure b~0.759
+2026-07-31 22:51:43,906 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:44,157 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.738, a 100x60x30mm enclosure with 2mm walls, ~0.729
+2026-07-31 22:51:44,410 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:44,663 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.795, a solid open-top electronics enclosure b~0.738
+2026-07-31 22:51:44,917 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:45,168 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.797, a solid open-top electronics enclosure b~0.789
+2026-07-31 22:51:45,423 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:45,676 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.82, a 100x60x30mm enclosure with 2mm walls, ~0.813
+2026-07-31 22:51:45,929 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:46,185 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.754, a solid open-top electronics enclosure b~0.746
+2026-07-31 22:51:46,441 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:46,693 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.771, a solid circular flange 80mm diameter 10~0.749
+2026-07-31 22:51:46,944 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:47,196 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.781, a 100x60x30mm enclosure with 2mm walls, ~0.748
+2026-07-31 22:51:47,447 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:47,695 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.867, a solid open-top electronics enclosure b~0.765
+2026-07-31 22:51:47,943 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:48,199 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.765, a solid open-top electronics enclosure b~0.743
+2026-07-31 22:51:48,455 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:48,708 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.793, a 100x60x30mm enclosure with 2mm walls, ~0.748
+2026-07-31 22:51:48,956 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:49,205 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.777, a solid open-top electronics enclosure b~0.721
+2026-07-31 22:51:49,455 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:49,705 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.761, a 100x60x30mm enclosure with 2mm walls, ~0.734
+2026-07-31 22:51:49,955 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:50,204 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.826, a solid open-top electronics enclosure b~0.788
+2026-07-31 22:51:50,455 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:50,705 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.767, a solid open-top electronics enclosure b~0.745
+2026-07-31 22:51:50,953 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:51,202 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.919, a solid open-top electronics enclosure b~0.781
+2026-07-31 22:51:51,454 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:51,706 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.761, a solid circular flange 80mm diameter 10~0.737
+2026-07-31 22:51:51,956 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:52,206 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.747, a solid open-top electronics enclosure b~0.736
+2026-07-31 22:51:52,457 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:52,711 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.824, a solid open-top electronics enclosure b~0.765
+2026-07-31 22:51:52,959 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:53,211 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.791, a 100x60x30mm enclosure with 2mm walls, ~0.778
+2026-07-31 22:51:53,463 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:53,717 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.853, a solid open-top electronics enclosure b~0.736
+2026-07-31 22:51:53,972 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:54,221 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.806, a 100x60x30mm enclosure with 2mm walls, ~0.756
+2026-07-31 22:51:54,470 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:54,718 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.819, a solid open-top electronics enclosure b~0.817
+2026-07-31 22:51:54,967 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:55,215 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.714, a piston, 80mm bore diameter, 60mm tall,~0.685
+2026-07-31 22:51:55,465 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:55,714 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.754, a piston, 80mm bore diameter, 60mm tall,~0.71
+2026-07-31 22:51:55,962 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:56,212 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.754, a piston, 80mm bore diameter, 60mm tall,~0.708
+2026-07-31 22:51:56,462 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:56,710 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.734, a piston, 80mm bore diameter, 60mm tall,~0.703
+2026-07-31 22:51:56,959 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:57,212 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.733, a piston, 80mm bore diameter, 60mm tall,~0.703
+2026-07-31 22:51:57,463 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:57,711 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.73, an L-bracket: a 60x40x6mm base flange an~0.679
+2026-07-31 22:51:57,960 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:58,210 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.736, a piston, 80mm bore diameter, 60mm tall,~0.733
+2026-07-31 22:51:58,460 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:58,708 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.728, a piston, 80mm bore diameter, 60mm tall,~0.719
+2026-07-31 22:51:58,960 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:59,214 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.747, an L-bracket: a 60x40x6mm base flange an~0.72
+2026-07-31 22:51:59,468 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:51:59,716 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.749, a 100x60x30mm solid block with four 4mm ~0.71
+2026-07-31 22:51:59,965 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:00,216 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.769, a piston, 80mm bore diameter, 60mm tall,~0.724
+2026-07-31 22:52:00,466 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:00,714 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.699, a piston, 80mm bore diameter, 60mm tall,~0.688
+2026-07-31 22:52:00,962 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:01,212 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.765, a hexagonal vase 60mm across flats and 1~0.727
+2026-07-31 22:52:01,462 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:01,716 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.73, a piston, 80mm bore diameter, 60mm tall,~0.702
+2026-07-31 22:52:01,963 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:02,212 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.73, a piston, 80mm bore diameter, 60mm tall,~0.703
+2026-07-31 22:52:02,462 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:02,710 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.731, a piston, 80mm bore diameter, 60mm tall,~0.713
+2026-07-31 22:52:02,959 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:03,207 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.721, a piston, 80mm bore diameter, 60mm tall,~0.707
+2026-07-31 22:52:03,461 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:03,710 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.735, a piston, 80mm bore diameter, 60mm tall,~0.717
+2026-07-31 22:52:03,959 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:04,207 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.73, a piston, 80mm bore diameter, 60mm tall,~0.73
+2026-07-31 22:52:04,461 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:04,715 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.725, a piston, 80mm bore diameter, 60mm tall,~0.718
+2026-07-31 22:52:04,967 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:05,215 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.773, a piston, 80mm bore diameter, 60mm tall,~0.737
+2026-07-31 22:52:05,465 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:05,727 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.744, a hexagonal vase 60mm across flats and 1~0.718
+2026-07-31 22:52:05,977 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:06,226 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.723, an L-bracket: a 60x40x6mm base flange an~0.704
+2026-07-31 22:52:06,474 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:06,722 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.726, a piston, 80mm bore diameter, 60mm tall,~0.702
+2026-07-31 22:52:06,971 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:07,224 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.913, an L-bracket: a 60x40x6mm base flange an~0.774
+2026-07-31 22:52:07,477 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:07,728 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.931, an L-bracket: a 60x40x6mm base flange an~0.844
+2026-07-31 22:52:07,977 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:08,225 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.883, an L-bracket: a 60x40x6mm base flange an~0.799
+2026-07-31 22:52:08,474 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:08,723 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.928, an L-bracket: a 60x40x6mm base flange an~0.773
+2026-07-31 22:52:08,971 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:09,219 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.969, an L-bracket: a 60x40x6mm base flange an~0.801
+2026-07-31 22:52:09,468 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:09,718 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.897, an L-bracket: a 60x40x6mm base flange an~0.82
+2026-07-31 22:52:09,974 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:10,228 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.892, an L-bracket: a 60x40x6mm base flange an~0.777
+2026-07-31 22:52:10,481 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:10,737 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.906, an L-bracket: a 60x40x6mm base flange an~0.775
+2026-07-31 22:52:10,985 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:11,234 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.969, an L-bracket: a 60x40x6mm base flange an~0.788
+2026-07-31 22:52:11,483 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:11,731 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.885, an L-bracket: a 60x40x6mm base flange an~0.781
+2026-07-31 22:52:11,980 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:12,228 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.948, an L-bracket: a 60x40x6mm base flange an~0.82
+2026-07-31 22:52:12,477 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:12,726 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.969, an L-bracket: a 60x40x6mm base flange an~0.794
+2026-07-31 22:52:12,974 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:13,222 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.895, an L-bracket: a 60x40x6mm base flange an~0.774
+2026-07-31 22:52:13,472 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:13,723 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.902, an L-bracket: a 60x40x6mm base flange an~0.737
+2026-07-31 22:52:13,971 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:14,219 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.972, an L-bracket: a 60x40x6mm base flange an~0.788
+2026-07-31 22:52:14,468 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:14,718 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.873, an L-bracket: a 60x40x6mm base flange an~0.803
+2026-07-31 22:52:14,972 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:15,227 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.921, an L-bracket: a 60x40x6mm base flange an~0.796
+2026-07-31 22:52:15,482 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:15,736 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.974, an L-bracket: a 60x40x6mm base flange an~0.799
+2026-07-31 22:52:15,985 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:16,233 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.877, an L-bracket: a 60x40x6mm base flange an~0.779
+2026-07-31 22:52:16,483 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:16,731 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.912, an L-bracket: a 60x40x6mm base flange an~0.771
+2026-07-31 22:52:16,980 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:17,232 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.684
+2026-07-31 22:52:17,483 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:17,734 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.93, a hexagonal vase 60mm across flats and 1~0.888
+2026-07-31 22:52:17,983 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:18,232 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.671, a solid circular flange 80mm diameter 10~0.665
+2026-07-31 22:52:18,482 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:18,730 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.73, a hexagonal vase 60mm across flats and 1~0.711
+2026-07-31 22:52:18,977 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:19,225 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.695, an L-bracket: a 60x40x6mm base flange an~0.683
+2026-07-31 22:52:19,474 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:19,722 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.814, a solid open-top electronics enclosure b~0.748
+2026-07-31 22:52:19,970 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:20,220 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.832, a vase 120mm tall with a circular cross-~0.757
+2026-07-31 22:52:20,468 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:20,722 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.731, a vase 120mm tall with a circular cross-~0.72
+2026-07-31 22:52:20,977 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:21,231 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.661, a vase 120mm tall with a circular cross-~0.654
+2026-07-31 22:52:21,483 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:21,731 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.776, a hexagonal vase 60mm across flats and 1~0.74
+2026-07-31 22:52:21,979 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:22,227 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.744, a hexagonal vase 60mm across flats and 1~0.738
+2026-07-31 22:52:22,476 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:22,726 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.736, a 30mm diameter 12mm tall cylindrical sp~0.697
+2026-07-31 22:52:22,975 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:23,224 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.741, an L-bracket: a 60x40x6mm base flange an~0.713
+2026-07-31 22:52:23,475 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:23,729 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.67
+2026-07-31 22:52:23,976 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:24,224 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.666, a hexagonal vase 60mm across flats and 1~0.658
+2026-07-31 22:52:24,472 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:24,720 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.697, a hexagonal vase 60mm across flats and 1~0.676
+2026-07-31 22:52:24,968 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:25,216 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.772, a hexagonal vase 60mm across flats and 1~0.755
+2026-07-31 22:52:25,465 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:25,718 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.761, a solid circular flange 80mm diameter 10~0.753
+2026-07-31 22:52:25,970 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:26,225 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.734, an L-bracket: a 60x40x6mm base flange an~0.653
+2026-07-31 22:52:26,480 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:26,729 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.672, a hexagonal vase 60mm across flats and 1~0.667
+2026-07-31 22:52:26,978 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:27,227 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.743, a vase 120mm tall with a circular cross-~0.735
+2026-07-31 22:52:27,480 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:27,729 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.71, a 100x60x30mm enclosure with 2mm walls, ~0.695
+2026-07-31 22:52:27,978 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:28,227 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.734, a solid circular flange 80mm diameter 10~0.714
+2026-07-31 22:52:28,476 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:28,974 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:29,222 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.743, a hexagonal vase 60mm across flats and 1~0.721
+2026-07-31 22:52:29,471 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:29,720 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.691, a hexagonal vase 60mm across flats and 1~0.68
+2026-07-31 22:52:29,968 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:30,218 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.713, a vase 120mm tall with a circular cross-~0.696
+2026-07-31 22:52:30,466 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:30,717 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.746, a vase 120mm tall with a circular cross-~0.71
+2026-07-31 22:52:30,964 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:31,212 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.724, a 100x60x30mm enclosure with 2mm walls, ~0.714
+2026-07-31 22:52:31,463 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:31,718 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.676
+2026-07-31 22:52:31,973 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:32,222 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.78, a hexagonal vase 60mm across flats and 1~0.773
+2026-07-31 22:52:32,472 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:32,721 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.736, a vase 120mm tall with a circular cross-~0.732
+2026-07-31 22:52:32,970 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:33,217 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.765, a 100x60x30mm enclosure with 2mm walls, ~0.73
+2026-07-31 22:52:33,467 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:33,716 [INFO] [v5] Few-shots (cosine): a hexagonal vase 60mm across flats and 1~0.676, a vase 120mm tall with a circular cross-~0.675
+2026-07-31 22:52:33,964 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:34,213 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.874, a 40x40x8mm plate with a 10mm hole in th~0.829
+2026-07-31 22:52:34,462 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:34,711 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.814, a solid rectangular calibration block 10~0.769
+2026-07-31 22:52:34,959 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:35,209 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.747, a piston, 80mm bore diameter, 60mm tall,~0.693
+2026-07-31 22:52:35,457 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:35,707 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.843, a 40x40x8mm plate with a 10mm hole in th~0.806
+2026-07-31 22:52:35,955 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:36,204 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.74, a 100x60x30mm enclosure with 2mm walls, ~0.739
+2026-07-31 22:52:36,454 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:36,704 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.78, a 100x60x30mm solid block with four 4mm ~0.766
+2026-07-31 22:52:36,957 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:37,213 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.685, a 100x60x30mm solid block with four 4mm ~0.684
+2026-07-31 22:52:37,469 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:37,720 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.925, an L-bracket: a 60x40x6mm base flange an~0.792
+2026-07-31 22:52:37,970 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:38,219 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.739, a 100x60x30mm solid block with four 4mm ~0.709
+2026-07-31 22:52:38,468 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:38,716 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.771, a 100x60x30mm solid block with four 4mm ~0.736
+2026-07-31 22:52:38,964 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:39,212 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.778, Model a plate with overall dimensions of~0.742
+2026-07-31 22:52:39,461 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:39,711 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.755, a hexagonal vase 60mm across flats and 1~0.729
+2026-07-31 22:52:39,961 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:40,210 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.798, a 100x60x30mm solid block with four 4mm ~0.711
+2026-07-31 22:52:40,459 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:40,708 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.697, a 100x60x30mm solid block with four 4mm ~0.695
+2026-07-31 22:52:40,956 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:41,205 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.819, Model a plate with overall dimensions of~0.79
+2026-07-31 22:52:41,454 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:41,704 [INFO] [v5] Few-shots (cosine): a vase 120mm tall with a circular cross-~0.7, a 100x60x30mm solid block with four 4mm ~0.685
+2026-07-31 22:52:41,952 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:42,201 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.751, a 100x60x30mm solid block with four 4mm ~0.748
+2026-07-31 22:52:42,455 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:42,709 [INFO] [v5] Few-shots (cosine): a 100x60x30mm enclosure with 2mm walls, ~0.843, a vase 120mm tall with a circular cross-~0.754
+2026-07-31 22:52:42,960 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:43,208 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.768, a piston, 80mm bore diameter, 60mm tall,~0.701
+2026-07-31 22:52:43,457 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:43,706 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.71, a solid rectangular calibration block 10~0.708
+2026-07-31 22:52:43,954 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:44,203 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.746, an L-bracket: a 60x40x6mm base flange an~0.737
+2026-07-31 22:52:44,451 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:44,699 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.881, an L-bracket: a 60x40x6mm base flange an~0.822
+2026-07-31 22:52:44,948 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:45,196 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.759, a solid circular flange 80mm diameter 10~0.739
+2026-07-31 22:52:45,445 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:45,693 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.692, a solid circular flange 80mm diameter 10~0.674
+2026-07-31 22:52:45,941 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:46,188 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.743, an L-bracket: a 60x40x6mm base flange an~0.737
+2026-07-31 22:52:46,437 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:46,684 [INFO] [v5] Few-shots (cosine): a 30mm diameter 12mm tall cylindrical sp~0.787, a 100x60x30mm solid block with four 4mm ~0.751
+2026-07-31 22:52:46,933 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:47,181 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.777, a solid circular flange 80mm diameter 10~0.725
+2026-07-31 22:52:47,435 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:47,687 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.721, an L-bracket: a 60x40x6mm base flange an~0.718
+2026-07-31 22:52:47,943 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:48,197 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.742, an L-bracket: a 60x40x6mm base flange an~0.736
+2026-07-31 22:52:48,446 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:48,696 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.752, an L-bracket: a 60x40x6mm base flange an~0.748
+2026-07-31 22:52:48,944 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:49,192 [INFO] [v5] Few-shots (cosine): a solid open-top electronics enclosure b~0.773, a 100x60x30mm enclosure with 2mm walls, ~0.752
+2026-07-31 22:52:49,441 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:49,692 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.742, a solid circular flange 80mm diameter 10~0.691
+2026-07-31 22:52:49,941 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:50,189 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.849, a solid circular flange 80mm diameter 10~0.751
+2026-07-31 22:52:50,438 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:50,687 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.758, an L-bracket: a 60x40x6mm base flange an~0.724
+2026-07-31 22:52:50,935 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:51,184 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.765, an L-bracket: a 60x40x6mm base flange an~0.749
+2026-07-31 22:52:51,433 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:51,684 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.738, a solid circular flange 80mm diameter 10~0.718
+2026-07-31 22:52:51,933 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:52,181 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.753, a solid circular flange 80mm diameter 10~0.741
+2026-07-31 22:52:52,429 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:52,679 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.856, a solid circular flange 80mm diameter 10~0.745
+2026-07-31 22:52:52,927 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:53,179 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.754, a solid circular flange 80mm diameter 10~0.741
+2026-07-31 22:52:53,435 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 22:52:53,689 [INFO] [v5] Few-shots (cosine): a 100x60x30mm solid block with four 4mm ~0.794, a solid 40x40x10mm block with a 10mm thr~0.752
+2026-07-31 22:52:53,941 [INFO] [v5] Injected 3 learned pitfall(s).
+[guard] 196 spec(s) checked against 39 suite slug(s) — no collisions.
+[teacher-batch] model=claude-sonnet-5 specs=196 projected≈$7.36 at batch rates
+[batch] resuming msgbatch_01YNhxypitzbbMh3zSt7tdms (spend already ledgered)
+2026-07-31 22:52:54,290 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:53:14,724 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:53:35,099 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:53:55,580 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:54:15,971 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:54:36,343 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:54:56,716 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:55:17,125 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=196
+2026-07-31 22:55:37,504 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+[batch] ended: ok=195 err=1 processing=0
+2026-07-31 22:55:37,910 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms "HTTP/1.1 200 OK"
+2026-07-31 22:55:38,600 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01YNhxypitzbbMh3zSt7tdms/results "HTTP/1.1 200 OK"
+  [V150] batch result: errored
+2026-07-31 23:23:26,071 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[batch] msgbatch_01T11Ngbhv6TczdpNNXDmK2t  (44 requests) submitted
+2026-07-31 23:23:26,613 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:23:47,100 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:24:07,445 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:24:27,859 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:24:48,210 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:25:08,639 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:25:29,248 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:25:49,767 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:26:10,064 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:26:30,460 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:26:51,085 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:27:11,565 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=44
+2026-07-31 23:27:31,967 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+[batch] ended: ok=44 err=0 processing=0
+2026-07-31 23:27:32,336 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t "HTTP/1.1 200 OK"
+2026-07-31 23:27:33,063 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01T11Ngbhv6TczdpNNXDmK2t/results "HTTP/1.1 200 OK"
+
+outcomes: {'accepted-first-try': 151, 'gate-suspect': 17, 'spec-vetoed': 1, 'accepted-after-repair': 21, 'failed-after-repair': 5, 'error': 1}
+spend this run: $8.12 (batch rates, list-derived)
+pairs written: 193 (172 good, 21 fail->fix)
+summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/teacher_pilot_20260731_133247.json

@@ -1,0 +1,198 @@
+{
+ "ran_at": "2026-07-31T12:15:42.374898+00:00",
+ "loaded": 136,
+ "surviving": 120,
+ "elapsed_s": 0.0,
+ "excluded_human_reject": [
+  {
+   "line": 125,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C05",
+   "model": "claude-sonnet-5",
+   "spec": "a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60",
+   "why": "human reject: user: worm has NO grooves and must mesh. CONFIRMED by measurement: worm volume 12064mm3 == plain r8x60 cylinder, so the "
+  },
+  {
+   "line": 126,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C06",
+   "model": "claude-sonnet-5",
+   "spec": "a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm",
+   "why": "human reject: user: rack has square slots that cannot mesh with an involute gear, and the gear is misaligned - same class as C04 inter"
+  },
+  {
+   "line": 128,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C09",
+   "model": "claude-sonnet-5",
+   "spec": "a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick wi",
+   "why": "human reject: user: the Geneva parts themselves look fine but they are NOT ASSEMBLED - placed side by side rather than in working enga"
+  },
+  {
+   "line": 129,
+   "kind": "fail",
+   "source": "teacher-repair",
+   "spec_id": "C09",
+   "model": "claude-sonnet-5",
+   "spec": "a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick wi",
+   "why": "human reject: user: the Geneva parts themselves look fine but they are NOT ASSEMBLED - placed side by side rather than in working enga"
+  },
+  {
+   "line": 130,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C11",
+   "model": "claude-sonnet-5",
+   "spec": "a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each wit",
+   "why": "human reject: user: the key does not cut all the way through, and the bolt holes do not pass through the elastomer disc so the two hub"
+  }
+ ],
+ "excluded_hardened_gate": [
+  {
+   "line": 3,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 4,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 5,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 6,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 7,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 8,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 9,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  }
+ ],
+ "excluded_duplicate": [
+  {
+   "line": 52,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "P01",
+   "model": "claude-sonnet-5",
+   "spec": "a 80x50x6mm mounting plate with a single 12mm through hole at its centre",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 64,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "P14",
+   "model": "claude-sonnet-5",
+   "spec": "a plain cylindrical shaft 25mm diameter and 120mm long",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 135,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "C03",
+   "model": "claude-sonnet-5",
+   "spec": "a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm di",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 136,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "C08",
+   "model": "claude-sonnet-5",
+   "spec": "a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a ",
+   "why": "duplicate (spec+code)"
+  }
+ ],
+ "surviving_by_source": {
+  "retro": 2,
+  "gift-fail": 12,
+  "gift-reject": 9,
+  "none": 3,
+  "teacher": 86,
+  "teacher-repair": 7,
+  "teacher-human-accepted": 1
+ },
+ "surviving_by_kind": {
+  "good": 100,
+  "fail": 20
+ },
+ "no_source_rows": [
+  {
+   "line": 31,
+   "kind": "good",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid 40x40x10mm block with a 10mm through hole in the centre",
+   "why": ""
+  },
+  {
+   "line": 32,
+   "kind": "fail",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid 40x40x10mm block with a 10mm through hole in the centre",
+   "why": ""
+  },
+  {
+   "line": 133,
+   "kind": "good",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a 40x40x8mm plate with a 10mm hole in the centre",
+   "why": ""
+  }
+ ]
+}

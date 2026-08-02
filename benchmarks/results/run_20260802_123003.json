@@ -1,0 +1,410 @@
+{
+  "ran_at": "2026-08-02T02:30:03.365453+00:00",
+  "agent": "v5",
+  "suite": "text-to-cad",
+  "coder": "fast",
+  "fewshots": true,
+  "count": 10,
+  "converged": 6,
+  "geometry": 8,
+  "total_time_s": 5096.4,
+  "acceptance_passed": 17,
+  "acceptance_total": 31,
+  "acceptance_score": 0.548,
+  "results": [
+    {
+      "id": "01",
+      "name": "Rectangular calibration block",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 586.1,
+      "turns": 3,
+      "n1_autofixes": 0,
+      "wall_time_s": 588.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 115920.1,
+      "solids": 1,
+      "faces": 11,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        100.0,
+        60.0,
+        20.0
+      ],
+      "through_holes": 4,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/01.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "02",
+      "name": "Circular flange",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 301.4,
+      "turns": 1,
+      "n1_autofixes": 1,
+      "wall_time_s": 304.0,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "api_misuse": 1
+      },
+      "rc": 0,
+      "volume_mm3": 41259.8,
+      "solids": 1,
+      "faces": 12,
+      "cyl_faces": 8,
+      "bbox_mm": [
+        80.0,
+        80.0,
+        10.0
+      ],
+      "through_holes": 7,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/02.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "solids": true,
+          "bbox": true,
+          "holes_cut": true,
+          "through": true
+        },
+        "passed": 4,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "03",
+      "name": "L-bracket",
+      "tier": 1,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 759.6,
+      "turns": 3,
+      "n1_autofixes": 0,
+      "wall_time_s": 763.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 55459.5,
+      "solids": 1,
+      "faces": 42,
+      "cyl_faces": 4,
+      "bbox_mm": [
+        80.0,
+        50.0,
+        50.0
+      ],
+      "through_holes": 2,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/03.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "04",
+      "name": "Stepped shaft with keyway",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 920.2,
+      "turns": 3,
+      "n1_autofixes": 3,
+      "wall_time_s": 922.5,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "fillet_chamfer": 4
+      },
+      "rc": 0,
+      "volume_mm3": 157995.3,
+      "solids": 3,
+      "faces": 14,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        130.0,
+        30.0,
+        120.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/04.step",
+      "acceptance": {
+        "score": 0.333,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "05",
+      "name": "Open-top electronics enclosure with bosses",
+      "tier": 2,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 198.0,
+      "turns": 1,
+      "n1_autofixes": 0,
+      "wall_time_s": 200.6,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 0,
+      "volume_mm3": 69195.7,
+      "solids": 5,
+      "faces": 39,
+      "cyl_faces": 16,
+      "bbox_mm": [
+        100.0,
+        70.0,
+        30.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/05.step",
+      "acceptance": {
+        "score": 0.667,
+        "checks": {
+          "solids": false,
+          "bbox": true,
+          "holes_cut": true
+        },
+        "passed": 2,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "06",
+      "name": "Clevis bracket with lightening cutouts",
+      "tier": 2,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 344.2,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "h no output\n2026-08-02 11:57:05,618 [INFO] [v5] failure category: degenerate_input\n2026-08-02 11:57:05,618 [INFO] [v5] N1 auto-fix retry 2/2: The script failed to run: scripts/step exited non-zero with no output  A primitive or boolean got a degenerate dimension (zero/negative size, or a cut that misses the solid entirely). Re-check every d\n2026-08-02 11:57:25,620 [WARNING] [v5] Run failed: scripts/step exited non-zero with no output\n2026-08-02 11:57:25,620 [INFO] [v5] failure category: degenerate_input\n\n\u2717 Build failed: Build failed after 4 turn(s).\nscripts/step exited non-zero with no output\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "solids": false,
+          "bbox": false,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 0,
+        "total": 4
+      },
+      "geometry": false
+    },
+    {
+      "id": "07",
+      "name": "Radial engine cylinder",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 454.1,
+      "turns": 3,
+      "n1_autofixes": 2,
+      "wall_time_s": 456.5,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: The isometric view shows a generally cylindrical part, but the fins are not visible, and the overall shape appears significantly simpler than requested, lacking the distinct flange, top cap, and side bosses. The top-down view is a solid circle with a central bore, which is entirely incorrect as it does not show the intended complex top pattern (cooling fins, central bore/bosses). The section view shows a cross-section of a large U-shape, which does not resemble the requested profile for the base flange or the internal structure of the cooling fins. This geometry does not match the requested part; the cooling fins, the base flange with mounting holes, the distinct top cap structure, and the spark-plug boss are all missing or incorrectly represented.",
+      "failures": {
+        "api_misuse": 1,
+        "fillet_chamfer": 2
+      },
+      "rc": 0,
+      "volume_mm3": 93802.1,
+      "solids": 1,
+      "faces": 9,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        70.0,
+        70.0,
+        70.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 2,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/07.step",
+      "acceptance": {
+        "score": 0.333,
+        "checks": {
+          "solids": true,
+          "holes_cut": false,
+          "through": false
+        },
+        "passed": 1,
+        "total": 3
+      },
+      "geometry": true
+    },
+    {
+      "id": "08",
+      "name": "Centrifugal impeller",
+      "tier": 3,
+      "ok": true,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 596.5,
+      "turns": 4,
+      "n1_autofixes": 2,
+      "wall_time_s": 598.8,
+      "url": "",
+      "warning": "Loop ended after 4 turns without the model confirming the part matches the spec \u2014 the uploaded geometry is the last valid build and may be wrong. Last critique: PASS: verification questions confirmed \u2014 Are there twelve identical backward-curved blades equally sp",
+      "failures": {
+        "api_misuse": 2,
+        "unknown": 2
+      },
+      "rc": 0,
+      "volume_mm3": 37899.3,
+      "solids": 1,
+      "faces": 5,
+      "cyl_faces": 1,
+      "bbox_mm": [
+        90.0,
+        90.0,
+        6.0
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/08.step",
+      "acceptance": {
+        "score": 0.5,
+        "checks": {
+          "solids": true,
+          "bbox": false,
+          "holes_cut": true,
+          "through": false
+        },
+        "passed": 2,
+        "total": 4
+      },
+      "geometry": true
+    },
+    {
+      "id": "09",
+      "name": "Spiral staircase",
+      "tier": 3,
+      "ok": false,
+      "converged": false,
+      "accepted_via": null,
+      "code_model": null,
+      "agent_build_time_s": null,
+      "turns": null,
+      "n1_autofixes": null,
+      "wall_time_s": 476.4,
+      "url": "",
+      "warning": null,
+      "failures": {},
+      "rc": 1,
+      "error": "build produced no result",
+      "stderr_tail": "axis=Axis.Z)\n             ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/operations_part.py\", line 544, in revolve\n    validate_inputs(context, \"revolve\", profile_list)\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/build_common.py\", line 843, in validate_inputs\n    context.validate_inputs(validating_class, objects)\n  File \"/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/build_common.py\", line 790, in validate_inputs\n    raise RuntimeError(\nRuntimeError: (revolve doesn't apply to ['BuildPart'])\n\n",
+      "acceptance": {
+        "score": 0.0,
+        "checks": {
+          "holes_cut": false
+        },
+        "passed": 0,
+        "total": 1
+      },
+      "geometry": false
+    },
+    {
+      "id": "10",
+      "name": "Planetary gear stage",
+      "tier": 3,
+      "ok": true,
+      "converged": true,
+      "accepted_via": "critic",
+      "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
+      "agent_build_time_s": 384.8,
+      "turns": 2,
+      "n1_autofixes": 2,
+      "wall_time_s": 398.9,
+      "url": "",
+      "warning": null,
+      "failures": {
+        "api_misuse": 2,
+        "fillet_chamfer": 1
+      },
+      "rc": 0,
+      "volume_mm3": 70777.0,
+      "solids": 2,
+      "faces": 3023,
+      "cyl_faces": 3,
+      "bbox_mm": [
+        124.0,
+        124.0,
+        13.3
+      ],
+      "through_holes": 0,
+      "blind_holes": 0,
+      "step": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/artifacts/20260802_110506_fast/10.step",
+      "acceptance": {
+        "score": 1.0,
+        "checks": {
+          "holes_cut": true
+        },
+        "passed": 1,
+        "total": 1
+      },
+      "geometry": true
+    }
+  ]
+}

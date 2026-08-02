@@ -1,0 +1,414 @@
+{
+ "ran_at": "2026-08-01T00:38:01.147396+00:00",
+ "loaded": 412,
+ "surviving": 372,
+ "elapsed_s": 0.0,
+ "excluded_human_reject": [
+  {
+   "line": 125,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C05",
+   "model": "claude-sonnet-5",
+   "spec": "a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60",
+   "why": "human reject: user: worm has NO grooves and must mesh. CONFIRMED by measurement: worm volume 12064mm3 == plain r8x60 cylinder, so the "
+  },
+  {
+   "line": 126,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C06",
+   "model": "claude-sonnet-5",
+   "spec": "a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm",
+   "why": "human reject: user: rack has square slots that cannot mesh with an involute gear, and the gear is misaligned - same class as C04 inter"
+  },
+  {
+   "line": 128,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C09",
+   "model": "claude-sonnet-5",
+   "spec": "a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick wi",
+   "why": "human reject: user: the Geneva parts themselves look fine but they are NOT ASSEMBLED - placed side by side rather than in working enga"
+  },
+  {
+   "line": 129,
+   "kind": "fail",
+   "source": "teacher-repair",
+   "spec_id": "C09",
+   "model": "claude-sonnet-5",
+   "spec": "a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick wi",
+   "why": "human reject: user: the Geneva parts themselves look fine but they are NOT ASSEMBLED - placed side by side rather than in working enga"
+  },
+  {
+   "line": 130,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "C11",
+   "model": "claude-sonnet-5",
+   "spec": "a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each wit",
+   "why": "human reject: user: the key does not cut all the way through, and the bolt holes do not pass through the elastomer disc so the two hub"
+  },
+  {
+   "line": 344,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "V191",
+   "model": "claude-sonnet-5",
+   "spec": "a two-part shaft coupling: two identical 30mm diameter, 25mm long cylindrical hubs each bo",
+   "why": "human reject: user: keyway placed wrong \u2014 floats at bore edge instead of cutting cleanly through it. RULE: hub keyway must open INTO t"
+  }
+ ],
+ "excluded_hardened_gate": [
+  {
+   "line": 3,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 4,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 5,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 6,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 7,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 8,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 9,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 372,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 373,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid rectangular calibration block 100x60x20mm with four 8mm through-holes near the cor",
+   "why": "hardened gate: [spec] the spec asks for a chamfer but no conical face was measured \u2014 the chamfer likely failed silently. Select the edge explicitly (e.g. the top outer circular edge: edges().filter_by(GeomType.CIRCL"
+  },
+  {
+   "line": 384,
+   "kind": "fail",
+   "source": "gift-fail",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a hexagonal vase 60mm across flats and 150mm tall whose cross-section twists 90 degrees ov",
+   "why": "hardened gate: [spec] the request says '60mm across' but no axis of the part measures 60mm (extents: 150.0\u00d769.3\u00d769.3mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "line": 385,
+   "kind": "good",
+   "source": "gift-reject",
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a hexagonal vase 60mm across flats and 150mm tall whose cross-section twists 90 degrees ov",
+   "why": "hardened gate: [spec] the request says '60mm across' but no axis of the part measures 60mm (extents: 150.0\u00d769.3\u00d769.3mm) \u2014 size the geometry from the numbers in the request."
+  },
+  {
+   "line": 410,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M05",
+   "model": "claude-opus-5",
+   "spec": "a ratchet and pawl mechanism as two solids: an 80mm diameter ratchet wheel 10mm thick with",
+   "why": "hardened gate: ERROR: No build123d Part/Compound found in source file.\nSet:  result = bp.part  (or result = <your_shape_var>)\n"
+  }
+ ],
+ "excluded_duplicate": [
+  {
+   "line": 52,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "P01",
+   "model": "claude-sonnet-5",
+   "spec": "a 80x50x6mm mounting plate with a single 12mm through hole at its centre",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 64,
+   "kind": "good",
+   "source": "teacher",
+   "spec_id": "P14",
+   "model": "claude-sonnet-5",
+   "spec": "a plain cylindrical shaft 25mm diameter and 120mm long",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 135,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "C03",
+   "model": "claude-sonnet-5",
+   "spec": "a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm di",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 136,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "C08",
+   "model": "claude-sonnet-5",
+   "spec": "a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a ",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 356,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M01",
+   "model": "claude-opus-5",
+   "spec": "a piston and connecting rod assembly as two solids: a 70mm diameter, 55mm tall piston that",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 357,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M03",
+   "model": "claude-opus-5",
+   "spec": "a flexible shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long,",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 358,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M04",
+   "model": "claude-opus-5",
+   "spec": "a cam and roller-follower assembly as two solids: a 50mm base circle plate cam 15mm thick ",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 359,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M06",
+   "model": "claude-opus-5",
+   "spec": "a four-bar linkage as three solids: a 100mm fixed frame link with pivot bores 90mm apart, ",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 360,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M11",
+   "model": "claude-opus-5",
+   "spec": "a roller chain drive as two solids: a 15-tooth drive sprocket of 12.7mm pitch and a 12mm b",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 361,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M15",
+   "model": "claude-opus-5",
+   "spec": "a dovetail slide assembly as two solids: a 150mm long base with a 60-degree dovetail groov",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 362,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M02",
+   "model": "claude-opus-5",
+   "spec": "a two-stage gear reduction as two separate spur gears on parallel axes: a 20-tooth pinion ",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 363,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M07",
+   "model": "claude-opus-5",
+   "spec": "a toggle clamp mechanism as three solids: a 120mm long base bracket with two upright ears ",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 364,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M09",
+   "model": "claude-opus-5",
+   "spec": "a V-belt pulley pair as two solids on parallel shafts: a 60mm pitch diameter driver pulley",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 365,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M14",
+   "model": "claude-opus-5",
+   "spec": "a screw clamp as two solids: a C-shaped frame 120mm deep with a threaded 16mm bore through",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 366,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M20",
+   "model": "claude-opus-5",
+   "spec": "a collet chuck assembly as two solids: a 32mm diameter collet with three longitudinal slot",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 367,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M22",
+   "model": "claude-opus-5",
+   "spec": "a bell-crank lever mechanism as two solids: a fixed bracket with a 10mm pivot bore mounted",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 368,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M24",
+   "model": "claude-opus-5",
+   "spec": "a spring-loaded check valve as two solids: a valve body with a 25mm diameter seat bore and",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 369,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M12",
+   "model": "claude-opus-5",
+   "spec": "a scissor lift mechanism as three solids: two identical 200mm long cross-arms pivoted at t",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 370,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M13",
+   "model": "claude-opus-5",
+   "spec": "a ball-and-socket joint as two solids: a 25mm diameter ball on a 10mm stem 40mm long, seat",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 371,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M18",
+   "model": "claude-opus-5",
+   "spec": "a slider-crank mechanism as three solids: a 40mm throw crank disc 20mm thick pinned to a f",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 411,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M08",
+   "model": "claude-opus-5",
+   "spec": "a piano hinge as two interleaved solids: a 150mm long leaf with five 10mm diameter knuckle",
+   "why": "duplicate (spec+code)"
+  },
+  {
+   "line": 412,
+   "kind": "good",
+   "source": "teacher-human-accepted",
+   "spec_id": "M25",
+   "model": "claude-opus-5",
+   "spec": "an oscillating cam-arm mechanism as two solids: a 70mm diameter eccentric cam plate 10mm t",
+   "why": "duplicate (spec+code)"
+  }
+ ],
+ "surviving_by_source": {
+  "retro": 2,
+  "gift-fail": 15,
+  "gift-reject": 40,
+  "none": 3,
+  "teacher": 280,
+  "teacher-repair": 31,
+  "teacher-human-accepted": 1
+ },
+ "surviving_by_kind": {
+  "good": 325,
+  "fail": 47
+ },
+ "no_source_rows": [
+  {
+   "line": 31,
+   "kind": "good",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid 40x40x10mm block with a 10mm through hole in the centre",
+   "why": ""
+  },
+  {
+   "line": 32,
+   "kind": "fail",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a solid 40x40x10mm block with a 10mm through hole in the centre",
+   "why": ""
+  },
+  {
+   "line": 133,
+   "kind": "good",
+   "source": null,
+   "spec_id": null,
+   "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+   "spec": "a 40x40x8mm plate with a 10mm hole in the centre",
+   "why": ""
+  }
+ ]
+}

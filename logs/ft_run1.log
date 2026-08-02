@@ -1,0 +1,68 @@
+Running 10 benchmark(s) from suite 'text-to-cad': 01, 02, 03, 04, 05, 06, 07, 08, 09, 10  (--coder fast, per-build timeout 1500s)
+
+======================================================================
+[01] Rectangular calibration block  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=626.9s | acc 4/4 solids=✓,bbox=✓,holes_cut=✓,through=✓ | solids=1 cyl=4 bbox=[100.0, 60.0, 20.0] | 
+
+======================================================================
+[02] Circular flange  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=212.6s | acc 4/4 solids=✓,bbox=✓,holes_cut=✓,through=✓ | solids=1 cyl=8 bbox=[80.0, 80.0, 10.0] | 
+
+======================================================================
+[03] L-bracket  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=377.6s | acc 0/4 solids=✗,bbox=✗,holes_cut=✗,through=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[04] Stepped shaft with keyway  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=325.8s | acc 1/3 solids=✗,bbox=✗,holes_cut=✓ | solids=3 cyl=3 bbox=[102.5, 30.0, 40.0] | 
+
+======================================================================
+[05] Open-top electronics enclosure with bosses  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=226.1s | acc 2/3 solids=✗,bbox=✓,holes_cut=✓ | solids=5 cyl=16 bbox=[100.0, 70.0, 30.0] | 
+
+======================================================================
+[06] Clevis bracket with lightening cutouts  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=645.9s | acc 1/4 solids=✗,bbox=✗,holes_cut=✓,through=✗ | solids=5 cyl=10 bbox=[120.0, 100.0, 31.0] | 
+
+======================================================================
+[07] Radial engine cylinder  (tier 3, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=763.4s | acc 3/3 solids=✓,holes_cut=✓,through=✓ | solids=1 cyl=9 bbox=[70.0, 70.0, 70.0] | 
+
+======================================================================
+[08] Centrifugal impeller  (tier 3, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=406.4s | acc 0/4 solids=✗,bbox=✗,holes_cut=✗,through=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[09] Spiral staircase  (tier 3, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=483.9s | acc 1/1 holes_cut=✓ | solids=1 cyl=0 bbox=[3.8, 3.8, 120.0] | 
+
+======================================================================
+[10] Planetary gear stage  (tier 3, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=443.8s | acc 1/1 holes_cut=✓ | solids=1 cyl=20 bbox=[221.0, 140.0, 14.0] | 
+
+==============================================================================
+SUMMARY  —  5/10 converged, 8/10 produced geometry, acceptance 17/31 (55%), 4534.5s total
+==============================================================================
+id  tier status         acc     model                      wall_s  name
+01  1    converged      4/4     cad-coder:7b               626.9   Rectangular calibration block
+02  1    converged      4/4     cad-coder:7b               212.6   Circular flange
+03  1    failed         0/4     -                          377.6   L-bracket
+04  2    converged      1/3     cad-coder:7b               325.8   Stepped shaft with keyway
+05  2    converged      2/3     cad-coder:7b               226.1   Open-top electronics enclosure with bosses
+06  2    converged      1/4     cad-coder:7b               645.9   Clevis bracket with lightening cutouts
+07  3    not-converged  3/3     cad-coder:7b               763.4   Radial engine cylinder
+08  3    failed         0/4     -                          406.4   Centrifugal impeller
+09  3    not-converged  1/1     cad-coder:7b               483.9   Spiral staircase
+10  3    not-converged  1/1     cad-coder:7b               443.8   Planetary gear stage
+
+Full results: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/run_20260802_135042.json

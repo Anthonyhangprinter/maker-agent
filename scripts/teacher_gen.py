@@ -129,7 +129,13 @@ def verify(code: str, expected: dict, spec: str, work: Path) -> dict:
     except Exception as e:
         out["error"] = str(e)[:400]
         return out
-    insp = engine.run_inspect(step)
+    try:
+        insp = engine.run_inspect(step)
+    except Exception as e:
+        # A pathological solid can blow the inspect timeout (M17 spiral-bevel case,
+        # 2026-07-31) — that is a failed candidate, not a crashed run.
+        out["error"] = f"inspect failed: {str(e)[:350]}"
+        return out
     out["valid"], out["state"] = insp["valid"], insp["output"]
     if not insp["valid"]:
         out["error"] = "; ".join(insp["errors"])[:400]

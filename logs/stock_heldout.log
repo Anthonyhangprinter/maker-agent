@@ -1,0 +1,158 @@
+Running 25 benchmark(s) from suite 'heldout-cqe': H01, H02, H03, H04, H05, H06, H07, H08, H09, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25  (--coder fast, per-build timeout 1500s)
+
+======================================================================
+[H01] cqe task1  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=191.0s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=1 bbox=[10.0, 10.0, 5.0] | 
+
+======================================================================
+[H02] cqe task2  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=464.0s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[18.0, 32.0, 3.0] | 
+
+======================================================================
+[H03] cqe task3  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=289.6s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[100.0, 100.0, 10.0] | 
+
+======================================================================
+[H04] cqe task4  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=268.8s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=2 bbox=[35.0, 35.0, 60.0] | 
+
+======================================================================
+[H05] cqe task5  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=273.8s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[50.0, 50.0, 100.0] | 
+
+======================================================================
+[H06] cqe task6  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=210.6s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=1 bbox=[20.0, 40.0, 5.0] | 
+
+======================================================================
+[H07] cqe task7  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=475.2s | acc 0/2 solids=✗,bbox=✗ | solids=1 cyl=2 bbox=[60.0, 60.0, 100.0] | 
+
+======================================================================
+[H08] cqe task8  (tier 1, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=645.5s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=0 bbox=[20.0, 20.0, 80.0] | 
+
+======================================================================
+[H09] cqe task9  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=251.9s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=8 bbox=[50.0, 50.0, 50.0] | 
+
+======================================================================
+[H10] cqe task10  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=305.1s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H11] cqe task11  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=189.9s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=1 bbox=[10.0, 10.0, 50.0] | 
+
+======================================================================
+[H12] cqe task12  (tier 2, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=574.5s | acc 0/2 solids=✗,bbox=✗ | solids=3 cyl=3 bbox=[15.0, 15.0, 65.5] | 
+
+======================================================================
+[H13] cqe task13  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=277.6s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H14] cqe task14  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=481.5s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=1 bbox=[60.0, 60.0, 35.0] | 
+
+======================================================================
+[H15] cqe task15  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=125.5s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H16] cqe task16  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=447.5s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=4 bbox=[80.0, 40.0, 20.0] | 
+
+======================================================================
+[H17] cqe task17  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=193.7s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[80.0, 40.0, 10.0] | 
+
+======================================================================
+[H18] cqe task18  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=490.6s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[40.0, 20.0, 5.0] | 
+
+======================================================================
+[H19] cqe task19  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=223.6s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H20] cqe task20  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=247.3s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H21] cqe task21  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=495.9s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=3 bbox=[45.0, 60.0, 10.0] | 
+
+======================================================================
+[H22] cqe task22  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=175.6s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H23] cqe task23  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=188.6s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H24] cqe task24  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=328.8s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=0 bbox=[75.0, 50.0, 32.5] | 
+
+======================================================================
+[H25] cqe task25  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=qwen2.5-coder:7b-instruct-q4_K_M | wall=190.4s | acc 0/2 solids=✗,bbox=✗ | solids=3 cyl=4 bbox=[50.0, 50.0, 100.0] | 
+
+==============================================================================
+SUMMARY  —  16/25 converged, 18/25 produced geometry, acceptance 26/50 (52%), 8050.1s total
+==============================================================================
+id  tier status         acc     model                      wall_s  name
+H01 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 191.0   cqe task1
+H02 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 464.0   cqe task2
+H03 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 289.6   cqe task3
+H04 1    converged      1/2     qwen2.5-coder:7b-instruct-q4_K_M 268.8   cqe task4
+H05 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 273.8   cqe task5
+H06 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 210.6   cqe task6
+H07 1    converged      0/2     qwen2.5-coder:7b-instruct-q4_K_M 475.2   cqe task7
+H08 1    not-converged  2/2     qwen2.5-coder:7b-instruct-q4_K_M 645.5   cqe task8
+H09 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 251.9   cqe task9
+H10 1    failed         0/2     -                          305.1   cqe task10
+H11 1    converged      1/2     qwen2.5-coder:7b-instruct-q4_K_M 189.9   cqe task11
+H12 2    not-converged  0/2     qwen2.5-coder:7b-instruct-q4_K_M 574.5   cqe task12
+H13 1    failed         0/2     -                          277.6   cqe task13
+H14 1    converged      1/2     qwen2.5-coder:7b-instruct-q4_K_M 481.5   cqe task14
+H15 1    failed         0/2     -                          125.5   cqe task15
+H16 2    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 447.5   cqe task16
+H17 1    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 193.7   cqe task17
+H18 2    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 490.6   cqe task18
+H19 2    failed         0/2     -                          223.6   cqe task19
+H20 2    failed         0/2     -                          247.3   cqe task20
+H21 2    converged      2/2     qwen2.5-coder:7b-instruct-q4_K_M 495.9   cqe task21
+H22 2    failed         0/2     -                          175.6   cqe task22
+H23 2    failed         0/2     -                          188.6   cqe task23
+H24 2    converged      1/2     qwen2.5-coder:7b-instruct-q4_K_M 328.8   cqe task24
+H25 2    converged      0/2     qwen2.5-coder:7b-instruct-q4_K_M 190.4   cqe task25
+
+Full results: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/run_20260802_195614.json

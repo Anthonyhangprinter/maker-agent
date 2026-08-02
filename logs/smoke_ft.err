@@ -1,0 +1,25 @@
+2026-08-02 12:30:52,608 [INFO] ============================================================
+2026-08-02 12:30:52,608 [INFO] [v5.0] build: a 80x50x6mm plate with a 12mm centre hole
+2026-08-02 12:30:52,675 [INFO] [v5] brief-less codegen (cad.use_brief=false)
+2026-08-02 12:30:56,929 [INFO] [v5] 1 verification questions: Is there a single hole in the center of the plate?
+2026-08-02 12:30:58,470 [INFO] [v5] Few-shots (cosine): a 40x40x8mm plate with a 10mm hole in th~0.922, Model a plate with overall dimensions of~0.83
+2026-08-02 12:30:58,727 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-08-02 12:30:58,727 [INFO] [v5] Code model: cad-coder:7b (manual --coder fast)
+2026-08-02 12:32:27,929 [INFO] [v5] candidate 1 failed to build: Traceback (most recent call last):
+  File "/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/
+2026-08-02 12:32:27,929 [INFO] [v5] candidate 1/3: ran=False gate=False notes=0
+2026-08-02 12:32:32,452 [INFO] [v5] candidate 2/3: ran=True gate=True notes=0
+2026-08-02 12:32:34,627 [INFO] [v5] candidate 3 failed to build: Traceback (most recent call last):
+  File "/home/theultimatecunt/.local/lib/python3.12/site-packages/build123d/topology/
+2026-08-02 12:32:34,628 [INFO] [v5] candidate 3/3: ran=False gate=False notes=0
+2026-08-02 12:32:34,628 [INFO] [v5] best-of-3 pick: candidate 2 (ran=True gate=True)
+2026-08-02 12:32:34,628 [INFO] [v5] ── Turn 1/4 (cad-coder:7b) ──
+2026-08-02 12:32:36,862 [INFO] [v5] build123d OK: STEP:    /tmp/cadv4_hg9154oe/build_output.step | Volume:  23282.977 mm³ | Bbox:    80.00 x 50.00 x 6.00 mm
+2026-08-02 12:32:39,103 [INFO] [v5] Inspect valid=True
+2026-08-02 12:32:39,104 [INFO] [v5] Verification gate passed (solids=1 cyl_faces=1 bbox=[80.0, 50.0, 6.0]).
+2026-08-02 12:34:45,760 [INFO] [v5] Critic: PASS: verification questions confirmed — Is there a single hole in the center of the plate?
+2026-08-02 12:34:55,536 [INFO] [v5] Model satisfied — finalizing.
+2026-08-02 12:34:59,994 [INFO] [v5] DXF flat pattern: Flat pattern: 80.0 x 50.0 mm  from largest face (area 3823 mm²)
+2026-08-02 12:34:59,997 [INFO] [v5] Stage C: promoted to corpus (14 entries)
+2026-08-02 12:35:00,118 [INFO] [v5] SFT-pair harvest: 1 pair(s) (0 fail) -> cad-sftpairs.jsonl
+2026-08-02 12:35:07,736 [INFO] [v5] Done (no upload): step=/home/theultimatecunt/.openclaw/cad-builds/20260802-123455-a-80x50x6mm-plate-with-a-12mm-centre-hol/build.step render=/home/theultimatecunt/.openclaw/cad-builds/20260802-123455-a-80x50x6mm-plate-with-a-12mm-centre-hol/build.png

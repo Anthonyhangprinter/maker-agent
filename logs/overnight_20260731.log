@@ -1,0 +1,2107 @@
++ cd /home/theultimatecunt/.openclaw/skills/cad-builder
++ echo '=== redo mechanisms at 32k tokens ==='
+=== redo mechanisms at 32k tokens ===
++ python3 scripts/teacher_batch.py --specs benchmarks/teacher-mech2/specs.json --only M05,M08,M10,M17,M23,M25 --model claude-opus-5 --max-tokens 32000 --budget 3
+2026-07-31 23:33:35,360 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.722, a piston, 80mm bore diameter, 60mm tall,~0.706
+2026-07-31 23:33:35,624 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:35,912 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.701, a solid circular flange 80mm diameter 10~0.656
+2026-07-31 23:33:36,170 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:36,431 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.725, a solid circular flange 80mm diameter 10~0.681
+2026-07-31 23:33:36,693 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:36,954 [INFO] [v5] Few-shots (cosine): an L-bracket: a 60x40x6mm base flange an~0.69, a solid circular flange 80mm diameter 10~0.679
+2026-07-31 23:33:37,217 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:37,478 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.688, a piston, 80mm bore diameter, 60mm tall,~0.657
+2026-07-31 23:33:37,737 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:37,997 [INFO] [v5] Few-shots (cosine): a piston, 80mm bore diameter, 60mm tall,~0.678, a solid circular flange 80mm diameter 10~0.667
+2026-07-31 23:33:38,259 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:33:39,820 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[guard] 25 spec(s) checked against 39 suite slug(s) — no collisions.
+[teacher-batch] model=claude-opus-5 specs=6 projected≈$0.26 at batch rates
+[batch] msgbatch_01MYAaJXeyQxYm9KPMS4nEua  (6 requests) submitted
+2026-07-31 23:33:40,189 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:34:00,581 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:34:20,944 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:34:41,357 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:35:01,896 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:35:22,376 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:35:42,992 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:36:03,539 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:36:24,020 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:36:44,502 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:37:04,854 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:37:25,243 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:37:45,606 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:38:06,093 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:38:26,591 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:38:47,086 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:39:07,436 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:39:28,029 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:39:48,612 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:40:08,987 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:40:29,371 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:40:49,950 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:41:10,431 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:41:30,919 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:41:51,209 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:42:11,767 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:42:32,130 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:42:52,522 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:43:13,037 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:43:33,486 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:43:53,865 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:44:14,450 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:44:34,835 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=6
+2026-07-31 23:44:55,209 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+[batch] ended: ok=6 err=0 processing=0
+2026-07-31 23:44:55,616 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua "HTTP/1.1 200 OK"
+2026-07-31 23:44:56,133 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01MYAaJXeyQxYm9KPMS4nEua/results "HTTP/1.1 200 OK"
+  [M10] EMPTY reply (stop_reason=max_tokens, out=32000tok) — raise --max-tokens
+2026-07-31 23:49:38,893 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[batch] msgbatch_01Aia6csgp7r6XfCkuErtwMY  (3 requests) submitted
+2026-07-31 23:49:39,208 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:49:59,768 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:50:20,480 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:50:40,928 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:51:01,408 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:51:21,991 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:51:42,441 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:52:02,947 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:52:24,456 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=3
+2026-07-31 23:52:44,835 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+[batch] ended: ok=3 err=0 processing=0
+2026-07-31 23:52:45,170 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY "HTTP/1.1 200 OK"
+2026-07-31 23:52:45,596 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01Aia6csgp7r6XfCkuErtwMY/results "HTTP/1.1 200 OK"
+
+outcomes: {'accepted-after-repair': 1, 'accepted-first-try': 2, 'error': 1, 'failed-after-repair': 2}
+spend this run: $1.92 (batch rates, list-derived)
+pairs written: 4 (3 good, 1 fail->fix)
+summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/teacher_pilot_20260731_135300.json
++ echo '=== redo V150 (server-side error) ==='
+=== redo V150 (server-side error) ===
++ python3 scripts/teacher_batch.py --specs benchmarks/teacher-batch2/specs.json --only V150 --max-tokens 32000 --budget 1
+2026-07-31 23:53:01,874 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~0.746, a vase 120mm tall with a circular cross-~0.71
+2026-07-31 23:53:02,139 [INFO] [v5] Injected 3 learned pitfall(s).
+2026-07-31 23:53:02,642 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[guard] 196 spec(s) checked against 39 suite slug(s) — no collisions.
+[teacher-batch] model=claude-sonnet-5 specs=1 projected≈$0.02 at batch rates
+[batch] msgbatch_01TNkzoTnXNhZEHyB1vr48mY  (1 requests) submitted
+2026-07-31 23:53:02,971 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:53:23,446 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:53:43,820 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:54:04,231 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:54:24,578 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:54:44,948 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:55:05,331 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+[batch] ended: ok=1 err=0 processing=0
+2026-07-31 23:55:06,068 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY "HTTP/1.1 200 OK"
+2026-07-31 23:55:06,561 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01TNkzoTnXNhZEHyB1vr48mY/results "HTTP/1.1 200 OK"
+2026-07-31 23:55:09,632 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages/batches "HTTP/1.1 200 OK"
+[batch] msgbatch_01BsjVdMEECCZEfFXrbxziBA  (1 requests) submitted
+2026-07-31 23:55:10,144 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:55:30,624 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:55:51,004 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:56:11,484 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:56:31,964 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:56:52,344 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:57:12,925 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:57:33,409 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:57:53,870 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:58:14,366 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:58:34,750 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] in_progress: ok=0 err=0 processing=1
+2026-07-31 23:58:55,123 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+[batch] ended: ok=1 err=0 processing=0
+2026-07-31 23:58:55,441 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA "HTTP/1.1 200 OK"
+2026-07-31 23:58:55,822 [INFO] HTTP Request: GET https://api.anthropic.com/v1/messages/batches/msgbatch_01BsjVdMEECCZEfFXrbxziBA/results "HTTP/1.1 200 OK"
+
+outcomes: {'accepted-after-repair': 1}
+spend this run: $0.11 (batch rates, list-derived)
+pairs written: 2 (1 good, 1 fail->fix)
+summary: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/teacher_pilot_20260731_135908.json
++ echo '=== queue accepted parts for human review (no-render; .step opens in CAD Viewer) ==='
+=== queue accepted parts for human review (no-render; .step opens in CAD Viewer) ===
+++ head -3
+++ ls -t benchmarks/results/teacher_pilot_20260730_014707.json benchmarks/results/teacher_pilot_20260730_023115.json benchmarks/results/teacher_pilot_20260730_030205.json benchmarks/results/teacher_pilot_20260730_034825.json benchmarks/results/teacher_pilot_20260730_035014.json benchmarks/results/teacher_pilot_20260730_041609.json benchmarks/results/teacher_pilot_20260730_043508.json benchmarks/results/teacher_pilot_20260731_124506.json benchmarks/results/teacher_pilot_20260731_133247.json benchmarks/results/teacher_pilot_20260731_135300.json benchmarks/results/teacher_pilot_20260731_135908.json
++ for f in $(ls -t benchmarks/results/teacher_pilot_2026073*.json | head -3)
++ python3 scripts/review_queue.py --queue-run benchmarks/results/teacher_pilot_20260731_135908.json --which accepted --no-render
+queued 1 part(s) from teacher_pilot_20260731_135908.json (accepted)
+queue: 52 item(s), 41 awaiting your call
+files: /home/theultimatecunt/CAD/review
+
+──────────────────────────────────────────────────────────────────────────
+C01  [accept]  claude-sonnet-5
+  spec : a deep-groove rolling element bearing as three distinct solids: an outer ring 52mm outside diameter and 15mm wide with an internal groove, an inner ring 25mm bo
+  gate : this assembly should have 3 parts but produced 10 separate bodies — a part has fragmented into extra pieces. Make each named part exactly one solid, t
+  built: solids=10 bbox=[52.0, 52.0, 15.0] volume=14725.823
+──────────────────────────────────────────────────────────────────────────
+C02  [reject]  claude-sonnet-5
+  spec : a piston and connecting rod as two separate solids: a 70mm diameter piston 55mm tall with two 3mm ring grooves and a 20mm gudgeon pin bore across its skirt, and
+  gate : [spec] the request says '140mm long' but no axis of the part measures 140mm (extents: 211.0×70.0×70.0mm) — size the geometry from the numbers in the r
+  built: solids=2 bbox=[70.0, 70.0, 164.0] volume=148831.348
+──────────────────────────────────────────────────────────────────────────
+C04  [reject]  claude-sonnet-5
+  spec : a two stage reduction as two separate spur gears on parallel axes: a 20 tooth pinion of 3mm module and 18mm face width with a 15mm bore, meshing with a 60 tooth
+  gate : the spec needs a Ø30mm bore but no bore of that size was measured — add it (cut a Ø30mm cylinder into the part where the spec places it).
+  built: solids=2 bbox=[246.0, 186.0, 18.0] volume=489969.634
+──────────────────────────────────────────────────────────────────────────
+C07  [reject]  claude-sonnet-5
+  spec : a universal joint as three solids: two identical yokes each with a 30mm shaft 40mm long splitting into two 12mm thick arms 45mm apart bored 10mm, and a cross sh
+  gate : ERROR: No build123d Part/Compound found in source file.
+Set:  result = bp.part  (or result = <your_shape_var>)
+
+  built: solids=5 bbox=[69.0, 69.0, 140.0] volume=87771.251
+──────────────────────────────────────────────────────────────────────────
+C12  [reject]  claude-sonnet-5
+  spec : a radial impeller and its scroll housing as two solids: a 90mm diameter impeller with twelve backswept vanes 3mm thick on a 15mm hub, and a surrounding volute h
+  gate : ERROR: Volume is near-zero (-259859.213750 mm³) — likely a surface, not a solid
+  built: solids=14 bbox=[164.44, 155.63, 39.85] volume=123938.898
+──────────────────────────────────────────────────────────────────────────
+C03  [accept]  claude-sonnet-5
+  spec : a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm diameter big-end journal offset 35mm from the axis, joined by two 60x20m
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C05  [reject]  claude-sonnet-5
+  spec : a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60mm long with a 6mm axial pitch, and a 40 tooth wheel 90mm outside diam
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C06  [reject]  claude-sonnet-5
+  spec : a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm module across its top face, and a matching 18 tooth pinion with a 20m
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C08  [accept]  claude-sonnet-5
+  spec : a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a 15mm bore with 8mm of lift, and a flat faced follower 25mm diameter on
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C09  [reject]  claude-sonnet-5
+  spec : a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick with six radial slots 12mm wide, and a driver plate 60mm diameter carryi
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C11  [reject]  claude-sonnet-5
+  spec : a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, a 8mm keyway and three 9mm bolt holes on a 50mm circle,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M05  [PENDING]  claude-opus-5
+  spec : a ratchet and pawl mechanism as two solids: an 80mm diameter ratchet wheel 10mm thick with 24 asymmetric teeth around its rim on a 15mm bore, engaged by a 40mm 
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M10  [PENDING]  claude-opus-5
+  spec : a right-angle bevel gear pair as two solids: a 20-tooth pinion bevel gear of 4mm module with a 30mm pitch cone apex, and a 40-tooth mating bevel gear of the sam
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M23  [PENDING]  claude-opus-5
+  spec : a lead-screw slide as two solids: a 200mm long base with two parallel 12mm dovetail rails and a fixed 10mm diameter, 4mm pitch lead screw supported at both ends
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M01  [PENDING]  claude-opus-5
+  spec : a piston and connecting rod assembly as two solids: a 70mm diameter, 55mm tall piston that is hollow beneath its 6mm thick crown (open skirt with two internal p
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M02  [PENDING]  claude-opus-5
+  spec : a two-stage gear reduction as two separate spur gears on parallel axes: a 20-tooth pinion of 3mm module, 18mm face width and 15mm bore, meshing with a 60-tooth 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M03  [PENDING]  claude-opus-5
+  spec : a flexible shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, an 8mm keyway slot cut fully through the hub l
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M04  [PENDING]  claude-opus-5
+  spec : a cam and roller-follower assembly as two solids: a 50mm base circle plate cam 15mm thick with a 12mm rise profile over 120 degrees of rotation on a 10mm centre
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M06  [PENDING]  claude-opus-5
+  spec : a four-bar linkage as three solids: a 100mm fixed frame link with pivot bores 90mm apart, a 40mm crank link pinned at one end to the frame with a 10mm pivot bor
+  gate : gate verdict: accepted-first-try
+  built: solids=4 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M07  [PENDING]  claude-opus-5
+  spec : a toggle clamp mechanism as three solids: a 120mm long base bracket with two upright ears bored 8mm apart at 40mm centres, a 90mm handle link pinned to one ear,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M09  [PENDING]  claude-opus-5
+  spec : a V-belt pulley pair as two solids on parallel shafts: a 60mm pitch diameter driver pulley with a 34-degree, 12mm deep V-groove and a 15mm bore, and a 180mm pit
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M11  [PENDING]  claude-opus-5
+  spec : a roller chain drive as two solids: a 15-tooth drive sprocket of 12.7mm pitch and a 12mm bore, and a 45-tooth driven sprocket of the same pitch and a 20mm bore,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M12  [PENDING]  claude-opus-5
+  spec : a scissor lift mechanism as three solids: two identical 200mm long cross-arms pivoted at their midpoints on a common 10mm centre pin, a fixed base rail with a 1
+  gate : gate verdict: accepted-first-try
+  built: solids=5 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M13  [PENDING]  claude-opus-5
+  spec : a ball-and-socket joint as two solids: a 25mm diameter ball on a 10mm stem 40mm long, seated inside a matching 25.4mm internal diameter socket housing with a 30
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M14  [PENDING]  claude-opus-5
+  spec : a screw clamp as two solids: a C-shaped frame 120mm deep with a threaded 16mm bore through its upper arm, and a matching 16mm threaded spindle 100mm long with a
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M15  [PENDING]  claude-opus-5
+  spec : a dovetail slide assembly as two solids: a 150mm long base with a 60-degree dovetail groove 20mm wide and 12mm deep along its length, and a matching 140mm long 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M16  [PENDING]  claude-opus-5
+  spec : a quarter-turn cam latch as two solids: a 30mm diameter cam lobe on an 8mm square-drive shaft 25mm long, and a mating strike plate with a 20mm wide slot the lob
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M18  [PENDING]  claude-opus-5
+  spec : a slider-crank mechanism as three solids: a 40mm throw crank disc 20mm thick pinned to a fixed 15mm shaft, a 120mm long connecting rod with a 15mm small-end bor
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M19  [PENDING]  claude-opus-5
+  spec : a detent indexing mechanism as two solids: an indexing plate 100mm diameter with eight 6mm hemispherical detent dimples on a 70mm radius, and a spring-loaded pl
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M20  [PENDING]  claude-opus-5
+  spec : a collet chuck assembly as two solids: a 32mm diameter collet with three longitudinal slots and a 20-degree external taper matching a 32.4mm internal taper bore
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M21  [PENDING]  claude-opus-5
+  spec : a roller-ramp overrunning clutch as two solids: an inner hub 40mm diameter with six 5mm deep ramped pockets around its rim, and a surrounding outer race 70mm in
+  gate : gate verdict: accepted-first-try
+  built: solids=8 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M22  [PENDING]  claude-opus-5
+  spec : a bell-crank lever mechanism as two solids: a fixed bracket with a 10mm pivot bore mounted 50mm above a baseplate, and an L-shaped bell-crank lever with two arm
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M24  [PENDING]  claude-opus-5
+  spec : a spring-loaded check valve as two solids: a valve body with a 25mm diameter seat bore and a 30-degree conical seating face, and a matching 25mm diameter poppet
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V005  [PENDING]  claude-sonnet-5
+  spec : a 130x90x8mm plate with all four edges chamfered 2mm and a 30mm square cutout offset 20mm from the left edge
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[130.0, 90.0, 8.0] volume=86336.0
+──────────────────────────────────────────────────────────────────────────
+V011  [PENDING]  claude-sonnet-5
+  spec : a 220x110x10mm strap with eight 5mm holes spaced 25mm apart in two rows of four along its length
+  gate : [spec] the request says '25mm apart' but the measured hole-centre spacing/circle is 35.4, 79.1mm — position the hole centres from the request's number
+  built: solids=1 bbox=[220.0, 110.0, 10.0] volume=240429.204
+──────────────────────────────────────────────────────────────────────────
+V012  [PENDING]  claude-sonnet-5
+  spec : a 100x100x6mm square plate with a 60mm square cutout centred and all outer edges chamfered 1.5mm
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[100.0, 100.0, 6.0] volume=37491.0
+──────────────────────────────────────────────────────────────────────────
+V018  [PENDING]  claude-sonnet-5
+  spec : a 55x55x3mm plate with a 20mm square cutout centred and 1mm chamfers on all four outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[55.0, 55.0, 3.0] volume=7766.333
+──────────────────────────────────────────────────────────────────────────
+V023  [PENDING]  claude-sonnet-5
+  spec : a 150x150x12mm plate with a 100mm square cutout centred and 3mm chamfers on all outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[150.0, 150.0, 12.0] volume=144528.0
+──────────────────────────────────────────────────────────────────────────
+V058  [PENDING]  claude-sonnet-5
+  spec : a snap-fit enclosure base 95x65x28mm with 2mm walls, a 3mm floor, and four small 4mm tall snap tabs 6mm wide protruding inward from the top edge of each long wa
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×65.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 65.0, 28.0] volume=34269.0
+──────────────────────────────────────────────────────────────────────────
+V080  [PENDING]  claude-sonnet-5
+  spec : a 28mm diameter 95mm long shaft with a single 6mm wide flat milled 4mm deep along a 30mm section near one end for set-screw clamping
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×28.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 28.0, 28.0] volume=57795.876
+──────────────────────────────────────────────────────────────────────────
+V084  [PENDING]  claude-sonnet-5
+  spec : a 22mm diameter 110mm long shaft with two opposing 5mm deep flats machined on the last 25mm to form a 12mm across-flats wrench grip
+  gate : [spec] the request says '5mm deep' but no axis of the part measures 5mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the reque
+  gate : [spec] the request says '12mm across' but no axis of the part measures 12mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[22.0, 22.0, 110.0] volume=38567.578
+──────────────────────────────────────────────────────────────────────────
+V100  [PENDING]  claude-sonnet-5
+  spec : a 25mm diameter 105mm long shaft with two opposing flats machined to 18mm across-flats over the middle 30mm of its length
+  gate : [spec] the request says '18mm across' but no axis of the part measures 18mm (extents: 105.0×25.0×25.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[25.0, 25.0, 105.0] volume=49035.511
+──────────────────────────────────────────────────────────────────────────
+V125  [PENDING]  claude-sonnet-5
+  spec : a 12mm diameter tube swept along a helical path with an 80mm coil diameter, 150mm pitch, and 3 full turns
+  gate : [spec] the request says '12mm diameter' but no axis of the part measures 12mm (extents: 460.3×92.0×92.0mm) — size the geometry from the numbers in the
+  built: solids=1 bbox=[92.0, 92.0, 460.3] volume=99306.253
+──────────────────────────────────────────────────────────────────────────
+V129  [PENDING]  claude-sonnet-5
+  spec : a lofted hex-to-round transition 90mm tall, hexagonal 70mm across flats at the base narrowing to a 50mm diameter circle at the top, with 2mm walls
+  gate : [spec] the request says '50mm diameter' but no axis of the part measures 50mm (extents: 90.0×80.8×70.0mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[80.83, 70.0, 90.0] volume=35378.697
+──────────────────────────────────────────────────────────────────────────
+V154  [PENDING]  claude-sonnet-5
+  spec : a lofted round-to-triangle transition 90mm long, 35mm diameter circle at one end blending to a triangular profile 60mm per side at the other, with 2mm walls
+  gate : [spec] the request says '35mm diameter' but no axis of the part measures 35mm (extents: 90.0×60.0×52.1mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[52.14, 60.0, 90.0] volume=24764.217
+──────────────────────────────────────────────────────────────────────────
+V156  [PENDING]  claude-sonnet-5
+  spec : a teardrop stylus tip formed by a 16mm diameter sphere blending into a 20mm tall tapering shaft ending at 6mm diameter
+  gate : [spec] the request says '20mm tall' but no axis of the part measures 20mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the requ
+  gate : [spec] the request says '6mm diameter' but no axis of the part measures 6mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the re
+  built: solids=1 bbox=[16.0, 16.0, 28.0] volume=3133.577
+──────────────────────────────────────────────────────────────────────────
+V158  [PENDING]  claude-sonnet-5
+  spec : a 150x100x3mm rectangular grille with a 10x8 grid of 4mm diameter holes spaced 12mm apart in both directions, leaving a 10mm solid border
+  gate : [spec] the request says '12mm apart' but the measured hole-centre spacing/circle is 17.0, 37.9, 50.9, 61.2, 70.0, 84.9, 91.4, 103.2, 116.2, 136.8mm — 
+  built: solids=1 bbox=[150.0, 100.0, 3.0] volume=41984.071
+──────────────────────────────────────────────────────────────────────────
+V163  [PENDING]  claude-sonnet-5
+  spec : a 180x40x3mm ventilation strip with twenty 25x3mm rounded slots arranged in two staggered rows of ten, spaced 8mm apart
+  gate : [spec] the request says '8mm apart' but the measured hole-centre spacing/circle is 96.1mm — position the hole centres from the request's numbers (e.g.
+  built: solids=1 bbox=[180.0, 40.0, 3.0] volume=19865.588
+──────────────────────────────────────────────────────────────────────────
+V170  [PENDING]  claude-sonnet-5
+  spec : a 220x120x3mm access panel with a grid of forty 10x4mm rounded ventilation slots arranged in five rows of eight, evenly spaced 15mm apart
+  gate : [spec] the request says '15mm apart' but the measured hole-centre spacing/circle is 9.0, 21.0, 31.3, 37.4, 49.8, 61.1, 75.1, 86.4, 91.4, 101.5, 114.5,
+  built: solids=1 bbox=[220.0, 120.0, 3.0] volume=74812.036
+──────────────────────────────────────────────────────────────────────────
+V172  [PENDING]  claude-sonnet-5
+  spec : a 300x80x4mm perforated tray floor with a 20x4 grid of 5mm drainage holes spaced 14mm apart, leaving a 10mm unperforated border
+  gate : [spec] the request says '14mm apart' but the measured hole-centre spacing/circle is 19.8, 44.3, 59.4, 71.4, 81.6, 99.0, 106.6, 129.8, 157.1, 184.7, 21
+  built: solids=1 bbox=[300.0, 80.0, 4.0] volume=89716.815
+──────────────────────────────────────────────────────────────────────────
+V182  [PENDING]  claude-sonnet-5
+  spec : a three-piece spacer stack: a 60x60x6mm base plate and a 60x60x6mm top plate each with four 6mm corner holes, separated by four 8mm diameter, 20mm long cylindri
+  gate : [spec] the request says '20mm long' but no axis of the part measures 20mm (extents: 60.0×60.0×32.0mm) — size the geometry from the numbers in the requ
+  built: solids=6 bbox=[60.0, 60.0, 32.0] volume=45864.071
+──────────────────────────────────────────────────────────────────────────
+V150  [PENDING]  claude-sonnet-5
+  spec : a drafted circular bezel shell 100mm diameter and 15mm tall with a 3 degree draft, 1.5mm wall thickness, and a 3mm fillet along the top edge
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
++ for f in $(ls -t benchmarks/results/teacher_pilot_2026073*.json | head -3)
++ python3 scripts/review_queue.py --queue-run benchmarks/results/teacher_pilot_20260731_135300.json --which accepted --no-render
+queued 2 part(s) from teacher_pilot_20260731_135300.json (accepted)
+queue: 54 item(s), 43 awaiting your call
+files: /home/theultimatecunt/CAD/review
+
+──────────────────────────────────────────────────────────────────────────
+C01  [accept]  claude-sonnet-5
+  spec : a deep-groove rolling element bearing as three distinct solids: an outer ring 52mm outside diameter and 15mm wide with an internal groove, an inner ring 25mm bo
+  gate : this assembly should have 3 parts but produced 10 separate bodies — a part has fragmented into extra pieces. Make each named part exactly one solid, t
+  built: solids=10 bbox=[52.0, 52.0, 15.0] volume=14725.823
+──────────────────────────────────────────────────────────────────────────
+C02  [reject]  claude-sonnet-5
+  spec : a piston and connecting rod as two separate solids: a 70mm diameter piston 55mm tall with two 3mm ring grooves and a 20mm gudgeon pin bore across its skirt, and
+  gate : [spec] the request says '140mm long' but no axis of the part measures 140mm (extents: 211.0×70.0×70.0mm) — size the geometry from the numbers in the r
+  built: solids=2 bbox=[70.0, 70.0, 164.0] volume=148831.348
+──────────────────────────────────────────────────────────────────────────
+C04  [reject]  claude-sonnet-5
+  spec : a two stage reduction as two separate spur gears on parallel axes: a 20 tooth pinion of 3mm module and 18mm face width with a 15mm bore, meshing with a 60 tooth
+  gate : the spec needs a Ø30mm bore but no bore of that size was measured — add it (cut a Ø30mm cylinder into the part where the spec places it).
+  built: solids=2 bbox=[246.0, 186.0, 18.0] volume=489969.634
+──────────────────────────────────────────────────────────────────────────
+C07  [reject]  claude-sonnet-5
+  spec : a universal joint as three solids: two identical yokes each with a 30mm shaft 40mm long splitting into two 12mm thick arms 45mm apart bored 10mm, and a cross sh
+  gate : ERROR: No build123d Part/Compound found in source file.
+Set:  result = bp.part  (or result = <your_shape_var>)
+
+  built: solids=5 bbox=[69.0, 69.0, 140.0] volume=87771.251
+──────────────────────────────────────────────────────────────────────────
+C12  [reject]  claude-sonnet-5
+  spec : a radial impeller and its scroll housing as two solids: a 90mm diameter impeller with twelve backswept vanes 3mm thick on a 15mm hub, and a surrounding volute h
+  gate : ERROR: Volume is near-zero (-259859.213750 mm³) — likely a surface, not a solid
+  built: solids=14 bbox=[164.44, 155.63, 39.85] volume=123938.898
+──────────────────────────────────────────────────────────────────────────
+C03  [accept]  claude-sonnet-5
+  spec : a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm diameter big-end journal offset 35mm from the axis, joined by two 60x20m
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C05  [reject]  claude-sonnet-5
+  spec : a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60mm long with a 6mm axial pitch, and a 40 tooth wheel 90mm outside diam
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C06  [reject]  claude-sonnet-5
+  spec : a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm module across its top face, and a matching 18 tooth pinion with a 20m
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C08  [accept]  claude-sonnet-5
+  spec : a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a 15mm bore with 8mm of lift, and a flat faced follower 25mm diameter on
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C09  [reject]  claude-sonnet-5
+  spec : a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick with six radial slots 12mm wide, and a driver plate 60mm diameter carryi
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C11  [reject]  claude-sonnet-5
+  spec : a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, a 8mm keyway and three 9mm bolt holes on a 50mm circle,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M05  [PENDING]  claude-opus-5
+  spec : a ratchet and pawl mechanism as two solids: an 80mm diameter ratchet wheel 10mm thick with 24 asymmetric teeth around its rim on a 15mm bore, engaged by a 40mm 
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M10  [PENDING]  claude-opus-5
+  spec : a right-angle bevel gear pair as two solids: a 20-tooth pinion bevel gear of 4mm module with a 30mm pitch cone apex, and a 40-tooth mating bevel gear of the sam
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M23  [PENDING]  claude-opus-5
+  spec : a lead-screw slide as two solids: a 200mm long base with two parallel 12mm dovetail rails and a fixed 10mm diameter, 4mm pitch lead screw supported at both ends
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M01  [PENDING]  claude-opus-5
+  spec : a piston and connecting rod assembly as two solids: a 70mm diameter, 55mm tall piston that is hollow beneath its 6mm thick crown (open skirt with two internal p
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M02  [PENDING]  claude-opus-5
+  spec : a two-stage gear reduction as two separate spur gears on parallel axes: a 20-tooth pinion of 3mm module, 18mm face width and 15mm bore, meshing with a 60-tooth 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M03  [PENDING]  claude-opus-5
+  spec : a flexible shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, an 8mm keyway slot cut fully through the hub l
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M04  [PENDING]  claude-opus-5
+  spec : a cam and roller-follower assembly as two solids: a 50mm base circle plate cam 15mm thick with a 12mm rise profile over 120 degrees of rotation on a 10mm centre
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M06  [PENDING]  claude-opus-5
+  spec : a four-bar linkage as three solids: a 100mm fixed frame link with pivot bores 90mm apart, a 40mm crank link pinned at one end to the frame with a 10mm pivot bor
+  gate : gate verdict: accepted-first-try
+  built: solids=4 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M07  [PENDING]  claude-opus-5
+  spec : a toggle clamp mechanism as three solids: a 120mm long base bracket with two upright ears bored 8mm apart at 40mm centres, a 90mm handle link pinned to one ear,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M09  [PENDING]  claude-opus-5
+  spec : a V-belt pulley pair as two solids on parallel shafts: a 60mm pitch diameter driver pulley with a 34-degree, 12mm deep V-groove and a 15mm bore, and a 180mm pit
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M11  [PENDING]  claude-opus-5
+  spec : a roller chain drive as two solids: a 15-tooth drive sprocket of 12.7mm pitch and a 12mm bore, and a 45-tooth driven sprocket of the same pitch and a 20mm bore,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M12  [PENDING]  claude-opus-5
+  spec : a scissor lift mechanism as three solids: two identical 200mm long cross-arms pivoted at their midpoints on a common 10mm centre pin, a fixed base rail with a 1
+  gate : gate verdict: accepted-first-try
+  built: solids=5 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M13  [PENDING]  claude-opus-5
+  spec : a ball-and-socket joint as two solids: a 25mm diameter ball on a 10mm stem 40mm long, seated inside a matching 25.4mm internal diameter socket housing with a 30
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M14  [PENDING]  claude-opus-5
+  spec : a screw clamp as two solids: a C-shaped frame 120mm deep with a threaded 16mm bore through its upper arm, and a matching 16mm threaded spindle 100mm long with a
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M15  [PENDING]  claude-opus-5
+  spec : a dovetail slide assembly as two solids: a 150mm long base with a 60-degree dovetail groove 20mm wide and 12mm deep along its length, and a matching 140mm long 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M16  [PENDING]  claude-opus-5
+  spec : a quarter-turn cam latch as two solids: a 30mm diameter cam lobe on an 8mm square-drive shaft 25mm long, and a mating strike plate with a 20mm wide slot the lob
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M18  [PENDING]  claude-opus-5
+  spec : a slider-crank mechanism as three solids: a 40mm throw crank disc 20mm thick pinned to a fixed 15mm shaft, a 120mm long connecting rod with a 15mm small-end bor
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M19  [PENDING]  claude-opus-5
+  spec : a detent indexing mechanism as two solids: an indexing plate 100mm diameter with eight 6mm hemispherical detent dimples on a 70mm radius, and a spring-loaded pl
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M20  [PENDING]  claude-opus-5
+  spec : a collet chuck assembly as two solids: a 32mm diameter collet with three longitudinal slots and a 20-degree external taper matching a 32.4mm internal taper bore
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M21  [PENDING]  claude-opus-5
+  spec : a roller-ramp overrunning clutch as two solids: an inner hub 40mm diameter with six 5mm deep ramped pockets around its rim, and a surrounding outer race 70mm in
+  gate : gate verdict: accepted-first-try
+  built: solids=8 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M22  [PENDING]  claude-opus-5
+  spec : a bell-crank lever mechanism as two solids: a fixed bracket with a 10mm pivot bore mounted 50mm above a baseplate, and an L-shaped bell-crank lever with two arm
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M24  [PENDING]  claude-opus-5
+  spec : a spring-loaded check valve as two solids: a valve body with a 25mm diameter seat bore and a 30-degree conical seating face, and a matching 25mm diameter poppet
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V005  [PENDING]  claude-sonnet-5
+  spec : a 130x90x8mm plate with all four edges chamfered 2mm and a 30mm square cutout offset 20mm from the left edge
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[130.0, 90.0, 8.0] volume=86336.0
+──────────────────────────────────────────────────────────────────────────
+V011  [PENDING]  claude-sonnet-5
+  spec : a 220x110x10mm strap with eight 5mm holes spaced 25mm apart in two rows of four along its length
+  gate : [spec] the request says '25mm apart' but the measured hole-centre spacing/circle is 35.4, 79.1mm — position the hole centres from the request's number
+  built: solids=1 bbox=[220.0, 110.0, 10.0] volume=240429.204
+──────────────────────────────────────────────────────────────────────────
+V012  [PENDING]  claude-sonnet-5
+  spec : a 100x100x6mm square plate with a 60mm square cutout centred and all outer edges chamfered 1.5mm
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[100.0, 100.0, 6.0] volume=37491.0
+──────────────────────────────────────────────────────────────────────────
+V018  [PENDING]  claude-sonnet-5
+  spec : a 55x55x3mm plate with a 20mm square cutout centred and 1mm chamfers on all four outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[55.0, 55.0, 3.0] volume=7766.333
+──────────────────────────────────────────────────────────────────────────
+V023  [PENDING]  claude-sonnet-5
+  spec : a 150x150x12mm plate with a 100mm square cutout centred and 3mm chamfers on all outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[150.0, 150.0, 12.0] volume=144528.0
+──────────────────────────────────────────────────────────────────────────
+V058  [PENDING]  claude-sonnet-5
+  spec : a snap-fit enclosure base 95x65x28mm with 2mm walls, a 3mm floor, and four small 4mm tall snap tabs 6mm wide protruding inward from the top edge of each long wa
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×65.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 65.0, 28.0] volume=34269.0
+──────────────────────────────────────────────────────────────────────────
+V080  [PENDING]  claude-sonnet-5
+  spec : a 28mm diameter 95mm long shaft with a single 6mm wide flat milled 4mm deep along a 30mm section near one end for set-screw clamping
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×28.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 28.0, 28.0] volume=57795.876
+──────────────────────────────────────────────────────────────────────────
+V084  [PENDING]  claude-sonnet-5
+  spec : a 22mm diameter 110mm long shaft with two opposing 5mm deep flats machined on the last 25mm to form a 12mm across-flats wrench grip
+  gate : [spec] the request says '5mm deep' but no axis of the part measures 5mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the reque
+  gate : [spec] the request says '12mm across' but no axis of the part measures 12mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[22.0, 22.0, 110.0] volume=38567.578
+──────────────────────────────────────────────────────────────────────────
+V100  [PENDING]  claude-sonnet-5
+  spec : a 25mm diameter 105mm long shaft with two opposing flats machined to 18mm across-flats over the middle 30mm of its length
+  gate : [spec] the request says '18mm across' but no axis of the part measures 18mm (extents: 105.0×25.0×25.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[25.0, 25.0, 105.0] volume=49035.511
+──────────────────────────────────────────────────────────────────────────
+V125  [PENDING]  claude-sonnet-5
+  spec : a 12mm diameter tube swept along a helical path with an 80mm coil diameter, 150mm pitch, and 3 full turns
+  gate : [spec] the request says '12mm diameter' but no axis of the part measures 12mm (extents: 460.3×92.0×92.0mm) — size the geometry from the numbers in the
+  built: solids=1 bbox=[92.0, 92.0, 460.3] volume=99306.253
+──────────────────────────────────────────────────────────────────────────
+V129  [PENDING]  claude-sonnet-5
+  spec : a lofted hex-to-round transition 90mm tall, hexagonal 70mm across flats at the base narrowing to a 50mm diameter circle at the top, with 2mm walls
+  gate : [spec] the request says '50mm diameter' but no axis of the part measures 50mm (extents: 90.0×80.8×70.0mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[80.83, 70.0, 90.0] volume=35378.697
+──────────────────────────────────────────────────────────────────────────
+V154  [PENDING]  claude-sonnet-5
+  spec : a lofted round-to-triangle transition 90mm long, 35mm diameter circle at one end blending to a triangular profile 60mm per side at the other, with 2mm walls
+  gate : [spec] the request says '35mm diameter' but no axis of the part measures 35mm (extents: 90.0×60.0×52.1mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[52.14, 60.0, 90.0] volume=24764.217
+──────────────────────────────────────────────────────────────────────────
+V156  [PENDING]  claude-sonnet-5
+  spec : a teardrop stylus tip formed by a 16mm diameter sphere blending into a 20mm tall tapering shaft ending at 6mm diameter
+  gate : [spec] the request says '20mm tall' but no axis of the part measures 20mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the requ
+  gate : [spec] the request says '6mm diameter' but no axis of the part measures 6mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the re
+  built: solids=1 bbox=[16.0, 16.0, 28.0] volume=3133.577
+──────────────────────────────────────────────────────────────────────────
+V158  [PENDING]  claude-sonnet-5
+  spec : a 150x100x3mm rectangular grille with a 10x8 grid of 4mm diameter holes spaced 12mm apart in both directions, leaving a 10mm solid border
+  gate : [spec] the request says '12mm apart' but the measured hole-centre spacing/circle is 17.0, 37.9, 50.9, 61.2, 70.0, 84.9, 91.4, 103.2, 116.2, 136.8mm — 
+  built: solids=1 bbox=[150.0, 100.0, 3.0] volume=41984.071
+──────────────────────────────────────────────────────────────────────────
+V163  [PENDING]  claude-sonnet-5
+  spec : a 180x40x3mm ventilation strip with twenty 25x3mm rounded slots arranged in two staggered rows of ten, spaced 8mm apart
+  gate : [spec] the request says '8mm apart' but the measured hole-centre spacing/circle is 96.1mm — position the hole centres from the request's numbers (e.g.
+  built: solids=1 bbox=[180.0, 40.0, 3.0] volume=19865.588
+──────────────────────────────────────────────────────────────────────────
+V170  [PENDING]  claude-sonnet-5
+  spec : a 220x120x3mm access panel with a grid of forty 10x4mm rounded ventilation slots arranged in five rows of eight, evenly spaced 15mm apart
+  gate : [spec] the request says '15mm apart' but the measured hole-centre spacing/circle is 9.0, 21.0, 31.3, 37.4, 49.8, 61.1, 75.1, 86.4, 91.4, 101.5, 114.5,
+  built: solids=1 bbox=[220.0, 120.0, 3.0] volume=74812.036
+──────────────────────────────────────────────────────────────────────────
+V172  [PENDING]  claude-sonnet-5
+  spec : a 300x80x4mm perforated tray floor with a 20x4 grid of 5mm drainage holes spaced 14mm apart, leaving a 10mm unperforated border
+  gate : [spec] the request says '14mm apart' but the measured hole-centre spacing/circle is 19.8, 44.3, 59.4, 71.4, 81.6, 99.0, 106.6, 129.8, 157.1, 184.7, 21
+  built: solids=1 bbox=[300.0, 80.0, 4.0] volume=89716.815
+──────────────────────────────────────────────────────────────────────────
+V182  [PENDING]  claude-sonnet-5
+  spec : a three-piece spacer stack: a 60x60x6mm base plate and a 60x60x6mm top plate each with four 6mm corner holes, separated by four 8mm diameter, 20mm long cylindri
+  gate : [spec] the request says '20mm long' but no axis of the part measures 20mm (extents: 60.0×60.0×32.0mm) — size the geometry from the numbers in the requ
+  built: solids=6 bbox=[60.0, 60.0, 32.0] volume=45864.071
+──────────────────────────────────────────────────────────────────────────
+V150  [PENDING]  claude-sonnet-5
+  spec : a drafted circular bezel shell 100mm diameter and 15mm tall with a 3 degree draft, 1.5mm wall thickness, and a 3mm fillet along the top edge
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M08  [PENDING]  claude-opus-5
+  spec : a piano hinge as two interleaved solids: a 150mm long leaf with five 10mm diameter knuckles spaced 20mm apart along its edge, mating with a second identical 150
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M25  [PENDING]  claude-opus-5
+  spec : an oscillating cam-arm mechanism as two solids: a 70mm diameter eccentric cam plate 10mm thick offset 15mm from its 12mm bore, and a slotted follower arm 150mm 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
++ for f in $(ls -t benchmarks/results/teacher_pilot_2026073*.json | head -3)
++ python3 scripts/review_queue.py --queue-run benchmarks/results/teacher_pilot_20260731_133247.json --which accepted --no-render
+queued 172 part(s) from teacher_pilot_20260731_133247.json (accepted)
+queue: 226 item(s), 215 awaiting your call
+files: /home/theultimatecunt/CAD/review
+
+──────────────────────────────────────────────────────────────────────────
+C01  [accept]  claude-sonnet-5
+  spec : a deep-groove rolling element bearing as three distinct solids: an outer ring 52mm outside diameter and 15mm wide with an internal groove, an inner ring 25mm bo
+  gate : this assembly should have 3 parts but produced 10 separate bodies — a part has fragmented into extra pieces. Make each named part exactly one solid, t
+  built: solids=10 bbox=[52.0, 52.0, 15.0] volume=14725.823
+──────────────────────────────────────────────────────────────────────────
+C02  [reject]  claude-sonnet-5
+  spec : a piston and connecting rod as two separate solids: a 70mm diameter piston 55mm tall with two 3mm ring grooves and a 20mm gudgeon pin bore across its skirt, and
+  gate : [spec] the request says '140mm long' but no axis of the part measures 140mm (extents: 211.0×70.0×70.0mm) — size the geometry from the numbers in the r
+  built: solids=2 bbox=[70.0, 70.0, 164.0] volume=148831.348
+──────────────────────────────────────────────────────────────────────────
+C04  [reject]  claude-sonnet-5
+  spec : a two stage reduction as two separate spur gears on parallel axes: a 20 tooth pinion of 3mm module and 18mm face width with a 15mm bore, meshing with a 60 tooth
+  gate : the spec needs a Ø30mm bore but no bore of that size was measured — add it (cut a Ø30mm cylinder into the part where the spec places it).
+  built: solids=2 bbox=[246.0, 186.0, 18.0] volume=489969.634
+──────────────────────────────────────────────────────────────────────────
+C07  [reject]  claude-sonnet-5
+  spec : a universal joint as three solids: two identical yokes each with a 30mm shaft 40mm long splitting into two 12mm thick arms 45mm apart bored 10mm, and a cross sh
+  gate : ERROR: No build123d Part/Compound found in source file.
+Set:  result = bp.part  (or result = <your_shape_var>)
+
+  built: solids=5 bbox=[69.0, 69.0, 140.0] volume=87771.251
+──────────────────────────────────────────────────────────────────────────
+C12  [reject]  claude-sonnet-5
+  spec : a radial impeller and its scroll housing as two solids: a 90mm diameter impeller with twelve backswept vanes 3mm thick on a 15mm hub, and a surrounding volute h
+  gate : ERROR: Volume is near-zero (-259859.213750 mm³) — likely a surface, not a solid
+  built: solids=14 bbox=[164.44, 155.63, 39.85] volume=123938.898
+──────────────────────────────────────────────────────────────────────────
+C03  [accept]  claude-sonnet-5
+  spec : a crankshaft for a single cylinder: a 30mm diameter main journal 180mm long with a 25mm diameter big-end journal offset 35mm from the axis, joined by two 60x20m
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C05  [reject]  claude-sonnet-5
+  spec : a worm and worm wheel pair as two solids: a single start worm 24mm outside diameter and 60mm long with a 6mm axial pitch, and a 40 tooth wheel 90mm outside diam
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C06  [reject]  claude-sonnet-5
+  spec : a rack and pinion as two solids: a 200mm long rack 20mm tall with 24 straight teeth of 4mm module across its top face, and a matching 18 tooth pinion with a 20m
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C08  [accept]  claude-sonnet-5
+  spec : a cam and follower as two solids: an eccentric disc cam 60mm diameter and 12mm thick on a 15mm bore with 8mm of lift, and a flat faced follower 25mm diameter on
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C09  [reject]  claude-sonnet-5
+  spec : a Geneva indexing mechanism as two solids: a driven wheel 100mm diameter and 10mm thick with six radial slots 12mm wide, and a driver plate 60mm diameter carryi
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+C11  [reject]  claude-sonnet-5
+  spec : a shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, a 8mm keyway and three 9mm bolt holes on a 50mm circle,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M05  [PENDING]  claude-opus-5
+  spec : a ratchet and pawl mechanism as two solids: an 80mm diameter ratchet wheel 10mm thick with 24 asymmetric teeth around its rim on a 15mm bore, engaged by a 40mm 
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M10  [PENDING]  claude-opus-5
+  spec : a right-angle bevel gear pair as two solids: a 20-tooth pinion bevel gear of 4mm module with a 30mm pitch cone apex, and a 40-tooth mating bevel gear of the sam
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M23  [PENDING]  claude-opus-5
+  spec : a lead-screw slide as two solids: a 200mm long base with two parallel 12mm dovetail rails and a fixed 10mm diameter, 4mm pitch lead screw supported at both ends
+  built: solids=None bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M01  [PENDING]  claude-opus-5
+  spec : a piston and connecting rod assembly as two solids: a 70mm diameter, 55mm tall piston that is hollow beneath its 6mm thick crown (open skirt with two internal p
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M02  [PENDING]  claude-opus-5
+  spec : a two-stage gear reduction as two separate spur gears on parallel axes: a 20-tooth pinion of 3mm module, 18mm face width and 15mm bore, meshing with a 60-tooth 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M03  [PENDING]  claude-opus-5
+  spec : a flexible shaft coupling as three solids: two identical hubs 70mm diameter and 30mm long, each with a 25mm bore, an 8mm keyway slot cut fully through the hub l
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M04  [PENDING]  claude-opus-5
+  spec : a cam and roller-follower assembly as two solids: a 50mm base circle plate cam 15mm thick with a 12mm rise profile over 120 degrees of rotation on a 10mm centre
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M06  [PENDING]  claude-opus-5
+  spec : a four-bar linkage as three solids: a 100mm fixed frame link with pivot bores 90mm apart, a 40mm crank link pinned at one end to the frame with a 10mm pivot bor
+  gate : gate verdict: accepted-first-try
+  built: solids=4 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M07  [PENDING]  claude-opus-5
+  spec : a toggle clamp mechanism as three solids: a 120mm long base bracket with two upright ears bored 8mm apart at 40mm centres, a 90mm handle link pinned to one ear,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M09  [PENDING]  claude-opus-5
+  spec : a V-belt pulley pair as two solids on parallel shafts: a 60mm pitch diameter driver pulley with a 34-degree, 12mm deep V-groove and a 15mm bore, and a 180mm pit
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M11  [PENDING]  claude-opus-5
+  spec : a roller chain drive as two solids: a 15-tooth drive sprocket of 12.7mm pitch and a 12mm bore, and a 45-tooth driven sprocket of the same pitch and a 20mm bore,
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M12  [PENDING]  claude-opus-5
+  spec : a scissor lift mechanism as three solids: two identical 200mm long cross-arms pivoted at their midpoints on a common 10mm centre pin, a fixed base rail with a 1
+  gate : gate verdict: accepted-first-try
+  built: solids=5 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M13  [PENDING]  claude-opus-5
+  spec : a ball-and-socket joint as two solids: a 25mm diameter ball on a 10mm stem 40mm long, seated inside a matching 25.4mm internal diameter socket housing with a 30
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M14  [PENDING]  claude-opus-5
+  spec : a screw clamp as two solids: a C-shaped frame 120mm deep with a threaded 16mm bore through its upper arm, and a matching 16mm threaded spindle 100mm long with a
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M15  [PENDING]  claude-opus-5
+  spec : a dovetail slide assembly as two solids: a 150mm long base with a 60-degree dovetail groove 20mm wide and 12mm deep along its length, and a matching 140mm long 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M16  [PENDING]  claude-opus-5
+  spec : a quarter-turn cam latch as two solids: a 30mm diameter cam lobe on an 8mm square-drive shaft 25mm long, and a mating strike plate with a 20mm wide slot the lob
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M18  [PENDING]  claude-opus-5
+  spec : a slider-crank mechanism as three solids: a 40mm throw crank disc 20mm thick pinned to a fixed 15mm shaft, a 120mm long connecting rod with a 15mm small-end bor
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M19  [PENDING]  claude-opus-5
+  spec : a detent indexing mechanism as two solids: an indexing plate 100mm diameter with eight 6mm hemispherical detent dimples on a 70mm radius, and a spring-loaded pl
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M20  [PENDING]  claude-opus-5
+  spec : a collet chuck assembly as two solids: a 32mm diameter collet with three longitudinal slots and a 20-degree external taper matching a 32.4mm internal taper bore
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M21  [PENDING]  claude-opus-5
+  spec : a roller-ramp overrunning clutch as two solids: an inner hub 40mm diameter with six 5mm deep ramped pockets around its rim, and a surrounding outer race 70mm in
+  gate : gate verdict: accepted-first-try
+  built: solids=8 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M22  [PENDING]  claude-opus-5
+  spec : a bell-crank lever mechanism as two solids: a fixed bracket with a 10mm pivot bore mounted 50mm above a baseplate, and an L-shaped bell-crank lever with two arm
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M24  [PENDING]  claude-opus-5
+  spec : a spring-loaded check valve as two solids: a valve body with a 25mm diameter seat bore and a 30-degree conical seating face, and a matching 25mm diameter poppet
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V005  [PENDING]  claude-sonnet-5
+  spec : a 130x90x8mm plate with all four edges chamfered 2mm and a 30mm square cutout offset 20mm from the left edge
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[130.0, 90.0, 8.0] volume=86336.0
+──────────────────────────────────────────────────────────────────────────
+V011  [PENDING]  claude-sonnet-5
+  spec : a 220x110x10mm strap with eight 5mm holes spaced 25mm apart in two rows of four along its length
+  gate : [spec] the request says '25mm apart' but the measured hole-centre spacing/circle is 35.4, 79.1mm — position the hole centres from the request's number
+  built: solids=1 bbox=[220.0, 110.0, 10.0] volume=240429.204
+──────────────────────────────────────────────────────────────────────────
+V012  [PENDING]  claude-sonnet-5
+  spec : a 100x100x6mm square plate with a 60mm square cutout centred and all outer edges chamfered 1.5mm
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[100.0, 100.0, 6.0] volume=37491.0
+──────────────────────────────────────────────────────────────────────────
+V018  [PENDING]  claude-sonnet-5
+  spec : a 55x55x3mm plate with a 20mm square cutout centred and 1mm chamfers on all four outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[55.0, 55.0, 3.0] volume=7766.333
+──────────────────────────────────────────────────────────────────────────
+V023  [PENDING]  claude-sonnet-5
+  spec : a 150x150x12mm plate with a 100mm square cutout centred and 3mm chamfers on all outer edges
+  gate : [spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely failed silently. Select the edge explicitly (e.g. the top out
+  built: solids=1 bbox=[150.0, 150.0, 12.0] volume=144528.0
+──────────────────────────────────────────────────────────────────────────
+V058  [PENDING]  claude-sonnet-5
+  spec : a snap-fit enclosure base 95x65x28mm with 2mm walls, a 3mm floor, and four small 4mm tall snap tabs 6mm wide protruding inward from the top edge of each long wa
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×65.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 65.0, 28.0] volume=34269.0
+──────────────────────────────────────────────────────────────────────────
+V080  [PENDING]  claude-sonnet-5
+  spec : a 28mm diameter 95mm long shaft with a single 6mm wide flat milled 4mm deep along a 30mm section near one end for set-screw clamping
+  gate : [spec] the request says '6mm wide' but no axis of the part measures 6mm (extents: 95.0×28.0×28.0mm) — size the geometry from the numbers in the reques
+  built: solids=1 bbox=[95.0, 28.0, 28.0] volume=57795.876
+──────────────────────────────────────────────────────────────────────────
+V084  [PENDING]  claude-sonnet-5
+  spec : a 22mm diameter 110mm long shaft with two opposing 5mm deep flats machined on the last 25mm to form a 12mm across-flats wrench grip
+  gate : [spec] the request says '5mm deep' but no axis of the part measures 5mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the reque
+  gate : [spec] the request says '12mm across' but no axis of the part measures 12mm (extents: 110.0×22.0×22.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[22.0, 22.0, 110.0] volume=38567.578
+──────────────────────────────────────────────────────────────────────────
+V100  [PENDING]  claude-sonnet-5
+  spec : a 25mm diameter 105mm long shaft with two opposing flats machined to 18mm across-flats over the middle 30mm of its length
+  gate : [spec] the request says '18mm across' but no axis of the part measures 18mm (extents: 105.0×25.0×25.0mm) — size the geometry from the numbers in the r
+  built: solids=1 bbox=[25.0, 25.0, 105.0] volume=49035.511
+──────────────────────────────────────────────────────────────────────────
+V125  [PENDING]  claude-sonnet-5
+  spec : a 12mm diameter tube swept along a helical path with an 80mm coil diameter, 150mm pitch, and 3 full turns
+  gate : [spec] the request says '12mm diameter' but no axis of the part measures 12mm (extents: 460.3×92.0×92.0mm) — size the geometry from the numbers in the
+  built: solids=1 bbox=[92.0, 92.0, 460.3] volume=99306.253
+──────────────────────────────────────────────────────────────────────────
+V129  [PENDING]  claude-sonnet-5
+  spec : a lofted hex-to-round transition 90mm tall, hexagonal 70mm across flats at the base narrowing to a 50mm diameter circle at the top, with 2mm walls
+  gate : [spec] the request says '50mm diameter' but no axis of the part measures 50mm (extents: 90.0×80.8×70.0mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[80.83, 70.0, 90.0] volume=35378.697
+──────────────────────────────────────────────────────────────────────────
+V154  [PENDING]  claude-sonnet-5
+  spec : a lofted round-to-triangle transition 90mm long, 35mm diameter circle at one end blending to a triangular profile 60mm per side at the other, with 2mm walls
+  gate : [spec] the request says '35mm diameter' but no axis of the part measures 35mm (extents: 90.0×60.0×52.1mm) — size the geometry from the numbers in the 
+  built: solids=1 bbox=[52.14, 60.0, 90.0] volume=24764.217
+──────────────────────────────────────────────────────────────────────────
+V156  [PENDING]  claude-sonnet-5
+  spec : a teardrop stylus tip formed by a 16mm diameter sphere blending into a 20mm tall tapering shaft ending at 6mm diameter
+  gate : [spec] the request says '20mm tall' but no axis of the part measures 20mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the requ
+  gate : [spec] the request says '6mm diameter' but no axis of the part measures 6mm (extents: 28.0×16.0×16.0mm) — size the geometry from the numbers in the re
+  built: solids=1 bbox=[16.0, 16.0, 28.0] volume=3133.577
+──────────────────────────────────────────────────────────────────────────
+V158  [PENDING]  claude-sonnet-5
+  spec : a 150x100x3mm rectangular grille with a 10x8 grid of 4mm diameter holes spaced 12mm apart in both directions, leaving a 10mm solid border
+  gate : [spec] the request says '12mm apart' but the measured hole-centre spacing/circle is 17.0, 37.9, 50.9, 61.2, 70.0, 84.9, 91.4, 103.2, 116.2, 136.8mm — 
+  built: solids=1 bbox=[150.0, 100.0, 3.0] volume=41984.071
+──────────────────────────────────────────────────────────────────────────
+V163  [PENDING]  claude-sonnet-5
+  spec : a 180x40x3mm ventilation strip with twenty 25x3mm rounded slots arranged in two staggered rows of ten, spaced 8mm apart
+  gate : [spec] the request says '8mm apart' but the measured hole-centre spacing/circle is 96.1mm — position the hole centres from the request's numbers (e.g.
+  built: solids=1 bbox=[180.0, 40.0, 3.0] volume=19865.588
+──────────────────────────────────────────────────────────────────────────
+V170  [PENDING]  claude-sonnet-5
+  spec : a 220x120x3mm access panel with a grid of forty 10x4mm rounded ventilation slots arranged in five rows of eight, evenly spaced 15mm apart
+  gate : [spec] the request says '15mm apart' but the measured hole-centre spacing/circle is 9.0, 21.0, 31.3, 37.4, 49.8, 61.1, 75.1, 86.4, 91.4, 101.5, 114.5,
+  built: solids=1 bbox=[220.0, 120.0, 3.0] volume=74812.036
+──────────────────────────────────────────────────────────────────────────
+V172  [PENDING]  claude-sonnet-5
+  spec : a 300x80x4mm perforated tray floor with a 20x4 grid of 5mm drainage holes spaced 14mm apart, leaving a 10mm unperforated border
+  gate : [spec] the request says '14mm apart' but the measured hole-centre spacing/circle is 19.8, 44.3, 59.4, 71.4, 81.6, 99.0, 106.6, 129.8, 157.1, 184.7, 21
+  built: solids=1 bbox=[300.0, 80.0, 4.0] volume=89716.815
+──────────────────────────────────────────────────────────────────────────
+V182  [PENDING]  claude-sonnet-5
+  spec : a three-piece spacer stack: a 60x60x6mm base plate and a 60x60x6mm top plate each with four 6mm corner holes, separated by four 8mm diameter, 20mm long cylindri
+  gate : [spec] the request says '20mm long' but no axis of the part measures 20mm (extents: 60.0×60.0×32.0mm) — size the geometry from the numbers in the requ
+  built: solids=6 bbox=[60.0, 60.0, 32.0] volume=45864.071
+──────────────────────────────────────────────────────────────────────────
+V150  [PENDING]  claude-sonnet-5
+  spec : a drafted circular bezel shell 100mm diameter and 15mm tall with a 3 degree draft, 1.5mm wall thickness, and a 3mm fillet along the top edge
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M08  [PENDING]  claude-opus-5
+  spec : a piano hinge as two interleaved solids: a 150mm long leaf with five 10mm diameter knuckles spaced 20mm apart along its edge, mating with a second identical 150
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+M25  [PENDING]  claude-opus-5
+  spec : an oscillating cam-arm mechanism as two solids: a 70mm diameter eccentric cam plate 10mm thick offset 15mm from its 12mm bore, and a slotted follower arm 150mm 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V001  [PENDING]  claude-sonnet-5
+  spec : a 150x100x6mm aluminium plate with four 8mm through holes located 15mm in from each corner
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V002  [PENDING]  claude-sonnet-5
+  spec : a 110x75x5mm mounting plate with a 25mm central through hole and a 45mm diameter counterbore 3mm deep on one face
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V003  [PENDING]  claude-sonnet-5
+  spec : a 200x80x10mm steel bar with a 15mm wide slot running the full 200mm length, centred and open at both ends
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V004  [PENDING]  claude-sonnet-5
+  spec : a 60x60x4mm square tab with a single 6mm corner hole 10mm from each of two adjacent edges
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V006  [PENDING]  claude-sonnet-5
+  spec : a 95x45x6mm bracket blank with two 8mm through holes spaced 60mm apart along its centreline
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V007  [PENDING]  claude-sonnet-5
+  spec : a 160x100x12mm base plate with a 50mm bolt circle of six 6mm holes centred on the plate
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V008  [PENDING]  claude-sonnet-5
+  spec : a 75x75x5mm panel with a 30mm diameter through hole centred and four 3mm corner holes 8mm from each edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V009  [PENDING]  claude-sonnet-5
+  spec : a 140x60x8mm plate with a 12mm wide slot running 80mm along its length, closed at both ends and centred lengthwise
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V010  [PENDING]  claude-sonnet-5
+  spec : a 50x50x3mm shim with a single 5mm through hole offset 15mm from the centre along the diagonal
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V013  [PENDING]  claude-sonnet-5
+  spec : a 85x85x8mm plate with a 18mm central bore counterbored to 35mm diameter and 4mm deep from the top face
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V014  [PENDING]  claude-sonnet-5
+  spec : a 65x40x4mm tab with two 4mm through holes on a 30mm bolt circle spaced 180 degrees apart
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V015  [PENDING]  claude-sonnet-5
+  spec : a 180x70x6mm plate with a 10mm wide slot running 100mm along its length, open at one end and rounded at the closed end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V016  [PENDING]  claude-sonnet-5
+  spec : a 90x60x5mm plate with a 15mm through hole at each corner and a 25mm central through hole
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V017  [PENDING]  claude-sonnet-5
+  spec : a 130x130x10mm square base with a 70mm bolt circle carrying six 8mm holes and a 40mm central counterbore 5mm deep
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V019  [PENDING]  claude-sonnet-5
+  spec : a 240x80x8mm bar with a 20mm wide slot running 150mm along its length, closed at both ends and offset 10mm from centre
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V020  [PENDING]  claude-sonnet-5
+  spec : a 70x50x6mm plate with a single 16mm counterbore 6mm deep surrounding a 8mm through hole at its centre
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V021  [PENDING]  claude-sonnet-5
+  spec : a 105x105x8mm panel with four 10mm through holes on a 80mm bolt circle and a 30mm central through hole
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V022  [PENDING]  claude-sonnet-5
+  spec : a 80x30x5mm strip with three 5mm through holes spaced 20mm apart along its centreline
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V024  [PENDING]  claude-sonnet-5
+  spec : a 45x45x4mm square pad with a single 10mm through hole centred and 2mm chamfers on the top edges
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V025  [PENDING]  claude-sonnet-5
+  spec : a 175x95x10mm plate with a 14mm wide slot running 120mm along its length, open at one end and a 6mm hole 20mm from the closed end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V026  [PENDING]  claude-sonnet-5
+  spec : a 115x65x6mm plate with two 10mm through holes 70mm apart and a 30mm diameter counterbore 4mm deep centred between them
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V027  [PENDING]  claude-sonnet-5
+  spec : an L-bracket with a 90x50x6mm base leg and a 50x50x6mm upright leg, each leg drilled with two 8mm holes on a 20mm bolt spacing
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V028  [PENDING]  claude-sonnet-5
+  spec : a U-shaped mounting bracket 80mm wide with two 40mm tall side walls 5mm thick and a 60mm flat base, four 6mm holes through the base
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V029  [PENDING]  claude-sonnet-5
+  spec : a T-bracket formed from a 100x30x5mm flat bar with a perpendicular 60x30x5mm stem centered along its length, 7mm holes at each end of the flat bar
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V030  [PENDING]  claude-sonnet-5
+  spec : a 55x55x4mm right-angle bracket with a stiffening gusset 4mm thick spanning the inside corner, one 10mm clearance hole in each leg
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V031  [PENDING]  claude-sonnet-5
+  spec : a mounting tab 40x25x3mm with a single 6.5mm bolt hole centered 8mm from one edge and both corners on that edge rounded to 4mm radius
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V032  [PENDING]  claude-sonnet-5
+  spec : an L-shaped corner bracket with a 120x40x7mm horizontal leg and an 80x40x7mm vertical leg, three 9mm holes evenly spaced along the horizontal leg
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V033  [PENDING]  claude-sonnet-5
+  spec : a shelf support bracket shaped like a right triangle with 70mm and 70mm legs and a 6mm thick web, a 5mm gusset rib running along the hypotenuse
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V034  [PENDING]  claude-sonnet-5
+  spec : a U-channel bracket 65mm wide with 30mm tall flanges 4mm thick and a 45mm base, two 6mm holes in each flange aligned across from each other
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V035  [PENDING]  claude-sonnet-5
+  spec : a small mounting tab 35x35x4mm with two 5mm holes on a 20mm diagonal spacing and all four corners rounded to 5mm radius
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V036  [PENDING]  claude-sonnet-5
+  spec : an angle bracket with a 100x60x8mm horizontal leg and a 60x60x8mm vertical leg, a triangular gusset 6mm thick reinforcing the bend
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V037  [PENDING]  claude-sonnet-5
+  spec : a T-shaped bracket with a 90x25x5mm crossbar and a 50x25x5mm stem, two 6mm holes in the crossbar and one 8mm hole in the stem
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V038  [PENDING]  claude-sonnet-5
+  spec : a corner gusset plate 50x50x5mm with a quarter-circle cutout of 20mm radius removed from the outer corner and a 6mm hole in each remaining tab
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V039  [PENDING]  claude-sonnet-5
+  spec : a wall mounting bracket with a 75x45x6mm vertical plate and a 45x45x6mm horizontal shelf, four 8mm holes arranged in a square pattern on the vertical plate
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V040  [PENDING]  claude-sonnet-5
+  spec : a small L-bracket 30x30x3mm with a single 4mm hole in each leg positioned 10mm from the bend
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V041  [PENDING]  claude-sonnet-5
+  spec : a heavy-duty angle bracket with a 130x70x10mm horizontal leg and a 70x70x10mm vertical leg, two 12mm holes in each leg and a 8mm thick gusset between them
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V042  [PENDING]  claude-sonnet-5
+  spec : a U-bracket 90mm wide with 50mm tall side arms 6mm thick, each arm carrying a single 10mm hole 15mm from its top edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V043  [PENDING]  claude-sonnet-5
+  spec : a flat mounting tab 60x20x4mm with two 5mm holes spaced 40mm apart along its centerline
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V044  [PENDING]  claude-sonnet-5
+  spec : a right-angle bracket with a 65x40x5mm base leg and a 40x40x5mm upright leg, a rounded fillet gusset 4mm thick blending the inside corner
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V045  [PENDING]  claude-sonnet-5
+  spec : a T-bracket with a 110x35x6mm base bar and a 70x35x6mm perpendicular rib centered on it, two 9mm holes near each end of the base bar
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V046  [PENDING]  claude-sonnet-5
+  spec : a compact corner bracket 45x45x4mm with a diagonal gusset rib 3mm thick and a 5mm hole centered in each leg
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V048  [PENDING]  claude-sonnet-5
+  spec : an L-bracket with a 85x55x5mm horizontal leg and a 55x55x5mm vertical leg, three 6mm holes along the horizontal leg spaced 20mm apart
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V049  [PENDING]  claude-sonnet-5
+  spec : a U-shaped bracket 100mm wide with 35mm tall flanges 5mm thick, each flange featuring two 7mm holes on a 25mm bolt pattern
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V050  [PENDING]  claude-sonnet-5
+  spec : a mounting tab 50x30x3mm with a slotted hole 6mm wide by 15mm long centered along its length
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V051  [PENDING]  claude-sonnet-5
+  spec : a gusseted L-bracket with a 70x50x6mm horizontal leg and a 50x50x6mm vertical leg, a triangular rib 5mm thick set 10mm in from each edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V052  [PENDING]  claude-sonnet-5
+  spec : a small T-shaped tab 40x40x4mm with a 20mm wide stem and a single 6mm hole centered in the crossbar portion
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V053  [PENDING]  claude-sonnet-5
+  spec : an open-top enclosure 140x100x50mm with 3mm walls and a 4mm floor, with four M3 clearance holes 3.2mm diameter drilled through the floor near the corners for mo
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V054  [PENDING]  claude-sonnet-5
+  spec : a two-piece electronics case 130x90x40mm with 2mm walls, the base having a 3mm deep recessed ledge around the inside perimeter to seat a separate flat lid, and 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V055  [PENDING]  claude-sonnet-5
+  spec : a hollow junction box 100x100x60mm with 3.5mm walls, closed on all sides except a 60x40mm rectangular opening on top with a 2mm deep recessed lip for a sliding 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V056  [PENDING]  claude-sonnet-5
+  spec : a battery compartment case 85x55x30mm with 2.5mm walls and a 3mm floor, featuring two internal rib walls 1.5mm thick spaced 25mm apart dividing the cavity into 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V057  [PENDING]  claude-sonnet-5
+  spec : an open-top instrument housing 160x110x45mm with 3mm walls and a 3.5mm floor, with six cylindrical bosses 10mm across and 12mm tall arranged in two rows of thre
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V059  [PENDING]  claude-sonnet-5
+  spec : a hollow control panel box 200x120x70mm with 4mm walls and a 5mm floor, open at the top, with a 15mm diameter circular cutout centered on one long wall for a ca
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V060  [PENDING]  claude-sonnet-5
+  spec : a stacked-tray enclosure 110x80x60mm with 3mm walls split into two open compartments by an internal horizontal shelf 3mm thick located 25mm above the floor, wit
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V061  [PENDING]  claude-sonnet-5
+  spec : an open-top sensor housing 70x50x30mm with 2.5mm walls and a 3mm floor, with two cylindrical standoffs 6mm across and 8mm tall rising from the floor along the c
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V062  [PENDING]  claude-sonnet-5
+  spec : a two-part clamshell case 150x100x45mm with 2.5mm walls, the lower half having a 4mm wide recessed groove running around the inside rim to accept an O-ring seal
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V063  [PENDING]  claude-sonnet-5
+  spec : a rectangular relay box 120x70x50mm with 3mm walls and a 4mm floor, open at the top, with a 10mm wide rectangular slot cut through one short wall near the base 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V064  [PENDING]  claude-sonnet-5
+  spec : a hollow enclosure 180x130x55mm with 3.5mm walls and a 4mm floor, having a stepped recessed lip 6mm wide and 2mm deep around the inner rim for a snap-on lid, pl
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V065  [PENDING]  claude-sonnet-5
+  spec : an open-top storage bin 100x70x40mm with 3mm walls and a 3mm floor, with a 5mm radius fillet along all internal corners and a 40x20mm rectangular cutout centere
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V066  [PENDING]  claude-sonnet-5
+  spec : a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartment
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V067  [PENDING]  claude-sonnet-5
+  spec : a hollow cable junction case 90x90x45mm with 3mm walls and a 3.5mm floor, open at the top, with three 8mm diameter circular cutouts arranged in a row along one 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V068  [PENDING]  claude-sonnet-5
+  spec : a lidded utility case 160x110x50mm with 3mm walls, the base featuring a 4mm deep recessed pocket 8mm wide around the inside rim to seat a separate lid with matc
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V069  [PENDING]  claude-sonnet-5
+  spec : an open-top junction enclosure 75x55x35mm with 2.5mm walls and a 3mm floor, with a single cylindrical boss 12mm across and 15mm tall centered on the floor drill
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V070  [PENDING]  claude-sonnet-5
+  spec : a two-chamber splitter box 130x80x40mm with 2.5mm walls divided by a full-height internal wall 2.5mm thick down the center, each chamber having its own 20x10mm 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V071  [PENDING]  claude-sonnet-5
+  spec : a hollow project enclosure 100x60x30mm with 2mm walls and a 3mm floor, open at the top, with a 3mm wide lip recessed 2mm around the inside of the rim and four 3
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V072  [PENDING]  claude-sonnet-5
+  spec : a rugged field case 220x150x80mm with 4mm walls and a 5mm floor, featuring a 6mm wide gasket groove 3mm deep around the top rim, eight internal bosses 10mm acro
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V073  [PENDING]  claude-sonnet-5
+  spec : an open-top display housing 130x90x25mm with 3mm walls and a 3mm floor, with a stepped recess 5mm deep and 10mm wide around the entire top opening to seat a cle
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V075  [PENDING]  claude-sonnet-5
+  spec : a hollow terminal block housing 95x65x35mm with 3mm walls and a 3.5mm floor, open at the top, with five 4mm diameter holes drilled through the floor in a row sp
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V076  [PENDING]  claude-sonnet-5
+  spec : a compact dual-cavity enclosure 105x70x35mm with 2.5mm walls, split lengthwise by an internal wall 2mm thick, one cavity containing two bosses 6mm across and 9m
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V077  [PENDING]  claude-sonnet-5
+  spec : an open-top weatherproof box 175x125x60mm with 4mm walls and a 4.5mm floor, with a 5mm wide flat rim around the top opening drilled with eight 3.5mm through hol
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V079  [PENDING]  claude-sonnet-5
+  spec : a stepped shaft 150mm long with 35mm diameter for the first 60mm, stepping down to 22mm diameter for the remaining 90mm, with a 1.5mm x 45 degree chamfer on bot
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V081  [PENDING]  claude-sonnet-5
+  spec : a 32mm diameter 140mm long shaft with a 10mm wide by 5mm deep keyway running 45mm from one end and a 3mm wide circlip groove cut 8mm from the opposite end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V082  [PENDING]  claude-sonnet-5
+  spec : a 45mm diameter 200mm long shaft stepping down to 30mm diameter for the last 70mm, with a 6mm diameter cross-hole drilled through the smaller section 20mm from 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V083  [PENDING]  claude-sonnet-5
+  spec : a three-step shaft 180mm long: 40mm diameter for 50mm, 30mm diameter for 70mm, then 20mm diameter for the remaining 60mm, with a 6mm wide by 3mm deep keyway cut
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V085  [PENDING]  claude-sonnet-5
+  spec : a 38mm diameter 160mm long stepped shaft with a 25mm diameter reduced section for the last 55mm, a 2.5mm wide retaining ring groove 6mm from the shoulder, and a
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V086  [PENDING]  claude-sonnet-5
+  spec : a 50mm diameter 90mm long shaft with a 4mm wide circlip groove cut 10mm from each end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V087  [PENDING]  claude-sonnet-5
+  spec : a stepped shaft 220mm long with 42mm diameter for 80mm then 28mm diameter for 140mm, featuring an 8mm wide by 4mm deep keyway along 60mm of the smaller section 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V088  [PENDING]  claude-sonnet-5
+  spec : a 30mm diameter 100mm long shaft with a single 6mm diameter cross-hole drilled straight through its center
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V089  [PENDING]  claude-sonnet-5
+  spec : a 26mm diameter 130mm long shaft with a 5mm wide by 3mm deep keyway running the first 40mm and a 2mm wide circlip groove 5mm from that same end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V090  [PENDING]  claude-sonnet-5
+  spec : a stepped shaft 160mm long stepping from 48mm diameter down to 36mm diameter halfway along, with a 45 degree by 2mm chamfer at both shoulder edges
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V091  [PENDING]  claude-sonnet-5
+  spec : a 34mm diameter 175mm long shaft with two flats machined 180 degrees apart to 28mm across-flats over a 35mm section, plus a 6mm diameter cross-hole through the 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V092  [PENDING]  claude-sonnet-5
+  spec : a 55mm diameter 75mm long shaft with a 3mm wide retaining groove cut around the outside 12mm from one end and a 1mm x 45 degree chamfer on both ends
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V093  [PENDING]  claude-sonnet-5
+  spec : a two-step shaft 190mm long: 44mm diameter for 90mm then 32mm diameter for 100mm, with a 10mm wide by 4mm deep keyway cut along 70mm of the smaller diameter sec
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V094  [PENDING]  claude-sonnet-5
+  spec : a 20mm diameter 80mm long shaft with a 4mm wide by 2mm deep keyway running its full length
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V095  [PENDING]  claude-sonnet-5
+  spec : a 42mm diameter 145mm long shaft stepping to 33mm diameter for the final 45mm, with a 3mm circlip groove at the step shoulder and a 6mm diameter cross-hole dril
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V096  [PENDING]  claude-sonnet-5
+  spec : a 36mm diameter 120mm long shaft with a single flat milled 3mm deep along a 40mm section positioned 20mm from one end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V097  [PENDING]  claude-sonnet-5
+  spec : a stepped shaft 210mm long with 46mm diameter for 70mm, 34mm diameter for 80mm, and 24mm diameter for the remaining 60mm, including a 3mm wide circlip groove at
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V098  [PENDING]  claude-sonnet-5
+  spec : a 48mm diameter 100mm long shaft with an 8mm diameter through-hole drilled perpendicular to the axis 25mm from one end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V099  [PENDING]  claude-sonnet-5
+  spec : a 40mm diameter 165mm long shaft with a 12mm wide by 5mm deep keyway along the first 50mm, a 2.5mm wide circlip groove 8mm past the keyway, and a 20mm diameter 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V101  [PENDING]  claude-sonnet-5
+  spec : a stepped shaft 230mm long stepping from 50mm diameter down to 38mm diameter then to 26mm diameter in three equal 76mm-ish sections, with a 6mm wide by 3mm deep
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V102  [PENDING]  claude-sonnet-5
+  spec : a 33mm diameter 85mm long shaft with a 3mm wide circlip groove cut 6mm from one end and a 45 degree 2mm chamfer on the opposite end
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V103  [PENDING]  claude-sonnet-5
+  spec : a round pipe flange 130mm outside diameter and 16mm thick with a 60mm bore, a 3mm raised face 70mm across, and eight 11mm bolt holes on a 100mm circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V104  [PENDING]  claude-sonnet-5
+  spec : a square mounting flange 80x80x8mm with a 30mm central bore and four 7mm corner holes on a 60mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V105  [PENDING]  claude-sonnet-5
+  spec : a hubbed pipe flange with a 140mm diameter faceplate 18mm thick, a 40mm long hub projecting 25mm outside diameter, a 55mm through bore, and six 12mm bolt holes 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V106  [PENDING]  claude-sonnet-5
+  spec : a blind flange 90mm diameter and 10mm thick with six 6mm holes evenly spaced on a 68mm bolt circle and no bore through the center
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V107  [PENDING]  claude-sonnet-5
+  spec : a round flange 150mm outside diameter and 20mm thick with a 70mm central bore, a 2.5mm raised face 90mm across, and twelve 13mm holes on a 120mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V108  [PENDING]  claude-sonnet-5
+  spec : a rectangular mounting flange 100x60x9mm with a 25mm central bore and four 8mm holes positioned 8mm in from each corner
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V109  [PENDING]  claude-sonnet-5
+  spec : a hub-style pipe flange 160mm diameter and 22mm thick with a 65mm bore, a 50mm long hub stepping down to 90mm outside diameter, and eight 14mm bolt holes on a 1
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V110  [PENDING]  claude-sonnet-5
+  spec : a small blind flange 70mm diameter and 8mm thick with four 5mm holes on a 52mm bolt circle and a solid unbored face
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V111  [PENDING]  claude-sonnet-5
+  spec : a round flange 200mm outside diameter and 25mm thick with an 85mm central bore and twelve 16mm holes on a 165mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V112  [PENDING]  claude-sonnet-5
+  spec : a raised-face pipe flange 110mm diameter 14mm thick with a 45mm bore, a 3mm raised face 62mm across, and six 10mm bolt holes on an 88mm circle, plus a 20mm long
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V113  [PENDING]  claude-sonnet-5
+  spec : a square flange 120x120x12mm with a 50mm central bore and eight 9mm holes arranged on a 95mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V114  [PENDING]  claude-sonnet-5
+  spec : a thin round flange 95mm diameter and 6mm thick with a 32mm bore and four 6mm holes on a 75mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V115  [PENDING]  claude-sonnet-5
+  spec : a heavy pipe flange 180mm diameter and 28mm thick with a 90mm bore, a 4mm raised face 105mm across, a 35mm hub of 130mm outside diameter, and eight 17mm bolt ho
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V116  [PENDING]  claude-sonnet-5
+  spec : a blind flange 115mm diameter and 15mm thick with ten 8mm holes on a 90mm bolt circle and no central penetration
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V117  [PENDING]  claude-sonnet-5
+  spec : a round flange 75mm outside diameter and 9mm thick with a 25mm central bore and four 7mm holes on a 58mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V118  [PENDING]  claude-sonnet-5
+  spec : a hubbed mounting flange 145mm diameter and 19mm thick with a 58mm bore, a 30mm long hub projecting to 100mm outside diameter, and six 12mm holes on a 112mm bol
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V119  [PENDING]  claude-sonnet-5
+  spec : a rectangular flange 140x70x11mm with a 40mm central bore and six 8mm holes spaced along the long edges
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V120  [PENDING]  claude-sonnet-5
+  spec : a compact round flange 60mm diameter and 7mm thick with a 20mm bore and three 6mm holes on a 46mm bolt circle
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V121  [PENDING]  claude-sonnet-5
+  spec : a raised-face pipe flange 125mm diameter 17mm thick with a 48mm bore, a 3mm raised face 70mm across, an 18mm hub stub of 85mm outside diameter, and eight 11mm b
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V122  [PENDING]  claude-sonnet-5
+  spec : a large blind flange 220mm diameter and 30mm thick with sixteen 15mm holes on a 180mm bolt circle and a fully solid center face
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V123  [PENDING]  claude-sonnet-5
+  spec : a lofted transition duct 120mm long, rectangular 80x50mm at the inlet blending to a circular 45mm diameter outlet, with 2.5mm walls throughout
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V124  [PENDING]  claude-sonnet-5
+  spec : a revolved vase 200mm tall whose wall profile grows from 20mm radius at the base to a 60mm shoulder bulge then necks down to a 15mm diameter opening, shelled to
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V126  [PENDING]  claude-sonnet-5
+  spec : a teardrop boss formed by a 40mm diameter hemisphere blending smoothly into a 25mm tall tapering neck ending at 12mm diameter
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V127  [PENDING]  claude-sonnet-5
+  spec : a lofted turbine blade 60mm tall twisting 30 degrees from root to tip, with an aerofoil cross-section 35mm chord at the root narrowing to 20mm at the tip
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V128  [PENDING]  claude-sonnet-5
+  spec : a drafted rectangular enclosure shell 150x100x60mm with 3 degree draft on every side wall, 2mm uniform wall thickness, and 5mm fillets on all vertical corners
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V130  [PENDING]  claude-sonnet-5
+  spec : a revolved control knob 40mm tall whose radius sweeps from 10mm at the base to 25mm at the crown, finished with a 4mm fillet at the top edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V131  [PENDING]  claude-sonnet-5
+  spec : a 15mm diameter handle rod swept along a C-shaped spline path spanning 120mm width and 60mm height
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V132  [PENDING]  claude-sonnet-5
+  spec : a lofted funnel 140mm tall, 100mm diameter at the rim narrowing to a 20mm diameter spout, shelled to a 1.5mm wall
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V133  [PENDING]  claude-sonnet-5
+  spec : a revolved bottle body 130mm tall with a 35mm base radius, waisting to 18mm at 90mm height, then flaring into a 22mm neck, shelled with a 2mm wall
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V134  [PENDING]  claude-sonnet-5
+  spec : a drafted storage tray shell 200x120mm at the base with 40mm tall walls carrying a 2 degree draft, 1.5mm wall thickness, and 6mm fillets along the base perimete
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V135  [PENDING]  claude-sonnet-5
+  spec : a lofted intake manifold section 160mm long, oval 90x50mm at one end blending to a 55mm diameter circle at the other, with 3mm walls
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V136  [PENDING]  claude-sonnet-5
+  spec : a 25mm diameter pipe swept along an S-shaped spline path 200mm end to end, with a 3mm wall thickness
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V137  [PENDING]  claude-sonnet-5
+  spec : a teardrop pin formed by a 20mm diameter sphere blending into a 15mm tall tapering shank that ends at 8mm diameter
+  gate : gate verdict: accepted-after-repair
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V138  [PENDING]  claude-sonnet-5
+  spec : a lofted cooling fan blade 100mm long twisting 50 degrees from root to tip, chord tapering from 45mm at the root to 18mm at the tip
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V139  [PENDING]  claude-sonnet-5
+  spec : a revolved pedestal 150mm tall with a 50mm base radius tapering to 20mm at mid height before flaring back out to a 30mm diameter top rim
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V140  [PENDING]  claude-sonnet-5
+  spec : a drafted cylindrical housing shell 80mm diameter and 100mm tall with a 2 degree draft on the outer wall, 2mm wall thickness, and a 5mm fillet at the base
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V141  [PENDING]  claude-sonnet-5
+  spec : a lofted square-to-rectangle transition duct 100mm long, 50x50mm at the inlet opening to 80x30mm at the outlet, with 2mm walls
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V142  [PENDING]  claude-sonnet-5
+  spec : a 10mm square cross-section rail swept along a helical path with a 60mm coil diameter, 4 turns, and 200mm overall length
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V143  [PENDING]  claude-sonnet-5
+  spec : a revolved finial 60mm tall whose radius bulges from 8mm at the base to 22mm at mid height and tapers to a point at the top
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V144  [PENDING]  claude-sonnet-5
+  spec : a lofted air scoop 80mm long, circular 60mm diameter at the inlet flattening to a 40x15mm rectangular outlet, with 2mm walls
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V145  [PENDING]  claude-sonnet-5
+  spec : a drafted lid shell 180x90mm with 25mm tall walls carrying a 1.5 degree draft, 1.2mm wall thickness, and 4mm fillets along every top edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V146  [PENDING]  claude-sonnet-5
+  spec : a 30mm diameter duct swept along a gentle arc with a 250mm radius of curvature and 180mm arc length, with a 2mm wall thickness
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V147  [PENDING]  claude-sonnet-5
+  spec : a teardrop housing formed by a 45mm diameter hemisphere blending into a 35mm tall neck ending at 22mm diameter, shelled to a 2mm wall
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V148  [PENDING]  claude-sonnet-5
+  spec : a lofted impeller blade 70mm tall twisting 60 degrees from root to tip, chord narrowing from 30mm at the root to 12mm at the tip
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V149  [PENDING]  claude-sonnet-5
+  spec : a revolved sealing plug 60mm tall whose radius grows from 12mm at the tip to 28mm at 40mm height before running straight to the top
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V151  [PENDING]  claude-sonnet-5
+  spec : a lofted air horn 110mm tall, square 45x45mm at the base flaring to a circular 70mm diameter opening at the top, with 2.5mm walls
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V155  [PENDING]  claude-sonnet-5
+  spec : a drafted electronics case shell 220x140x70mm with a 2 degree draft on all four walls, 2mm wall thickness, and 8mm fillets on every corner
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V157  [PENDING]  claude-sonnet-5
+  spec : a 90mm diameter 6mm thick circular plate with twelve 5mm holes arranged in a bolt circle of 70mm diameter and a single 20mm center bore
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V159  [PENDING]  claude-sonnet-5
+  spec : a 200mm outer diameter, 8mm thick flywheel-style disc with a radial pattern of eight 15mm slots angled 20 degrees from center, spaced 45 degrees apart around a 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V160  [PENDING]  claude-sonnet-5
+  spec : a 130x80x5mm mounting bracket plate with a 4x3 grid of 6mm clearance holes on 25mm centres, positioned symmetrically about the plate centerline
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V161  [PENDING]  claude-sonnet-5
+  spec : a cylindrical heat-sink shell 60mm diameter and 100mm tall with 2.5mm walls, pierced by six vertical columns of eight 6mm circular vents evenly spaced around th
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V162  [PENDING]  claude-sonnet-5
+  spec : a 110mm diameter 4mm thick disc with a hexagonal array of 5mm holes on 10mm centres covering the central 80mm zone, leaving a 15mm solid outer rim
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V164  [PENDING]  claude-sonnet-5
+  spec : a 95mm diameter 5mm thick flange plate with sixteen 4mm bolt holes evenly spaced on a 78mm bolt circle diameter
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V165  [PENDING]  claude-sonnet-5
+  spec : a 250mm long, 50mm wide, 6mm thick rail with a linear pattern of eighteen 8mm diameter holes spaced 12mm apart along its centerline
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V166  [PENDING]  claude-sonnet-5
+  spec : a 160mm diameter 4mm thick speaker grille disc perforated by a spiral pattern of eighty 3mm holes winding from center to a 12mm solid rim
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V167  [PENDING]  claude-sonnet-5
+  spec : a 100x100x4mm square panel with a 5x5 grid of 3mm holes on 15mm centres, leaving a 12.5mm margin on all sides
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V168  [PENDING]  claude-sonnet-5
+  spec : a cylindrical lampshade 90mm diameter and 140mm tall with 1.5mm walls, featuring twelve vertical rows of six elongated 6x20mm slots arranged radially around the
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V169  [PENDING]  claude-sonnet-5
+  spec : a 75mm diameter 6mm thick disc with a polar array of ten 4mm holes on a 55mm bolt circle and a central 10mm through hole
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V171  [PENDING]  claude-sonnet-5
+  spec : a 140mm diameter 5mm thick plate with an octagonal pattern of eight 12mm slots cut radially near the rim, each spaced 45 degrees apart around a 40mm center bore
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V173  [PENDING]  claude-sonnet-5
+  spec : a 105mm diameter 4mm thick disc perforated by a triangular grid of 4mm holes on 9mm centres, leaving an 18mm solid rim around the edge
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V174  [PENDING]  claude-sonnet-5
+  spec : a cylindrical enclosure 70mm diameter and 90mm tall with 2mm walls, pierced by four horizontal bands of twelve 5mm circular vents each, evenly spaced along the 
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V175  [PENDING]  claude-sonnet-5
+  spec : a 130mm diameter 6mm thick disc with six radial slots 30mm long and 5mm wide cut at 60 degree intervals starting 15mm from the center bore
+  gate : gate verdict: accepted-first-try
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V176  [PENDING]  claude-sonnet-5
+  spec : a 160x60x3mm rectangular duct cover with twenty-four 30x5mm rounded slots arranged in three staggered rows of eight running the length of the panel
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V177  [PENDING]  claude-sonnet-5
+  spec : a shaft-and-collar assembly: a 250mm long 18mm diameter shaft passing through a separate 35mm outer diameter, 20mm tall collar bored 18mm through with an 8mm ra
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V178  [PENDING]  claude-sonnet-5
+  spec : a flanged pipe coupling made of two identical 70mm diameter, 12mm thick circular flanges each with a 40mm through-bore and a 4-hole 55mm bolt circle of 6mm hole
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V179  [PENDING]  claude-sonnet-5
+  spec : a hinge knuckle assembly: two 30x20x6mm leaves each with a rolled 10mm diameter, 25mm long barrel offset 4mm apart, joined by a separate 9.5mm diameter, 60mm lo
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V180  [PENDING]  claude-sonnet-5
+  spec : a dovetail slide assembly: a 100x40x15mm base with a 60-degree dovetail groove 12mm deep running its length, mating with a separate 60x38x10mm slider block cut 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V181  [PENDING]  claude-sonnet-5
+  spec : a bushing-in-plate assembly: a 50x50x10mm plate with a 20mm through-hole, and a separate press-fit bronze bushing 20mm outer diameter, 12mm inner diameter, 15mm
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V183  [PENDING]  claude-sonnet-5
+  spec : a T-slot fastener assembly: a 30x18x10mm T-shaped slot nut with a threaded 8mm hole through its top, engaged by a separate 8mm diameter, 40mm long bolt with a 1
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V184  [PENDING]  claude-sonnet-5
+  spec : a ball-joint assembly: a 22mm diameter ball on a 6mm diameter, 30mm long stud, nested inside a separate 30mm outer diameter socket housing with a matching 22.4m
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V185  [PENDING]  claude-sonnet-5
+  spec : a keyed hub-and-shaft assembly: a 20mm diameter, 80mm long shaft with a 5x5mm keyway cut 30mm long near one end, fitted with a separate 45mm diameter, 25mm tall
+  gate : gate verdict: accepted-after-repair
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V186  [PENDING]  claude-sonnet-5
+  spec : a wedge clamp assembly: a 50x50x20mm block with a 10-degree angled face, mated against a separate 50x30x15mm wedge with the same 10-degree taper, held together 
+  gate : gate verdict: accepted-after-repair
+  built: solids=1 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V187  [PENDING]  claude-sonnet-5
+  spec : a lid-and-box assembly: a 80x60x40mm open-top box with 3mm wall thickness, and a separate 84x64x5mm lid with a 2mm deep recessed lip that overlaps the box rim, 
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V188  [PENDING]  claude-sonnet-5
+  spec : a yoke-and-ear pivot assembly: a U-shaped yoke with two 15mm thick arms 35mm apart each bored 12mm, and a separate 30mm wide, 12mm thick ear tab bored 12mm that
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V189  [PENDING]  claude-sonnet-5
+  spec : a roller-on-axle bracket: an L-shaped bracket 60x40x8mm with a 10mm diameter hole 15mm from the vertical edge, carrying a separate 25mm diameter, 20mm wide roll
+  gate : gate verdict: accepted-after-repair
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V190  [PENDING]  claude-sonnet-5
+  spec : a threaded-rod-and-nut assembly: a 10mm diameter, 100mm long threaded rod passing through a separate 20mm across-flats hex nut 8mm thick with a matching 10mm th
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V191  [PENDING]  claude-sonnet-5
+  spec : a two-part shaft coupling: two identical 30mm diameter, 25mm long cylindrical hubs each bored 12mm through with a 4mm keyway, butted end to end and joined conce
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V192  [PENDING]  claude-sonnet-5
+  spec : a base-post-cap assembly: a 70x70x10mm base plate, a separate 25mm diameter, 60mm tall post rising from its center, and a separate 30mm diameter, 8mm tall cap w
+  gate : gate verdict: accepted-first-try
+  built: solids=3 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V193  [PENDING]  claude-sonnet-5
+  spec : a clamp-collar assembly: a split 40mm outer diameter, 22mm tall collar bored 20mm through with a 2mm gap and two 5mm clearance holes, fitted around a separate 2
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V194  [PENDING]  claude-sonnet-5
+  spec : a bracket-and-dowel assembly: an angled 45x45x6mm bracket with two 6mm dowel holes 30mm apart, mated to a flat 45x30x6mm plate with matching 6mm holes, aligned 
+  gate : gate verdict: accepted-first-try
+  built: solids=4 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V195  [PENDING]  claude-sonnet-5
+  spec : a sleeve bearing housing assembly: a 60x60x25mm block bored 32mm through at its center, fitted with a separate bronze sleeve bearing 32mm outer diameter, 24mm i
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
+──────────────────────────────────────────────────────────────────────────
+V196  [PENDING]  claude-sonnet-5
+  spec : a socket-head screw and tapped block assembly: a 40x40x20mm block with a threaded M8 blind hole 15mm deep, engaged by a separate M8 socket-head cap screw 35mm l
+  gate : gate verdict: accepted-first-try
+  built: solids=2 bbox=None volume=None
++ echo '=== GIFT amplification (free, local GPU) ==='
+=== GIFT amplification (free, local GPU) ===
++ python3 scripts/gift_sample.py --k 6
+gift_sample: 13 specs × K=6 on qwen2.5-coder:7b-instruct-q4_K_M
+2026-07-31 23:59:14,205 [INFO] [v5] Few-shots (cosine): a solid rectangular calibration block 10~1.04, a 100x60x30mm solid block with four 4mm ~0.861
+2026-07-31 23:59:14,467 [INFO] [v5] Injected 3 learned pitfall(s).
+[1/13] a solid rectangular calibration block 100x60x20mm with four  -> {'match': 0, 'valid': 5, 'near_miss': 0, 'fail': 0, 'no_run': 1, 'dup': 0}
+2026-08-01 00:03:40,624 [INFO] [v5] Few-shots (cosine): a solid circular flange 80mm diameter 10~1.04, an L-bracket: a 60x40x6mm base flange an~0.813
+2026-08-01 00:03:40,893 [INFO] [v5] Injected 3 learned pitfall(s).
+[1;33m[Open3D WARNING] Too few correspondences (44) after mutual filter, fall back to original correspondences.[0;m
+[1;33m[Open3D WARNING] Too few correspondences (31) after mutual filter, fall back to original correspondences.[0;m
+Traceback (most recent call last):
+  File "/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/gift_sample.py", line 207, in <module>
+    main()
+  File "/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/gift_sample.py", line 181, in main
+    st = sample_spec(row, a.k, results, use_raw=not a.brief)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/theultimatecunt/.openclaw/skills/cad-builder/scripts/gift_sample.py", line 150, in sample_spec
+    "bad_prompt_kind": p.get("kind", ""),
+                       ^^^^^
+AttributeError: 'PosixPath' object has no attribute 'get'
++ echo '=== preview dataset compile (report only) ==='
+=== preview dataset compile (report only) ===
++ python3 scripts/compile_sft.py --report-only
+[compile] 355 rows loaded, 11 human verdicts on file
+[exclude] -5 human-rejected -> 350
+  [reverify 132/350] M01 -> ok
+  [reverify 133/350] M02 -> ok
+  [reverify 134/350] M03 -> ok
+  [reverify 135/350] M04 -> ok
+  [reverify 136/350] M06 -> ok
+  [reverify 137/350] M07 -> ok
+  [reverify 138/350] M09 -> ok
+  [reverify 139/350] M11 -> ok
+  [reverify 140/350] M12 -> ok
+  [reverify 141/350] M13 -> ok
+  [reverify 142/350] M14 -> ok
+  [reverify 143/350] M15 -> ok
+  [reverify 144/350] M16 -> ok
+  [reverify 145/350] M18 -> ok
+  [reverify 146/350] M19 -> ok
+  [reverify 147/350] M20 -> ok
+  [reverify 148/350] M21 -> ok
+  [reverify 149/350] M22 -> ok
+  [reverify 151/350] M24 -> ok
+  [reverify 152/350] V001 -> ok
+  [reverify 153/350] V002 -> ok
+  [reverify 154/350] V003 -> ok
+  [reverify 155/350] V004 -> ok
+  [reverify 156/350] V006 -> ok
+  [reverify 157/350] V007 -> ok
+  [reverify 158/350] V008 -> ok
+  [reverify 159/350] V009 -> ok
+  [reverify 160/350] V010 -> ok
+  [reverify 161/350] V013 -> ok
+  [reverify 162/350] V014 -> ok
+  [reverify 163/350] V015 -> ok
+  [reverify 164/350] V016 -> ok
+  [reverify 166/350] V017 -> ok
+  [reverify 167/350] V019 -> ok
+  [reverify 168/350] V020 -> ok
+  [reverify 169/350] V021 -> ok
+  [reverify 170/350] V022 -> ok
+  [reverify 172/350] V024 -> ok
+  [reverify 173/350] V025 -> ok
+  [reverify 174/350] V026 -> ok
+  [reverify 175/350] V027 -> ok
+  [reverify 176/350] V028 -> ok
+  [reverify 177/350] V029 -> ok
+  [reverify 178/350] V030 -> ok
+  [reverify 179/350] V031 -> ok
+  [reverify 180/350] V032 -> ok
+  [reverify 181/350] V033 -> ok
+  [reverify 182/350] V034 -> ok
+  [reverify 184/350] V035 -> ok
+  [reverify 185/350] V036 -> ok
+  [reverify 186/350] V037 -> ok
+  [reverify 187/350] V038 -> ok
+  [reverify 189/350] V039 -> ok
+  [reverify 190/350] V040 -> ok
+  [reverify 191/350] V041 -> ok
+  [reverify 192/350] V042 -> ok
+  [reverify 193/350] V043 -> ok
+  [reverify 194/350] V044 -> ok
+  [reverify 195/350] V045 -> ok
+  [reverify 196/350] V046 -> ok
+  [reverify 197/350] V048 -> ok
+  [reverify 198/350] V049 -> ok
+  [reverify 200/350] V050 -> ok
+  [reverify 201/350] V051 -> ok
+  [reverify 202/350] V052 -> ok
+  [reverify 203/350] V053 -> ok
+  [reverify 204/350] V054 -> ok
+  [reverify 205/350] V055 -> ok
+  [reverify 206/350] V056 -> ok
+  [reverify 207/350] V057 -> ok
+  [reverify 208/350] V059 -> ok
+  [reverify 210/350] V060 -> ok
+  [reverify 211/350] V061 -> ok
+  [reverify 212/350] V062 -> ok
+  [reverify 214/350] V063 -> ok
+  [reverify 215/350] V064 -> ok
+  [reverify 216/350] V065 -> ok
+  [reverify 217/350] V066 -> ok
+  [reverify 218/350] V067 -> ok
+  [reverify 219/350] V068 -> ok
+  [reverify 221/350] V069 -> ok
+  [reverify 222/350] V070 -> ok
+  [reverify 223/350] V071 -> ok
+  [reverify 224/350] V072 -> ok
+  [reverify 226/350] V073 -> ok
+  [reverify 228/350] V075 -> ok
+  [reverify 229/350] V076 -> ok
+  [reverify 230/350] V077 -> ok
+  [reverify 232/350] V079 -> ok
+  [reverify 233/350] V081 -> ok
+  [reverify 234/350] V082 -> ok
+  [reverify 235/350] V083 -> ok
+  [reverify 236/350] V085 -> ok
+  [reverify 237/350] V086 -> ok
+  [reverify 238/350] V087 -> ok
+  [reverify 239/350] V088 -> ok
+  [reverify 240/350] V089 -> ok
+  [reverify 241/350] V090 -> ok
+  [reverify 242/350] V091 -> ok
+  [reverify 243/350] V092 -> ok
+  [reverify 244/350] V093 -> ok
+  [reverify 245/350] V094 -> ok
+  [reverify 246/350] V095 -> ok
+  [reverify 247/350] V096 -> ok
+  [reverify 248/350] V097 -> ok
+  [reverify 249/350] V098 -> ok
+  [reverify 250/350] V099 -> ok
+  [reverify 251/350] V101 -> ok
+  [reverify 252/350] V102 -> ok
+  [reverify 253/350] V103 -> ok
+  [reverify 254/350] V104 -> ok
+  [reverify 255/350] V105 -> ok
+  [reverify 256/350] V106 -> ok
+  [reverify 257/350] V107 -> ok
+  [reverify 258/350] V108 -> ok
+  [reverify 259/350] V109 -> ok
+  [reverify 260/350] V110 -> ok
+  [reverify 261/350] V111 -> ok
+  [reverify 262/350] V112 -> ok
+  [reverify 263/350] V113 -> ok
+  [reverify 264/350] V114 -> ok
+  [reverify 265/350] V115 -> ok
+  [reverify 266/350] V116 -> ok
+  [reverify 267/350] V117 -> ok
+  [reverify 268/350] V118 -> ok
+  [reverify 269/350] V119 -> ok
+  [reverify 271/350] V120 -> ok
+  [reverify 272/350] V121 -> ok
+  [reverify 273/350] V122 -> ok
+  [reverify 274/350] V123 -> ok
+  [reverify 275/350] V124 -> ok
+  [reverify 276/350] V126 -> ok
+  [reverify 277/350] V127 -> ok
+  [reverify 278/350] V128 -> ok
+  [reverify 280/350] V130 -> ok
+  [reverify 281/350] V131 -> ok
+  [reverify 282/350] V132 -> ok
+  [reverify 283/350] V133 -> ok
+  [reverify 284/350] V134 -> ok
+  [reverify 285/350] V135 -> ok
+  [reverify 286/350] V136 -> ok
+  [reverify 287/350] V137 -> ok
+  [reverify 289/350] V138 -> ok
+  [reverify 290/350] V139 -> ok
+  [reverify 291/350] V140 -> ok
+  [reverify 292/350] V141 -> ok
+  [reverify 293/350] V142 -> ok
+  [reverify 295/350] V143 -> ok
+  [reverify 297/350] V144 -> ok
+  [reverify 299/350] V145 -> ok
+  [reverify 300/350] V146 -> ok
+  [reverify 301/350] V147 -> ok
+  [reverify 302/350] V148 -> ok
+  [reverify 303/350] V149 -> ok
+  [reverify 304/350] V151 -> ok
+  [reverify 305/350] V155 -> ok
+  [reverify 306/350] V157 -> ok
+  [reverify 307/350] V159 -> ok
+  [reverify 308/350] V160 -> ok
+  [reverify 309/350] V161 -> ok
+  [reverify 310/350] V162 -> ok
+  [reverify 311/350] V164 -> ok
+  [reverify 312/350] V165 -> ok
+  [reverify 313/350] V166 -> ok
+  [reverify 314/350] V167 -> ok
+  [reverify 315/350] V168 -> ok
+  [reverify 316/350] V169 -> ok
+  [reverify 317/350] V171 -> ok
+  [reverify 318/350] V173 -> ok
+  [reverify 319/350] V174 -> ok
+  [reverify 320/350] V175 -> ok
+  [reverify 321/350] V176 -> ok
+  [reverify 323/350] V177 -> ok
+  [reverify 324/350] V178 -> ok
+  [reverify 325/350] V179 -> ok
+  [reverify 326/350] V180 -> ok
+  [reverify 327/350] V181 -> ok
+  [reverify 328/350] V183 -> ok
+  [reverify 329/350] V184 -> ok
+  [reverify 330/350] V185 -> ok
+  [reverify 332/350] V186 -> ok
+  [reverify 334/350] V187 -> ok
+  [reverify 335/350] V188 -> ok
+  [reverify 336/350] V189 -> ok
+  [reverify 338/350] V190 -> ok
+  [reverify 339/350] V191 -> ok
+  [reverify 340/350] V192 -> ok
+  [reverify 341/350] V193 -> ok
+  [reverify 342/350] V194 -> ok
+  [reverify 343/350] V195 -> ok
+  [reverify 344/350] V196 -> ok
+  [reverify 345/350] M05 -> ok
+  [reverify 347/350] M08 -> ok
+  [reverify 348/350] M25 -> ok
+  [reverify 349/350] V150 -> ok
+[reverify] -7 fail hardened gate -> 343
+[dedup] -4 duplicates -> 339
+
+[report] /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/sft_compile_20260731_142510.json
+{
+ "loaded": 355,
+ "surviving": 339,
+ "surviving_by_source": {
+  "retro": 2,
+  "gift-fail": 12,
+  "gift-reject": 9,
+  "none": 3,
+  "teacher": 281,
+  "teacher-repair": 31,
+  "teacher-human-accepted": 1
+ },
+ "surviving_by_kind": {
+  "good": 295,
+  "fail": 44
+ }
+}
++ echo 'OVERNIGHT DONE'
+OVERNIGHT DONE

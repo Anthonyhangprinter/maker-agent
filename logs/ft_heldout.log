@@ -1,0 +1,158 @@
+Running 25 benchmark(s) from suite 'heldout-cqe': H01, H02, H03, H04, H05, H06, H07, H08, H09, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25  (--coder fast, per-build timeout 1500s)
+
+======================================================================
+[H01] cqe task1  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=255.4s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[10.0, 10.0, 5.0] | 
+
+======================================================================
+[H02] cqe task2  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=192.5s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[32.0, 18.0, 3.0] | 
+
+======================================================================
+[H03] cqe task3  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=341.0s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=1 bbox=[100.0, 100.0, 10.0] | 
+
+======================================================================
+[H04] cqe task4  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=571.0s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=2 bbox=[35.0, 35.0, 60.0] | 
+
+======================================================================
+[H05] cqe task5  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=286.9s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=1 bbox=[100.0, 50.0, 50.0] | 
+
+======================================================================
+[H06] cqe task6  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=721.2s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=1 bbox=[40.0, 20.0, 5.0] | 
+
+======================================================================
+[H07] cqe task7  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=414.9s | acc 1/2 solids=✗,bbox=✓ | solids=1 cyl=1 bbox=[60.0, 60.0, 10.0] | 
+
+======================================================================
+[H08] cqe task8  (tier 1, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=631.1s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=0 bbox=[20.0, 20.0, 80.0] | 
+
+======================================================================
+[H09] cqe task9  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=241.3s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=0 bbox=[50.0, 50.0, 50.0] | 
+
+======================================================================
+[H10] cqe task10  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=286.5s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H11] cqe task11  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=212.7s | acc 0/2 solids=✗,bbox=✗ | solids=2 cyl=1 bbox=[50.0, 50.0, 75.0] | 
+
+======================================================================
+[H12] cqe task12  (tier 2, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=716.8s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=3 bbox=[15.0, 15.0, 84.5] | 
+
+======================================================================
+[H13] cqe task13  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=528.0s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=2 bbox=[50.0, 50.0, 50.0] | 
+
+======================================================================
+[H14] cqe task14  (tier 1, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=133.0s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H15] cqe task15  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=418.7s | acc 0/2 solids=✗,bbox=✗ | solids=2 cyl=1 bbox=[40.0, 40.0, 72.5] | 
+
+======================================================================
+[H16] cqe task16  (tier 2, --coder fast)
+======================================================================
+--> ⚠️ geometry, not converged  | model=cad-coder:7b | wall=409.4s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=0 bbox=[80.0, 40.0, 20.0] | 
+
+======================================================================
+[H17] cqe task17  (tier 1, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=247.8s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=0 bbox=[80.0, 40.0, 10.0] | 
+
+======================================================================
+[H18] cqe task18  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=364.6s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=2 bbox=[40.0, 20.0, 5.0] | 
+
+======================================================================
+[H19] cqe task19  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=428.1s | acc 1/2 solids=✓,bbox=✗ | solids=1 cyl=2 bbox=[100.0, 100.0, 45.0] | 
+
+======================================================================
+[H20] cqe task20  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=210.6s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H21] cqe task21  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=483.2s | acc 2/2 solids=✓,bbox=✓ | solids=1 cyl=5 bbox=[45.0, 60.0, 10.0] | 
+
+======================================================================
+[H22] cqe task22  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=222.7s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H23] cqe task23  (tier 2, --coder fast)
+======================================================================
+--> ❌ failed  | model=None | wall=190.4s | acc 0/2 solids=✗,bbox=✗ | solids=? cyl=? bbox=? | build produced no result
+
+======================================================================
+[H24] cqe task24  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via critic  | model=cad-coder:7b | wall=221.3s | acc 0/2 solids=✗,bbox=✗ | solids=3 cyl=2 bbox=[85.0, 50.0, 40.0] | 
+
+======================================================================
+[H25] cqe task25  (tier 2, --coder fast)
+======================================================================
+--> ✅ converged via gate  | model=cad-coder:7b | wall=810.9s | acc 0/2 solids=✗,bbox=✗ | solids=2 cyl=3 bbox=[50.0, 50.0, 125.0] | 
+
+==============================================================================
+SUMMARY  —  17/25 converged, 20/25 produced geometry, acceptance 27/50 (54%), 9586.6s total
+==============================================================================
+id  tier status         acc     model                      wall_s  name
+H01 1    converged      2/2     cad-coder:7b               255.4   cqe task1
+H02 1    converged      2/2     cad-coder:7b               192.5   cqe task2
+H03 1    converged      2/2     cad-coder:7b               341.0   cqe task3
+H04 1    converged      1/2     cad-coder:7b               571.0   cqe task4
+H05 1    converged      2/2     cad-coder:7b               286.9   cqe task5
+H06 1    converged      2/2     cad-coder:7b               721.2   cqe task6
+H07 1    converged      1/2     cad-coder:7b               414.9   cqe task7
+H08 1    not-converged  2/2     cad-coder:7b               631.1   cqe task8
+H09 1    converged      2/2     cad-coder:7b               241.3   cqe task9
+H10 1    failed         0/2     -                          286.5   cqe task10
+H11 1    converged      0/2     cad-coder:7b               212.7   cqe task11
+H12 2    not-converged  1/2     cad-coder:7b               716.8   cqe task12
+H13 1    converged      1/2     cad-coder:7b               528.0   cqe task13
+H14 1    failed         0/2     -                          133.0   cqe task14
+H15 1    converged      0/2     cad-coder:7b               418.7   cqe task15
+H16 2    not-converged  2/2     cad-coder:7b               409.4   cqe task16
+H17 1    converged      2/2     cad-coder:7b               247.8   cqe task17
+H18 2    converged      2/2     cad-coder:7b               364.6   cqe task18
+H19 2    converged      1/2     cad-coder:7b               428.1   cqe task19
+H20 2    failed         0/2     -                          210.6   cqe task20
+H21 2    converged      2/2     cad-coder:7b               483.2   cqe task21
+H22 2    failed         0/2     -                          222.7   cqe task22
+H23 2    failed         0/2     -                          190.4   cqe task23
+H24 2    converged      0/2     cad-coder:7b               221.3   cqe task24
+H25 2    converged      0/2     cad-coder:7b               810.9   cqe task25
+
+Full results: /home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks/results/run_20260802_174204.json
