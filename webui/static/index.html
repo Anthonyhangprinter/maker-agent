@@ -126,6 +126,17 @@
                  font-variant-numeric: tabular-nums; }
   .params .apply { margin-top: 0.55rem; }
   .params .busy { color: var(--warn); font: 0.78rem var(--mono); margin-left: 0.6rem; }
+  .chat { margin-top: 0.9rem; border-top: 1px dashed var(--line); padding-top: 0.7rem; }
+  .chat .msg { font-size: 0.86rem; margin: 0.25rem 0; color: var(--dim); }
+  .chat .msg.user::before { content: "you ▸ "; color: var(--accent); font-family: var(--mono);
+                            font-size: 0.75rem; }
+  .chatrow { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .chatrow input { flex: 1; background: var(--panel2); border: 1px solid var(--line2);
+                   border-radius: 8px; color: var(--ink); padding: 0.5rem 0.7rem;
+                   font: inherit; font-size: 16px; outline: none; min-height: 40px; }
+  .chatrow input:focus { border-color: var(--accent); }
+  .instruments { color: var(--faint); font: 0.75rem/1.5 var(--mono); margin-top: 0.4rem; }
+  .instruments b { color: var(--warn); font-weight: 600; }
   footer { color: var(--faint); font-size: 0.76rem; padding: 0 1rem 1.4rem; text-align: center; }
 
   @media (max-width: 520px) {
@@ -166,8 +177,14 @@
     <div class="devgrid">
       <label>lang
         <select id="lang">
-          <option value="build123d" selected>build123d · B-rep + gate</option>
+          <option value="build123d" selected>build123d · B-rep</option>
           <option value="openscad">openscad · params + sliders</option>
+        </select>
+      </label>
+      <label>engine
+        <select id="engine_mode">
+          <option value="fluid" selected>fluid · fast, chat-corrected</option>
+          <option value="loop">full loop · gated + critic</option>
         </select>
       </label>
       <label>coder
@@ -237,6 +254,7 @@ $("go").onclick = async () => {
   fd.append("spec", spec);
   if (!meshMode) {
     fd.append("lang", $("lang").value);
+    fd.append("engine_mode", $("engine_mode").value);
     fd.append("coder", $("coder").value);
     if ($("candidates").value) fd.append("candidates", $("candidates").value);
     fd.append("fewshots", $("fewshots").checked ? "on" : "off");
@@ -302,6 +320,9 @@ function render(j) {
         + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
   }
   if (j.status === "error") h += `<div class="warn">✗ ${esc(j.error || "failed")}</div>`;
+  if ((r.instruments || []).length)
+    h += `<div class="instruments"><b>instruments</b> · ` +
+         r.instruments.map(esc).join(" · ") + `</div>`;
   if (j.status === "done" && r.lang === "openscad" && (r.params || []).length) {
     const bid = (r.artifacts && r.artifacts.scad || "").split("/")[2] || "";
     let pg = "";
@@ -318,8 +339,36 @@ function render(j) {
     h += `<button class="dl apply" onclick="rescale('${j.id}')">↻ Rebuild with these values</button>
           <span class="busy" id="busy-${j.id}"></span></div>`;
   }
+  // Fluid conversation: the human is the gatekeeper — correct it by talking to it.
+  if (["done", "error"].includes(j.status) && j.kind !== "mesh"
+      && (j.result || {}).build_dir_fs !== undefined || (j.chat || []).length) {
+    h += `<div class="chat">` +
+      (j.chat || []).map(m => `<div class="msg ${m.role}">${esc(m.text)}</div>`).join("") +
+      `<div class="chatrow">
+         <input id="chatin-${j.id}" placeholder="ask for a change… e.g. make the walls 3mm, holes bigger"
+                onkeydown="if(event.key==='Enter')sendChat('${j.id}')">
+         <button class="dl" onclick="sendChat('${j.id}')">↩ Revise</button>
+       </div></div>`;
+  }
   el.innerHTML = h;
   el.dataset.stl = a.stl || ""; el.dataset.glb = a.glb || "";
+}
+
+async function sendChat(id) {
+  const input = document.getElementById("chatin-" + id);
+  const msg = (input && input.value || "").trim();
+  if (!msg) return;
+  input.disabled = true;
+  try {
+    const r = await fetch("/api/chat", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: id, message: msg }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    const disposer = viewers.get(id);
+    if (disposer) { disposer(); viewers.delete(id); }
+    track(id);
+  } catch (e) { alert("Revise failed: " + e.message); input.disabled = false; }
 }
 
 async function rescale(id) {

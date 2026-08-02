@@ -131,13 +131,66 @@ def stl_facts(path: Path) -> dict:
             "volume_mm3": round(abs(vol6) / 6.0, 1)}
 
 
+_CHAT_REVISE = """\
+The user looked at the compiled model and asked for a change. Apply it and return ONLY the
+complete updated .scad file (same rules: Customizer parameters, built-ins only, no fences).
+
+User's request (verbatim, authoritative):
+{feedback}
+
+Current file:
+{code}
+"""
+
+
+def cmd_revise(a) -> dict:
+    """Fluid chat turn for an existing openscad build: user feedback -> new file -> compile."""
+    build_dir = Path(a.revise_dir)
+    scad, stl = build_dir / "build.scad", build_dir / "build.stl"
+    if not scad.is_file():
+        return {"ok": False, "error": "no build.scad in that build dir"}
+    cc = engine.cloud_config()
+    model = a.model or cc.get("model", "claude-sonnet-5")
+    engine.reset_cloud_budget(2)
+    t0 = time.monotonic()
+    code = scad.read_text()
+    raw = engine._cloud_chat(model, _SYSTEM,
+                             _CHAT_REVISE.format(feedback=a.feedback, code=code), timeout=300)
+    if not raw:
+        return {"ok": False, "error": "empty model reply"}
+    new_code = strip_fences(raw)
+    scad.write_text(new_code)
+    ok, err = compile_scad(scad, stl)
+    if not ok:                                    # keep chat fluid: one stderr repair
+        raw2 = engine._cloud_chat(model, _SYSTEM,
+                                  _REPAIR.format(err=err, code=new_code), timeout=300)
+        if raw2:
+            new_code = strip_fences(raw2)
+            scad.write_text(new_code)
+            ok, err = compile_scad(scad, stl)
+    return {"ok": ok, "lang": "openscad", "converged": ok, "mode": "fluid",
+            "accepted_via": "compile" if ok else None, "code_model": model,
+            "build_dir": str(build_dir), "params": parse_params(new_code),
+            "facts": stl_facts(stl) if ok else {},
+            "error": None if ok else (err or "compile failed")[-300:],
+            "build_time_s": round(time.monotonic() - t0, 1)}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("spec")
+    ap.add_argument("spec", nargs="?", default="")
     ap.add_argument("--turns", type=int, default=3)
     ap.add_argument("--model", default="")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--revise-dir", default="", help="fluid chat: existing scad build dir")
+    ap.add_argument("--feedback", default="", help="fluid chat: the user's change request")
     a = ap.parse_args()
+    if a.revise_dir:
+        result = cmd_revise(a)
+        print(json.dumps(result))
+        return 0 if result.get("ok") else 1
+    if not a.spec:
+        ap.error("spec required (or --revise-dir + --feedback)")
 
     cc = engine.cloud_config()
     model = a.model or cc.get("model", "claude-sonnet-5")

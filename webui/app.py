@@ -69,6 +69,7 @@ def _job_public(job: dict) -> dict:
         "queued_ahead": job.get("queued_ahead", 0),
         "log_tail": list(job["log"])[-LOG_TAIL:],
         "result": job.get("result"), "error": job.get("error"),
+        "chat": job.get("chat", []),
         "created_at": job["created_at"],
     }
 
@@ -99,12 +100,27 @@ def _worker():
 
 def _run_build(job: dict):
     job["status"] = "running"
-    if job.get("lang") == "openscad":
+    chat_msg = job.pop("pending_chat", None)
+    prev_dir = (job.get("result") or {}).get("build_dir_fs", "")
+    if chat_msg and prev_dir:
+        # Conversational revise turn on the existing build — the user is the gate.
+        if job.get("lang") == "openscad":
+            cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "openscad_gen.py"),
+                   "--revise-dir", prev_dir, "--feedback", chat_msg, "--json"]
+        else:
+            cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
+                   "revise", prev_dir, chat_msg, "--json"]
+    elif job.get("lang") == "openscad":
         cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "openscad_gen.py"),
                job["spec"], "--json"]
-    else:
+    elif job.get("engine_mode") == "loop":
         cmd = [ENGINE_PYTHON, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
                "--coder", job["coder"], "--target", "file"]
+    else:                                     # fluid: fast single turn, no gate vetoes
+        cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
+               "build", job["spec"], "--coder",
+               job["coder"] if job["coder"] in ("fast", "strong", "cloud") else "fast",
+               "--json"]
     if job["image"]:
         cmd += ["--image", job["image"]]
     if not job.get("fewshots", True):
@@ -182,7 +198,10 @@ def _result_public(result: dict) -> dict:
             "last_critique", "warning", "image_analysis", "image_only", "lang", "params",
             "needs_clarification", "questions", "spec", "error")}
     build_dir = result.get("build_dir") or ""
+    out["instruments"] = result.get("instruments")
+    out["mode"] = result.get("mode")
     if build_dir:
+        out["build_dir_fs"] = build_dir          # for chat revise turns
         bid = Path(build_dir).name
         arts = {}
         for key, fname in (("render", "build.png"), ("step", "build.step"),
@@ -198,7 +217,7 @@ def _result_public(result: dict) -> dict:
 @app.post("/api/build")
 async def api_build(spec: str = Form(""), coder: str = Form("auto"),
                     candidates: str = Form(""), fewshots: str = Form("on"),
-                    lang: str = Form("build123d"),
+                    lang: str = Form("build123d"), engine_mode: str = Form("fluid"),
                     image: UploadFile | None = File(None)):
     spec = spec.strip()
     if candidates and candidates not in {"1", "3", "5"}:
@@ -225,6 +244,7 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
         "candidates": candidates, "fewshots": fewshots != "off", "lang": lang,
+        "engine_mode": engine_mode if engine_mode in ("fluid", "loop") else "fluid",
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(),
     }
@@ -234,6 +254,27 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
         _jobs[job["id"]] = job
     _queue.put(job["id"])
     return {"job_id": job["id"], "queued_ahead": job["queued_ahead"]}
+
+
+@app.post("/api/chat")
+def api_chat(payload: dict):
+    """Fluid conversation: the user's words become a revise turn on the job's build."""
+    job_id, msg = str(payload.get("job_id", "")), str(payload.get("message", "")).strip()
+    if not msg:
+        raise HTTPException(400, "empty message")
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "unknown job (jobs do not survive a restart)")
+    if job.get("kind") == "mesh":
+        raise HTTPException(400, "chat revise isn't wired for mesh jobs yet")
+    if job["status"] not in ("done", "error") or not (job.get("result") or {}).get("build_dir_fs"):
+        raise HTTPException(409, "job has no completed build to revise yet")
+    job.setdefault("chat", []).append({"role": "user", "text": msg, "ts": time.time()})
+    job["pending_chat"] = msg
+    job["status"] = "queued"
+    _queue.put(job_id)
+    return {"ok": True}
 
 
 @app.post("/api/rescale")
