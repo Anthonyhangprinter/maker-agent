@@ -48,7 +48,10 @@ def _materialize(code: str, build_dir: Path) -> dict:
         if Path(step) != target:
             target.write_bytes(Path(step).read_bytes())
     except Exception as e:
-        out["error"] = f"the script failed to run: {str(e)[:400]}"
+        # The exception LINE lives at the END of a traceback — keep the tail, not the head.
+        msg = str(e).strip()
+        out["error"] = "the script failed to run: " + \
+            ("…" + msg[-380:] if len(msg) > 400 else msg)
         return out
     try:
         insp = engine.run_inspect(build_dir / "build.step")
@@ -95,8 +98,15 @@ def _materialize_with_salvage(spec: str, code: str, build_dir: Path) -> dict:
 def cmd_build(a) -> dict:
     _model_for(a.coder)
     t0 = time.monotonic()
-    notes = engine.retrieval_notes_for(a.spec)
-    code = engine.generate_code_raw(a.spec, notes)
+    # Correct-by-construction first: bolts/gears the user fully pinned down never need an
+    # LLM at all (spec_helper is deterministic from the spec text; generate_code
+    # materializes the helper call with its imports and no model call).
+    helper = engine.spec_helper(a.spec)
+    if helper:
+        code = engine.generate_code({"helper": helper, "notes": [], "expected": {}}, a.spec)
+    else:
+        notes = engine.retrieval_notes_for(a.spec)
+        code = engine.generate_code_raw(a.spec, notes)
     build_dir = BUILDS_DIR / f"fluid_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}"
     build_dir.mkdir(parents=True, exist_ok=True)
     (build_dir / "fluid.json").write_text(json.dumps(
