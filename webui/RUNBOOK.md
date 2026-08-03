@@ -45,3 +45,10 @@ tailscale serve status     # verify: 8443 → proxy http://127.0.0.1:8090
   The engine copies the downscaled reference into the build dir as `reference.jpg`.
 - Artifacts served from `~/.openclaw/cad-builds/<id>/` (path-resolved + extension whitelist);
   old builds are pruned by the engine (KEEP_BUILDS=200), so old links 404 gracefully.
+- Beta testers (2026-08-03): `tailscale serve` stamps requests with `Tailscale-User-Login`/
+  `Tailscale-User-Name`, so every job records its submitter (shown as a pill on the job card).
+  Jobs from any login NOT in `OWNER_LOGINS` (app.py) ping the owner's Telegram via Satine's
+  bot (token read from openclaw.json, chat `OWNER_CHAT_ID`) on queue, chat-revise, and
+  completion (with render photo). Localhost + owner logins stay silent. Friends get access
+  via Tailscale **node sharing** (admin console → machine → Share); optionally scope
+  `autogroup:shared` to port 8443 in the tailnet ACL so shared users can't reach LibreChat.

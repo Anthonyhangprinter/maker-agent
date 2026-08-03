@@ -20,9 +20,18 @@ import urllib.request
 from pathlib import Path
 
 MESHES_DIR = Path.home() / ".openclaw" / "cad-web" / "meshes"
+LOCAL_RUNNER = Path.home() / ".openclaw" / "mesh-local" / "generate.sh"
 _BASE = "https://api.meshy.ai"
 POLL_S = 6
 TASK_TIMEOUT = 15 * 60
+LOCAL_TIMEOUT = 20 * 60          # CPU TripoSR takes minutes; be generous
+
+
+def provider() -> str:
+    """local-first: TripoSR on this box is the default; Meshy only by explicit opt-in."""
+    if os.environ.get("MESH_PROVIDER") == "meshy":
+        return "meshy"
+    return "triposr-local" if LOCAL_RUNNER.is_file() else "meshy"
 
 
 def api_key() -> str:
@@ -62,9 +71,45 @@ def _data_uri(image_path: str) -> str:
     return f"data:{mime};base64,{base64.b64encode(p.read_bytes()).decode()}"
 
 
+def run_mesh_local(job: dict) -> None:
+    """LOCAL image->3D via TripoSR (~/.openclaw/mesh-local/generate.sh). CPU inference is
+    minutes per mesh on this box — the log keeps the user informed while it grinds."""
+    import subprocess
+    log = job["log"].append
+    job["status"] = "running"
+    out = MESHES_DIR / job["id"]
+    out.mkdir(parents=True, exist_ok=True)
+    log("mesh: local TripoSR starting (CPU — a few minutes; fully offline)")
+    t0 = time.monotonic()
+    try:
+        p = subprocess.run([str(LOCAL_RUNNER), job["image"], str(out)],
+                           capture_output=True, text=True, timeout=LOCAL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        job["status"], job["error"] = "error", "local mesh timed out"
+        return
+    for line in (p.stderr or "").splitlines()[-8:]:
+        if line.strip():
+            log("triposr: " + line.strip()[:160])
+    arts = {}
+    for key, fname in (("glb", "model.glb"), ("obj", "model.obj"), ("render", "thumb.png")):
+        if (out / fname).is_file() and (out / fname).stat().st_size > 0:
+            arts[key] = f"/meshes/{job['id']}/{fname}"
+    if not arts.get("glb") and not arts.get("obj"):
+        tail = (p.stderr or p.stdout or "no output").strip()[-300:]
+        job["status"], job["error"] = "error", f"TripoSR produced no mesh: …{tail}"
+        return
+    job["result"] = {"ok": True, "kind": "mesh", "artifacts": arts,
+                     "provider": "triposr-local",
+                     "build_time_s": round(time.monotonic() - t0, 1)}
+    job["status"] = "done"
+
+
 def run_mesh_job(job: dict) -> None:
     """Worker entry: drives one mesh generation start->files. Mutates job in place the same
     way _run_build does (status/log/result)."""
+    if provider() == "triposr-local":
+        run_mesh_local(job)
+        return
     log = job["log"].append
     job["status"] = "running"
     prompt, image = job["spec"], job["image"]

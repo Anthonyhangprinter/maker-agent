@@ -290,6 +290,8 @@ function render(j) {
   if (j.kind === "mesh") h += ` <span class="pill kind">mesh</span>`;
   h += ` <b style="margin-left:.5rem">${esc((j.spec || "image-only build").slice(0, 120))}</b>`;
   if (j.has_image) h += ` <span title="image-conditioned">📷</span>`;
+  if (j.user && j.user !== "local")
+    h += ` <span class="pill kind" title="submitted over the tailnet">${esc(j.user)}</span>`;
   if (["queued", "running", "waiting_gpu"].includes(j.status))
     h += `<div class="log">${esc((j.log_tail || []).join("\n")) || "…"}</div>`;
   if (j.status === "needs_clarification" && r.questions) {

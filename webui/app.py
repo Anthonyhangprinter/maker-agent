@@ -20,6 +20,8 @@ import re
 import subprocess
 import threading
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from collections import deque
 from pathlib import Path
@@ -30,7 +32,7 @@ from pathlib import Path
 # every build123d run died on ImportError (found live 2026-07-18).
 ENGINE_PYTHON = "/usr/bin/python3"
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -51,6 +53,81 @@ _MAGIC = [(b"\xff\xd8\xff", ".jpg"), (b"\x89PNG\r\n\x1a\n", ".png"), (b"RIFF", "
 
 app = FastAPI(title="CAD agent", docs_url=None, redoc_url=None)
 
+# ── Beta-tester identity + owner pings ─────────────────────────────────────────
+# `tailscale serve` stamps every proxied request with the visitor's tailnet identity
+# (Tailscale-User-Login / Tailscale-User-Name headers); loopback requests carry neither
+# and are the owner at the keyboard. Jobs from anyone NOT in OWNER_LOGINS ping the
+# owner's Telegram through Satine's bot (token read from openclaw.json at send time,
+# never cached — the gateway owns that file).
+OWNER_LOGINS  = {"anthonyromanelli10@gmail.com"}
+OWNER_CHAT_ID = "7788781234"
+OPENCLAW_CONFIG = Path.home() / ".openclaw" / "openclaw.json"
+
+
+def _bot_token() -> str | None:
+    try:
+        cfg = json.loads(OPENCLAW_CONFIG.read_text())
+        return cfg["channels"]["telegram"]["accounts"]["cad"]["botToken"]
+    except Exception:
+        return None
+
+
+def _notify(text: str, photo: str | None = None):
+    """Best-effort Telegram ping to the owner, off-thread — must never block or fail a job."""
+    token = _bot_token()
+    if not token:
+        return
+
+    def _send():
+        try:
+            if photo and Path(photo).is_file():
+                boundary = uuid.uuid4().hex
+                body = b""
+                for k, v in (("chat_id", OWNER_CHAT_ID), ("caption", text[:1000])):
+                    body += (f"--{boundary}\r\nContent-Disposition: form-data; "
+                             f"name=\"{k}\"\r\n\r\n{v}\r\n").encode()
+                body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo\"; "
+                         f"filename=\"build.png\"\r\nContent-Type: image/png\r\n\r\n").encode()
+                body += Path(photo).read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{token}/sendPhoto", data=body,
+                    headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+            else:
+                data = urllib.parse.urlencode(
+                    {"chat_id": OWNER_CHAT_ID, "text": text[:4000]}).encode()
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+            urllib.request.urlopen(req, timeout=15)
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
+def _visitor(request: Request) -> tuple[str, bool]:
+    """(display label, is_guest) for the request's tailnet identity."""
+    login = request.headers.get("tailscale-user-login", "")
+    name  = request.headers.get("tailscale-user-name", "")
+    if not login:
+        return "local", False
+    label = f"{name} ({login})" if name and name != login else login
+    return label, login not in OWNER_LOGINS
+
+
+def _ping_outcome(job: dict):
+    r = job.get("result") or {}
+    status = {"done": "✅ finished", "error": "❌ failed",
+              "needs_clarification": "❓ needs answers"}.get(job["status"], job["status"])
+    line = (f"CAD web: {status} — {job.get('user', '?')}: "
+            f"“{(job.get('spec') or 'image-only build')[:120]}”")
+    if job.get("error"):
+        line += f"\n{str(job['error'])[:200]}"
+    photo = None
+    bd = r.get("build_dir_fs")
+    if bd and (Path(bd) / "build.png").is_file():
+        photo = str(Path(bd) / "build.png")
+    _notify(line, photo)
+
 _jobs: dict[str, dict] = {}             # job_id -> job (in-memory, v1)
 _jobs_lock = threading.Lock()
 _queue: "queue.Queue[str]" = queue.Queue()
@@ -66,6 +143,7 @@ def _job_public(job: dict) -> dict:
         "id": job["id"], "spec": job["spec"], "coder": job["coder"],
         "kind": job.get("kind", "cad"),
         "has_image": bool(job["image"]), "status": job["status"],
+        "user": job.get("user", "local"),
         "queued_ahead": job.get("queued_ahead", 0),
         "log_tail": list(job["log"])[-LOG_TAIL:],
         "result": job.get("result"), "error": job.get("error"),
@@ -95,6 +173,8 @@ def _worker():
         except Exception as e:
             job["status"], job["error"] = "error", f"internal error: {e}"
         finally:
+            if job.get("guest"):
+                _ping_outcome(job)
             _queue.task_done()
 
 
@@ -215,7 +295,7 @@ def _result_public(result: dict) -> dict:
 
 
 @app.post("/api/build")
-async def api_build(spec: str = Form(""), coder: str = Form("auto"),
+async def api_build(request: Request, spec: str = Form(""), coder: str = Form("auto"),
                     candidates: str = Form(""), fewshots: str = Form("on"),
                     lang: str = Form("build123d"), engine_mode: str = Form("fluid"),
                     image: UploadFile | None = File(None)):
@@ -241,10 +321,12 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         image_path = str(UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}")
         Path(image_path).write_bytes(data)
+    user, guest = _visitor(request)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
         "candidates": candidates, "fewshots": fewshots != "off", "lang": lang,
         "engine_mode": engine_mode if engine_mode in ("fluid", "loop") else "fluid",
+        "user": user, "guest": guest,
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(),
     }
@@ -253,11 +335,14 @@ async def api_build(spec: str = Form(""), coder: str = Form("auto"),
                                   if j["status"] in ("queued", "running", "waiting_gpu"))
         _jobs[job["id"]] = job
     _queue.put(job["id"])
+    if guest:
+        _notify(f"CAD web: 🛠 {user} queued a build — "
+                f"“{(spec or 'image-only')[:150]}” ({job['queued_ahead']} ahead)")
     return {"job_id": job["id"], "queued_ahead": job["queued_ahead"]}
 
 
 @app.post("/api/chat")
-def api_chat(payload: dict):
+def api_chat(payload: dict, request: Request):
     """Fluid conversation: the user's words become a revise turn on the job's build."""
     job_id, msg = str(payload.get("job_id", "")), str(payload.get("message", "")).strip()
     if not msg:
@@ -270,10 +355,15 @@ def api_chat(payload: dict):
         raise HTTPException(400, "chat revise isn't wired for mesh jobs yet")
     if job["status"] not in ("done", "error") or not (job.get("result") or {}).get("build_dir_fs"):
         raise HTTPException(409, "job has no completed build to revise yet")
+    user, guest = _visitor(request)
+    job["user"], job["guest"] = user, guest        # attribute the revise turn to its author
     job.setdefault("chat", []).append({"role": "user", "text": msg, "ts": time.time()})
     job["pending_chat"] = msg
     job["status"] = "queued"
     _queue.put(job_id)
+    if guest:
+        _notify(f"CAD web: 💬 {user} revising "
+                f"“{(job.get('spec') or 'image-only build')[:80]}”: {msg[:200]}")
     return {"ok": True}
 
 
@@ -314,14 +404,19 @@ def api_rescale(payload: dict):
 
 
 @app.post("/api/mesh")
-async def api_mesh(spec: str = Form(""), image: UploadFile | None = File(None)):
-    """CADAM-style Mesh mode: prompt and/or image -> organic mesh via the provider seam."""
-    if not meshmod.api_key():
-        raise HTTPException(503, "Mesh needs a Meshy API key: create one free at meshy.ai "
-                                 "(Settings → API Keys) and add MESHY_API_KEY to the env "
-                                 "block of ~/.openclaw/openclaw.json, then restart cad-web.")
+async def api_mesh(request: Request, spec: str = Form(""),
+                   image: UploadFile | None = File(None)):
+    """CADAM-style Mesh mode: image -> organic mesh, LOCAL TripoSR by default.
+    Meshy stays as a dormant cloud fallback (MESH_PROVIDER=meshy + key)."""
     spec = spec.strip()
-    if not spec and not (image is not None and image.filename):
+    has_image = image is not None and image.filename
+    if meshmod.provider() == "triposr-local" and not has_image:
+        raise HTTPException(400, "Local mesh generation works from an image — attach a "
+                                 "photo or sketch (text-to-3D needs an image model first; "
+                                 "coming later).")
+    if meshmod.provider() == "meshy" and not meshmod.api_key():
+        raise HTTPException(503, "MESH_PROVIDER=meshy is set but no MESHY_API_KEY found.")
+    if not spec and not has_image:
         raise HTTPException(400, "provide a prompt, an image, or both")
     image_path = None
     if image is not None and image.filename:
@@ -334,14 +429,18 @@ async def api_mesh(spec: str = Form(""), image: UploadFile | None = File(None)):
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         image_path = str(UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}")
         Path(image_path).write_bytes(data)
+    user, guest = _visitor(request)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": "-", "image": image_path,
+        "user": user, "guest": guest,
         "kind": "mesh", "status": "queued", "log": deque(maxlen=300),
         "result": None, "error": None, "created_at": time.time(),
     }
     with _jobs_lock:
         _jobs[job["id"]] = job
     _mesh_queue.put(job["id"])
+    if guest:
+        _notify(f"CAD web: 🛠 {user} queued a mesh — “{(spec or 'image-only')[:150]}”")
     return {"job_id": job["id"]}
 
 
@@ -371,6 +470,8 @@ def _mesh_worker():
         except Exception as e:
             job["status"], job["error"] = "error", f"internal error: {e}"
         finally:
+            if job.get("guest"):
+                _ping_outcome(job)
             _mesh_queue.task_done()
 
 
