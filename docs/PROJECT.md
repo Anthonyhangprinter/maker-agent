@@ -574,3 +574,51 @@ its 9.6GB tags size counts CPU-side vision encoders). Resume in `build()` finall
 restarts + health-waits for strong-rung calls (warm ~9s, mmap page cache). Chat traffic
 arriving during an eviction queues in the machine's gpu-proxy (:8085) with health-gated
 release — verified across a live stop/start cycle.
+
+## 2026-08-11 (later) — Gates ON in fluid mode; expansion rung for vague specs
+
+User reversal of the 08-03 "no gate vetoes" direction, prompted by two realisations: (1) the
+goal of fluid was conversationality, not blindness; (2) the 08-03 implementation had in fact
+*blindfolded* the gate rather than removing it — `verify_expected(facts, {}, spec="")` left
+only 4 of ~28 checks reachable (no-solid, interference, part_gaps, fragmentation), with all
+[spec]-text and expected-keyed checks structurally dead.
+
+**Gates on (fluid_gen.py):** `_materialize()` now gates against the real working spec with a
+deterministic minimal expected (`forbid_blind_holes` from spec text). Severity survives to the
+result JSON as `gate_hard` / `gate_spec` / `gate_adv` (webui renders ✗ red / △ amber / grey
+instruments; app.py forwards the fields). Initial non-helper builds spend at most ONE
+gate-repair turn on hard+[spec] findings: the working build is snapshotted first, the repair
+is kept only if it builds AND strictly reduces findings, else the snapshot is restored —
+artifacts always ship (the user is the final critic). Revise turns never auto-repair (the
+feedback may deliberately override the stored spec; a repair re-asserting old words would
+fight the user); their gate display measures against spec + all accumulated revisions.
+
+**Expansion rung (cad_engine.expand_spec, N2b):** when `triage_ambiguity` (35B) finds a spec
+missing its criticals, `expand_spec` (35B, same pre-codegen window, schema-constrained) writes
+the missing parameterization instead of asking — fluid has no question round-trip. The
+expansion becomes the working spec: codegen reads it, retrieval keys on it, and the [spec]
+checks ENFORCE its numbers, exactly like image-only mode's derived spec. Its `assumptions`
+list rides the result JSON into the UI ("assumed · … — say the word in chat to change any of
+these"). Image builds skip expansion (the gemma vision pre-pass plays that role — now wired
+into fluid: `--image` accepted, image-only spec derivation, reference.jpg written).
+
+Prompt lesson (measured same session): the v1 expansion prompt drifted into product prose —
+"snap-fit or screw-mount design, ABS material" for "a small electronics enclosure" — which
+made the 7B fail MORE (it attempted standoffs+cutouts+fillets and died in fillets twice).
+Pinned to "1-3 sentences of concrete geometry only, machinist's one-liner"; the same spec then
+expanded to "rectangular box 100x60x40mm, 2mm walls, 4×Ø10mm corner holes" and built clean.
+
+**Reliability fixes found while testing:** missing `import math` added to `_CODE_PATCHES`
+(recurring NameError, always-safe prepend); fluid crash-salvage now appends the `diagnose()`
+taxonomy repair hint to the traceback (fillet crashes get "wrap in try/except, do NOT repeat
+the call" — hint-salvage rescued 2/2 test builds that the bare traceback had failed);
+`--image`/`--no-fewshots` argparse crashes fixed (webui appended both to fluid commands the
+parser didn't define).
+
+Verified live: "a propeller" → 3 triage questions → expansion "2-blade, Ø100mm, 5mm bore
+with keyway" + 3 correctable assumptions (build itself still beyond the 7B — fillet/loft
+class, honest error returned; `--coder strong` is the lever); "a small electronics enclosure"
+→ expanded, built, gated clean (bbox exactly 100×60×40, walls [2.0]), then chat-revised
+"walls 3mm" → walls [3.0], envelope preserved, no findings; synthetic 50mm-build-vs-80mm-spec
+→ `[spec]` axis-dim finding fired, repair attempt failed (7B builder-mode slip), snapshot
+correctly restored. NOT yet measured: expansion on/off A/B on a vague-spec suite (owed).

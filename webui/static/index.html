@@ -203,6 +203,13 @@
   .chatrow input:focus { border-color: var(--accent); }
   .instruments { color: var(--faint); font: 0.75rem/1.5 var(--mono); margin-top: 0.4rem; }
   .instruments b { color: var(--warn); font-weight: 600; }
+  .assume { color: var(--faint); font: 0.75rem/1.5 var(--mono); margin-top: 0.4rem; }
+  .assume b { color: #6f8fd0; font-weight: 600; }
+  .gate { margin-top: 0.4rem; font: 0.75rem/1.5 var(--mono); }
+  .gate .gline { margin: 0.1rem 0; }
+  .gline.hard { color: #e0796d; }
+  .gline.spec { color: #d9a94b; }
+  .fixnote { color: var(--faint); font: 0.72rem/1.5 var(--mono); font-style: italic; margin-top: 0.25rem; }
   .footnote { color: var(--faint); font-size: 0.76rem; margin-top: 1.6rem; text-align: center; }
 
   /* ── mobile: the rail becomes a drawer ── */
@@ -510,9 +517,24 @@ function render(j) {
         + (r.image_analysis.proportions ? ` — ${esc(r.image_analysis.proportions)}` : "") + `</div>`;
   }
   if (j.status === "error") h += `<div class="warn">✗ ${esc(j.error || "failed")}</div>`;
-  if ((r.instruments || []).length)
+  if ((r.assumptions || []).length)
+    h += `<div class="assume"><b>assumed</b> · ${r.assumptions.map(esc).join(" · ")}
+          <i>— say the word in chat to change any of these</i></div>`;
+  const gh = r.gate_hard || [], gs = r.gate_spec || [], ga = r.gate_adv || [];
+  if (gh.length || gs.length || ga.length) {
+    h += `<div class="gate">`;
+    if (r.gate_repaired)
+      h += `<div class="fixnote">⟳ one auto-repair turn was spent on gate findings</div>`;
+    h += gh.map(x => `<div class="gline hard">✗ ${esc(x)}</div>`).join("");
+    h += gs.map(x => `<div class="gline spec">△ ${esc(x)}</div>`).join("");
+    if (ga.length)
+      h += `<div class="instruments"><b>instruments</b> · ${ga.map(esc).join(" · ")}</div>`;
+    h += `</div>`;
+  } else if ((r.instruments || []).length)
     h += `<div class="instruments"><b>instruments</b> · ` +
          r.instruments.map(esc).join(" · ") + `</div>`;
+  if (r.salvaged)
+    h += `<div class="fixnote">⟳ auto-salvaged from a script crash</div>`;
   if (j.status === "done" && r.lang === "openscad" && (r.params || []).length) {
     const bid = (r.artifacts && r.artifacts.scad || "").split("/")[2] || "";
     let pg = "";

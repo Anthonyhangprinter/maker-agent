@@ -1022,6 +1022,57 @@ def triage_ambiguity(spec: str) -> list[str]:
         log.warning("[v5] Ambiguity triage failed (%s) — proceeding without questions.", e)
         return []
 
+# ── N2b: expansion rung — assume-and-state for vague specs ─────────────────────
+
+_EXPAND_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "expanded_spec": {"type": "string"},
+        "assumptions":   {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["expanded_spec", "assumptions"],
+}
+
+_EXPAND_SYSTEM = """\
+You turn a vague CAD request into ONE concrete, buildable spec for a solid-modelling coder.
+The open questions below name exactly what is missing, each with a sensible default in
+parentheses. Rewrite the request as 1-3 short sentences of CONCRETE GEOMETRY ONLY:
+- keep every word and number the user DID give, verbatim where possible
+- answer ONLY the open questions — decide counts, overall size and basic form with real
+  numbers, using each question's default or better judgment for this kind of part
+- state every number as 'NNmm' tied to its feature ("Ø100mm diameter", "2 blades",
+  "80mm long overall", "2mm walls")
+- do NOT add features, extra parts, materials, manufacturing methods, tolerances or design
+  commentary the user didn't ask about; plain English only
+The result must read like a machinist's one-liner, not a product description. Then list each
+decision you made as one short assumption the user can correct.
+Reply with ONLY JSON: {"expanded_spec": "...", "assumptions": ["...", ...]}"""
+
+def expand_spec(spec: str, questions: list[str]) -> Optional[dict]:
+    """N2b: when triage_ambiguity finds a spec too vague, the strong model writes the missing
+    parameterization INSTEAD of asking (fluid mode has no question round-trip — the user
+    corrects via chat afterwards). The expanded text becomes the working spec, so the [spec]
+    gate checks measure against ITS numbers: assumptions become enforceable, exactly like
+    image-only mode's derived spec. Returns {"expanded_spec", "assumptions"} or None on any
+    failure — expansion must never block a build."""
+    try:
+        prompt = ("Request: " + spec + "\nOpen questions:\n"
+                  + "\n".join(f"- {q}" for q in questions))
+        raw = _ollama(CODE_MODEL_STRONG, _EXPAND_SYSTEM, prompt,
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_EXPAND_SCHEMA)
+        out = _extract_json(raw) or {}
+        expanded = (out.get("expanded_spec") or "").strip()
+        if not expanded:
+            return None
+        assumptions = [s.strip() for s in (out.get("assumptions") or [])
+                       if isinstance(s, str) and s.strip()][:6]
+        log.info("[v5] Expansion rung: %d assumption(s) — %s",
+                 len(assumptions), expanded[:160])
+        return {"expanded_spec": expanded, "assumptions": assumptions}
+    except Exception as e:
+        log.warning("[v5] Spec expansion failed (%s) — building from the original words.", e)
+        return None
+
 # ── N3: brief as a diffable contract ───────────────────────────────────────────
 
 _PATCH_SCHEMA = {
@@ -1533,6 +1584,11 @@ _CODE_PATCHES = [
 def _patch_code(code: str, wants: frozenset = frozenset()) -> str:
     for pattern, replacement in _CODE_PATCHES:
         code = re.sub(pattern, replacement, code, flags=re.MULTILINE)
+    # Missing `import math` is a recurring NameError (coders use math.radians/sin freely);
+    # prepending the import is always safe when math.* is referenced without it.
+    if re.search(r"\bmath\.\w+", code) and \
+            not re.search(r"^\s*import\s+math\b", code, re.M):
+        code = "import math\n" + code
     return _fix_feature_guards(code, wants)
 
 def _wanted_edge_features(text: str) -> frozenset:

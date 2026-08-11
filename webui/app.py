@@ -467,7 +467,10 @@ def _result_public(result: dict) -> dict:
     out = {k: result.get(k) for k in
            ("ok", "converged", "accepted_via", "code_model", "turns", "build_time_s",
             "last_critique", "warning", "image_analysis", "image_only", "lang", "params",
-            "needs_clarification", "questions", "spec", "error")}
+            "needs_clarification", "questions", "spec", "error",
+            # gates-on fluid mode (2026-08-11): severity-preserved findings + expansion rung
+            "gate_hard", "gate_spec", "gate_adv", "gate_repaired", "salvaged",
+            "expanded_spec", "assumptions")}
     build_dir = result.get("build_dir") or ""
     out["instruments"] = result.get("instruments")
     out["mode"] = result.get("mode")
