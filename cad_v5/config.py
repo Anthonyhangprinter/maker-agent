@@ -57,7 +57,15 @@ BRIEF_MODEL        = "qwen3:8b"
 # the constant below stays the shipped default.
 CODE_MODEL_FAST    = os.environ.get("CAD_CODE_MODEL_FAST",
                                     "qwen2.5-coder:7b-instruct-q4_K_M")
-CODE_MODEL_STRONG  = "qwen3-coder:30b"                    # CPU offload, ~7min/call — last resort
+# Strong rung moved off Ollama entirely (2026-08-11): qwen3.6-35b-a3b served by the resident
+# llama.cpp Vulkan server (qwen36-server.service, port 8085) — dense core on GPU, experts in
+# system RAM. ~10 tok/s tg / ~100 tok/s pp vs the retired qwen3-coder:30b's ~7min/call.
+# The "local:" prefix routes it through the OpenAI-schema branch in cad_engine._ollama().
+CODE_MODEL_STRONG  = "local:qwen3.6-35b-a3b"
+# 8086 = the real llama.cpp server, NOT the :8085 gpu-proxy: the engine is the evictor,
+# so its health probe must see backend truth (the proxy would happily queue it).
+LOCAL_CODER_URL    = "http://127.0.0.1:8086/v1/chat/completions"
+LOCAL_CODER_HEALTH = "http://127.0.0.1:8086/health"
 # Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
 # the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged
 # at 583-804s/build — slower than the 30B MoE (dense 14B offloads worse than a 3B-active MoE)

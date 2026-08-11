@@ -551,3 +551,26 @@ stderr repair, ~11s/part) with zero-LLM parameter sliders (/api/rescale); fluid 
 one auto-salvage, spec_helper short-circuit, gate demoted to an "instruments" info line);
 mesh provider seam (local TripoSR being installed; cloud Meshy written but rejected as
 default). teacher_batch_scad.py built with proper repair-budget reservation — unspent.
+
+## 2026-08-11 — Strong rung → resident qwen3.6-35b-a3b; GPU eviction + request queue
+
+The strong rung moved off Ollama: `CODE_MODEL_LADDER = [7B, local:qwen3.6-35b-a3b]`. The
+`local:` prefix is a new OpenAI-schema branch in `_ollama()` targeting the machine's resident
+llama.cpp Vulkan server (qwen36-server.service, :8086; UD-Q4_K_M, measured 12.2 tok/s tg /
+111 tok/s pp512 — vs the retired qwen3-coder:30b's ~7min/call). Complexity triage AND the
+ambiguity gate also run on it (pre-codegen window, while the server is still resident;
+schema-constrained calls send response_format + enable_thinking:false). Verified live:
+"40mm cube" → hard=False in 9.5s; planetary-gearbox spec → hard=True in 11.3s.
+
+Ladder-shape decision stands on measurement: the 7B generates 39.9 tok/s vs the 35B's 12.2
+(3-4× per iteration turn), so the fast rung is untouched. qwen3.5:9b was evaluated for the
+fast rung the same day and rejected: 9.1GB loaded > the 8GB card (15.8 tok/s spilled alone,
+5.5 beside the resident server).
+
+VRAM arbitration (user rule): `_pause_default_server_for()` stops qwen36-server before any
+Ollama coder >4GB loads (7B, qwen3:8b); gemma4:e4b critic is exempt (~3.4GB VRAM at runtime;
+its 9.6GB tags size counts CPU-side vision encoders). Resume in `build()` finally and
+`fluid_gen` main() finally (fluid bypasses the build-lock chokepoint). `_ensure_default_server()`
+restarts + health-waits for strong-rung calls (warm ~9s, mmap page cache). Chat traffic
+arriving during an eviction queues in the machine's gpu-proxy (:8085) with health-gated
+release — verified across a live stop/start cycle.

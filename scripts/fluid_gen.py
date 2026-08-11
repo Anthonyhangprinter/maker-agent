@@ -162,7 +162,12 @@ def main() -> int:
     r.add_argument("--coder", default="")
     r.add_argument("--json", action="store_true")
     a = ap.parse_args()
-    res = cmd_build(a) if a.cmd == "build" else cmd_revise(a)
+    try:
+        res = cmd_build(a) if a.cmd == "build" else cmd_revise(a)
+    finally:
+        # Fluid runs bypass engine.build(), so the default-server resume (the 35B
+        # evicted to make VRAM room for the fast coder) must happen here too.
+        engine._resume_default_server()
     print(json.dumps(res))
     return 0 if res.get("ok") else 1
 

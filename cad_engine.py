@@ -90,6 +90,7 @@ from cad_v5.config import (  # noqa: F401
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
     VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
+    LOCAL_CODER_URL, LOCAL_CODER_HEALTH,
     REF_CRITIC_TIMEOUT, REF_IMAGE_MAX_PX, BUILD_LOCK_FILE,
     first_turn_candidates, CANDIDATE_TEMPS, SFTPAIRS_DIR, SFTPAIRS_FILE,
 )
@@ -200,6 +201,59 @@ def _code_model() -> str:
     return _load_config().get("cad", {}).get("code_model") or CODE_MODEL_DEFAULT
 
 CLOUD_PREFIX = "cloud/"
+LOCAL_PREFIX = "local:"   # llama.cpp server rung (OpenAI schema, port 8085) — see config.py
+
+# ── Default-server eviction (user rule 2026-08-11) ────────────────────────────
+# The resident qwen3.6-35b server (qwen36-server.service) holds ~3.5GB of the 8GB card.
+# A CAD request evicts it whenever the Ollama model it needs cannot share the remaining
+# VRAM: gemma4:e4b (3.4GB) coexists; qwen3:8b (5.2GB) and the 7B coder (4.7GB) do not
+# and would silently spill to CPU. Paused once per process, resumed at build end
+# (engine.build() finally + fluid_gen main()); the strong rung restarts it on demand.
+_QWEN36_UNIT = "qwen36-server"
+_OLLAMA_COEXIST_GB_MAX = 4.0
+_PAUSED_DEFAULT_SERVER = False
+
+def _default_server_active() -> bool:
+    r = subprocess.run(["systemctl", "--user", "is-active", _QWEN36_UNIT],
+                       capture_output=True, text=True)
+    return r.stdout.strip() == "active"
+
+def _pause_default_server_for(model: str) -> None:
+    global _PAUSED_DEFAULT_SERVER
+    if model == CRITIC_MODEL:
+        # Ollama's tags size for gemma4:e4b (9.6GB) counts the CPU-side vision encoders;
+        # its VRAM footprint is ~3.4GB of text layers, which coexists with the server.
+        return
+    if _PAUSED_DEFAULT_SERVER or _model_size_gb(model) <= _OLLAMA_COEXIST_GB_MAX:
+        return
+    if not _default_server_active():
+        return
+    log.info("[v5] pausing %s — freeing VRAM for %s", _QWEN36_UNIT, model)
+    subprocess.run(["systemctl", "--user", "stop", _QWEN36_UNIT], capture_output=True)
+    _PAUSED_DEFAULT_SERVER = True
+
+def _resume_default_server() -> None:
+    """Idempotent; safe to call from finally blocks even when nothing was paused."""
+    global _PAUSED_DEFAULT_SERVER
+    if not _PAUSED_DEFAULT_SERVER:
+        return
+    log.info("[v5] resuming %s", _QWEN36_UNIT)
+    subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
+    _PAUSED_DEFAULT_SERVER = False
+
+def _ensure_default_server(timeout: int = 180) -> None:
+    """Strong-rung calls need the llama.cpp server up — start it (idempotent) and wait
+    for /health. Warm restarts are fast (mmap + page cache); cold is disk-bound."""
+    deadline = time.monotonic() + timeout
+    subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=5) as r:
+                json.loads(r.read())
+            return
+        except Exception:
+            time.sleep(2)
+    raise RuntimeError(f"{_QWEN36_UNIT} did not become healthy within {timeout}s")
 _CLOUD_CALLS_LEFT = 0   # per-build cost cap, reset by build() from cad.json cloud.max_calls_per_build
 
 # ── Cloud spend ledger ────────────────────────────────────────────────────────
@@ -385,6 +439,30 @@ def _ollama(model: str, system: str, prompt: str,
         # knows or cares which provider answered. fmt is ignored (cloud rung = coder only).
         return _cloud_chat(model[len(CLOUD_PREFIX):], system, prompt,
                            timeout=min(timeout, 300), temperature=temperature)
+    if model.startswith(LOCAL_PREFIX):
+        # Strong rung on the resident llama.cpp server (qwen36-server.service). Same
+        # coder-only contract as the cloud rung: fmt/images ignored. Thinking output
+        # arrives in reasoning_content, which we drop — only content is the code.
+        _ensure_default_server()
+        body = {
+            "model": model[len(LOCAL_PREFIX):],
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": prompt}],
+            **({"temperature": temperature} if temperature is not None else {}),
+        }
+        if fmt:
+            # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
+            # and skip thinking — a reasoning preamble fights the grammar and adds ~30s.
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+            body["response_format"] = ({"type": "json_object", "schema": fmt}
+                                       if isinstance(fmt, dict) else {"type": "json_object"})
+        req = urllib.request.Request(
+            LOCAL_CODER_URL, data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            resp = json.loads(r.read())
+        return (resp["choices"][0]["message"].get("content") or "").strip()
+    _pause_default_server_for(model)
     options = {"num_ctx": 16384}
     if temperature is not None:
         options["temperature"] = temperature
@@ -617,7 +695,8 @@ def preflight() -> None:
         )
     have = {m.get("name", "") for m in tags.get("models", [])}
     missing = [m for m in (BRIEF_MODEL, _code_model())
-               if m not in have and not m.startswith(CLOUD_PREFIX)]
+               if m not in have
+               and not m.startswith(CLOUD_PREFIX) and not m.startswith(LOCAL_PREFIX)]
     if missing:
         raise RuntimeError(
             "Missing required Ollama model(s): " + ", ".join(missing) +
@@ -626,6 +705,19 @@ def preflight() -> None:
     if CRITIC_MODEL not in have:
         log.warning("[v5] Critic model %s not installed — visual critique disabled "
                     "(loop falls back to numeric geometry state).", CRITIC_MODEL)
+    strong = CODE_MODEL_STRONG
+    if strong.startswith(LOCAL_PREFIX):
+        # The strong rung lives on the llama.cpp server, not Ollama — warn early if it's
+        # down so an escalation mid-build doesn't fail as a surprise. Advisory only: the
+        # fast rung still works without it.
+        try:
+            with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=5) as r:
+                json.loads(r.read())
+        except Exception:
+            log.warning("[v5] Strong rung server not reachable at %s — escalation to %s "
+                        "will fail until qwen36-server is started "
+                        "(systemctl --user start qwen36-server).",
+                        LOCAL_CODER_HEALTH, strong)
 
 # ── Onshape REST ──────────────────────────────────────────────────────────────
 
@@ -871,7 +963,11 @@ def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
     try:
         prompt = (f"Spec: {spec}\nFeatures: {brief.get('features', [])}\n"
                   f"Dimensions: {brief.get('dimensions', {})}\n\nDecide:")
-        raw = _ollama(BRIEF_MODEL, _COMPLEXITY_SYSTEM, prompt,
+        # Triage on the strong local model (user call 2026-08-11): it runs BEFORE any
+        # coder is loaded, so the resident server is still up — no VRAM contention —
+        # and the model deciding "is this too hard for the 7B?" is the one that would
+        # inherit the job. qwen3:8b is out of the pre-build path entirely.
+        raw = _ollama(CODE_MODEL_STRONG, _COMPLEXITY_SYSTEM, prompt,
                       timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_TRIAGE_SCHEMA)
         verdict = _extract_json(raw) or {}
         hard = bool(verdict.get("hard"))
@@ -912,7 +1008,9 @@ def triage_ambiguity(spec: str) -> list[str]:
     costs minutes. Conservative by design (a buildable-with-defaults spec always passes through
     untouched) and gracefully degrades to [] on any failure — triage must never block a build."""
     try:
-        raw = _ollama(BRIEF_MODEL, _AMBIGUITY_SYSTEM, f"Spec: {spec}",
+        # Same pre-codegen window as complexity triage — the strong local model reads
+        # the spec while the server is still resident (see spec_needs_strong_coder).
+        raw = _ollama(CODE_MODEL_STRONG, _AMBIGUITY_SYSTEM, f"Spec: {spec}",
                       timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_AMBIGUITY_SCHEMA)
         verdict = _extract_json(raw) or {}
         if verdict.get("buildable", True):
@@ -2711,6 +2809,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
                            do_upload=do_upload, final_render=final_render,
                            brief_override=brief_override, image=image)
     finally:
+        _resume_default_server()
         try:
             fcntl.flock(lock_fh, fcntl.LOCK_UN)
             lock_fh.close()
