@@ -340,7 +340,16 @@ if len(solids) > 1:
 part_report = []
 interference = []
 try:
+    # A STEP re-imported from disk carries its bodies as loose solids, NOT as labelled
+    # children — `shape.children` is empty for it. Without the solids() fallback this whole
+    # block silently produced parts=[], interference=[] and part_gaps=[], i.e. "checked and
+    # clean" when it means "never checked". That blinded it on exactly the case it exists to
+    # catch: a fuse that failed silently leaves disconnected UNLABELLED bodies. Measured
+    # 2026-08-15 on a 3-blade propeller whose blades sat 1.95mm off the hub and passed the
+    # gate as converged. Line 321 above already reports from `solids` — use the same truth.
     kids = list(getattr(shape, "children", []) or [])
+    if not kids and len(solids) > 1:
+        kids = list(solids)
     named = [k for k in kids if (getattr(k, "label", "") or "").strip()] or kids
     for k in named:
         try:

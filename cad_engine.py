@@ -943,6 +943,15 @@ def reconcile_expected(brief: dict, spec: str) -> None:
     if not isinstance(exp, dict):
         exp = brief["expected"] = {}
     exp["forbid_blind_holes"] = not bool(_BLIND_HOLE_TERMS.search(spec or ""))
+    # The unfused-bodies HARD check in verify_expected() needs expected.solids. The qwen3:8b
+    # brief used to supply it — and when the brief left the prompt path (2026-07-30,
+    # cad.use_brief=false) the brief-less branch set expected={}, so exp_solids was None and
+    # that check silently stopped firing in production. Measured 2026-08-15: a 3-blade
+    # propeller came back as FOUR disconnected solids, blades sitting 1.95mm off the hub, and
+    # converged. A part is ONE fused solid unless the spec itself describes an assembly —
+    # decidable from the spec text, exactly like forbid_blind_holes above.
+    if "solids" not in exp and not _ASSEMBLY_SPEC_RE.search(spec or ""):
+        exp["solids"] = 1
 
 # ── Code-model triage (LLM decides, not keyword rules) ────────────────────────
 
@@ -2110,16 +2119,36 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # modelled, not assembled. Parts that mesh, seat or fasten must touch (gap ~0); a shaft in
     # a bore has clearance measured in tenths, not tens. Advisory, since a spec can legitimately
     # ask for exploded or spaced components.
+    single_part_gaps: list[float] = []
     for entry in (facts.get("part_gaps") or []):
         try:
             a, b, gap = entry[0], entry[1], float(entry[2])
         except Exception:
             continue
         if gap > 1.0:
-            soft.append(
-                f"'{a}' and '{b}' are {gap:.1f}mm apart and never touch — if they are meant to "
-                f"mesh, seat or fasten, this assembly is not assembled: position the second part "
-                f"so the mating faces meet (running clearance is tenths of a mm, not tens).")
+            # HARD for a single part (2026-08-15, user call): if the spec never described an
+            # assembly, every body belongs to ONE solid and a >1mm gap means a boolean did not
+            # take. Collected and emitted ONCE below — per-pair messages are noise here (a
+            # 3-blade propeller yields 6 pairs, 3 of them blade-to-blade, which are SUPPOSED
+            # to be apart; they join through the hub). Genuine assemblies keep the per-pair
+            # advisory, where "which two parts" is the actionable part of the message.
+            if not _ASSEMBLY_SPEC_RE.search(spec or ""):
+                single_part_gaps.append(gap)
+            else:
+                soft.append(
+                    f"'{a}' and '{b}' are {gap:.1f}mm apart and never touch — if they are meant "
+                    f"to mesh, seat or fasten, this assembly is not assembled: position the "
+                    f"second part so the mating faces meet (running clearance is tenths of a "
+                    f"mm, not tens).")
+
+    if single_part_gaps:
+        hard.append(
+            f"the spec describes ONE part, but its bodies are separated by gaps of up to "
+            f"{max(single_part_gaps):.1f}mm ({len(single_part_gaps)} pair"
+            f"{'s' if len(single_part_gaps) != 1 else ''} over 1mm) — a boolean did not take, "
+            f"so these bodies were placed but never joined. Make the features actually "
+            f"intersect the body they attach to before unioning: a feature positioned tangent "
+            f"to or clear of its parent will not fuse. Overlap the mating region, then '+'.")
 
     # A named part with the face count of a bare primitive is missing its features: a swept
     # helical thread whose sweep() failed silently leaves `core + thread` == core, and the code

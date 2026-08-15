@@ -82,7 +82,7 @@ CODE_TIMEOUT   = 600
 # The strong 30B rung is CPU-offloaded (~7min/call measured) and pays a cold model swap when the
 # ladder escalates mid-build; 600s killed a build at exactly +600s while the 30B was still loading
 # (2026-07-11). Budget the swap + one slow generation.
-CODE_TIMEOUT_STRONG = 1200
+CODE_TIMEOUT_STRONG = int(os.environ.get("CAD_CODE_TIMEOUT_STRONG", 1200))
 # A model whose weights exceed this (GB, from /api/tags) cannot sit fully in the RX 6600's 8GB
 # VRAM → CPU offload + a ~6min reload whenever the brief/critic evicts it. Such models get
 # CODE_TIMEOUT_STRONG even when pinned by name (2026-07-17: a pinned qwen3.6:35b-a3b got the
@@ -135,7 +135,7 @@ ESCALATE_AFTER = 2
 # zero visual judgment, so it gets an inline auto-fix micro-loop INSIDE the turn (same coder,
 # raw error re-prompt) before the failure burns a full turn / touches the escalation ladder.
 N1_RETRIES     = 2
-BUILD_TIMEOUT  = 1800
+BUILD_TIMEOUT  = int(os.environ.get("CAD_BUILD_TIMEOUT", 1800))
 STEP_TIMEOUT   = 120
 RENDER_TIMEOUT = 120
 STL_TIMEOUT    = 120

@@ -622,3 +622,68 @@ class, honest error returned; `--coder strong` is the lever); "a small electroni
 "walls 3mm" → walls [3.0], envelope preserved, no findings; synthetic 50mm-build-vs-80mm-spec
 → `[spec]` axis-dim finding fired, repair attempt failed (7B builder-mode slip), snapshot
 correctly restored. NOT yet measured: expansion on/off A/B on a vague-spec suite (owed).
+
+---
+
+## 2026-08-15 — Qwen3.8-27B probe, and the three gate bugs it exposed
+
+**The model: measured out.** Qwen3.8-27B UD-Q4_K_XL (17.9GB, 64 DENSE layers,
+`general.architecture=qwen35`, `is_moe_keys: []`, vision + hybrid thinking) on llama.cpp Vulkan
+b10358 with the box to itself — every agent service stopped, GPU at 0%:
+
+| `-ngl` (of 64) | pp512 tok/s | tg128 tok/s |
+|---|---|---|
+| **12** | **62.58 ± 0.29** | **1.47 ± 0.05** |
+| 16 | 7.77 ± 0.03 | 1.65 ± 0.10 |
+| 20 | 7.85 ± 0.16 | 1.02 ± 0.52 |
+| 24 | 8.37 ± 0.01 | 1.36 ± 0.07 |
+| 28 | 9.00 ± 0.01 | 1.49 ± 0.03 |
+
+Raw: `~/models/qwen38-bench-20260815-145910.txt`. qwen3.6:27b measured **1.47 tok/s** in May on
+Ollama — identical to two decimals across a model generation and a whole inference stack, because
+tg is bytes-of-weights-per-token over DDR4 and both are dense ~17GB. Above ngl=12 the 8GB card
+overflows and RADV spills into GTT rather than failing: pp collapses to ~8 and never recovers.
+NOT routed; GGUF kept for probes only.
+
+**The probe: 3 coders x 2 specs**, thinking off, `--candidates 1`, `CAD_BENCH=1`. Qwen3.8 served
+from `qwen36-server` under the 35B's `--alias` so the engine's `local:` rung worked unmodified —
+which is why raw logs of this run say `qwen3.6-35b-a3b`; the result JSONs were corrected afterwards
+and carry a `code_model_note`.
+
+| | enclosure | propeller (Ø120, 20mm hub, 8mm bore) |
+|---|---|---|
+| Qwen3.8-27B | correct, 1 turn, 1426s | right topology, **4 disconnected solids**, blades 1.95mm off the hub, Ø113.8. 1134s |
+| qwen2.5-coder:7b | correct, 1 turn, ~210s | a 120mm-tall **post**. 1 solid. 292s |
+| cloud/claude-sonnet-5 | correct, 1 turn, ~140s | 1 fused solid, tapered + twisted blades, Ø109.3. 180s |
+
+Real capability gap on hard geometry (Qwen3.8 understood propeller topology; the 7B did not) —
+that is a GPU-upgrade data point, not a routing one. On the reachable spec the 27B bought nothing
+at 7x the wall clock.
+
+**Every one of the six builds was reported converged.** That was the actual finding:
+
+1. `scripts/inspect` assembly-sanity walked `shape.children` — EMPTY for a STEP re-imported from
+   disk — while the `Parts (N)` listing 20 lines above walks `shape.solids()`. So `parts`,
+   `interference` and `part_gaps` all emitted `[]`, indistinguishable from "clean", and were blind
+   on exactly the case they exist to catch: a silently-failed fuse leaves disconnected UNLABELLED
+   bodies. Fixed with a `solids()` fallback guarded on `len(solids) > 1`.
+2. The unfused-bodies HARD check needs `expected.solids`, supplied by the qwen3:8b brief. When the
+   brief left the prompt path (2026-07-30, `cad.use_brief=false`) the brief-less branch set
+   `expected: {}` — so `exp_solids` was `None` and the check had been dead in production for two
+   weeks. `reconcile_expected()` now derives `expected["solids"]=1` for specs not matching
+   `_ASSEMBLY_SPEC_RE`.
+3. `part_gaps` >1mm is now HARD for single-part specs, collapsed into one message (largest gap +
+   pair count); per-pair was noise. Assemblies keep the per-pair advisory.
+
+Verified: broken propeller 4 solids -> 2 hard fails -> `revise_script()` repair turn; cloud + 7B
+propellers and the enclosure 0 hard; the SAME broken STEP under an assembly spec stays 0 hard /
+6 soft; end-to-end cloud rebuild converged in 1 turn. Also fixed: the `cad` launcher took
+`PYTHONPATH` from `dirname($0)` = the symlink dir, so it only worked when cwd was the skill dir.
+`CODE_TIMEOUT_STRONG` / `BUILD_TIMEOUT` are now env-overridable; shipped defaults unchanged.
+
+**Open.** The gemma4 critic is unreliable in BOTH directions — false negatives on 3/3 correct
+enclosures (reads an open box's floor, viewed from directly above, as a lid) and a false POSITIVE
+on the broken propeller ("PASS: three blades evenly spaced around the hub"). Only the deterministic
+gate saved those builds. And no check enforces a round part's envelope: all three coders missed the
+120mm diameter, because `_AXIS_DIM_RE` does not treat "NNmm diameter" as an envelope dim and the
+axis check is permutation-free by design, so a 120mm-TALL rod satisfies a 120mm-DIAMETER spec.

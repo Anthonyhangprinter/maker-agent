@@ -2,5 +2,9 @@
 # CAD agent v5 launcher — describe a part, build it, refine it by chatting.
 #   cad "a 120x80x40mm enclosure with 2mm walls and a 20mm cable hole"
 #   cad --coder fast "a spur gear 20T module 2"   |   cad --once --onshape "..."
-SKILL="$(cd "$(dirname "$0")" && pwd)"
+# readlink -f, NOT dirname "$0": this script is invoked through the ~/.local/bin/cad SYMLINK,
+# so "$0" is the symlink path and dirname gives ~/.local/bin — which has no cad_v5 package.
+# It only ever worked when cwd happened to be the skill dir (python puts cwd on sys.path);
+# from anywhere else it died with "No module named cad_v5" (hit 2026-08-15).
+SKILL="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 exec env PYTHONPATH="$SKILL${PYTHONPATH:+:$PYTHONPATH}" python3 -m cad_v5 "$@"
