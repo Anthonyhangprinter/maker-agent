@@ -59,7 +59,7 @@ Key design decisions, each with its measurement in [`docs/PROJECT.md`](docs/PROJ
 Requires Python 3.10+, [Ollama](https://ollama.com), and the build123d stack (`pip install build123d`). Models: a small coder (e.g. `qwen2.5-coder:7b-instruct-q4_K_M`), a multimodal critic (`gemma4:e4b`-class), `nomic-embed-text` for retrieval, and optionally a 30B+ strong rung served by llama.cpp.
 
 ```bash
-git clone https://github.com/<you>/maker-agent
+git clone https://github.com/Anthonyhangprinter/maker-agent
 cd maker-agent
 
 # one-shot build, machine-readable output
@@ -102,7 +102,7 @@ Built on [build123d](https://github.com/gumyr/build123d) and [bd_warehouse](http
   author  = {Romanelli, Anthony},
   title   = {Maker Agent: a local-first text-to-CAD agent with a measured learning loop},
   year    = {2026},
-  url     = {https://github.com/anthonyromanelli/maker-agent}
+  url     = {https://github.com/Anthonyhangprinter/maker-agent}
 }
 ```
 
