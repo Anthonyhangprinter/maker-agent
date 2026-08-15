@@ -3,3 +3,5 @@ __pycache__/
 .bak-*/
 benchmarks/results/*.log
 .pytest_cache/
+.venv/
+*.analysis.json
