@@ -687,3 +687,29 @@ on the broken propeller ("PASS: three blades evenly spaced around the hub"). Onl
 gate saved those builds. And no check enforces a round part's envelope: all three coders missed the
 120mm diameter, because `_AXIS_DIM_RE` does not treat "NNmm diameter" as an envelope dim and the
 axis check is permutation-free by design, so a 120mm-TALL rod satisfies a 120mm-DIAMETER spec.
+
+## 2026-09-04 — RTX 3090 migration: strong rung → qwen3.8-27b, no-coexistence eviction
+
+Hardware changed under the engine: RX 6600 8GB (ROCm/Vulkan) → RTX 3090 24GB (CUDA 13.2,
+hard 250W cap on the 500W PSU — see the buildout plan PDF). The resident default server is
+now **qwen3.8-27b** (UD-Q4_K_XL, llama.cpp CUDA b10795, `qwen38-server.service`, 128k ctx,
+q8 KV, vision mmproj on GPU, ~23GB VRAM). Measured on this card: 27B pp 1183 / tg 32.5;
+the old 35B-A3B did pp 2968 / tg 134 fully resident — the 27B took the slot on
+quality/vision (user call), not speed.
+
+Engine changes (all in this commit):
+- `CODE_MODEL_STRONG = "local:qwen3.8-27b"`; `_QWEN36_UNIT = "qwen38-server"` (identifier
+  name kept for grep-ability).
+- **No guest coexists any more**: `_OLLAMA_COEXIST_GB_MAX = 0.0` and the gemma4:e4b
+  exemption is REMOVED — the resident holds ~23GB, so every Ollama load evicts it.
+- `_resume_default_server()` and `_ensure_default_server()` now call
+  `_unload_ollama_guests(0.0)` before starting the unit. Caught live: a keepalive'd 7B
+  coder (5.8GB) blocked the resident's CUDA alloc and crash-looped the unit. The launcher
+  (`~/.local/bin/qwen38-server`, outside this repo) also self-evicts guests at start —
+  belt and braces, since systemd auto-restart bypasses the engine.
+
+Smoke build (40x30x6 plate, 4 corner holes): converged 1 turn on the 7B fast rung; full
+pause→build→resume dance verified in the logs. NOTE: all pre-2026-09-04 benchmark numbers
+are NON-COMPARABLE with runs on this card (different GPU, backend, strong-rung model).
+Thinking on the new strong rung: `chat_template_kwargs.reasoning_effort` low|medium|xhigh
+(no "none"; `enable_thinking` is gone from the template).

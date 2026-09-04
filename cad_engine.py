@@ -203,14 +203,15 @@ def _code_model() -> str:
 CLOUD_PREFIX = "cloud/"
 LOCAL_PREFIX = "local:"   # llama.cpp server rung (OpenAI schema, port 8085) — see config.py
 
-# ── Default-server eviction (user rule 2026-08-11) ────────────────────────────
-# The resident qwen3.6-35b server (qwen36-server.service) holds ~3.5GB of the 8GB card.
-# A CAD request evicts it whenever the Ollama model it needs cannot share the remaining
-# VRAM: gemma4:e4b (3.4GB) coexists; qwen3:8b (5.2GB) and the 7B coder (4.7GB) do not
-# and would silently spill to CPU. Paused once per process, resumed at build end
-# (engine.build() finally + fluid_gen main()); the strong rung restarts it on demand.
-_QWEN36_UNIT = "qwen36-server"
-_OLLAMA_COEXIST_GB_MAX = 4.0
+# ── Default-server eviction (user rule 2026-08-11; retuned 2026-09-04) ────────
+# The resident server is now qwen3.8-27b fully GPU-resident on the RTX 3090
+# (qwen38-server.service, ~23GB of the 24GB card: weights + 128k q8 KV + mmproj).
+# NOTHING coexists any more — the 35B-era gemma4 exemption is gone; every Ollama
+# load evicts the resident. Paused once per process, resumed at build end
+# (engine.build() finally + fluid_gen main()); the strong rung restarts it on demand
+# after unloading all Ollama guests. (_QWEN36_UNIT name kept for grep-ability.)
+_QWEN36_UNIT = "qwen38-server"
+_OLLAMA_COEXIST_GB_MAX = 0.0
 _PAUSED_DEFAULT_SERVER = False
 
 def _default_server_active() -> bool:
@@ -220,10 +221,6 @@ def _default_server_active() -> bool:
 
 def _pause_default_server_for(model: str) -> None:
     global _PAUSED_DEFAULT_SERVER
-    if model == CRITIC_MODEL:
-        # Ollama's tags size for gemma4:e4b (9.6GB) counts the CPU-side vision encoders;
-        # its VRAM footprint is ~3.4GB of text layers, which coexists with the server.
-        return
     if _PAUSED_DEFAULT_SERVER or _model_size_gb(model) <= _OLLAMA_COEXIST_GB_MAX:
         return
     if not _default_server_active():
@@ -238,18 +235,49 @@ def _resume_default_server() -> None:
     if not _PAUSED_DEFAULT_SERVER:
         return
     log.info("[v5] resuming %s", _QWEN36_UNIT)
+    # 27B era: guests must be gone before the resident can allocate (~23GB needed).
+    # The launcher also self-guards, but unloading here avoids a crash-loop window.
+    _unload_ollama_guests(0.0)
     subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
     _PAUSED_DEFAULT_SERVER = False
+
+def _unload_ollama_guests(max_gb: float = _OLLAMA_COEXIST_GB_MAX) -> None:
+    """The reverse of _pause_default_server_for: a VISION call on the resident server needs
+    the card clean (with the mmproj on GPU the server is ~4.4GB; a keepalive'd 7B coder at
+    ~4.7GB beside it would spill both). Unload any running Ollama model too big to coexist
+    via keep_alive:0 — the next codegen call reloads it warm in seconds."""
+    try:
+        with urllib.request.urlopen(OLLAMA_HOST + "/api/ps", timeout=5) as r:
+            running = json.loads(r.read()).get("models", [])
+        for m in running:
+            gb = (m.get("size_vram") or m.get("size") or 0) / 1e9
+            name = m.get("name", "")
+            if name and gb > max_gb:
+                req = urllib.request.Request(
+                    OLLAMA_URL, data=json.dumps({"model": name, "keep_alive": 0}).encode(),
+                    headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=30).read()
+                log.info("[v5] unloaded Ollama guest %s (%.1fGB) for vision call", name, gb)
+    except Exception as e:
+        log.warning("[v5] guest unload failed (vision call may contend for VRAM): %s", e)
 
 def _ensure_default_server(timeout: int = 180) -> None:
     """Strong-rung calls need the llama.cpp server up — start it (idempotent) and wait
     for /health. Warm restarts are fast (mmap + page cache); cold is disk-bound."""
+    global _PAUSED_DEFAULT_SERVER
     deadline = time.monotonic() + timeout
+    # 27B era: the resident needs ~23GB — clear ALL Ollama guests before starting it,
+    # or the CUDA alloc fails and the unit crash-loops.
+    _unload_ollama_guests(0.0)
     subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=5) as r:
                 json.loads(r.read())
+            # The server is up, so "paused" is no longer true. Leaving the flag set made
+            # _pause_default_server_for() a no-op for the REST of the build — with a local:
+            # critic alternating against the 7B coder, the coder would silently spill.
+            _PAUSED_DEFAULT_SERVER = False
             return
         except Exception:
             time.sleep(2)
@@ -440,16 +468,30 @@ def _ollama(model: str, system: str, prompt: str,
         return _cloud_chat(model[len(CLOUD_PREFIX):], system, prompt,
                            timeout=min(timeout, 300), temperature=temperature)
     if model.startswith(LOCAL_PREFIX):
-        # Strong rung on the resident llama.cpp server (qwen36-server.service). Same
-        # coder-only contract as the cloud rung: fmt/images ignored. Thinking output
-        # arrives in reasoning_content, which we drop — only content is the code.
+        # Strong rung on the resident llama.cpp server (qwen36-server.service). Thinking
+        # output arrives in reasoning_content, which we drop — only content is the answer.
+        # Images ride as OpenAI content parts (the server carries the mmproj since
+        # 2026-08-15) — that is what lets the critic run on this rung for A/B evals.
+        if images:
+            _unload_ollama_guests()
         _ensure_default_server()
+        if images:
+            user_content = [{"type": "text", "text": prompt}] + [
+                {"type": "image_url",
+                 "image_url": {"url": "data:image/png;base64," + b64}}
+                for b64 in images]
+        else:
+            user_content = prompt
         body = {
             "model": model[len(LOCAL_PREFIX):],
             "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": prompt}],
+                         {"role": "user", "content": user_content}],
             **({"temperature": temperature} if temperature is not None else {}),
         }
+        if images and not fmt:
+            # A visual critique is a judgment, not code — at 12 tok/s a thinking
+            # preamble adds minutes per turn for no measured gain.
+            body["chat_template_kwargs"] = {"enable_thinking": False}
         if fmt:
             # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
             # and skip thinking — a reasoning preamble fights the grammar and adds ~30s.
@@ -702,7 +744,9 @@ def preflight() -> None:
             "Missing required Ollama model(s): " + ", ".join(missing) +
             ". Pull with: " + "; ".join(f"ollama pull {m}" for m in missing)
         )
-    if CRITIC_MODEL not in have:
+    if CRITIC_MODEL.startswith(LOCAL_PREFIX):
+        pass   # llama.cpp-served critic — covered by the strong-rung health check below
+    elif CRITIC_MODEL not in have:
         log.warning("[v5] Critic model %s not installed — visual critique disabled "
                     "(loop falls back to numeric geometry state).", CRITIC_MODEL)
     strong = CODE_MODEL_STRONG
@@ -2622,6 +2666,10 @@ def wants_section(spec: str, brief: dict) -> bool:
     exp = brief.get("expected", {})
     return isinstance(exp, dict) and isinstance(exp.get("wall_mm"), (int, float))
 
+# Critic model-call seconds this build (render time excluded) — reset by build(), reported
+# in the result JSON. Added 2026-08-15 for the gemma4-vs-resident-35B critic A/B.
+_CRITIC_CALL_SECS: list = []
+
 def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
                     section: bool = False, questions: Optional[list[str]] = None,
                     ref_b64: Optional[str] = None) -> Optional[str]:
@@ -2640,6 +2688,7 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
         ff_system = _CRITIC_SYSTEM + (_CRITIC_REF_SUFFIX if ref_b64 else "")
         timeout = REF_CRITIC_TIMEOUT if ref_b64 else CRITIC_TIMEOUT
         if questions:
+            t_c = time.monotonic()
             try:
                 qlist = "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions))
                 raw = _ollama(CRITIC_MODEL, qa_system,
@@ -2647,6 +2696,9 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
                               f"hidden/through features):\n{state}\n\n"
                               f"Verification questions:\n{qlist}\n\nAnswer each:",
                               timeout=timeout, images=images, fmt=_ANSWERS_SCHEMA)
+                _CRITIC_CALL_SECS.append(round(time.monotonic() - t_c, 1))
+                log.info("[v5] critic call (%s, QA): %.1fs", CRITIC_MODEL,
+                         _CRITIC_CALL_SECS[-1])
                 answers = (_extract_json(raw) or {}).get("answers") or []
                 if answers:
                     # Only a hard NO blocks: UNCLEAR means the views can't tell, and
@@ -2667,14 +2719,21 @@ def visual_critique(step_path: Path, spec: str, state: str, work_dir: Path,
                     return ("Verification questions FAILED:\n" + "\n".join(lines)
                             + "\nFix these specific issues.")
             except Exception as e:
-                log.warning("[v5] QA critique failed (%s) — free-form fallback.", e)
+                _CRITIC_CALL_SECS.append(round(time.monotonic() - t_c, 1))
+                log.warning("[v5] QA critique failed after %.1fs (%s) — free-form fallback.",
+                            _CRITIC_CALL_SECS[-1], e)
         prompt = (
             f"Requested part: {spec}\n\n"
             f"Geometry facts (authoritative for hidden/through features):\n{state}\n\n"
             f"Critique the render:"
         )
-        return _ollama(CRITIC_MODEL, ff_system, prompt,
-                       timeout=timeout, images=images).strip()
+        t_c = time.monotonic()
+        out = _ollama(CRITIC_MODEL, ff_system, prompt,
+                      timeout=timeout, images=images).strip()
+        _CRITIC_CALL_SECS.append(round(time.monotonic() - t_c, 1))
+        log.info("[v5] critic call (%s, free-form): %.1fs", CRITIC_MODEL,
+                 _CRITIC_CALL_SECS[-1])
+        return out
     except Exception as e:
         log.warning("[v5] Visual critique unavailable: %s", e)
         return None
@@ -2910,6 +2969,7 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
              f"  [reference: {image}]" if image else "")
     preflight()
     t0 = time.monotonic()
+    _CRITIC_CALL_SECS.clear()   # per-build critic timing (see visual_critique)
 
     # Reference photo: vision pre-pass BEFORE the brief so its structured analysis rides into
     # the (text-only) brief model's context. A patched refine brief (brief_override) already
@@ -3461,6 +3521,8 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         "n1_autofixes": n1_autofixes,
         "turns":        turn,   # loop turns entered — with n1_autofixes, N1's exit metric
         "last_critique": last_critique,
+        "critic_model": CRITIC_MODEL,
+        "critic_secs":  list(_CRITIC_CALL_SECS),   # model-call seconds only, per critique
         "image":        image or "",
         "image_analysis": image_analysis,
         "image_only":   image_only,   # spec above was derived from the photo, sizes model-chosen

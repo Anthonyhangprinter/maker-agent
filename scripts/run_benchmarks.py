@@ -183,6 +183,8 @@ def run_one(bm: dict, coder: str, timeout: int, no_fewshots: bool, criteria: dic
         "code_model": res.get("code_model"),
         "agent_build_time_s": res.get("build_time_s"),
         "turns": res.get("turns"),
+        "critic_model": res.get("critic_model"),
+        "critic_secs": res.get("critic_secs"),
         "n1_autofixes": res.get("n1_autofixes"),
         "wall_time_s": wall,
         "url": res.get("url", ""),

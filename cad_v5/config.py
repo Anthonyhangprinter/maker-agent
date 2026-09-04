@@ -61,7 +61,7 @@ CODE_MODEL_FAST    = os.environ.get("CAD_CODE_MODEL_FAST",
 # llama.cpp Vulkan server (qwen36-server.service, port 8085) — dense core on GPU, experts in
 # system RAM. ~10 tok/s tg / ~100 tok/s pp vs the retired qwen3-coder:30b's ~7min/call.
 # The "local:" prefix routes it through the OpenAI-schema branch in cad_engine._ollama().
-CODE_MODEL_STRONG  = "local:qwen3.6-35b-a3b"
+CODE_MODEL_STRONG  = "local:qwen3.8-27b"
 # 8086 = the real llama.cpp server, NOT the :8085 gpu-proxy: the engine is the evictor,
 # so its health probe must see backend truth (the proxy would happily queue it).
 LOCAL_CODER_URL    = "http://127.0.0.1:8086/v1/chat/completions"
@@ -73,7 +73,10 @@ LOCAL_CODER_HEALTH = "http://127.0.0.1:8086/health"
 # The right middle rung for weak hardware is the cloud (B4/M3).
 CODE_MODEL_LADDER  = [CODE_MODEL_FAST, CODE_MODEL_STRONG]
 CODE_MODEL_DEFAULT = CODE_MODEL_FAST
-CRITIC_MODEL       = "gemma4:e4b"
+# CAD_CRITIC_MODEL env override exists for A/B evals (2026-08-15: gemma4 vs the resident 35B,
+# now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
+# "local:<name>" routes the critic through the resident llama.cpp server (images supported).
+CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", "gemma4:e4b")
 OLLAMA_HOST    = "http://localhost:11434"
 OLLAMA_URL     = OLLAMA_HOST + "/api/generate"
 OLLAMA_TAGS    = OLLAMA_HOST + "/api/tags"
@@ -88,7 +91,9 @@ CODE_TIMEOUT_STRONG = int(os.environ.get("CAD_CODE_TIMEOUT_STRONG", 1200))
 # CODE_TIMEOUT_STRONG even when pinned by name (2026-07-17: a pinned qwen3.6:35b-a3b got the
 # 600s fast timeout, timed out on all 10 benchmark parts, and produced a 0/31 artifact score).
 VRAM_RESIDENT_GB_MAX = 5.5
-CRITIC_TIMEOUT = 200
+# Env-overridable for critic A/B legs (a 35B critique pays CPU image-encode + a possible
+# server restart; a timeout silently degrades the loop to gate-only, poisoning the leg).
+CRITIC_TIMEOUT = int(os.environ.get("CAD_CRITIC_TIMEOUT", 200))
 # Reference-image builds: two images through gemma's CPU-side vision encoder need more headroom
 # than the single-render 200s (measured 2026-07-17: 110s cold for a two-image compare).
 REF_CRITIC_TIMEOUT = 300

@@ -29,8 +29,12 @@ if [ -z "${REFRESH_DETACHED:-}" ]; then
     --setenv=REFRESH_DETACHED=1 "$(readlink -f "$0")" "$@"
 fi
 
-# Always leave the ladder unpinned, whatever happens.
-trap 'echo "{}" > "$CADJSON"; LOG_TS "EXIT: cad.json unpinned"' EXIT
+# Always leave the ladder unpinned, whatever happens. Also tear down the critic-ab GPU
+# mmproj drop-in if a run died mid-leg — production default is CPU offload.
+MMPROJ_DROPIN="$HOME/.config/systemd/user/qwen36-server.service.d/mmproj-gpu.conf"
+trap 'echo "{}" > "$CADJSON"; LOG_TS "EXIT: cad.json unpinned";
+      if [ -f "$MMPROJ_DROPIN" ]; then rm -f "$MMPROJ_DROPIN"; systemctl --user daemon-reload;
+        systemctl --user restart qwen36-server; LOG_TS "EXIT: mmproj GPU drop-in removed"; fi' EXIT
 
 # Memory-pressure gate: wait up to 10 min for avg10(some) < 40%; else skip the stage.
 pressure_ok() {
@@ -127,6 +131,29 @@ case "$MODE" in
       pressure_ok && run_suite "qwen3.6:35b-a3b" text-to-cad "" 1800
     fi
     pressure_ok && run_suite "qwen3:8b" heldout-cqe "" 1500
+    ;;
+  critic-ab-20260815)
+    # Critic A/B (user request 2026-08-15): gemma4:e4b vs the resident 35B (now that
+    # qwen36-server carries an mmproj). Coder PINNED to the 7B fast rung in both legs so
+    # only the critic varies; per-build critic model-call seconds land in critic_secs in
+    # the run JSON. Timeout 2100 both legs — the 35B critic pays CPU image-encode plus a
+    # server restart per turn and must not be timeout-clipped into a gate-only leg.
+    M=qwen2.5-coder:7b-instruct-q4_K_M
+    pressure_ok && run_suite "$M" text-to-cad "1,2" 2100
+    # Leg B runs the 35B critic in its END-STATE config: mmproj on GPU (user call
+    # 2026-08-16 — CPU-encode numbers would skew the speed comparison; smoke reference:
+    # 270s/call on CPU). The drop-in survives the engine's own stop/start cycles and is
+    # removed after the leg (and by the EXIT trap on any crash).
+    mkdir -p "$(dirname "$MMPROJ_DROPIN")"
+    printf '[Service]\nEnvironment=MMPROJ_OFFLOAD=gpu\n' > "$MMPROJ_DROPIN"
+    systemctl --user daemon-reload
+    systemctl --user restart qwen36-server
+    export CAD_CRITIC_MODEL=local:qwen3.6-35b-a3b CAD_CRITIC_TIMEOUT=480
+    pressure_ok && run_suite "$M" text-to-cad "1,2" 2100
+    unset CAD_CRITIC_MODEL CAD_CRITIC_TIMEOUT
+    rm -f "$MMPROJ_DROPIN"; systemctl --user daemon-reload
+    systemctl --user restart qwen36-server
+    LOG_TS "critic-ab: mmproj restored to CPU offload"
     ;;
   *) LOG_TS "unknown mode $MODE"; exit 2 ;;
 esac
