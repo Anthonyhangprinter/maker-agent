@@ -2,7 +2,7 @@
 """
 cad_retrieval.py — semantic few-shot retrieval for the CAD agent.
 
-Embeds specs with nomic-embed-text (local Ollama) and returns the most similar known-good
+Embeds specs with nomic-embed-text-v1.5 (local llama.cpp embed-server, CPU) and returns the most similar known-good
 build123d examples from the corpus, so a small coder adapts a verified solution instead of
 inventing from scratch. Pure stdlib; embeddings are cached on disk; falls back to word-overlap
 if embedding is unavailable — it must never hard-fail a build.
@@ -24,8 +24,8 @@ _OPENCLAW    = Path(os.path.expanduser("~/.openclaw"))
 CORPUS_FILE  = _OPENCLAW / "cad-examples.jsonl"         # unified gold + rated + auto corpus
 LESSONS_FILE = _OPENCLAW / "cad-lessons.jsonl"          # fail->fix lessons (Stage B)
 EMB_CACHE    = _OPENCLAW / "cad-embeddings.json"        # {sha1(text): [floats]}
-EMBED_MODEL = "nomic-embed-text"
-EMBED_URL   = "http://localhost:11434/api/embeddings"
+EMBED_MODEL = "nomic-embed-text-v1.5"
+EMBED_URL   = "http://127.0.0.1:8089/v1/embeddings"  # llama.cpp embed-server, CPU-only (2026-09-12, Ollama retired)
 EMBED_TIMEOUT = 30
 
 
@@ -53,11 +53,15 @@ def embed(text: str, cache: Optional[dict] = None) -> Optional[list[float]]:
     if cache is not None and key in cache:
         return cache[key]
     try:
-        payload = json.dumps({"model": EMBED_MODEL, "prompt": text}).encode()
+        payload = json.dumps({"model": EMBED_MODEL, "input": text}).encode()
         req = urllib.request.Request(EMBED_URL, data=payload,
                                      headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=EMBED_TIMEOUT) as r:
-            vec = json.loads(r.read()).get("embedding")
+            resp = json.loads(r.read())
+        try:
+            vec = resp["data"][0]["embedding"]
+        except (KeyError, IndexError):
+            vec = None
         if vec and cache is not None:
             cache[key] = vec
         return vec
