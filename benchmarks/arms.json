@@ -31,9 +31,9 @@
       "gguf": "gemma-4-31B-it-GGUF/gemma-4-31B-it-UD-Q4_K_XL.gguf",
       "mmproj": "gemma-4-31B-it-GGUF/mmproj-F16.gguf",
       "ctx": 16384,
-      "extra_args": "",
+      "extra_args": "--chat-template-kwargs {\"enable_thinking\":false}",
       "hf": null,
-      "notes": "dense 31B, licence: Gemma"
+      "notes": "dense 31B, licence: Gemma; thinking off for the shootout (measured 5-10x tokens and 196 s/build with the template default on 2026-09-16)"
     },
     {
       "name": "qwen3-coder-30b-a3b",
