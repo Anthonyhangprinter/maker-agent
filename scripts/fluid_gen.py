@@ -161,6 +161,7 @@ def _result(m: dict, extra: dict, t0: float) -> dict:
            "salvaged": m.get("salvaged", False),
            "gate_repaired": m.get("gate_repaired", False),
            "error": m["error"],
+           "usage": getattr(engine, "_LAST_USAGE", None),
            "build_time_s": round(time.monotonic() - t0, 1)}
     res.update(extra)
     return res

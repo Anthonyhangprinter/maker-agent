@@ -97,6 +97,7 @@ from cad_v5.config import (  # noqa: F401
 
 from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
+from cad_v5.config import maker_config  # noqa: E402  (Maker 1.0 — swappable CAD coder arm)
 
 _MODEL_SIZE_GB: dict[str, float] = {}
 
@@ -192,6 +193,8 @@ def _public_uploads() -> bool:
 # Per-build override set by build() (complexity triage / escalation / manual --coder). A build
 # runs as its own process (Satine shells out per request), so a module global is safe here.
 _ACTIVE_CODE_MODEL: Optional[str] = None
+# Token usage from the last local: response (Maker 1.0 — lets a card runner count tokens).
+_LAST_USAGE: Optional[dict] = None
 
 def _code_model() -> str:
     """Code model for the current call. Priority:
@@ -209,8 +212,12 @@ LOCAL_PREFIX = "local:"   # llama.cpp server rung (OpenAI schema, port 8085) —
 # NOTHING coexists any more — the 35B-era gemma4 exemption is gone; every Ollama
 # load evicts the resident. Paused once per process, resumed at build end
 # (engine.build() finally + fluid_gen main()); the strong rung restarts it on demand
-# after unloading all Ollama guests. (_QWEN36_UNIT name kept for grep-ability.)
-_QWEN36_UNIT = "qwen38-server"
+# after unloading all Ollama guests. resident :8086, or maker-server when cad.json
+# maker.enabled (see cad_v5.config.maker_config). (_QWEN36_UNIT name kept for
+# grep-ability.)
+_QWEN36_UNIT = "qwen38-server"          # the resident (name kept for grep-ability)
+_MAKER_UNIT  = "maker-server"           # the swappable CAD coder arm (docs/MAKER-1.0-CAMPAIGN.md 4.2)
+_MAKER_STARTED = False
 _OLLAMA_COEXIST_GB_MAX = 0.0
 _PAUSED_DEFAULT_SERVER = False
 
@@ -230,14 +237,23 @@ def _pause_default_server_for(model: str) -> None:
     _PAUSED_DEFAULT_SERVER = True
 
 def _resume_default_server() -> None:
-    """Idempotent; safe to call from finally blocks even when nothing was paused."""
-    global _PAUSED_DEFAULT_SERVER
-    if not _PAUSED_DEFAULT_SERVER:
+    """Idempotent; safe to call from finally blocks even when nothing was paused.
+
+    CAD_KEEP_MAKER=1 (with maker.enabled): does nothing — the card runner keeps one
+    maker-server arm warm across ~150 builds and restores the resident itself via
+    scripts/arms.py restore. Per-build resume would cold-load the arm every time."""
+    global _PAUSED_DEFAULT_SERVER, _MAKER_STARTED
+    if os.environ.get("CAD_KEEP_MAKER") == "1" and maker_config()["enabled"]:
+        return
+    if not (_PAUSED_DEFAULT_SERVER or _MAKER_STARTED):
         return
     log.info("[v5] resuming %s", _QWEN36_UNIT)
     # 27B era: guests must be gone before the resident can allocate (~23GB needed).
     # The launcher also self-guards, but unloading here avoids a crash-loop window.
     _unload_ollama_guests(0.0)
+    if _MAKER_STARTED:
+        subprocess.run(["systemctl", "--user", "stop", _MAKER_UNIT], capture_output=True)
+        _MAKER_STARTED = False
     subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
     _PAUSED_DEFAULT_SERVER = False
 
@@ -261,27 +277,48 @@ def _unload_ollama_guests(max_gb: float = _OLLAMA_COEXIST_GB_MAX) -> None:
     except Exception as e:
         log.warning("[v5] guest unload failed (vision call may contend for VRAM): %s", e)
 
-def _ensure_default_server(timeout: int = 180) -> None:
-    """Strong-rung calls need the llama.cpp server up — start it (idempotent) and wait
-    for /health. Warm restarts are fast (mmap + page cache); cold is disk-bound."""
-    global _PAUSED_DEFAULT_SERVER
-    deadline = time.monotonic() + timeout
-    # 27B era: the resident needs ~23GB — clear ALL Ollama guests before starting it,
-    # or the CUDA alloc fails and the unit crash-loops.
-    _unload_ollama_guests(0.0)
-    subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
-    while time.monotonic() < deadline:
+def _wait_health(url: str, timeout: int) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
         try:
-            with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=5) as r:
+            with urllib.request.urlopen(url, timeout=3) as r:
                 json.loads(r.read())
-            # The server is up, so "paused" is no longer true. Leaving the flag set made
-            # _pause_default_server_for() a no-op for the REST of the build — with a local:
-            # critic alternating against the 7B coder, the coder would silently spill.
-            _PAUSED_DEFAULT_SERVER = False
             return
         except Exception:
             time.sleep(2)
-    raise RuntimeError(f"{_QWEN36_UNIT} did not become healthy within {timeout}s")
+    raise RuntimeError(f"{url} did not become healthy within {timeout}s")
+
+def _ensure_default_server(timeout: int = 180) -> None:
+    """Make the strong-rung server answer on LOCAL_CODER_HEALTH.
+
+    Maker disabled: start the resident (as before).
+    Maker enabled: stop the resident, start maker-server, remember to restore.
+    CAD_KEEP_MAKER=1 (with maker.enabled): probe once for an already-warm arm — the
+    card runner holds maker-server up across ~150 builds, so a per-build stop/start
+    would cold-load the model every time. Falls through to the normal maker path if
+    the probe doesn't answer.
+
+    The server is up, so "paused" is no longer true. Leaving the flag set made
+    _pause_default_server_for() a no-op for the REST of the build — with a local:
+    critic alternating against the 7B coder, the coder would silently spill."""
+    global _PAUSED_DEFAULT_SERVER, _MAKER_STARTED
+    m = maker_config()
+    if os.environ.get("CAD_KEEP_MAKER") == "1" and m["enabled"]:
+        try:
+            with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=3) as r:
+                json.loads(r.read())
+            return
+        except Exception:
+            pass
+    _unload_ollama_guests(0.0)
+    if m["enabled"]:
+        subprocess.run(["systemctl", "--user", "stop", _QWEN36_UNIT], capture_output=True)
+        subprocess.run(["systemctl", "--user", "start", _MAKER_UNIT], capture_output=True)
+        _MAKER_STARTED = True
+    else:
+        subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
+    _wait_health(LOCAL_CODER_HEALTH, timeout)
+    _PAUSED_DEFAULT_SERVER = False
 _CLOUD_CALLS_LEFT = 0   # per-build cost cap, reset by build() from cad.json cloud.max_calls_per_build
 
 # ── Cloud spend ledger ────────────────────────────────────────────────────────
@@ -503,6 +540,8 @@ def _ollama(model: str, system: str, prompt: str,
             headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             resp = json.loads(r.read())
+        global _LAST_USAGE
+        _LAST_USAGE = resp.get("usage")
         return (resp["choices"][0]["message"].get("content") or "").strip()
     _pause_default_server_for(model)
     options = {"num_ctx": 16384}

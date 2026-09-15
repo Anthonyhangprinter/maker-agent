@@ -31,7 +31,54 @@ def test_enabled_maker_rewrites_port_and_alias(tmp_path):
     assert cfg.CODE_MODEL_LADDER[1] == "local:gemma-4-31b"
 
 
+def test_ensure_hook_starts_maker_and_resume_restores(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    import cad_engine
+    importlib.reload(cad_engine)
+    calls = []
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    cad_engine._ensure_default_server(timeout=1)
+    assert ["systemctl", "--user", "stop", "qwen38-server"] in calls
+    assert ["systemctl", "--user", "start", "maker-server"] in calls
+    calls.clear()
+    cad_engine._resume_default_server()
+    assert calls == [["systemctl", "--user", "stop", "maker-server"],
+                     ["systemctl", "--user", "start", "qwen38-server"]]
+
+
+def test_keep_maker_reuses_warm_arm_without_systemctl(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    monkeypatch.setenv("CAD_KEEP_MAKER", "1")
+    import cad_engine
+    importlib.reload(cad_engine)
+    calls = []
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
+                         lambda url, timeout=3: _FakeHealthResponse())
+    cad_engine._ensure_default_server(timeout=1)
+    assert calls == []
+    cad_engine._resume_default_server()
+    assert calls == []
+
+
+class _FakeHealthResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return b"{}"
+
+
 def teardown_module(module):
     os.environ.pop("CAD_CONFIG_FILE", None)
+    os.environ.pop("CAD_KEEP_MAKER", None)
     import cad_v5.config as cfg
     importlib.reload(cfg)
+    import cad_engine
+    importlib.reload(cad_engine)
