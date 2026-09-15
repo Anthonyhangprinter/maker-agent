@@ -14,3 +14,25 @@ def test_render_benchcad_md_rows_and_reference():
     res = {"a": {"codeedit": {"score": 0.5, "n": 10, "exec_rate": None}, "codeqa": {"score": 0.6, "n": 10, "exec_rate": None}, "vision2code": None}}
     md = cr.render_benchcad_md(res)
     assert "| a | 0.500 | 0.600 | - |" in md and "Gemma-4-31B-it" in md and "0.664" in md
+
+
+ROWS = [
+    {"arm": "a", "suite": "s", "id": "1", "tier": 1, "ok": True, "gate_hard": 0, "gate_spec": 0, "acc_passed": 2, "acc_total": 2, "band": "match", "wall_s": 10.0, "tokens_out": 100, "build_dir": "", "error": None},
+    {"arm": "a", "suite": "s", "id": "2", "tier": 1, "ok": True, "gate_hard": 1, "gate_spec": 0, "acc_passed": 1, "acc_total": 2, "band": "fail", "wall_s": 30.0, "tokens_out": 300, "build_dir": "", "error": None},
+    {"arm": "a", "suite": "s", "id": "3", "tier": 2, "ok": False, "gate_hard": 0, "gate_spec": 0, "acc_passed": 0, "acc_total": 2, "band": None, "wall_s": 20.0, "tokens_out": None, "build_dir": "", "error": "no STEP"},
+]
+
+
+def test_summarise_counts():
+    s = cr.summarise(ROWS)["a|s"]
+    assert s["n"] == 3 and s["valid"] == 2
+    assert abs(s["invalid_ratio"] - 1/3) < 1e-9
+    assert s["gate_clean"] == 1                       # ok and gate_hard==0 and gate_spec==0
+    assert abs(s["acceptance"] - 3/6) < 1e-9          # pooled checks, like run_benchmarks
+    assert s["bands"] == {"match": 1, "valid": 0, "near_miss": 0, "fail": 1}
+    assert s["median_wall_s"] == 20.0 and s["tokens_out"] == 400
+
+
+def test_render_md_has_one_line_per_arm_suite():
+    md = cr.render_md(cr.summarise(ROWS), {"stamp": "t", "mode": "oneshot"})
+    assert "| a | s | 3 |" in md and "invalid" in md.lower()
