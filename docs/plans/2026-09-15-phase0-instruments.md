@@ -1666,6 +1666,54 @@ git commit -m "card: Phase 0 shootout results + base model decision"
 
 ---
 
+### Task 13: full-loop path off Ollama's deleted qwen3:8b (found by the agent baseline)
+
+**Files:**
+- Modify: `cad_v5/config.py:73` (`BRIEF_MODEL`), `cad_engine.py:~778-783` (preflight), `cad_engine.py:~229-240` (`_pause_default_server_for`), `cad_engine.py` `local:` branch of `_ollama()` (utility calls thinking off)
+- Test: `tests/test_maker_config.py` (extend)
+
+**Why:** `python3 -m cad_v5 ... --once --json` fails instantly with `Missing required Ollama model(s): qwen3:8b` because the preflight requires `BRIEF_MODEL` on Ollama and `qwen3:8b` was deleted 2026-09-12. Every full-loop build (Satine, web UI full loop, the card's agent mode) has been dead since. The brief is off (`cad.use_brief=false`) but `BRIEF_MODEL` still serves patch (:1275), lesson (:1303), questions (:2628), Onshape describe (:2855) and refine (:3854) calls, all through `_ollama()`, which already speaks OpenAI schema to any `local:`-prefixed model.
+
+**Interfaces:**
+- Produces: `BRIEF_MODEL = CODE_MODEL_STRONG` in `cad_v5/config.py` (utility calls ride the strong-rung server, resident or maker); the preflight only checks models that are neither `local:`- nor `cloud/`-prefixed; `_pause_default_server_for(model)` stops `_MAKER_UNIT` instead of `_QWEN36_UNIT` when `maker_config()["enabled"]` (an Ollama guest such as the gemma4 critic then evicts whichever coder server is up, and `_ensure_default_server()` brings the maker back on the next strong-rung call); in `_ollama()`'s `local:` branch, calls whose `model == BRIEF_MODEL` send `chat_template_kwargs: {"enable_thinking": false}` (utility calls never think).
+
+- [ ] **Step 1: Failing tests** (append to `tests/test_maker_config.py`)
+
+```python
+def test_brief_model_is_the_local_strong_rung(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.BRIEF_MODEL == cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
+
+
+def test_preflight_ignores_local_and_cloud_models(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_installed_ollama_models", lambda: set())  # nothing on Ollama
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: "local:qwen3.8-27b")
+    cad_engine._preflight_models()   # must not raise
+
+
+def test_pause_hook_stops_maker_when_enabled(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    import cad_engine; importlib.reload(cad_engine)
+    calls = []
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    monkeypatch.setattr(cad_engine, "_model_size_gb", lambda m: 3.4)
+    cad_engine._PAUSED_DEFAULT_SERVER = False
+    cad_engine._pause_default_server_for("gemma4:e4b")
+    assert calls == [["systemctl", "--user", "stop", "maker-server"]]
+```
+
+If the preflight and the Ollama-tags lookup are inline code rather than functions, extract them as `_installed_ollama_models() -> set[str]` and `_preflight_models() -> None` (raising the same `RuntimeError` with the same message) so the tests can patch them; keep behaviour identical for real Ollama models.
+
+- [ ] **Step 2: Implement** per the Interfaces block; update the comment above `BRIEF_MODEL` to say why (qwen3:8b deleted 2026-09-12, Ollama being retired, utility calls ride the strong rung with thinking off).
+
+- [ ] **Step 3: Tests** `python3 -m pytest tests/test_maker_config.py tests/ -q` (known pre-existing failure only). No live build in this task (the GPU is running the shootout); the agent baseline is rerun by the controller after the shootout.
+
+- [ ] **Step 4: Commit** `git commit -m "engine: full loop off the deleted qwen3:8b (utility calls on the strong rung, preflight ignores local:/cloud, pause hook maker-aware)"`.
+
+---
+
 ## Self-review
 
 - Spec 4.1 (loaders, metrics, arms file, output, Lab render): Tasks 4, 5, 7, 8, 9.
