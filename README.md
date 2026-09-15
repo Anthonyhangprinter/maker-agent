@@ -1,10 +1,10 @@
 # Maker Agent
 
-**A fully-local text-to-CAD agent: plain-English spec → verified, manufacturable part — on one 8 GB consumer GPU.**
+**A fully-local text-to-CAD agent: plain-English spec, verified, manufacturable part. Developed on one 24 GB consumer GPU; a 16 GB ship target is the next campaign.**
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Python](https://img.shields.io/badge/python-3.10+-blue) ![build123d](https://img.shields.io/badge/kernel-build123d%20%2F%20OCCT-orange) ![Local-first](https://img.shields.io/badge/inference-100%25%20local-red)
 
-The agent writes [build123d](https://github.com/gumyr/build123d) Python, executes it, **measures the resulting geometry**, renders it, has a multimodal critic judge it against the spec, and edits until it converges — an observe–edit loop where a deterministic verification gate, not the LLM, decides whether a part is acceptable. Everything runs on a single AMD RX 6600 (8 GB VRAM, ROCm/Vulkan): a resident 35B MoE via llama.cpp plus swapped Ollama guests. No cloud calls at build time.
+The agent writes [build123d](https://github.com/gumyr/build123d) Python, executes it, **measures the resulting geometry**, renders it, has a multimodal critic judge it against the spec, and edits until it converges — an observe–edit loop where a deterministic verification gate, not the LLM, decides whether a part is acceptable. Everything runs on a single RTX 3090 (24 GB, CUDA): a resident 27B via llama.cpp for chat and a swappable "maker" coder server for builds. No cloud calls at build time. (The 8 GB RX 6600 era, with a resident 35B MoE plus Ollama guests, ended 2026-09-04.)
 
 The project's operating rule is **measure, don't claim**: every capability ships with an A/B benchmark, and negative results are kept in the record alongside the wins.
 
@@ -56,7 +56,7 @@ Key design decisions, each with its measurement in [`docs/PROJECT.md`](docs/PROJ
 
 ## Quick start
 
-Requires Python 3.10+, [Ollama](https://ollama.com), and the build123d stack (`pip install build123d`). Models: a small coder (e.g. `qwen2.5-coder:7b-instruct-q4_K_M`), a multimodal critic (`gemma4:e4b`-class), `nomic-embed-text` for retrieval, and optionally a 30B+ strong rung served by llama.cpp.
+Requires Python 3.10+, a llama.cpp build with `llama-server`, and the build123d stack (`pip install build123d`). Models: a small coder (e.g. Qwen2.5-Coder-7B Q4), a multimodal critic (Gemma 4 class), nomic-embed-text-v1.5 for retrieval via a local embed server, and a strong rung served by llama.cpp (Qwen3.8-27B today; the Maker Agent 1.0 campaign in `docs/MAKER-1.0-CAMPAIGN.md` is choosing and training it).
 
 ```bash
 git clone https://github.com/Anthonyhangprinter/maker-agent
