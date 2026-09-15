@@ -152,8 +152,8 @@ def _materialize_with_salvage(spec: str, code: str, build_dir: Path,
     return m
 
 
-def _result(m: dict, extra: dict, t0: float) -> dict:
-    res = {"ok": m["error"] is None, "mode": "fluid",
+def _result(m: dict, extra: dict, t0: float, helper: bool = False) -> dict:
+    res = {"ok": m["error"] is None, "mode": "fluid", "helper": bool(helper),
            "code_model": engine._code_model(), "facts": m["facts"],
            "instruments": m["instruments"][:6],
            "gate_hard": m["gate_hard"], "gate_spec": m["gate_spec"],
@@ -161,7 +161,10 @@ def _result(m: dict, extra: dict, t0: float) -> dict:
            "salvaged": m.get("salvaged", False),
            "gate_repaired": m.get("gate_repaired", False),
            "error": m["error"],
-           "usage": getattr(engine, "_LAST_USAGE", None),
+           # Per-build total across every local: call (codegen + salvage + repair + ...),
+           # not just the last one. reset_usage() below zeroes it per build/revise.
+           "usage": dict(getattr(engine, "_USAGE_TOTAL", {}) or {}),
+           "last_usage": getattr(engine, "_LAST_USAGE", None),
            "build_time_s": round(time.monotonic() - t0, 1)}
     res.update(extra)
     return res
@@ -169,6 +172,7 @@ def _result(m: dict, extra: dict, t0: float) -> dict:
 
 def cmd_build(a) -> dict:
     _model_for(a.coder)
+    engine.reset_usage()      # per-build token count (fluid bypasses engine.build())
     t0 = time.monotonic()
     spec, expansion, image_only = a.spec or "", None, False
     if a.image:
@@ -218,7 +222,7 @@ def cmd_build(a) -> dict:
         extra["assumptions"] = expansion["assumptions"]
     if image_only:
         extra["image_only"], extra["spec"] = True, spec
-    return _result(m, extra, t0)
+    return _result(m, extra, t0, helper=bool(helper))
 
 
 def cmd_revise(a) -> dict:
@@ -229,6 +233,7 @@ def cmd_revise(a) -> dict:
         return {"ok": False, "error": "no build_source.py in that build dir"}
     meta = json.loads(meta_f.read_text()) if meta_f.is_file() else {"spec": "", "history": []}
     _model_for(a.coder or meta.get("coder", "fast"))
+    engine.reset_usage()      # per-revise token count
     t0 = time.monotonic()
     code = src.read_text()
     state = ""

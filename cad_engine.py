@@ -195,6 +195,17 @@ def _public_uploads() -> bool:
 _ACTIVE_CODE_MODEL: Optional[str] = None
 # Token usage from the last local: response (Maker 1.0 — lets a card runner count tokens).
 _LAST_USAGE: Optional[dict] = None
+# ...and the running total across every local: call in this process. A build is many calls
+# (triage, expansion, codegen, salvage, repair, critic), so _LAST_USAGE alone reports only
+# the final one: a card row's "tokens out" would under-count a build by most of its spend.
+# reset_usage() zeroes it at the start of each build/revise so the total is per-build.
+_USAGE_TOTAL: dict = {"prompt_tokens": 0, "completion_tokens": 0, "calls": 0}
+
+def reset_usage() -> None:
+    """Start a fresh per-build token count (called by build() and fluid_gen)."""
+    global _LAST_USAGE
+    _LAST_USAGE = None
+    _USAGE_TOTAL.update({"prompt_tokens": 0, "completion_tokens": 0, "calls": 0})
 
 def _code_model() -> str:
     """Code model for the current call. Priority:
@@ -291,8 +302,10 @@ def _unload_ollama_guests(max_gb: float = _OLLAMA_COEXIST_GB_MAX) -> None:
         log.warning("[v5] guest unload failed (vision call may contend for VRAM): %s", e)
 
 def _wait_health(url: str, timeout: int) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    # monotonic: a wall-clock jump (NTP step, DST) must not cut a model load short or
+    # hang the wait past its budget.
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(url, timeout=3) as r:
                 json.loads(r.read())
@@ -320,6 +333,11 @@ def _ensure_default_server(timeout: int = 180) -> None:
         try:
             with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=3) as r:
                 json.loads(r.read())
+            # Same reason as the flag reset at the bottom of this function: the arm IS up,
+            # so "paused" is false. Returning with the flag still set would make every
+            # later _pause_default_server_for() a no-op and let a gemma4 critic call spill
+            # against a warm 20GB arm.
+            _PAUSED_DEFAULT_SERVER = False
             return
         except Exception:
             pass
@@ -564,6 +582,10 @@ def _ollama(model: str, system: str, prompt: str,
             resp = json.loads(r.read())
         global _LAST_USAGE
         _LAST_USAGE = resp.get("usage")
+        if isinstance(_LAST_USAGE, dict):
+            _USAGE_TOTAL["prompt_tokens"] += int(_LAST_USAGE.get("prompt_tokens") or 0)
+            _USAGE_TOTAL["completion_tokens"] += int(_LAST_USAGE.get("completion_tokens") or 0)
+        _USAGE_TOTAL["calls"] += 1
         return (resp["choices"][0]["message"].get("content") or "").strip()
     _pause_default_server_for(model)
     options = {"num_ctx": 16384}
@@ -3022,6 +3044,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     Serialized machine-wide via an fcntl.flock (one model fits the GPU): a second build from
     any frontend blocks on the lock, and the wall-clock budget starts AFTER acquisition."""
     lock_fh = _acquire_build_lock(spec or "<image-only build>")
+    reset_usage()   # per-build token count, not per-call (see _USAGE_TOTAL)
     try:
         return _build_impl(spec, chat_id=chat_id, coder=coder, use_fewshots=use_fewshots,
                            do_upload=do_upload, final_render=final_render,

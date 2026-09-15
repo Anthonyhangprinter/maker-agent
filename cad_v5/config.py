@@ -91,14 +91,19 @@ def maker_config() -> dict:
 
     Disabled (default): the strong rung is the resident on :8086.
     Enabled: the strong rung is `maker-server` on `port`, serving `alias`.
+
+    A stale `alias` left behind by `scripts/arms.py restore` (which only flips `enabled`
+    to false) must NOT keep routing strong-rung calls at a model the resident does not
+    serve, so port, alias and unit are all read from the block only while enabled is true.
     """
     m = load_config().get("cad", {}).get("maker") or {}
-    enabled = bool(m.get("enabled", False))
+    if not bool(m.get("enabled", False)):
+        return {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
     return {
-        "enabled": enabled,
-        "port": int(m.get("port", 8088)) if enabled else 8086,
+        "enabled": True,
+        "port": int(m.get("port", 8088)),
         "alias": str(m.get("alias", "qwen3.8-27b")),
-        "unit": "maker-server" if enabled else "qwen38-server",
+        "unit": "maker-server",
     }
 
 

@@ -1,4 +1,6 @@
 import importlib, json, os, sys
+
+import pytest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
@@ -62,6 +64,86 @@ def test_keep_maker_reuses_warm_arm_without_systemctl(tmp_path, monkeypatch):
     assert calls == []
     cad_engine._resume_default_server()
     assert calls == []
+
+
+def test_disabled_maker_ignores_a_stale_alias_and_port(tmp_path):
+    """scripts/arms.py restore only flips enabled to false, leaving the last arm's alias and
+    port behind. Those must not keep routing strong-rung calls at a model the resident does
+    not serve, so a disabled block reads as the plain resident."""
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": False, "port": 8088, "alias": "gemma-4-31b",
+                                             "arm": "gemma-4-31b"}})
+    m = cfg.maker_config()
+    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+    assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
+    assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
+
+
+def test_keep_maker_falls_through_to_start_when_probe_fails(tmp_path, monkeypatch):
+    """The warm fast path is a probe, not a promise: when no arm answers, _ensure_default_server
+    must fall through to the normal maker path (stop resident, start maker) and clear the
+    paused flag, or every later _pause_default_server_for() silently becomes a no-op."""
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    monkeypatch.setenv("CAD_KEEP_MAKER", "1")
+    import cad_engine
+    importlib.reload(cad_engine)
+    calls = []
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+
+    def dead_probe(url, timeout=3):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", dead_probe)
+    cad_engine._PAUSED_DEFAULT_SERVER = True
+    cad_engine._ensure_default_server(timeout=1)
+    assert ["systemctl", "--user", "stop", "qwen38-server"] in calls
+    assert ["systemctl", "--user", "start", "maker-server"] in calls
+    assert cad_engine._PAUSED_DEFAULT_SERVER is False
+
+
+def test_keep_maker_warm_hit_clears_the_paused_flag(tmp_path, monkeypatch):
+    """The arm IS up on the warm path, so "paused" is no longer true. Leaving the flag set
+    made _pause_default_server_for() a no-op for the rest of the build and let a gemma4
+    critic call spill against a warm arm."""
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    monkeypatch.setenv("CAD_KEEP_MAKER", "1")
+    import cad_engine
+    importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine.subprocess, "run",
+                        lambda argv, **kw: pytest.fail(f"warm path must not shell out: {argv}"))
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
+                        lambda url, timeout=3: _FakeHealthResponse())
+    cad_engine._PAUSED_DEFAULT_SERVER = True
+    cad_engine._ensure_default_server(timeout=1)
+    assert cad_engine._PAUSED_DEFAULT_SERVER is False
+
+
+def test_local_usage_accumulates_across_calls(tmp_path, monkeypatch):
+    """_LAST_USAGE holds only the final call. A build is many local: calls (triage, expansion,
+    codegen, salvage, repair), so a card row's token count has to come from the running total."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **kw: None)
+
+    bodies = [{"choices": [{"message": {"content": "one"}}],
+               "usage": {"prompt_tokens": 10, "completion_tokens": 5}},
+              {"choices": [{"message": {"content": "two"}}],
+               "usage": {"prompt_tokens": 20, "completion_tokens": 7}}]
+
+    def fake_urlopen(req, timeout=None):
+        return _FakeChatResponse(json.dumps(bodies.pop(0)).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    cad_engine.reset_usage()
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "a")
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "b")
+    assert cad_engine._USAGE_TOTAL == {"prompt_tokens": 30, "completion_tokens": 12, "calls": 2}
+    assert cad_engine._LAST_USAGE == {"prompt_tokens": 20, "completion_tokens": 7}
+    cad_engine.reset_usage()
+    assert cad_engine._USAGE_TOTAL == {"prompt_tokens": 0, "completion_tokens": 0, "calls": 0}
 
 
 def test_brief_model_is_the_local_strong_rung(tmp_path):
