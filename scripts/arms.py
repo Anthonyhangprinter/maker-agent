@@ -116,9 +116,18 @@ def cmd_use(arm: dict, start: bool = True) -> None:
         raise SystemExit(f"{arm['model_path']} missing; run arms.py download {arm['name']}")
     apply_arm(arm)
     if start:
-        subprocess.run(["systemctl", "--user", "stop", "qwen38-server"], check=False)
-        subprocess.run(["systemctl", "--user", "restart", "maker-server"], check=True)
-        _wait(f"http://127.0.0.1:{PORT}/health", 900)
+        # A maker-server that never becomes healthy (review finding on Task 4) must not
+        # leave the box with no server at all: restore the resident before re-raising,
+        # whatever the failure was (CalledProcessError from the restart, SystemExit from
+        # _wait timing out, ...). run_card.py's own finally calls cmd_restore() too, so
+        # this makes the failure safe even when cmd_use is called directly (arms.py use).
+        try:
+            subprocess.run(["systemctl", "--user", "stop", "qwen38-server"], check=False)
+            subprocess.run(["systemctl", "--user", "restart", "maker-server"], check=True)
+            _wait(f"http://127.0.0.1:{PORT}/health", 900)
+        except BaseException:
+            cmd_restore()
+            raise
     print(f"maker-server -> {arm['name']} ({arm['alias']}) on :{PORT}")
 
 

@@ -1,5 +1,6 @@
 import json, sys
 from pathlib import Path
+import pytest
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE / "scripts"))
 import arms
@@ -49,3 +50,44 @@ def test_restore_disables_maker(tmp_path):
     cad_json.write_text(json.dumps({"maker": {"enabled": True, "port": 8088, "alias": "x", "arm": "x"}}))
     arms.disable_maker(cad_json)
     assert json.loads(cad_json.read_text())["maker"]["enabled"] is False
+
+
+def test_cmd_use_restores_resident_if_maker_never_healthy(tmp_path, monkeypatch):
+    """Review finding on Task 4: a maker-server that never becomes healthy used to leave
+    the box with the resident stopped AND the maker still down (SystemExit from _wait
+    propagated straight out of cmd_use, no restore). cmd_use must now restore the resident
+    before re-raising, same as run_card.py's own finally does when the whole run blows up."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        class _R:
+            returncode = 0
+        return _R()
+
+    monkeypatch.setattr(arms, "apply_arm", lambda a: None)      # no real cad.json/maker.env writes
+    monkeypatch.setattr(arms, "disable_maker", lambda: None)    # cmd_restore's first call
+    monkeypatch.setattr(arms.subprocess, "run", fake_run)
+
+    wait_calls = {"n": 0}
+
+    def fake_wait(url, timeout):
+        wait_calls["n"] += 1
+        if wait_calls["n"] == 1:
+            raise SystemExit(f"{url} not healthy after {timeout}s")
+        # second call is cmd_restore's own _wait on the resident — let it "succeed" so the
+        # test never touches the network.
+
+    monkeypatch.setattr(arms, "_wait", fake_wait)
+
+    model = tmp_path / "fake.gguf"
+    model.write_text("x")
+    arm = {"name": "fake-arm", "alias": "fake-alias", "model_path": str(model)}
+
+    with pytest.raises(SystemExit):
+        arms.cmd_use(arm)
+
+    assert wait_calls["n"] == 2   # cmd_use's own wait, then cmd_restore's wait
+    cmds = [" ".join(c) for c in calls]
+    assert cmds[-2] == "systemctl --user stop maker-server"
+    assert cmds[-1] == "systemctl --user start qwen38-server"
