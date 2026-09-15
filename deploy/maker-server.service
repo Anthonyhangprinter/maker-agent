@@ -1,0 +1,13 @@
+# deploy/maker-server.service  ->  ~/.config/systemd/user/maker-server.service
+[Unit]
+Description=Maker Agent CAD coder server (swappable llama.cpp arm, RTX 3090)
+After=network.target
+Conflicts=qwen38-server.service
+
+[Service]
+ExecStart=%h/.local/bin/maker-server
+Restart=no
+MemoryHigh=8G
+
+[Install]
+WantedBy=default.target
