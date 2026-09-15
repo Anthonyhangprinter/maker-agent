@@ -91,6 +91,49 @@ def test_pause_hook_stops_maker_when_enabled(tmp_path, monkeypatch):
     assert calls == [["systemctl", "--user", "stop", "maker-server"]]
 
 
+class _FakeChatResponse:
+    def __init__(self, body: bytes):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self._body
+
+
+def test_ollama_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
+    """no_think must be a caller-declared kwarg, never inferred from `model == BRIEF_MODEL` —
+    that string equality would also silently catch strong-rung codegen/revise/decide calls,
+    which ride the exact same model string as BRIEF_MODEL (CODE_MODEL_STRONG) and must keep
+    whatever reasoning_effort the server (resident or maker arm) is configured with."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    # Keep this offline: _ollama()'s local: branch calls _ensure_default_server() first,
+    # which would otherwise shell out to real systemctl and probe a real health endpoint.
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **kw: None)
+
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append(json.loads(req.data.decode()))
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "user")
+    assert "chat_template_kwargs" not in captured[-1]
+
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "user", no_think=True)
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
 class _FakeHealthResponse:
     def __enter__(self):
         return self

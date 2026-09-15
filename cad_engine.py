@@ -510,7 +510,7 @@ def _tg_token() -> str:
 
 def _ollama(model: str, system: str, prompt: str,
             timeout: int = OLLAMA_TIMEOUT, images: Optional[list[str]] = None,
-            temperature: Optional[float] = None, fmt=None) -> str:
+            temperature: Optional[float] = None, fmt=None, no_think: bool = False) -> str:
     # fmt: "json" or a JSON-schema dict — Ollama enforces the output grammar server-side.
     if model.startswith(CLOUD_PREFIX):
         # The paid rung rides the same seam every local call uses — nothing upstream
@@ -538,13 +538,9 @@ def _ollama(model: str, system: str, prompt: str,
                          {"role": "user", "content": user_content}],
             **({"temperature": temperature} if temperature is not None else {}),
         }
-        if (images or model == BRIEF_MODEL) and not fmt:
+        if images and not fmt:
             # A visual critique is a judgment, not code — at 12 tok/s a thinking
-            # preamble adds minutes per turn for no measured gain. Same logic for a
-            # utility call (brief/patch/lesson/questions/describe/refine): BRIEF_MODEL ==
-            # CODE_MODEL_STRONG rides this same rung since qwen3:8b was deleted
-            # 2026-09-12, and a one-line utility answer must never spend the 27B's
-            # xhigh-default thinking budget.
+            # preamble adds minutes per turn for no measured gain.
             body["chat_template_kwargs"] = {"enable_thinking": False}
         if fmt:
             # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
@@ -552,6 +548,15 @@ def _ollama(model: str, system: str, prompt: str,
             body["chat_template_kwargs"] = {"enable_thinking": False}
             body["response_format"] = ({"type": "json_object", "schema": fmt}
                                        if isinstance(fmt, dict) else {"type": "json_object"})
+        if no_think:
+            # Caller-declared intent, not model-string identity: a strong-rung codegen/
+            # revise/decide call can ride the exact same model string as BRIEF_MODEL
+            # (CODE_MODEL_STRONG) and must keep the server's default reasoning_effort
+            # (the maker arm's own thinking setting included) — only a genuine utility
+            # call (brief/patch/lesson/questions/describe/refine) passes no_think=True.
+            # Merge rather than overwrite so this composes with the fmt/images branches.
+            body["chat_template_kwargs"] = {**body.get("chat_template_kwargs", {}),
+                                            "enable_thinking": False}
         req = urllib.request.Request(
             LOCAL_CODER_URL, data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json"})
@@ -1020,13 +1025,13 @@ def build_brief(spec: str) -> dict:
     brief = None
     try:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA)
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA, no_think=True)
         brief = _extract_json(raw)
     except Exception as e:
         log.warning("[v5] Schema-constrained brief failed (%s) — falling back to free-form.", e)
     if brief is None:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2)
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, no_think=True)
         brief = _extract_json(raw)
     if brief is None:
         # Silent degradation here previously produced an unguided, feature-ungated build.
@@ -1302,7 +1307,7 @@ def patch_brief(brief: dict, feedback: str) -> tuple[Optional[dict], list[str]]:
         prompt = (f"Current contract:\n{json.dumps(contract, indent=2)}\n\n"
                   f"User feedback: {feedback}\n\nPatch:")
         raw = _ollama(BRIEF_MODEL, _PATCH_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.1, fmt=_PATCH_SCHEMA)
+                      timeout=OLLAMA_TIMEOUT, temperature=0.1, fmt=_PATCH_SCHEMA, no_think=True)
         verdict = _extract_json(raw) or {}
         changes         = verdict.get("changes") or []
         features_add    = verdict.get("features_add") or []
@@ -1330,7 +1335,7 @@ def distill_lesson(spec: str, problem: str, final_code: str) -> Optional[str]:
         prompt = (f"Spec: {spec}\n\nWhat went wrong first:\n{problem}\n\n"
                   f"Final working code:\n{final_code[:1500]}\n\nThe one reusable lesson:")
         raw = _ollama(BRIEF_MODEL, _LESSON_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.1).strip().strip('"')
+                      timeout=OLLAMA_TIMEOUT, temperature=0.1, no_think=True).strip().strip('"')
         if not raw or raw.upper().startswith("NONE") or len(raw) < 15:
             return None
         return raw.splitlines()[0].strip()[:240]
@@ -2656,7 +2661,8 @@ def verify_questions(spec: str, brief: dict) -> list[str]:
     try:
         raw = _ollama(BRIEF_MODEL, _QUESTIONS_SYSTEM,
                       f"Part request: {spec}\nFeatures: {brief.get('features', [])}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_QUESTIONS_SCHEMA)
+                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_QUESTIONS_SCHEMA,
+                      no_think=True)
         qs = (_extract_json(raw) or {}).get("questions") or []
         qs = [q.strip() for q in qs if isinstance(q, str) and q.strip()][:6]
         # Post-filter dimension questions the prompt forbids but small models still emit:
@@ -2882,7 +2888,7 @@ def _describe_document(did: str, wid: str, eid: str) -> str:
               "what it appears to be, its key features, and approximate size. Be concise.")
     try:
         return _ollama(BRIEF_MODEL, system, f"Describe this Onshape model:\n\n{doc_summary}",
-                       timeout=OLLAMA_TIMEOUT)
+                       timeout=OLLAMA_TIMEOUT, no_think=True)
     except Exception:
         return doc_summary
 
@@ -3880,7 +3886,7 @@ def merge_spec(original: str, feedback: str, history: Optional[list] = None) -> 
     system = ("You are a CAD specification editor. Merge the feedback into the original spec to "
               "produce a revised spec. Return ONLY the new spec as a single sentence — no explanation.")
     prompt = f"Original: {original}\nFeedback: {feedback}{history_str}\n\nRevised spec:"
-    revised = _ollama(BRIEF_MODEL, system, prompt, timeout=OLLAMA_TIMEOUT).strip()
+    revised = _ollama(BRIEF_MODEL, system, prompt, timeout=OLLAMA_TIMEOUT, no_think=True).strip()
     if not revised or len(revised) < 5:
         revised = f"{original}, {feedback}"
     return revised
