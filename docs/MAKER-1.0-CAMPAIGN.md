@@ -55,7 +55,8 @@ Extends `scripts/run_benchmarks.py`, `score_heldout.py` and `geom_bands.py`. New
 
 - `benchmarks/external/` loaders: **Text2CAD test slice** (200 prompts sampled with a fixed
   seed from the MIT-licensed test split; references rebuilt from the DeepCAD JSON to STL),
-  **CADPrompt** (200 expert prompts, if downloadable; else skipped and noted), **CAD Arena**
+  **CADPrompt** (200 expert prompts with ground-truth STLs), **BenchCAD** (benchcad.com, the
+  owner's pick, adopted per the 2026-09-15 investigation), **CAD Arena**
   (20 prompts, 4 tiers, human-facing smoke set). Each loader yields `(id, prompt, reference
   STL or None, tier)`.
 - Metrics per arm and suite: converged rate, acceptance, **invalid ratio** (no STEP produced),
@@ -170,12 +171,14 @@ gate is verified with pasted output before the next begins.
 
 ## 6. Base model selection rule (end of Phase 0)
 
-Score first: rank arms by acceptance on the internal suites, then invalid ratio on the
-external suites. Then apply two tie-breaks inside a 3-point band: prefer the faster arm
-(a 3B-active MoE at 100+ tok/s over a dense 31B at 25 tok/s) and the easier-to-train arm
-(standard attention over DeltaNet; Apache or MIT over the Gemma licence, because 1.0
-publishes a model card). An arm displaces the 27B control only if it wins outside the band
-or ties inside it while being faster and easier to train. Only the winner's bf16 base is
+Public suites rank first (owner rule 2026-09-15: official benchmarks, not our own gradings).
+Rank arms by invalid ratio on the public suites (CADPrompt, BenchCAD where adopted,
+Text-to-CadQuery), then by the Chamfer match-band share on those suites; the internal
+suites only break remaining ties. Then apply two tie-breaks inside a 3-point band: prefer the
+faster arm (a 3B-active MoE at 100+ tok/s over a dense 31B at 25 tok/s) and the easier-to-train
+arm (standard attention over DeltaNet; Apache or MIT over the Gemma licence, because 1.0
+publishes a model card). An arm displaces the 27B control only if it wins outside the band or
+ties inside it while being faster and easier to train. Only the winner's bf16 base is
 downloaded (54 to 61GB; one at a time on the NVMe). The rule is applied in writing on the
 card before Phase 2 starts, so the choice is auditable.
 
