@@ -36,6 +36,7 @@
 | `scripts/fetch_external.py` (create) | builds `benchmarks/cadprompt/`, `benchmarks/cad-arena/`, optional `benchmarks/text2cadquery/` |
 | `scripts/geom_bands.py` (modify) | `normalize=True` path: scale both meshes to diagonal 100 before scoring |
 | `scripts/harvest_census.py` (modify :158-168) | `suite_slugs()` covers the new suite dirs |
+| `scripts/run_benchcad.py` (create) + `benchmarks/external/benchcad/local_adapter.py` | official BenchCAD harness per arm |
 | `scripts/run_card.py` (create) | the card runner and writer |
 | `scripts/card_report.py` (create) | pure functions: summarise rows, render markdown |
 | `webui/app.py` (modify) + `webui/static/index.html` (modify) | `/api/lab/card`, Lab view, stale label |
@@ -929,6 +930,162 @@ Expected: 12 arena specs, 100 CADPrompt refs, a text2cadquery count or the skip 
 ```bash
 git add scripts/fetch_external.py scripts/harvest_census.py .gitignore benchmarks/cad-arena/ tests/test_external_suites.py
 git commit -m "benchmarks: public suites (CADPrompt slice, CAD Arena prompts, optional Text-to-CadQuery) + guard coverage"
+```
+
+---
+
+### Task 5b: BenchCAD official harness against each arm
+
+**Files:**
+- Create: `scripts/run_benchcad.py`, `benchmarks/external/benchcad/local_adapter.py` (copied into the harness clone), `benchmarks/external/benchcad/README.md`
+- Modify: `scripts/card_report.py` (add `render_benchcad_md`), `.gitignore` (`benchmarks/external/benchcad/BenchCAD-main/`)
+- Test: `tests/test_card_report.py` (extend)
+
+**Interfaces:**
+- Consumes: `scripts/arms.py` (`load_arms`, `cmd_use`, `cmd_restore`), the maker server on `http://127.0.0.1:8088/v1`.
+- Produces: `run_benchcad.py --arms a,b --tasks codeedit,codeqa,vision2code --num 150 --seed 42 --out <card dir>` writing `<card dir>/benchcad.json` = `{arm: {task: {"score": float, "n": int, "exec_rate": float|None, "raw": <harness summary>}}}`; `card_report.render_benchcad_md(results: dict) -> str` (one row per arm, one column per task, plus the published leaderboard reference rows for Gemma-4-31B-it and gpt-oss-120b copied from `LEADERBOARD.md` at run time).
+- Vision2Code runs only for arms whose `mmproj` is set (the harness sends images); text-only arms get `null` for it.
+
+Facts from the 2026-09-15 investigation (verify against the clone, do not trust blindly): harness `https://github.com/BenchCAD/BenchCAD-main` (MIT), data `BenchCAD/BenchCAD` on HF (CC-BY-4.0, configs `code_gen` 17,900 / `edit-bench` 748 / `QA` 2,400), `uv sync` with pinned `cadquery==2.3.0`, `cadquery-ocp==7.9.3.0`, `numpy==1.26.4` (own venv, isolated from ours). Run form: `uv run python benchcad.py --task <t> --num N --seed S --model <name>`. Model adapters in `benchcad_core/models/`; `openrouter_adapter.py` uses `openai.OpenAI(base_url=...)` + `chat.completions.create`, which llama-server speaks; `openai_adapter.py` uses the Responses API and will not work. Scores: Vision2Code = voxel IoU x exec rate (64^3, bbox-normalised STEP); CodeEdit = headroom-normalised IoU improvement; Code-QA = ratio accuracy. Leaderboard rows to quote: Code-QA Gemma-4-31B-it 0.664, gpt-oss-120b 0.689, Nemotron-3 120B 0.671, GPT-4o 0.726, Gemini 3.1 Pro 0.838; CodeEdit gpt-oss-120b 0.561, Nemotron-3 120B 0.608, GPT-5.3 (thinking) 0.865; Vision2Code Qwen3-VL-2B 0.0005, GPT-4o 0.1823, Gemini 3.1 Pro 0.2890.
+
+- [ ] **Step 1: Clone and sync the harness in its own venv**
+
+```bash
+cd ~/.openclaw/skills/cad-builder/benchmarks/external && mkdir -p benchcad && cd benchcad
+git clone --depth 1 https://github.com/BenchCAD/BenchCAD-main
+cd BenchCAD-main && uv sync && cp .env.example .env
+ls benchcad_core/models/ && sed -n '1,80p' benchcad_core/models/openrouter_adapter.py
+grep -rn "openrouter" benchcad_core/models/__init__.py benchcad_core/models/*.py | head   # find the registry
+```
+
+- [ ] **Step 2: Write the local adapter**
+
+Clone `openrouter_adapter.py` to `benchcad_core/models/local_adapter.py` (keep a copy at `benchmarks/external/benchcad/local_adapter.py` in our repo so the clone can be recreated): `base_url = os.environ.get("BENCHCAD_BASE_URL", "http://127.0.0.1:8088/v1")`, `api_key = "local"`, model name = `os.environ.get("BENCHCAD_MODEL", "maker")`, drop the OpenRouter reasoning-suffix parsing, keep image handling (base64 `image_url` parts) so Vision2Code works on vision arms, pass `extra_body={"chat_template_kwargs": json.loads(os.environ.get("BENCHCAD_TEMPLATE_KWARGS", "{}"))}` so the 27B thinking arms and gpt-oss reasoning level are honoured, set `timeout=900`. Register it in the model dispatch under the name `local` (follow how `openrouter` is registered). Smoke: `uv run python benchcad.py --task codeqa --num 3 --model local` with the control arm up (`python3 ../../../scripts/arms.py use qwen3.8-27b-nothink`).
+
+- [ ] **Step 3: Write scripts/run_benchcad.py**
+
+```python
+#!/usr/bin/env python3
+"""Official BenchCAD harness (benchcad.com, MIT) against each arm, through the maker server.
+
+  run_benchcad.py --arms all --tasks codeedit,codeqa,vision2code --num 150 --seed 42 --out benchmarks/results/card/phase0
+
+Writes <out>/benchcad.json. Vision2Code runs only for arms with an mmproj. The resident is restored in a finally.
+"""
+from __future__ import annotations
+import argparse, json, os, re, subprocess, sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parents[1]
+HARNESS = HERE / "benchmarks" / "external" / "benchcad" / "BenchCAD-main"
+sys.path.insert(0, str(HERE / "scripts"))
+import arms as arms_mod  # noqa: E402
+
+TASKS = {"codeedit": "codeedit", "codeqa": "codeqa", "vision2code": "vision2code"}
+
+
+def run_task(arm: dict, task: str, num: int, seed: int) -> dict:
+    env = {**os.environ, "BENCHCAD_BASE_URL": "http://127.0.0.1:8088/v1", "BENCHCAD_MODEL": arm["alias"],
+           "BENCHCAD_TEMPLATE_KWARGS": template_kwargs(arm)}
+    cmd = ["uv", "run", "python", "benchcad.py", "--task", TASKS[task], "--num", str(num), "--seed", str(seed), "--model", "local"]
+    p = subprocess.run(cmd, cwd=HARNESS, env=env, capture_output=True, text=True, timeout=6 * 3600)
+    return parse_summary(p.stdout + "\n" + p.stderr, task)
+
+
+def template_kwargs(arm: dict) -> str:
+    m = re.search(r"--chat-template-kwargs\s+(\S+)", arm.get("extra_args", "") or "")
+    return m.group(1) if m else "{}"
+
+
+def parse_summary(text: str, task: str) -> dict:
+    """The harness prints a final summary line per task; adapt these regexes to the real output after Step 2."""
+    score = re.findall(r"(?:score|iou|accuracy)[^0-9]*([01]\.\d+)", text, flags=re.I)
+    execr = re.findall(r"exec[^0-9]*(\d+(?:\.\d+)?)%", text, flags=re.I)
+    return {"score": float(score[-1]) if score else None, "exec_rate": float(execr[-1]) / 100 if execr else None,
+            "raw": text[-1500:]}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--arms", default="all"); ap.add_argument("--tasks", default="codeedit,codeqa,vision2code")
+    ap.add_argument("--num", type=int, default=150); ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--out", required=True)
+    ns = ap.parse_args()
+    all_arms = arms_mod.load_arms()
+    names = list(all_arms) if ns.arms == "all" else ns.arms.split(",")
+    out = Path(ns.out); out.mkdir(parents=True, exist_ok=True)
+    res_path = out / "benchcad.json"
+    results = json.loads(res_path.read_text()) if res_path.exists() else {}
+    try:
+        for name in names:
+            arm = all_arms[name]; results.setdefault(name, {})
+            todo = [t for t in ns.tasks.split(",") if t not in results[name] and (t != "vision2code" or arm.get("mmproj"))]
+            if not todo:
+                continue
+            arms_mod.cmd_use(arm)
+            for t in todo:
+                print(f"== {name} / {t}")
+                results[name][t] = {**run_task(arm, t, ns.num, ns.seed), "n": ns.num}
+                res_path.write_text(json.dumps(results, indent=2) + "\n")
+            if not arm.get("mmproj"):
+                results[name]["vision2code"] = None
+    finally:
+        arms_mod.cmd_restore()
+        res_path.write_text(json.dumps(results, indent=2) + "\n")
+        print(json.dumps(results, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+```
+
+The implementer must replace `parse_summary` with parsing of the harness's actual result artefact (it writes per-run JSON under its `results/` or `runs/` dir; read that file rather than scraping stdout if it exists, and say which in the README).
+
+- [ ] **Step 4: Renderer + test**
+
+Add to `tests/test_card_report.py`:
+
+```python
+def test_render_benchcad_md_rows_and_reference():
+    res = {"a": {"codeedit": {"score": 0.5, "n": 10, "exec_rate": None}, "codeqa": {"score": 0.6, "n": 10, "exec_rate": None}, "vision2code": None}}
+    md = cr.render_benchcad_md(res)
+    assert "| a | 0.500 | 0.600 | - |" in md and "Gemma-4-31B-it" in md and "0.664" in md
+```
+
+and in `scripts/card_report.py`:
+
+```python
+BENCHCAD_REFERENCE = [  # published leaderboard rows (benchcad.com LEADERBOARD.md, read 2026-09-15)
+    ("Gemma-4-31B-it (published)", None, 0.664, None),
+    ("gpt-oss-120b (published)", 0.561, 0.689, None),
+    ("GPT-4o (published)", None, 0.726, 0.1823),
+    ("Gemini 3.1 Pro (published)", 0.837, 0.838, 0.2890),
+]
+
+
+def _f(x):
+    return "-" if x is None else f"{x:.3f}"
+
+
+def render_benchcad_md(results: dict) -> str:
+    lines = ["## Official BenchCAD (benchcad.com harness, local adapter)", "",
+             "| arm | CodeEdit | Code-QA | Vision2Code IoU |", "|---|---|---|---|"]
+    for arm in sorted(results):
+        r = results[arm] or {}
+        g = lambda t: (r.get(t) or {}).get("score") if isinstance(r.get(t), dict) else None
+        lines.append(f"| {arm} | {_f(g('codeedit'))} | {_f(g('codeqa'))} | {_f(g('vision2code'))} |")
+    for name, ce, qa, v2c in BENCHCAD_REFERENCE:
+        lines.append(f"| {name} | {_f(ce)} | {_f(qa)} | {_f(v2c)} |")
+    return "\n".join(lines) + "\n"
+```
+
+`run_card.py` (Task 8) appends `render_benchcad_md` output to `card.md` when `<out>/benchcad.json` exists; the Lab view (Task 9) shows the same table under the card table.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/run_benchcad.py scripts/card_report.py tests/test_card_report.py benchmarks/external/benchcad/local_adapter.py benchmarks/external/benchcad/README.md .gitignore
+git commit -m "benchcad: official harness runner against each arm via a local llama.cpp adapter"
 ```
 
 ---
