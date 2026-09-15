@@ -64,6 +64,33 @@ def test_keep_maker_reuses_warm_arm_without_systemctl(tmp_path, monkeypatch):
     assert calls == []
 
 
+def test_brief_model_is_the_local_strong_rung(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.BRIEF_MODEL == cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
+
+
+def test_preflight_ignores_local_and_cloud_models(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_installed_ollama_models", lambda: set())  # nothing on Ollama
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: "local:qwen3.8-27b")
+    cad_engine._preflight_models()   # must not raise
+
+
+def test_pause_hook_stops_maker_when_enabled(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+    import cad_engine; importlib.reload(cad_engine)
+    calls = []
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    monkeypatch.setattr(cad_engine, "_model_size_gb", lambda m: 3.4)
+    # The is-active probe goes through subprocess.run too (systemctl is-active <unit>); patch
+    # it directly so the recorded calls list only carries the actual pause action, not the probe.
+    monkeypatch.setattr(cad_engine, "_maker_server_active", lambda: True)
+    cad_engine._PAUSED_DEFAULT_SERVER = False
+    cad_engine._pause_default_server_for("gemma4:e4b")
+    assert calls == [["systemctl", "--user", "stop", "maker-server"]]
+
+
 class _FakeHealthResponse:
     def __enter__(self):
         return self

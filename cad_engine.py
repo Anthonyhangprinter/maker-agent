@@ -226,14 +226,27 @@ def _default_server_active() -> bool:
                        capture_output=True, text=True)
     return r.stdout.strip() == "active"
 
+def _maker_server_active() -> bool:
+    r = subprocess.run(["systemctl", "--user", "is-active", _MAKER_UNIT],
+                       capture_output=True, text=True)
+    return r.stdout.strip() == "active"
+
 def _pause_default_server_for(model: str) -> None:
+    """Free VRAM for an Ollama guest (e.g. the gemma4 critic) by stopping whichever
+    strong-rung server is currently up — the resident, or maker-server when cad.json
+    maker.enabled (see cad_v5.config.maker_config). _ensure_default_server() brings
+    the right one back on the next strong-rung call."""
     global _PAUSED_DEFAULT_SERVER
     if _PAUSED_DEFAULT_SERVER or _model_size_gb(model) <= _OLLAMA_COEXIST_GB_MAX:
         return
-    if not _default_server_active():
+    if maker_config()["enabled"]:
+        unit, active = _MAKER_UNIT, _maker_server_active
+    else:
+        unit, active = _QWEN36_UNIT, _default_server_active
+    if not active():
         return
-    log.info("[v5] pausing %s — freeing VRAM for %s", _QWEN36_UNIT, model)
-    subprocess.run(["systemctl", "--user", "stop", _QWEN36_UNIT], capture_output=True)
+    log.info("[v5] pausing %s — freeing VRAM for %s", unit, model)
+    subprocess.run(["systemctl", "--user", "stop", unit], capture_output=True)
     _PAUSED_DEFAULT_SERVER = True
 
 def _resume_default_server() -> None:
@@ -525,9 +538,13 @@ def _ollama(model: str, system: str, prompt: str,
                          {"role": "user", "content": user_content}],
             **({"temperature": temperature} if temperature is not None else {}),
         }
-        if images and not fmt:
+        if (images or model == BRIEF_MODEL) and not fmt:
             # A visual critique is a judgment, not code — at 12 tok/s a thinking
-            # preamble adds minutes per turn for no measured gain.
+            # preamble adds minutes per turn for no measured gain. Same logic for a
+            # utility call (brief/patch/lesson/questions/describe/refine): BRIEF_MODEL ==
+            # CODE_MODEL_STRONG rides this same rung since qwen3:8b was deleted
+            # 2026-09-12, and a one-line utility answer must never spend the 27B's
+            # xhigh-default thinking budget.
             body["chat_template_kwargs"] = {"enable_thinking": False}
         if fmt:
             # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
@@ -764,9 +781,8 @@ def spec_from_image(analysis: dict) -> str:
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
-def preflight() -> None:
-    """Fail fast with a clear message if Ollama or the required models are missing.
-    The critic model is optional — its absence only disables visual critique."""
+def _installed_ollama_models() -> set:
+    """Ollama's /api/tags model list. Raises if Ollama itself is unreachable."""
     try:
         with urllib.request.urlopen(OLLAMA_TAGS, timeout=10) as r:
             tags = json.loads(r.read())
@@ -774,7 +790,14 @@ def preflight() -> None:
         raise RuntimeError(
             f"Ollama not reachable at {OLLAMA_HOST} ({e}). Is `ollama serve` running?"
         )
-    have = {m.get("name", "") for m in tags.get("models", [])}
+    return {m.get("name", "") for m in tags.get("models", [])}
+
+def _preflight_models(have: Optional[set] = None) -> None:
+    """Fail fast if a required model is missing from Ollama. Models riding the local:
+    or cloud/ rungs (BRIEF_MODEL and CODE_MODEL_STRONG, since Ollama is being retired)
+    are skipped here — they're covered by their own server health checks instead."""
+    if have is None:
+        have = _installed_ollama_models()
     missing = [m for m in (BRIEF_MODEL, _code_model())
                if m not in have
                and not m.startswith(CLOUD_PREFIX) and not m.startswith(LOCAL_PREFIX)]
@@ -783,6 +806,12 @@ def preflight() -> None:
             "Missing required Ollama model(s): " + ", ".join(missing) +
             ". Pull with: " + "; ".join(f"ollama pull {m}" for m in missing)
         )
+
+def preflight() -> None:
+    """Fail fast with a clear message if Ollama or the required models are missing.
+    The critic model is optional — its absence only disables visual critique."""
+    have = _installed_ollama_models()
+    _preflight_models(have)
     if CRITIC_MODEL.startswith(LOCAL_PREFIX):
         pass   # llama.cpp-served critic — covered by the strong-rung health check below
     elif CRITIC_MODEL not in have:

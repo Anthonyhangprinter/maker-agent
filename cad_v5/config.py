@@ -70,7 +70,6 @@ def load_config() -> dict:
     return cfg
 
 # ── Models ────────────────────────────────────────────────────────────────────
-BRIEF_MODEL        = "qwen3:8b"
 # Fast rung = qwen2.5-coder:7b Q4 (user decision 2026-07-17, supported by that day's 2x2
 # A/B, tiers 1-2 same engine same day): 7b-q4 WITH few-shots 13/22 (59%) vs qwen3:8b 11/22
 # (50%); few-shots lift the 7B +23pts (8/22 bare) and lift qwen3:8b ZERO (11/22 either way)
@@ -108,6 +107,12 @@ CODE_MODEL_STRONG  = "local:" + _MAKER["alias"]
 LOCAL_CODER_PORT   = _MAKER["port"]
 LOCAL_CODER_URL    = f"http://127.0.0.1:{LOCAL_CODER_PORT}/v1/chat/completions"
 LOCAL_CODER_HEALTH = f"http://127.0.0.1:{LOCAL_CODER_PORT}/health"
+# Utility-call model (brief/patch/lesson/questions/describe/refine — never the coder itself):
+# was the Ollama qwen3:8b, deleted 2026-09-12 when Ollama started being retired. Riding
+# CODE_MODEL_STRONG means these calls go through the local: OpenAI-schema branch of
+# _ollama() against whichever strong-rung server is up (resident or maker arm) with
+# thinking off (see _ollama()'s local: branch) — no separate Ollama model to keep alive.
+BRIEF_MODEL        = CODE_MODEL_STRONG
 # Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
 # the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged
 # at 583-804s/build — slower than the 30B MoE (dense 14B offloads worse than a 3B-active MoE)
