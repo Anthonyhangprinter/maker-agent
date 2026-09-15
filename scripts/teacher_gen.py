@@ -101,8 +101,11 @@ def _load_census():
 def guard_contamination(specs: list[dict]) -> None:
     """Abort if any pilot spec collides with an eval suite. Never skip silently."""
     hc = _load_census()
-    suite = hc.suite_slugs()
-    clashes = [s for s in specs if hc._slug(s["spec"], 40) in suite]
+    # suite_keys, not suite_slugs: a 40-char slug is degenerate on the public suites (every
+    # CADPrompt prompt opens with the same boilerplate), so it both misses real collisions
+    # past character 40 and flags unrelated specs that share an opening.
+    suite = hc.suite_keys()
+    clashes = [s for s in specs if hc._key(s["spec"]) in suite]
     if clashes:
         print("CONTAMINATION GUARD TRIPPED — these specs collide with an eval suite:",
               file=sys.stderr)
@@ -112,7 +115,7 @@ def guard_contamination(specs: list[dict]) -> None:
               "(benchmarks/heldout-cqe/acceptance.json._meta.heldout). Aborting.",
               file=sys.stderr)
         sys.exit(2)
-    print(f"[guard] {len(specs)} spec(s) checked against {len(suite)} suite slug(s) — no collisions.")
+    print(f"[guard] {len(specs)} spec(s) checked against {len(suite)} suite key(s) — no collisions.")
 
 
 REVIEW_FILE = SFTPAIRS_FILE.with_name("cad-sftpairs-review.jsonl")

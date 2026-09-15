@@ -205,13 +205,17 @@ def to_chatml(r: dict) -> dict:
 _HC = None
 
 def _slug_of(r: dict) -> str:
+    """Contamination/grouping identity of a row's spec: harvest_census._key (sha1 of the
+    whitespace-collapsed full text), NOT the 40-char dir-name slug. The slug is degenerate
+    on the public card suites, so a slug-keyed leak check both misses real collisions past
+    character 40 and groups unrelated specs together in the train/val split."""
     global _HC
     if _HC is None:
         spec = importlib.util.spec_from_file_location(
             "hc", HERE / "scripts" / "harvest_census.py")
         _HC = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(_HC)
-    return _HC._slug(r.get("spec", ""), 40)
+    return _HC._key(r.get("spec", ""))
 
 
 def split_rows(examples: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -287,7 +291,7 @@ def main() -> int:
     # ── Phase 5: format -> split -> stats -> write ───────────────────────────
     suite = set()
     _slug_of({})            # force-load harvest_census
-    suite = _HC.suite_slugs()
+    suite = _HC.suite_keys()
     examples = [to_chatml(r) for r in kept3]
     leaked = [e for e in examples if e["spec_slug"] in suite]
     if leaked:

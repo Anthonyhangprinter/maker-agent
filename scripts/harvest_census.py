@@ -24,6 +24,7 @@ Usage:
 """
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -44,8 +45,20 @@ _BUILD_LINE = re.compile(
 
 
 def _slug(text: str, n: int = 40) -> str:
-    """Mirror of the engine's dir-name slugging (lowercase, non-alnum -> '-')."""
+    """Mirror of the engine's dir-name slugging (lowercase, non-alnum -> '-').
+
+    Build-dir name recovery ONLY. Do not use it as a contamination key: truncating at 40
+    characters is degenerate on the public suites, where every CADPrompt prompt opens with
+    the same boilerplate (100 specs collapsed to 2 slugs, Text-to-CadQuery's 95 to 53), so
+    a slug match there means "same opening words", not "same spec". Use _key()."""
     return re.sub(r"[^a-z0-9]+", "-", text.lower())[:n]
+
+
+def _key(text: str) -> str:
+    """Contamination identity of a spec: sha1 of its whitespace-collapsed lowercase FULL
+    text. Untruncated, so two different specs never collide, and whitespace/case-insensitive,
+    so the same spec reformatted still matches."""
+    return hashlib.sha1(" ".join(str(text).lower().split()).encode()).hexdigest()
 
 
 def load_log_specs() -> list[tuple[datetime, str, bool]]:
@@ -159,17 +172,27 @@ CARD_SUITES = ["text-to-cad", "organic", "heldout-cqe", "hard-eval",
                "cadprompt", "cad-arena", "text2cadquery"]   # every suite the card reads; never train on these
 
 
-def suite_slugs() -> set[str]:
-    slugs = set()
+def _suite_specs() -> list[str]:
+    out = []
     for suite in CARD_SUITES:
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
             data = json.loads(f.read_text())
             if isinstance(data, dict):   # text-to-cad wraps the list in {"benchmarks": [...]}
                 data = data.get("benchmarks", [])
-            for b in data:
-                slugs.add(_slug(b["spec"], 40))
-    return slugs
+            out.extend(b["spec"] for b in data)
+    return out
+
+
+def suite_slugs() -> set[str]:
+    """Truncated slugs of every card suite spec. Kept for the build-dir-name recovery path
+    (dir names ARE slugs); contamination guards use suite_keys()."""
+    return {_slug(spec, 40) for spec in _suite_specs()}
+
+
+def suite_keys() -> set[str]:
+    """Exact contamination keys for every card suite spec (see _key)."""
+    return {_key(spec) for spec in _suite_specs()}
 
 
 def existing_build_ids() -> set[str]:
