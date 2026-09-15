@@ -233,7 +233,7 @@ def write_card(out: Path, rows: list[dict], meta: dict) -> str:
         except Exception as e:
             card_md += f"\n(benchcad.json present but could not be rendered: {e})\n"
     (out / "card.md").write_text(card_md)
-    if out.parent == CARD_DIR:
+    if out.resolve().parent == CARD_DIR.resolve():
         # `latest` lives in CARD_DIR and points at a sibling by name, so it is only meaningful
         # for runs written there. An --out somewhere else used to retarget it at a name that
         # does not exist inside CARD_DIR, leaving a dangling symlink.
