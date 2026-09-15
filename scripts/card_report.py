@@ -73,6 +73,10 @@ def summarise(rows: list[dict]) -> dict:
             "bands": {b: sum(1 for r in rs if r.get("band") == b) for b in BANDS},
             "median_wall_s": median(r["wall_s"] for r in rs) if rs else None,
             "tokens_out": sum(r["tokens_out"] or 0 for r in rs),
+            # Builds where spec_helper short-circuited codegen (a bd_warehouse gear/bolt/
+            # bearing, correct by construction). Those rows measure the helper, not the arm,
+            # so a group with a high count is not comparable model to model.
+            "helper_rows": sum(1 for r in rs if r.get("helper")),
         }
     return out
 
@@ -86,13 +90,15 @@ def render_md(summary: dict, meta: dict) -> str:
     lines = [f"# Maker Agent card {meta.get('stamp', '')}", "",
              f"Mode: {meta.get('mode', '')}. One row per arm and suite. invalid = no solid produced, "
              "gate clean = solid with zero hard and zero [spec] findings, acceptance = pooled checks, "
-             "bands = unit-normalised Chamfer vs reference where one exists.", "",
-             "| arm | suite | n | valid | invalid | gate clean | acceptance | match | valid band | near miss | fail | median s | tokens out |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "bands = Chamfer vs reference where one exists (unit-normalised only for suites whose "
+             "acceptance entries say so), helper = builds a correct-by-construction helper "
+             "produced instead of the model.", "",
+             "| arm | suite | n | valid | invalid | gate clean | acceptance | match | valid band | near miss | fail | median s | tokens out | helper |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for key in sorted(summary):
         s = summary[key]
         b = s["bands"]
         lines.append(f"| {s['arm']} | {s['suite']} | {s['n']} | {s['valid']} | {_pct(s['invalid_ratio'])} | "
                      f"{s['gate_clean']} | {_pct(s['acceptance'])} | {b['match']} | {b['valid']} | {b['near_miss']} | "
-                     f"{b['fail']} | {s['median_wall_s']:.0f} | {s['tokens_out']} |")
+                     f"{b['fail']} | {s['median_wall_s']:.0f} | {s['tokens_out']} | {s.get('helper_rows', 0)} |")
     return "\n".join(lines) + "\n"

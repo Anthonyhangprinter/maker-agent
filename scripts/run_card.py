@@ -37,8 +37,17 @@ _rb_spec = importlib.util.spec_from_file_location("run_benchmarks", SCRIPTS / "r
 _rb = importlib.util.module_from_spec(_rb_spec); _rb_spec.loader.exec_module(_rb)
 score_acceptance = _rb.score_acceptance
 
-INTERNAL = ["text-to-cad", "organic", "hard-eval", "heldout-cqe"]
-EXTERNAL = ["cadprompt", "cad-arena", "text2cadquery"]
+# Derived from harvest_census.CARD_SUITES (the contamination guard's own list) so the two
+# cannot drift: a suite added there is automatically carded and automatically never trained on.
+# The first four entries are the internal suites, the rest the public ones.
+INTERNAL = hc.CARD_SUITES[:4]
+EXTERNAL = hc.CARD_SUITES[4:]
+# Keys in an acceptance entry that are NOT criteria for score_acceptance. reference_stl names
+# the band reference; normalized is the band's unit policy (see geom_bands.score_against_reference);
+# the rest are provenance/annotation that older suites carry. Counting them in a denominator
+# (as the failed-row branch used to) silently inflates every failure's total.
+NON_CRITERIA = {"reference_stl", "normalized", "checks", "scoring", "source", "bbox_notes",
+                "min_holes_nulls", "heldout", "notes", "_meta"}
 TRAIN_FILES = [Path.home() / ".openclaw" / n for n in ("cad-sftpairs.jsonl", "cad-examples.jsonl", "cad-sft-train.jsonl")]
 
 
@@ -53,19 +62,39 @@ def load_suite(name: str) -> tuple[list[dict], dict]:
 
 
 def contamination(specs_by_suite: dict[str, list[dict]]) -> list[str]:
+    """Card specs that also appear in the training data.
+
+    Identity is hc._key (sha1 of the whitespace-collapsed full text), never a bare hc._slug:
+    the 40-char slug is degenerate on the public suites (text2cadquery still has one slug
+    covering 28 different specs), so slug-keyed, one training row sharing an opening would
+    condemn 28 unrelated specs while a genuine collision past character 40 went unseen.
+
+    But exact matching alone is too weak for the case this guard exists for: the real known
+    clash is text-to-cad/05, whose training copy is the SAME part reworded, not the same
+    string. So a slug match is also reported, as a near duplicate, and only when that slug
+    identifies exactly one spec in its own suite. That condition is what keeps the degenerate
+    public-suite buckets out: a slug shared by 28 specs is not evidence about any of them."""
     train = set()
     for f in TRAIN_FILES:
         if f.exists():
             for line in f.read_text().splitlines():
                 try:
-                    train.add(hc._slug(json.loads(line).get("spec", ""), 40))
+                    train.add(json.loads(line).get("spec", ""))
                 except Exception:
                     pass
+    train_keys = {hc._key(t) for t in train}
+    train_slugs = {hc._slug(t, 40) for t in train}
     clashes = []
     for suite, specs in specs_by_suite.items():
+        slug_counts: dict[str, int] = {}
         for s in specs:
-            if hc._slug(s["spec"], 40) in train:
+            slug_counts[hc._slug(s["spec"], 40)] = slug_counts.get(hc._slug(s["spec"], 40), 0) + 1
+        for s in specs:
+            slug = hc._slug(s["spec"], 40)
+            if hc._key(s["spec"]) in train_keys:
                 clashes.append(f"{suite}/{s['id']}: {s['spec'][:70]}")
+            elif slug in train_slugs and slug_counts[slug] == 1:
+                clashes.append(f"{suite}/{s['id']} (near duplicate, same opening): {s['spec'][:70]}")
     return clashes
 
 
@@ -119,8 +148,39 @@ def geometry_of(res: dict, mode: str) -> dict:
                 f = engine.parse_facts(engine.run_inspect(step)["output"])
             except Exception:
                 f = {}
+    if not f:
+        # {} not a dict of Nones. score_acceptance's contract is "no geometry => 0 of N", which
+        # it reads off `bool(geom)`; a dict of Nones looks like geometry and then raises
+        # TypeError on `cyl >= 0` when a min_holes criterion is present.
+        return {}
     return {"solids": f.get("solids"), "bbox_mm": f.get("bbox"), "faces": f.get("faces"),
             "cyl_faces": f.get("cyl_faces"), "through_holes": f.get("through_holes")}
+
+
+def criteria_of(crit: dict | None) -> dict:
+    """The acceptance entry stripped to the keys score_acceptance actually scores."""
+    return {k: v for k, v in (crit or {}).items() if k not in NON_CRITERIA}
+
+
+def step_in(path: str) -> Path | None:
+    """The STEP named by a row's build_dir: the newest *.step inside it when it is a
+    directory (oneshot), the file itself when it is the STEP (agent), else None."""
+    p = Path(path) if path else None
+    if p and p.is_dir():
+        steps = sorted(p.glob("*.step"))
+        return steps[-1] if steps else None
+    return p if p and p.is_file() else None
+
+
+def band_of(step: Path, reference: Path, crit: dict | None) -> str:
+    """Chamfer band, normalised only where the suite says so.
+
+    normalize=True rescales both meshes to a common diagonal, which is right for the public
+    suites (DeepCAD-style units, not mm) and WRONG for the mm-specified internal suites: it
+    would forgive a part built at half the specified size. The acceptance entry carries the
+    policy (`normalized`), written by scripts/fetch_external.py."""
+    return geom_bands.score_against_reference(
+        step, reference, normalize=bool((crit or {}).get("normalized")))["band"]
 
 
 def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, timeout: int) -> dict:
@@ -133,22 +193,97 @@ def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, time
         gate_hard = len(res.get("gate_hard") or []); gate_spec = len(res.get("gate_spec") or [])
     else:
         gate_hard = 0 if res.get("converged") else 1; gate_spec = 0
-    acc = score_acceptance(geometry_of(res, mode), {k: v for k, v in (crit or {}).items() if k != "reference_stl"}) if ok else {"passed": 0, "total": len([k for k in (crit or {}) if k != "reference_stl"])}
+    # ONE denominator for ok and failed rows alike: score_acceptance itself, whose docstring
+    # guarantees 0/N for a build with no geometry. The old failed-row branch counted raw
+    # criteria keys instead, which both included non-criterion keys and included criteria
+    # score_acceptance would have skipped, so a failure's total did not match a success's.
+    acc = score_acceptance(geometry_of(res, mode) if ok else {}, criteria_of(crit))
     band = None
     ref = (crit or {}).get("reference_stl")
     step = step_of(res, mode)
     if ok and ref and step:
         try:
-            band = geom_bands.score_against_reference(step, BENCH / suite / ref, normalize=True)["band"]
+            band = band_of(step, BENCH / suite / ref, crit)
         except Exception as e:
             band = "fail"; stderr += f"\nband error: {e}"
     usage = res.get("usage") or {}
     return {"arm": arm, "suite": suite, "id": spec["id"], "tier": spec.get("tier", 0), "ok": ok,
             "gate_hard": gate_hard, "gate_spec": gate_spec,
             "acc_passed": acc.get("passed", 0), "acc_total": acc.get("total", 0), "band": band,
+            "helper": bool(res.get("helper")),
             "wall_s": round(wall, 1), "tokens_out": usage.get("completion_tokens"),
             "build_dir": res.get("build_dir") or res.get("step_local") or "", "error": res.get("error"),
             "stderr_tail": stderr[-300:] if not ok else ""}
+
+
+def write_card(out: Path, rows: list[dict], meta: dict) -> str:
+    """Write card.json + card.md into `out` and return the markdown. Pure file work: no
+    systemctl, no model, so it is safe to call before the resident restore in the finally."""
+    summary = card_report.summarise(rows)
+    (out / "card.json").write_text(json.dumps({"meta": meta, "summary": summary}, indent=2) + "\n")
+    card_md = card_report.render_md(summary, meta)
+    benchcad_path = out / "benchcad.json"
+    if benchcad_path.exists():
+        # Optional companion run: scripts/run_benchcad.py (the official BenchCAD harness,
+        # Task 5b) writes benchcad.json into the same --out dir when driven alongside this
+        # runner. If it's there, fold its table into the same card.md instead of leaving a
+        # second file the reader has to know to look for.
+        try:
+            card_md += "\n" + card_report.render_benchcad_md(json.loads(benchcad_path.read_text()))
+        except Exception as e:
+            card_md += f"\n(benchcad.json present but could not be rendered: {e})\n"
+    (out / "card.md").write_text(card_md)
+    if out.parent == CARD_DIR:
+        # `latest` lives in CARD_DIR and points at a sibling by name, so it is only meaningful
+        # for runs written there. An --out somewhere else used to retarget it at a name that
+        # does not exist inside CARD_DIR, leaving a dangling symlink.
+        latest = CARD_DIR / "latest"
+        if latest.is_symlink() or latest.exists():
+            latest.unlink()
+        latest.symlink_to(out.name)
+    return card_md
+
+
+def rescore(out: Path) -> str:
+    """Recompute the derived columns of an existing run from rows.jsonl, no rebuilding.
+
+    Fixes rows written by an older runner: acceptance totals for failed rows (which used to
+    count non-criterion keys) and bands (which used to normalise every suite). A band is only
+    recomputed when the row's STEP is still on disk; otherwise the stored value is kept.
+    rows.jsonl is backed up to rows.jsonl.bak before being rewritten."""
+    rows_path = out / "rows.jsonl"
+    if not rows_path.exists():
+        raise SystemExit(f"{rows_path} not found")
+    rows = [json.loads(l) for l in rows_path.read_text().splitlines() if l.strip()]
+    crits = {s: load_suite(s)[1] for s in {r["suite"] for r in rows}}
+    changed = 0
+    for r in rows:
+        crit = crits.get(r["suite"], {}).get(r["id"])
+        before = (r.get("acc_passed"), r.get("acc_total"), r.get("band"))
+        if not r.get("ok"):
+            acc = score_acceptance({}, criteria_of(crit))
+            r["acc_passed"], r["acc_total"] = acc["passed"], acc["total"]
+        ref = (crit or {}).get("reference_stl")
+        if r.get("ok") and ref:
+            # A row's build_dir is a directory (oneshot) or the STEP itself (agent): the
+            # writer stores `build_dir or step_local`, so accept either shape here.
+            step = step_in(r.get("build_dir") or "")
+            if step:
+                try:
+                    r["band"] = band_of(step, BENCH / r["suite"] / ref, crit)
+                except Exception:
+                    r["band"] = "fail"
+        r.setdefault("helper", False)
+        if (r.get("acc_passed"), r.get("acc_total"), r.get("band")) != before:
+            changed += 1
+    rows_path.replace(rows_path.with_suffix(".jsonl.bak"))
+    rows_path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    card = out / "card.json"
+    meta = json.loads(card.read_text())["meta"] if card.exists() else {"stamp": out.name}
+    meta["rescored"] = datetime.now().isoformat(timespec="seconds")
+    md = write_card(out, rows, meta)
+    print(f"rescored {len(rows)} row(s), {changed} changed; backup {rows_path.with_suffix('.jsonl.bak').name}")
+    return md
 
 
 def main() -> None:
@@ -161,7 +296,14 @@ def main() -> None:
     ap.add_argument("--out", default="")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--allow-contaminated", action="store_true")
+    ap.add_argument("--rescore", default="", metavar="DIR",
+                    help="recompute acceptance/bands for an existing run dir from rows.jsonl and "
+                         "rewrite its card; builds nothing, touches no GPU")
     ns = ap.parse_args()
+
+    if ns.rescore:
+        print(rescore(Path(ns.rescore)))
+        return
 
     all_arms = arms_mod.load_arms()
     names = list(all_arms) if ns.arms == "all" else ns.arms.split(",")
@@ -185,10 +327,24 @@ def main() -> None:
             "started": datetime.now().isoformat(timespec="seconds")}
     try:
         for name in names:
+            if all_arms[name].get("skip"):
+                print(f"== arm {name}: skipped (\"skip\": true in benchmarks/arms.json)")
+                meta.setdefault("skipped_arms", {})[name] = "skip: true in arms.json"
+                continue
             todo = [(s, sp, acc.get(sp["id"])) for s, (specs, acc) in suites.items() for sp in specs if (name, s, sp["id"]) not in done]
             if not todo:
                 continue
-            print(f"== arm {name}: {len(todo)} builds"); arms_mod.cmd_use(all_arms[name])
+            print(f"== arm {name}: {len(todo)} builds")
+            try:
+                arms_mod.cmd_use(all_arms[name])
+            except BaseException as exc:
+                # One arm that will not load (missing GGUF, a llama.cpp flag it rejects, an
+                # OOM on load) used to abort the whole --arms all card, losing every arm
+                # after it. Record why and move to the next one; cmd_use has already
+                # restored the resident on its way out.
+                print(f"   arm {name} unavailable: {exc}")
+                meta.setdefault("skipped_arms", {})[name] = str(exc)[:200]
+                continue
             for suite, spec, crit in todo:
                 row = run_row(name, suite, spec, crit, ns.mode, ns.timeout)
                 rows.append(row)
@@ -196,27 +352,16 @@ def main() -> None:
                     f.write(json.dumps(row) + "\n")
                 print(f"  {suite}/{spec['id']}: ok={row['ok']} hard={row['gate_hard']} spec={row['gate_spec']} band={row['band']} {row['wall_s']}s")
     finally:
-        arms_mod.cmd_restore()
-        summary = card_report.summarise(rows)
+        # Write the card BEFORE restoring: cmd_restore shells out to systemctl and waits up to
+        # 5 minutes on a health endpoint, so a failure or a Ctrl-C there used to take the whole
+        # card down with it after every build had already been paid for.
         meta["finished"] = datetime.now().isoformat(timespec="seconds")
-        (out / "card.json").write_text(json.dumps({"meta": meta, "summary": summary}, indent=2) + "\n")
-        card_md = card_report.render_md(summary, meta)
-        benchcad_path = out / "benchcad.json"
-        if benchcad_path.exists():
-            # Optional companion run: scripts/run_benchcad.py (the official BenchCAD harness,
-            # Task 5b) writes benchcad.json into the same --out dir when driven alongside this
-            # runner. If it's there, fold its table into the same card.md instead of leaving a
-            # second file the reader has to know to look for.
-            try:
-                card_md += "\n" + card_report.render_benchcad_md(json.loads(benchcad_path.read_text()))
-            except Exception as e:
-                card_md += f"\n(benchcad.json present but could not be rendered: {e})\n"
-        (out / "card.md").write_text(card_md)
-        latest = CARD_DIR / "latest"
-        if latest.is_symlink() or latest.exists():
-            latest.unlink()
-        latest.symlink_to(out.name)
-        print((out / "card.md").read_text())
+        card_md = write_card(out, rows, meta)
+        try:
+            arms_mod.cmd_restore()
+        except BaseException as exc:
+            print(f"RESIDENT NOT RESTORED: {exc}\n  run: python3 scripts/arms.py restore")
+        print(card_md)
 
 
 if __name__ == "__main__":

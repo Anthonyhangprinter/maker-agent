@@ -36,3 +36,17 @@ def test_summarise_counts():
 def test_render_md_has_one_line_per_arm_suite():
     md = cr.render_md(cr.summarise(ROWS), {"stamp": "t", "mode": "oneshot"})
     assert "| a | s | 3 |" in md and "invalid" in md.lower()
+
+
+def test_summarise_counts_helper_rows_and_render_shows_the_column():
+    rows = [dict(ROWS[0], helper=True), dict(ROWS[1], helper=False), dict(ROWS[2], helper=False)]
+    s = cr.summarise(rows)["a|s"]
+    assert s["helper_rows"] == 1
+    md = cr.render_md(cr.summarise(rows), {"stamp": "t", "mode": "oneshot"})
+    header = [l for l in md.splitlines() if l.startswith("| arm |")][0]
+    assert header.rstrip().endswith("| helper |")
+    assert md.splitlines()[-1].rstrip().endswith("| 1 |")
+
+
+def test_summarise_tolerates_rows_written_before_the_helper_column():
+    assert cr.summarise(ROWS)["a|s"]["helper_rows"] == 0
