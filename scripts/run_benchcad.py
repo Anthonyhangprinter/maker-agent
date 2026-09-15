@@ -108,6 +108,9 @@ def main() -> None:
     try:
         for name in names:
             arm = all_arms[name]
+            if arm.get("skip"):
+                print(f'== arm {name}: skipped ("skip": true in benchmarks/arms.json)', flush=True)
+                continue
             results.setdefault(name, {})
             todo = [t for t in tasks if t not in results[name] and (t != "vision2code" or arm.get("mmproj"))]
             if "vision2code" in tasks and not arm.get("mmproj") and "vision2code" not in results[name]:

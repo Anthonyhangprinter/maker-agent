@@ -18,11 +18,17 @@ PORT = 8088
 
 
 def load_arms(path: Path = ARMS_FILE) -> dict[str, dict]:
+    """Every arm in arms.json, resolved against the model store.
+
+    Entries with `"skip": true` are KEPT here (so `arms.py list` still shows them and the
+    file stays the single roster) and skipped by the runners: run_card.py and run_benchcad.py
+    each print a line and move on. That is how an arm is parked without deleting its row."""
     data = json.loads(path.read_text())
     store = Path(data["store"])
     out = {}
     for arm in data["arms"]:
         arm = dict(arm)
+        arm["skip"] = bool(arm.get("skip", False))
         arm["model_path"] = str(store / arm["gguf"])
         arm["mmproj_path"] = str(store / arm["mmproj"]) if arm.get("mmproj") else ""
         arm["store"] = str(store)
@@ -35,9 +41,12 @@ def _q(value) -> str:
     unquoted value containing spaces (EXTRA_ARGS, e.g. a --chat-template-kwargs
     JSON blob) would break bash word-splitting / cause a syntax error. Arm values
     never contain a single quote (arms.json uses double quotes inside its JSON
-    strings), so no escaping is needed — just assert that invariant holds."""
+    strings), so no escaping is needed, but the invariant is checked rather than
+    assumed. ValueError, not assert: `python -O` strips asserts, and this one is a
+    real input check on a file bash will execute, not a debug aid."""
     s = str(value)
-    assert "'" not in s, f"maker.env value must not contain a single quote: {s!r}"
+    if "'" in s:
+        raise ValueError(f"maker.env value must not contain a single quote: {s!r}")
     return f"'{s}'"
 
 
@@ -54,14 +63,32 @@ def render_env(arm: dict) -> str:
 
 
 def _read_json(p: Path) -> dict:
+    """Absent file: start from {} (first arm swap on a box with no cad.json).
+
+    Present but unparseable: RAISE. cad.json carries the operator's own settings
+    (code_model pins, the cloud block, print targets); treating a transient read error or a
+    half-written file as "empty" would have _write_json replace all of it with a bare maker
+    block. Better to fail the swap and leave the file alone."""
     try:
-        return json.loads(p.read_text())
+        text = p.read_text()
     except FileNotFoundError:
         return {}
+    try:
+        return json.loads(text)
+    except Exception as e:
+        raise SystemExit(f"{p} exists but is not valid JSON ({e}); refusing to overwrite it")
 
 
 def _write_json(p: Path, data: dict) -> None:
-    tmp = p.with_suffix(".tmp")
+    """Atomic replace, with a one-time .bak of the original.
+
+    The backup is written only on the FIRST modification of an existing file (no .bak yet),
+    so the pre-Maker cad.json survives; later arm swaps must not overwrite that snapshot with
+    another maker-block-bearing copy."""
+    bak = p.with_suffix(p.suffix + ".bak")
+    if p.exists() and not bak.exists():
+        bak.write_bytes(p.read_bytes())
+    tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
     tmp.replace(p)
 
@@ -95,7 +122,8 @@ def _wait(url: str, timeout: int) -> None:
 def cmd_list(a: dict) -> None:
     for name, arm in a.items():
         have = Path(arm["model_path"]).exists()
-        print(f"{'ok ' if have else '-- '}{name:24s} {arm['role']:9s} {arm['alias']:22s} {arm['gguf']}")
+        mark = "skip" if arm.get("skip") else ("ok " if have else "-- ")
+        print(f"{mark:5s}{name:24s} {arm['role']:9s} {arm['alias']:22s} {arm['gguf']}")
 
 
 def cmd_download(arm: dict) -> None:
@@ -126,7 +154,12 @@ def cmd_use(arm: dict, start: bool = True) -> None:
             subprocess.run(["systemctl", "--user", "restart", "maker-server"], check=True)
             _wait(f"http://127.0.0.1:{PORT}/health", 900)
         except BaseException:
-            cmd_restore()
+            try:
+                cmd_restore()
+            except BaseException as restore_exc:
+                # The recovery must never replace the real cause: a restore that itself fails
+                # (resident unhealthy too) would otherwise be the only error anyone sees.
+                print(f"restore during cmd_use recovery also failed: {restore_exc}", file=sys.stderr)
             raise
     print(f"maker-server -> {arm['name']} ({arm['alias']}) on :{PORT}")
 

@@ -91,3 +91,72 @@ def test_cmd_use_restores_resident_if_maker_never_healthy(tmp_path, monkeypatch)
     cmds = [" ".join(c) for c in calls]
     assert cmds[-2] == "systemctl --user stop maker-server"
     assert cmds[-1] == "systemctl --user start qwen38-server"
+
+
+def test_write_json_backs_up_the_original_once(tmp_path):
+    """I9: the pre-Maker cad.json must survive the first arm swap, and later swaps must not
+    overwrite that snapshot with another maker-block-bearing copy."""
+    cad_json = tmp_path / "cad.json"
+    cad_json.write_text(json.dumps({"code_model": "pinned", "cloud": {"provider": "anthropic"}}))
+    arm = arms.load_arms()["gemma-4-31b"]
+    arms.apply_arm(arm, cad_json, tmp_path / "maker.env")
+    bak = tmp_path / "cad.json.bak"
+    assert json.loads(bak.read_text()) == {"code_model": "pinned", "cloud": {"provider": "anthropic"}}
+    arms.apply_arm(arms.load_arms()["gpt-oss-20b"], cad_json, tmp_path / "maker.env")
+    assert "maker" not in json.loads(bak.read_text())   # still the original, not the first swap
+    assert json.loads(cad_json.read_text())["maker"]["alias"] == "gpt-oss-20b"
+
+
+def test_read_json_absent_file_is_empty_but_unparseable_raises(tmp_path):
+    """Absent: a box with no cad.json yet, proceed from {}. Present but broken: refuse, or
+    _write_json would replace the operator's real settings with a bare maker block."""
+    assert arms._read_json(tmp_path / "nope.json") == {}
+    broken = tmp_path / "cad.json"
+    broken.write_text('{"cad": ')
+    with pytest.raises(SystemExit):
+        arms._read_json(broken)
+    assert broken.read_text() == '{"cad": '       # untouched
+
+
+def test_apply_arm_refuses_to_clobber_an_unparseable_cad_json(tmp_path):
+    cad_json = tmp_path / "cad.json"
+    cad_json.write_text("{ not json")
+    with pytest.raises(SystemExit):
+        arms.apply_arm(arms.load_arms()["gemma-4-31b"], cad_json, tmp_path / "maker.env")
+    assert cad_json.read_text() == "{ not json"
+
+
+def test_single_quote_invariant_raises_value_error_not_assert():
+    """M5: `python -O` strips asserts, and this guards a file bash will source."""
+    with pytest.raises(ValueError):
+        arms._q("it's broken")
+
+
+def test_load_arms_keeps_skipped_entries(tmp_path):
+    src = json.loads((HERE / "benchmarks" / "arms.json").read_text())
+    src["arms"][0] = {**src["arms"][0], "skip": True}
+    p = tmp_path / "arms.json"; p.write_text(json.dumps(src))
+    a = arms.load_arms(p)
+    first = src["arms"][0]["name"]
+    assert a[first]["skip"] is True                   # kept in the roster
+    assert all(a[n]["skip"] is False for n in a if n != first)
+
+
+def test_cmd_use_recovery_does_not_mask_the_original_failure(tmp_path, monkeypatch, capsys):
+    """M8: a restore that itself fails must not become the only error anyone sees."""
+    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+
+    def failing_restore():
+        raise RuntimeError("resident unhealthy too")
+
+    monkeypatch.setattr(arms, "cmd_restore", failing_restore)
+
+    def dead_wait(url, timeout):
+        raise SystemExit("maker never healthy")
+
+    monkeypatch.setattr(arms, "_wait", dead_wait)
+    model = tmp_path / "fake.gguf"; model.write_text("x")
+    with pytest.raises(SystemExit, match="maker never healthy"):
+        arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+    assert "resident unhealthy too" in capsys.readouterr().err

@@ -8,6 +8,12 @@ Conflicts=qwen38-server.service
 ExecStart=%h/.local/bin/maker-server
 Restart=no
 MemoryHigh=8G
+# Dead-man switch. An abandoned arm (a card run killed mid-loop, a hand swap someone walked
+# away from) otherwise holds the whole GPU forever and the resident never comes back. After
+# 12 hours the unit self-terminates; the family health watcher then sees no active
+# maker-server, stops skipping its remedy, and restarts the resident within 5 minutes.
+# Well above any real run: the full Phase 0 card is hours, not half a day, per arm.
+RuntimeMaxSec=12h
 
 [Install]
 WantedBy=default.target
