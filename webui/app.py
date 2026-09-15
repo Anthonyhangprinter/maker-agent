@@ -681,6 +681,26 @@ def _mesh_worker():
             _mesh_queue.task_done()
 
 
+CARD_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "card.json"
+BENCHCAD_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "benchcad.json"
+
+
+@app.get("/api/lab/card")
+def api_lab_card():
+    """The latest benchmark card (scripts/run_card.py) — arm x suite summary rows."""
+    if not CARD_LATEST.exists():
+        raise HTTPException(404, "no card yet: run scripts/run_card.py")
+    return json.loads(CARD_LATEST.read_text())
+
+
+@app.get("/api/lab/benchcad")
+def api_lab_benchcad():
+    """The latest official BenchCAD run, if one has been done alongside the card."""
+    if not BENCHCAD_LATEST.exists():
+        raise HTTPException(404, "no benchcad run yet")
+    return json.loads(BENCHCAD_LATEST.read_text())
+
+
 @app.get("/api/jobs/{job_id}")
 def api_job(job_id: str):
     with _jobs_lock:

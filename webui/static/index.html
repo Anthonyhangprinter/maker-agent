@@ -41,6 +41,14 @@
             font: inherit; font-size: 0.9rem; cursor: pointer; min-height: 40px;
             transition: border-color 0.15s, color 0.15s; }
   #newbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .ghost { width: 100%; margin-top: 0.4rem; background: transparent; color: var(--dim);
+           border: 1px solid var(--line2); border-radius: 999px; padding: 0.5rem 0.9rem;
+           font: inherit; font-size: 0.9rem; cursor: pointer; min-height: 40px;
+           transition: border-color 0.15s, color 0.15s; }
+  .ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .muted { color: var(--dim); font-size: 0.82rem; }
+  table.card { border-collapse: collapse; font-size: 13px; margin-top: 0.6rem; }
+  table.card th, table.card td { padding: 4px 8px; border-bottom: 1px solid var(--line, #333); text-align: left; }
   .railhead { font: 600 0.66rem/2.4 var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
               color: var(--faint); padding: 0.6rem 0.95rem 0.1rem; }
   #list { flex: 1; overflow-y: auto; padding: 0 0.5rem 1rem; min-height: 0; }
@@ -245,6 +253,7 @@
       <span class="wordmark">MAKER&nbsp;AGENT</span>
       <span class="sub">local cad · hp-z2 · rx6600</span>
       <button id="newbtn">+ New Creation</button>
+      <button id="labBtn" class="ghost" type="button">Lab</button>
     </div>
     <div class="railhead">Creations</div>
     <div id="list"><div class="empty">Nothing built yet.</div></div>
@@ -287,7 +296,7 @@
               <select id="coder">
                 <option value="auto" selected>auto (triage + escalate)</option>
                 <option value="fast">fast · 7B</option>
-                <option value="strong">strong · 30B</option>
+                <option value="strong">strong · local 27B (maker)</option>
               </select>
             </label>
             <label>candidates
@@ -313,6 +322,13 @@
 
       <!-- state 2: one open creation -->
       <section id="thread" hidden></section>
+
+      <!-- state 3: lab (latest benchmark card) -->
+      <section id="lab" hidden>
+        <header><h2>Lab</h2><p class="muted">Latest benchmark card. Rows are arm and suite; invalid means no solid was produced.</p></header>
+        <div id="labCard"><p class="muted">Loading the card...</p></div>
+        <div id="labBenchcad"></div>
+      </section>
     </div>
   </main>
 </div>
@@ -323,7 +339,7 @@
 <script src="/static/vendor/GLTFLoader.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const threadEl = $("thread"), homeEl = $("home"), listEl = $("list");
+const threadEl = $("thread"), homeEl = $("home"), listEl = $("list"), labEl = $("lab");
 const tracked = new Map(), viewers = new Map();
 let activeId = null;          // the one creation mounted in the DOM
 let openJobData = null;       // its last payload — version strip reads artifacts from here
@@ -354,6 +370,36 @@ $("meshmode").onclick = () => {
 
 $("drawer").onclick = () => document.body.classList.toggle("railopen");
 $("newbtn").onclick = () => newCreation();
+
+$("labBtn").onclick = async () => {
+  disposeActive();
+  activeId = null; openJobData = null;
+  homeEl.hidden = true; threadEl.hidden = true; labEl.hidden = false;
+  document.body.classList.remove("railopen");
+  document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
+  const box = $("labCard");
+  try {
+    const r = await fetch("/api/lab/card");
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    const { meta, summary } = await r.json();
+    const cols = ["arm", "suite", "n", "valid", "invalid_ratio", "gate_clean", "acceptance", "median_wall_s"];
+    const pct = v => v == null ? "-" : Math.round(v * 100) + "%";
+    const rows = Object.values(summary).sort((a, b) => (a.arm + a.suite).localeCompare(b.arm + b.suite));
+    box.innerHTML = `<p class="muted">${esc(meta.stamp)} · mode ${esc(meta.mode)}</p><table class="card"><thead><tr>${cols.map(c => `<th>${c.replace("_", " ")}</th>`).join("")}<th>match</th><th>fail</th></tr></thead><tbody>` +
+      rows.map(s => `<tr><td>${esc(s.arm)}</td><td>${esc(s.suite)}</td><td>${s.n}</td><td>${s.valid}</td><td>${pct(s.invalid_ratio)}</td><td>${s.gate_clean}</td><td>${pct(s.acceptance)}</td><td>${Math.round(s.median_wall_s)}</td><td>${s.bands.match}</td><td>${s.bands.fail}</td></tr>`).join("") + "</tbody></table>";
+  } catch (e) { box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+
+  const bcBox = $("labBenchcad");
+  try {
+    const r = await fetch("/api/lab/benchcad");
+    if (!r.ok) { bcBox.innerHTML = ""; return; }
+    const bc = await r.json();
+    const score = t => (t && t.score != null) ? t.score : "-";
+    const rows = Object.entries(bc).sort(([a], [b]) => a.localeCompare(b));
+    bcBox.innerHTML = `<h3>BenchCAD</h3><table class="card"><thead><tr><th>arm</th><th>CodeEdit</th><th>Code-QA</th><th>Vision2Code</th></tr></thead><tbody>` +
+      rows.map(([arm, t]) => `<tr><td>${esc(arm)}</td><td>${score(t.codeedit)}</td><td>${score(t.codeqa)}</td><td>${score(t.vision2code)}</td></tr>`).join("") + "</tbody></table>";
+  } catch (e) { bcBox.innerHTML = ""; }
+};
 
 $("go").onclick = async () => {
   const spec = $("spec").value.trim();
@@ -435,7 +481,7 @@ function newCreation() {
   disposeActive();
   activeId = null; openJobData = null;
   threadEl.hidden = true; threadEl.innerHTML = "";
-  homeEl.hidden = false;
+  homeEl.hidden = false; labEl.hidden = true;
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
   $("spec").focus();
@@ -444,7 +490,7 @@ function newCreation() {
 async function openJob(id) {
   if (id !== activeId) disposeActive();
   activeId = id;
-  homeEl.hidden = true; threadEl.hidden = false;
+  homeEl.hidden = true; threadEl.hidden = false; labEl.hidden = true;
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item").forEach(el =>
     el.classList.toggle("active", el.dataset.id === id));
