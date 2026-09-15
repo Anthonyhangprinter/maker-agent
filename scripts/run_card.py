@@ -13,7 +13,7 @@ Every build subprocess (either mode) gets CAD_KEEP_MAKER=1 alongside CAD_BENCH=1
 _ensure_default_server/_resume_default_server treat that as "a card runner owns the maker-server
 lifecycle" and skip their own per-build stop/start, so the arm arms_mod.cmd_use started at the top
 of the arm loop stays warm across every build in that arm instead of cold-loading per build. This
-runner's own finally is the ONLY place that calls arms_mod.cmd_restore() — an interrupted card
+runner's own finally is the ONLY place that calls arms_mod.cmd_restore(): an interrupted card
 (Ctrl-C, a crash mid-arm) leaves the maker up and the resident down until `python3 scripts/arms.py
 restore` is run by hand.
 """
@@ -70,7 +70,7 @@ def contamination(specs_by_suite: dict[str, list[dict]]) -> list[str]:
 
 
 def build_once(spec: str, mode: str, timeout: int) -> tuple[dict, float, str]:
-    # CAD_KEEP_MAKER=1: see the module docstring — the arm stays warm for the whole arm
+    # CAD_KEEP_MAKER=1: see the module docstring, the arm stays warm for the whole arm
     # loop instead of cad_engine cold-loading/evicting it around every single build.
     env = {**os.environ, "CAD_BENCH": "1", "CAD_KEEP_MAKER": "1"}
     if mode == "oneshot":
@@ -102,9 +102,9 @@ def geometry_of(res: dict, mode: str) -> dict:
     bbox_mm, faces, cyl_faces, through_holes.
 
     oneshot: fluid_gen's `facts` dict IS cad_engine.parse_facts's output (see
-    scripts/inspect's FACTS_JSON block) — its size key is `bbox`, not `bbox_mm`.
+    scripts/inspect's FACTS_JSON block), its size key is `bbox`, not `bbox_mm`.
 
-    agent: cad_v5's `--once --json` result carries NO geometry facts at all — loop.run
+    agent: cad_v5's `--once --json` result carries NO geometry facts at all. loop.run
     computes them locally (cad_v5/loop.py `_facts_for`) only to print the console summary
     and delta, and never puts them in the returned result dict. So for agent mode the
     runner re-derives facts the same way fluid_gen does: parse_facts(run_inspect(step)),
@@ -126,7 +126,7 @@ def geometry_of(res: dict, mode: str) -> dict:
 def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, timeout: int) -> dict:
     res, wall, stderr = build_once(spec["spec"], mode, timeout)
     # bool(x) and y returns y verbatim when x is truthy (Python's `and` short-circuits to
-    # the operand, not to a bool) — solids is an int, so `ok` came out as e.g. 1 instead
+    # the operand, not to a bool). solids is an int, so `ok` came out as e.g. 1 instead
     # of True for oneshot rows. Wrap the whole thing so ok is always a real bool.
     ok = bool(bool(res.get("ok")) and (res.get("facts", {}).get("solids", 1) if mode == "oneshot" else res.get("has_bodies", True)))
     if mode == "oneshot":
@@ -147,7 +147,7 @@ def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, time
             "gate_hard": gate_hard, "gate_spec": gate_spec,
             "acc_passed": acc.get("passed", 0), "acc_total": acc.get("total", 0), "band": band,
             "wall_s": round(wall, 1), "tokens_out": usage.get("completion_tokens"),
-            "build_dir": res.get("build_dir") or res.get("build_dir", ""), "error": res.get("error"),
+            "build_dir": res.get("build_dir") or res.get("step_local") or "", "error": res.get("error"),
             "stderr_tail": stderr[-300:] if not ok else ""}
 
 
