@@ -155,9 +155,13 @@ def verify_pair(code: str, spec: str) -> tuple[bool, str]:
     return True, "ok"
 
 
+CARD_SUITES = ["text-to-cad", "organic", "heldout-cqe", "hard-eval",
+               "cadprompt", "cad-arena", "text2cadquery"]   # every suite the card reads; never train on these
+
+
 def suite_slugs() -> set[str]:
     slugs = set()
-    for suite in ("text-to-cad", "organic", "heldout-cqe", "hard-eval"):
+    for suite in CARD_SUITES:
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
             data = json.loads(f.read_text())

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "arena-01",
+    "name": "A cube 20 x 20 x 20 mm",
+    "tier": 1,
+    "spec": "A cube 20 x 20 x 20 mm",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-02",
+    "name": "A cylinder 10 mm diameter, 30 mm tall",
+    "tier": 1,
+    "spec": "A cylinder 10 mm diameter, 30 mm tall",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-03",
+    "name": "A hollow sphere, outer radius 20 mm, wall 2 mm",
+    "tier": 1,
+    "spec": "A hollow sphere, outer radius 20 mm, wall 2 mm",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-04",
+    "name": "A rectangular plate 50 x 30 x 5 mm with a center",
+    "tier": 2,
+    "spec": "A rectangular plate 50 x 30 x 5 mm with a centered hole 8 mm diameter",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-05",
+    "name": "An L-shaped bracket, 40 mm arms, 5 mm thick, 30 ",
+    "tier": 2,
+    "spec": "An L-shaped bracket, 40 mm arms, 5 mm thick, 30 mm tall",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-06",
+    "name": "A hex bolt head 10 mm across flats, M6 thread, 2",
+    "tier": 2,
+    "spec": "A hex bolt head 10 mm across flats, M6 thread, 20 mm shaft",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-07",
+    "name": "A flanged shaft with 3 equally-spaced M4 bolt ho",
+    "tier": 3,
+    "spec": "A flanged shaft with 3 equally-spaced M4 bolt holes on the flange",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-08",
+    "name": "A box with a snap-fit lid, 50 x 40 x 30 mm",
+    "tier": 3,
+    "spec": "A box with a snap-fit lid, 50 x 40 x 30 mm",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-09",
+    "name": "A spur gear: 20 teeth, module 2, 10 mm thick, 8 ",
+    "tier": 3,
+    "spec": "A spur gear: 20 teeth, module 2, 10 mm thick, 8 mm center bore",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-10",
+    "name": "A parametric living hinge, 100 mm span, 0.3 mm f",
+    "tier": 4,
+    "spec": "A parametric living hinge, 100 mm span, 0.3 mm flex zone",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-11",
+    "name": "An S-curve pipe fitting, 15 mm inner diameter, 4",
+    "tier": 4,
+    "spec": "An S-curve pipe fitting, 15 mm inner diameter, 45 degree bend",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  },
+  {
+    "id": "arena-12",
+    "name": "A 3-part snap-fit assembly: housing, PCB carrier",
+    "tier": 4,
+    "spec": "A 3-part snap-fit assembly: housing, PCB carrier, and lid",
+    "source": "cadarena.dev (public examples, 12 of 20)"
+  }
+]

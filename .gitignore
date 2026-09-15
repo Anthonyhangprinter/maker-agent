@@ -5,3 +5,9 @@ benchmarks/results/*.log
 .pytest_cache/
 .venv/
 *.analysis.json
+benchmarks/external/cache/
+benchmarks/external/.venv-cq/
+benchmarks/cadprompt/*
+benchmarks/text2cadquery/*
+!benchmarks/cadprompt/README.md
+!benchmarks/text2cadquery/README.md
