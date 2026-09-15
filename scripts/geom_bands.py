@@ -83,22 +83,50 @@ def band_of(r, ref_diag_mm: float) -> str:
     return "fail"
 
 
-def score_against_reference(candidate: Path, reference_stl: Path,
-                            expected_components: int = 1) -> dict:
+def normalize_stl(src: Path, dst: Path, target_diag: float = 100.0) -> float:
+    """Scale a mesh so its bounding-box diagonal is target_diag (about the origin). Returns the
+    scale factor applied. Used to put public suites given in DeepCAD-style normalised units
+    (bbox diagonal ~1-2) on the same footing as mm-scale candidates before Chamfer/volume bands."""
+    import trimesh
+    m = trimesh.load(str(src), force="mesh")
+    ext = m.bounding_box.primitive.extents
+    diag = float((ext @ ext) ** 0.5)
+    f = target_diag / diag if diag > 0 else 1.0
+    m.apply_scale(f)
+    m.export(str(dst))
+    return f
+
+
+def score_against_reference(candidate: Path, reference_stl: Path, expected_components: int = 1,
+                            normalize: bool = False) -> dict:
     """Score a candidate STEP/STL against a reference STL. Never raises: a candidate that
     fails to convert or crashes the checker is a scored 'fail', not an exception — samplers
-    call this in bulk and one broken solid must not kill the run."""
+    call this in bulk and one broken solid must not kill the run.
+
+    normalize=True scales BOTH meshes to a bounding-box diagonal of 100 before the existing
+    checks, so absolute-mm thresholds (Chamfer/volume bands) stay meaningful for suites given
+    in DeepCAD-style normalised units rather than millimetres. Applied AFTER STEP->STL
+    conversion so the candidate is always a concrete mesh when it's rescaled."""
     candidate, reference_stl = Path(candidate), Path(reference_stl)
     out: dict = {"candidate": str(candidate), "reference": str(reference_stl), "band": "fail"}
+    extra: dict = {}
     try:
-        ref_diag = _ref_diagonal_mm(reference_stl)
-        out["ref_diag_mm"] = round(ref_diag, 2)
         with tempfile.TemporaryDirectory() as td:
             gen_stl = candidate
             if candidate.suffix.lower() in (".step", ".stp"):
                 gen_stl = Path(td) / "candidate.stl"
                 step_to_stl(candidate, gen_stl)
-            r = perform_geometry_checks(gen_stl, reference_stl,
+            cmp_reference_stl = reference_stl
+            if normalize:
+                norm_cand = Path(td) / "norm_cand.stl"
+                norm_ref = Path(td) / "norm_ref.stl"
+                fc = normalize_stl(gen_stl, norm_cand)
+                fr = normalize_stl(reference_stl, norm_ref)
+                gen_stl, cmp_reference_stl = norm_cand, norm_ref
+                extra = {"normalized": True, "scale_candidate": fc, "scale_reference": fr}
+            ref_diag = _ref_diagonal_mm(cmp_reference_stl)
+            out["ref_diag_mm"] = round(ref_diag, 2)
+            r = perform_geometry_checks(gen_stl, cmp_reference_stl,
                                         expected_components=expected_components)
         vol = _vol_diff_pct(r)
         out.update({
@@ -114,7 +142,7 @@ def score_against_reference(candidate: Path, reference_stl: Path,
         })
     except Exception as e:
         out["errors"] = [str(e)[:200]]
-    return out
+    return {**out, **extra}
 
 
 def main() -> None:
