@@ -21,8 +21,10 @@ LOG_FILE      = _OPENCLAW / "cad-agent.log"
 FEEDBACK_FILE = _OPENCLAW / "cad-examples.jsonl"     # unified corpus: gold + rated + auto
 SESSION_FILE  = _OPENCLAW / "cad-session.json"
 CONFIG_FILE     = _OPENCLAW / "openclaw.json"
-CAD_CONFIG_FILE = _OPENCLAW / "cad.json"   # agent settings (cad.*) — separate file because the
+CAD_CONFIG_FILE = Path(os.environ.get("CAD_CONFIG_FILE", str(_OPENCLAW / "cad.json")))
+                                           # agent settings (cad.*) — separate file because the
                                            # OpenClaw gateway's strict schema rejects unknown keys
+                                           # (env override lets tests point at a temp file)
 SCRIPTS_DIR   = _HERE / "scripts"
 B123D_DIR     = _HERE / "b123d"
 
@@ -43,6 +45,30 @@ try:
 except Exception:
     cad_retrieval = None
 
+# ── Config / credentials (defined here, ABOVE the model constants, because
+# maker_config() below needs it at import time) ────────────────────────────────
+def load_config() -> dict:
+    """openclaw.json (channels/env) overlaid with ~/.openclaw/cad.json as the `cad` block
+    (kept separate — the OpenClaw gateway's strict schema rejects a top-level cad key)."""
+    cfg: dict = {}
+    try:
+        with open(CONFIG_FILE) as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        logging.getLogger("cad_v5").warning(
+            "[v5] openclaw.json unreadable (%s) — creds/telegram token unavailable.", e)
+    try:
+        with open(CAD_CONFIG_FILE) as f:
+            cfg["cad"] = {**cfg.get("cad", {}), **json.load(f)}
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        logging.getLogger("cad_v5").warning(
+            "[v5] cad.json unreadable (%s) — cad.* settings ignored.", e)
+    return cfg
+
 # ── Models ────────────────────────────────────────────────────────────────────
 BRIEF_MODEL        = "qwen3:8b"
 # Fast rung = qwen2.5-coder:7b Q4 (user decision 2026-07-17, supported by that day's 2x2
@@ -57,15 +83,31 @@ BRIEF_MODEL        = "qwen3:8b"
 # the constant below stays the shipped default.
 CODE_MODEL_FAST    = os.environ.get("CAD_CODE_MODEL_FAST",
                                     "qwen2.5-coder:7b-instruct-q4_K_M")
-# Strong rung moved off Ollama entirely (2026-08-11): qwen3.6-35b-a3b served by the resident
-# llama.cpp Vulkan server (qwen36-server.service, port 8085) — dense core on GPU, experts in
-# system RAM. ~10 tok/s tg / ~100 tok/s pp vs the retired qwen3-coder:30b's ~7min/call.
-# The "local:" prefix routes it through the OpenAI-schema branch in cad_engine._ollama().
-CODE_MODEL_STRONG  = "local:qwen3.8-27b"
-# 8086 = the real llama.cpp server, NOT the :8085 gpu-proxy: the engine is the evictor,
-# so its health probe must see backend truth (the proxy would happily queue it).
-LOCAL_CODER_URL    = "http://127.0.0.1:8086/v1/chat/completions"
-LOCAL_CODER_HEALTH = "http://127.0.0.1:8086/health"
+# Strong rung: the "local:" prefix routes it through the OpenAI-schema branch in
+# cad_engine._ollama(), against the resident :8086, or the maker server when cad.json
+# maker.enabled (the engine is the evictor, so its health probe must see backend truth —
+# the :8085 gpu-proxy would happily queue it).
+def maker_config() -> dict:
+    """The optional swappable CAD coder server ("maker" block in cad.json).
+
+    Disabled (default): the strong rung is the resident on :8086.
+    Enabled: the strong rung is `maker-server` on `port`, serving `alias`.
+    """
+    m = load_config().get("cad", {}).get("maker") or {}
+    enabled = bool(m.get("enabled", False))
+    return {
+        "enabled": enabled,
+        "port": int(m.get("port", 8088)) if enabled else 8086,
+        "alias": str(m.get("alias", "qwen3.8-27b")),
+        "unit": "maker-server" if enabled else "qwen38-server",
+    }
+
+
+_MAKER = maker_config()
+CODE_MODEL_STRONG  = "local:" + _MAKER["alias"]
+LOCAL_CODER_PORT   = _MAKER["port"]
+LOCAL_CODER_URL    = f"http://127.0.0.1:{LOCAL_CODER_PORT}/v1/chat/completions"
+LOCAL_CODER_HEALTH = f"http://127.0.0.1:{LOCAL_CODER_PORT}/health"
 # Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
 # the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged
 # at 583-804s/build — slower than the 30B MoE (dense 14B offloads worse than a 3B-active MoE)
@@ -190,27 +232,7 @@ def _setup_logging() -> None:
 _setup_logging()
 log = logging.getLogger("cad_v5")
 
-# ── Config / credentials ──────────────────────────────────────────────────────
-def load_config() -> dict:
-    """openclaw.json (channels/env) overlaid with ~/.openclaw/cad.json as the `cad` block
-    (kept separate — the OpenClaw gateway's strict schema rejects a top-level cad key)."""
-    cfg: dict = {}
-    try:
-        with open(CONFIG_FILE) as f:
-            cfg = json.load(f)
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        log.warning("[v5] openclaw.json unreadable (%s) — creds/telegram token unavailable.", e)
-    try:
-        with open(CAD_CONFIG_FILE) as f:
-            cfg["cad"] = {**cfg.get("cad", {}), **json.load(f)}
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        log.warning("[v5] cad.json unreadable (%s) — cad.* settings ignored.", e)
-    return cfg
-
+# ── Credentials (load_config() itself lives above, before the model constants) ─
 def creds() -> tuple[str, str]:
     cfg = load_config()
     env = cfg.get("env", {})
