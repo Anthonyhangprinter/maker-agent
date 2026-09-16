@@ -356,3 +356,73 @@ def test_subset_tier_zero_suite_keeps_first_n():
     specs = {"cadprompt": ([{"id": f"cp-{i}", "spec": "x", "tier": 0} for i in range(100)], {})}
     cut = rc.apply_subset(specs, "phase1")["cadprompt"][0]
     assert [s["id"] for s in cut] == [f"cp-{i}" for i in range(30)]
+
+
+def test_row_carries_run_provenance(monkeypatch):
+    """One rows.jsonl holds several runs (oneshot and agent, phase1 and phase1think). meta
+    only describes the last process to write the dir, so mode/subset/candidates have to be
+    on the row or a number cannot be traced back to the population it came from."""
+    import run_card as rc
+    def fake_run(cmd, **kw):
+        class P: stdout = '{"ok": true, "facts": {"solids": 1}, "gate_hard": [], "gate_spec": [], "build_dir": ""}'; stderr = ""; returncode = 0
+        return P()
+    monkeypatch.setattr(rc.subprocess, "run", fake_run)
+    row = rc.run_row("gemma-4-31b", "cad-arena", {"id": "a-1", "spec": "A cube", "tier": 1},
+                     {"solids": 1}, "oneshot", 60,
+                     knobs=rc.Knobs(variant="bo3", candidates=3, subset="phase1think"))
+    assert row["mode"] == "oneshot" and row["subset"] == "phase1think" and row["candidates"] == 3
+    # candidates 0 means "engine default", and fluid_gen's best-of-N is opt-in: one candidate
+    row2 = rc.run_row("gemma-4-31b", "cad-arena", {"id": "a-2", "spec": "A cube", "tier": 1},
+                      {"solids": 1}, "agent", 60, knobs=rc.Knobs())
+    assert row2["candidates"] == 1 and row2["mode"] == "agent" and row2["subset"] == "full"
+
+
+def test_row_records_whether_the_spec_has_a_reference(monkeypatch):
+    """has_ref is the spec-side fact: without it lift_report cannot tell "no reference" from
+    "this arm failed to build it", which is what made the match denominator dishonest."""
+    import run_card as rc
+    def fake_run(cmd, **kw):
+        class P: stdout = '{"ok": false, "error": "boom"}'; stderr = ""; returncode = 0
+        return P()
+    monkeypatch.setattr(rc.subprocess, "run", fake_run)
+    spec = {"id": "x", "spec": "A cube", "tier": 1}
+    assert rc.run_row("a", "cadprompt", spec, {"solids": 1, "reference_stl": "x.stl"},
+                      "oneshot", 60)["has_ref"] is True
+    assert rc.run_row("a", "cadprompt", spec, {"solids": 1}, "oneshot", 60)["has_ref"] is False
+    assert rc.run_row("a", "cadprompt", spec, None, "oneshot", 60)["has_ref"] is False
+
+
+def test_critic_pinned_to_the_coder_model_on_another_url_is_refused():
+    """cad_engine routes by model string (`url = CRITIC_URL if model == CRITIC_MODEL else
+    LOCAL_CODER_URL`), so this combination moves the whole coder to the critic server."""
+    import run_card as rc
+    k = rc.Knobs(critic="local:gemma-4-31b", critic_url="http://127.0.0.1:8092/v1/chat/completions")
+    msg = rc.critic_conflict(k, {"gemma-4-31b"})
+    assert msg.startswith("REFUSING:") and "every strong-rung call" in msg.lower()
+
+
+def test_critic_pin_is_allowed_when_it_is_not_the_coder_model():
+    import run_card as rc
+    k = rc.Knobs(critic="local:minicpm-v", critic_url="http://127.0.0.1:8092/v1/chat/completions")
+    assert rc.critic_conflict(k, {"gemma-4-31b"}) == ""
+
+
+def test_critic_pin_is_allowed_without_a_separate_url():
+    """--critic local:<coder> with no --critic-url is the "critic rides the coder server"
+    case the chain's agent-self arm actually runs: nothing is rerouted."""
+    import run_card as rc
+    assert rc.critic_conflict(rc.Knobs(critic="local:gemma-4-31b"), {"gemma-4-31b"}) == ""
+
+
+def test_critic_pin_is_allowed_when_the_url_is_the_coder_server():
+    import run_card as rc
+    import arms as arms_mod
+    k = rc.Knobs(critic="local:gemma-4-31b",
+                 critic_url=f"http://127.0.0.1:{arms_mod.PORT}/v1/chat/completions")
+    assert rc.critic_conflict(k, {"gemma-4-31b"}) == ""
+
+
+def test_non_local_critic_never_conflicts():
+    import run_card as rc
+    k = rc.Knobs(critic="gemma4:e4b", critic_url="http://127.0.0.1:8092/v1/chat/completions")
+    assert rc.critic_conflict(k, {"gemma-4-31b"}) == ""

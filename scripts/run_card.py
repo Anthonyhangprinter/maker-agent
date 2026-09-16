@@ -8,6 +8,11 @@
 oneshot = scripts/fluid_gen.py build (one codegen, one salvage, gate, no critic): base-model capability.
 agent   = python3 -m cad_v5 --once --json (full observe-edit loop): the agent baseline.
 The resident is restored in a finally: whatever happens. Rows append to rows.jsonl so --resume continues.
+ALWAYS pass --resume when adding a variant to an existing --out dir. Without it the runner
+starts with an empty `done` set and rebuilds every spec of every arm already in that dir,
+appending a second row for each: rows.jsonl carries duplicates, and the card is then the
+average of two runs of the same spec rather than one measurement of it. (lift_report dedupes
+on (arm, suite, id) keeping the last row, so a lift table survives it; card_report does not.)
 
 Every build subprocess (either mode) gets CAD_KEEP_MAKER=1 alongside CAD_BENCH=1: cad_engine's
 _ensure_default_server/_resume_default_server treat that as "a card runner owns the maker-server
@@ -33,6 +38,7 @@ import card_report                 # noqa: E402
 import geom_bands                  # noqa: E402
 import harvest_census as hc        # noqa: E402
 import cad_engine as engine        # noqa: E402  (parse_facts + run_inspect: cheap, stdlib-only imports)
+from cad_v5 import config as cad_config   # noqa: E402  (LOCAL_CODER_URL, for the critic-pin check)
 
 _rb_spec = importlib.util.spec_from_file_location("run_benchmarks", SCRIPTS / "run_benchmarks.py")
 _rb = importlib.util.module_from_spec(_rb_spec); _rb_spec.loader.exec_module(_rb)
@@ -75,6 +81,10 @@ class Knobs:
     no_fewshots: bool = False
     critic: str = ""
     critic_url: str = ""
+    # Not a knob the child build reads: the subset name is carried here only so run_row can
+    # stamp every row with the population it was drawn from (see run_row). A row that does
+    # not say which subset produced it cannot be re-read later without the shell history.
+    subset: str = "full"
 
     def env(self) -> dict:
         e = {}
@@ -310,13 +320,44 @@ def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, time
     # succeeded, so scripts/lift_report.py cannot tell "this spec has no reference" from
     # "this arm failed to build it" without the spec-side fact recorded here. Costs nothing
     # and is what makes the match-rate denominator honest (an invalid build is a non-match).
+    # mode/subset/candidates: the run configuration this row was produced under. They are
+    # in meta too, but meta describes the LAST process to write the dir, and one rows.jsonl
+    # holds several runs (oneshot and agent, phase1 and phase1think). Only a per-row stamp
+    # can say which population and which loop a given number came from.
     return {"arm": labelled(arm, knobs), "suite": suite, "id": spec["id"], "tier": spec.get("tier", 0), "ok": ok,
+            "mode": mode, "subset": knobs.subset, "candidates": knobs.candidates or 1,
             "gate_hard": gate_hard, "gate_spec": gate_spec,
             "acc_passed": acc.get("passed", 0), "acc_total": acc.get("total", 0), "band": band,
             "has_ref": bool(ref), "helper": bool(res.get("helper")),
             "wall_s": round(wall, 1), "tokens_out": usage.get("completion_tokens"),
             "build_dir": res.get("build_dir") or res.get("step_local") or "", "error": res.get("error"),
             "stderr_tail": stderr[-300:] if not ok else ""}
+
+
+def critic_conflict(knobs: Knobs, aliases: set[str]) -> str:
+    """Why a critic pin would reroute the CODER onto the critic server, or "" if it would not.
+
+    cad_engine routes by model string, in one line: `url = CRITIC_URL if model ==
+    CRITIC_MODEL else LOCAL_CODER_URL`. Pin the critic to the coder's own model string and
+    give it a different URL, and it is not the critic that moves to the critic server, it is
+    every strong-rung call: the codegen, the revise, the triage. The run still produces rows,
+    and they are the wrong server's rows. So refuse before any build is paid for.
+
+    `aliases` is the set of aliases that will be served on the coder port during the run:
+    the maker block's current alias plus the aliases of the arms about to be loaded."""
+    if not knobs.critic_url or not knobs.critic.startswith("local:"):
+        return ""
+    coder_urls = {cad_config.LOCAL_CODER_URL,
+                  f"http://127.0.0.1:{arms_mod.PORT}/v1/chat/completions"}
+    if knobs.critic_url in coder_urls:
+        return ""   # critic URL IS the coder server: nothing is rerouted
+    if knobs.critic.split(":", 1)[1] not in aliases:
+        return ""
+    return (f"REFUSING: --critic {knobs.critic} is the coder's own model string, and "
+            f"--critic-url {knobs.critic_url} is not the coder server. cad_engine routes by "
+            f"model string, so this sends EVERY strong-rung call (codegen, revise, triage) to "
+            f"the critic server, not just the critic. Pin a different critic model, or drop "
+            f"--critic-url to run the critic on the coder server.")
 
 
 def write_card(out: Path, rows: list[dict], meta: dict) -> str:
@@ -404,10 +445,12 @@ def main() -> None:
     ap.add_argument("--candidates", type=int, default=0,
                      help="CAD_CANDIDATES for the child build, best-of-N first turn (0 = engine default)")
     ap.add_argument("--no-fewshots", action="store_true", help="pass --no-fewshots to the child build")
-    ap.add_argument("--critic", default="", help="CAD_CRITIC_MODEL for the child build (default: engine default)")
+    ap.add_argument("--critic", default="", help="CAD_CRITIC_MODEL for the child build; agent "
+                     "mode only, one-shot never calls the visual critic (default: engine default)")
     ap.add_argument("--critic-url", default="", help="CAD_CRITIC_URL for the child build, e.g. "
                      "http://127.0.0.1:8092/v1/chat/completions to run the critic on deploy/critic-server "
-                     "instead of riding the coder server (default: engine default)")
+                     "instead of riding the coder server; agent mode only, one-shot never calls "
+                     "the visual critic (default: engine default)")
     ap.add_argument("--subset", choices=sorted(SUBSETS), default="full",
                      help="cap each suite to a stratified subset, first N specs in file order "
                           "(default: full, no cap)")
@@ -421,10 +464,17 @@ def main() -> None:
         return
 
     knobs = Knobs(variant=ns.variant, candidates=ns.candidates, no_fewshots=ns.no_fewshots,
-                  critic=ns.critic, critic_url=ns.critic_url)
+                  critic=ns.critic, critic_url=ns.critic_url, subset=ns.subset)
 
     all_arms = arms_mod.load_arms()
     names = list(all_arms) if ns.arms == "all" else ns.arms.split(",")
+    # .get: an arm roster entry always carries an alias, but the check is a guard, not a
+    # reason to crash a card before it starts if one ever does not.
+    aliases = {cad_config.maker_config()["alias"]} | {
+        all_arms[n].get("alias") for n in names if n in all_arms} - {None}
+    conflict = critic_conflict(knobs, aliases)
+    if conflict:
+        print(conflict); sys.exit(2)
     suites = {s: load_suite(s) for s in ns.suites.split(",")}
     suites = {k: v for k, v in suites.items() if v[0]}
     if ns.limit:

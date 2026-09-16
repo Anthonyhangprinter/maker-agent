@@ -362,3 +362,15 @@ def test_cli_rejects_malformed_baseline_for(tmp_path):
         capture_output=True, text=True, cwd=HERE,
     )
     assert result.returncode == 2 and "VARIANT=ARM" in result.stderr
+
+
+def test_duplicate_rows_are_deduped_keeping_the_last():
+    """A run_card invocation without --resume rebuilds specs already in the dir and appends a
+    second row for each. The lift table must measure one build per spec, the most recent."""
+    rows = [_row("b", "1", ok=False, has_ref=True),
+            _row("b", "2", ok=False, has_ref=True),
+            _row("b", "1", ok=True, has_ref=True, band="match")]   # rerun of spec 1
+    table = lr.lift_table(rows, baseline="b")
+    assert table["b"]["n"] == 2                     # two specs, not three rows
+    assert table["b"]["invalid_ratio"] == 0.5       # the later, successful row 1 wins
+    assert abs(table["b"]["match_rate"] - 0.5) < 1e-9
