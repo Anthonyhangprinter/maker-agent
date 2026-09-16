@@ -28,6 +28,7 @@ import argparse
 import base64
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -41,6 +42,17 @@ from cad_v5.diagnose import diagnose  # noqa: E402
 from cad_v5.config import first_turn_candidates, load_config  # noqa: E402
 
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
+
+
+def expected_for(spec: str) -> dict:
+    """The `expected` block fluid mode can derive without a brief: deterministic from the
+    spec text, so the gate and the best-of-N candidate ranking can share one definition.
+
+    ONE definition matters here. The candidate picker ranks on verify_expected too, and it
+    was being handed `expected: {}` while the gate that judged the winner got the real
+    block, so a candidate could be selected under a laxer rule than the one it was then
+    measured by. Same class of bug as fluid's original `spec=""` blindfold."""
+    return {"forbid_blind_holes": not bool(engine._BLIND_HOLE_TERMS.search(spec))} if spec else {}
 
 
 def _model_for(coder: str) -> None:
@@ -77,9 +89,7 @@ def _materialize(code: str, build_dir: Path, spec: str = "") -> dict:
         insp = engine.run_inspect(build_dir / "build.step")
         if insp["valid"]:
             out["facts"] = engine.parse_facts(insp["output"])
-            expected = ({"forbid_blind_holes":
-                         not bool(engine._BLIND_HOLE_TERMS.search(spec))} if spec else {})
-            hard, notes = engine.verify_expected(out["facts"], expected, spec=spec)
+            hard, notes = engine.verify_expected(out["facts"], expected_for(spec), spec=spec)
             out["gate_hard"] = hard or []
             out["gate_spec"] = [n for n in (notes or []) if n.startswith("[spec]")]
             out["gate_adv"] = [n for n in (notes or []) if not n.startswith("[spec]")]
@@ -214,9 +224,20 @@ def cmd_build(a) -> dict:
         if os.environ.get("CAD_CANDIDATES") or load_config().get("cad", {}).get("candidates"):
             n_cand = first_turn_candidates()
             if n_cand > 1 and not engine._HELPER_RESULT_RE.search(code):
-                code = engine._pick_first_turn_candidate(
-                    {"helper": None, "notes": notes, "expected": {}, "_raw": True},
-                    spec, code, build_dir, n_cand)
+                # Scratch goes in its own subdir and is removed once the winner is chosen.
+                # The N-1 losing cand*/ dirs, each with a source and a STEP, used to be
+                # written straight into the build dir and left there: they outlive the
+                # build, show up in the web UI's listing of it, and none of them is the
+                # thing that was built.
+                cand_dir = build_dir / "candidates"
+                cand_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    code = engine._pick_first_turn_candidate(
+                        {"helper": None, "notes": notes, "expected": expected_for(spec),
+                         "_raw": True},
+                        spec, code, cand_dir, n_cand)
+                finally:
+                    shutil.rmtree(cand_dir, ignore_errors=True)
                 n_used = n_cand
     if a.image:
         try:  # downscaled copy so the UI can show what conditioned the build

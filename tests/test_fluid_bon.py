@@ -52,6 +52,8 @@ def _patch_common(monkeypatch, tmp_path, recorded):
         recorded["spec"] = spec
         recorded["first_code"] = first_code
         recorded["work_dir"] = work_dir
+        recorded["work_dir_existed"] = work_dir.exists()
+        (work_dir / "cand1").mkdir(exist_ok=True)     # the scratch a real pick leaves behind
         recorded["n"] = n
         return "best"
 
@@ -80,8 +82,13 @@ def test_bon_hook_invokes_candidate_picker_when_opted_in_via_env(monkeypatch, tm
 
     assert recorded["n"] == 3
     assert recorded["first_code"] == "code0"
-    assert recorded["work_dir"].exists()
+    # Scratch is its own subdir of the build dir, and it exists while the picker runs...
+    assert recorded["work_dir_existed"]
+    assert recorded["work_dir"].name == "candidates"
+    assert recorded["work_dir"].parent == Path(result["build_dir"])
     assert str(tmp_path) in str(recorded["work_dir"])
+    # ...and is gone afterwards: the N-1 losing candidates are not part of the build.
+    assert not recorded["work_dir"].exists()
     assert result["candidates"] == 3
     assert recorded["materialize_code"] == "best"
 
@@ -177,3 +184,46 @@ def test_bon_hook_skipped_for_true_helper_branch(monkeypatch, tmp_path):
 
     assert result["candidates"] == 1
     assert recorded["materialize_code"] == "result = spur_gear(20, 2, 15)\n"
+
+
+def test_bon_candidate_ranking_sees_the_same_expected_block_as_the_gate(monkeypatch, tmp_path):
+    """The picker ranks candidates on verify_expected. Handing it `expected: {}` while the
+    gate that judges the winner gets the real block selects under a laxer rule than the one
+    the winner is then measured by, the same class of bug as fluid's original spec="" gate."""
+    recorded = {}
+    _patch_common(monkeypatch, tmp_path, recorded)
+    monkeypatch.setenv("CAD_CANDIDATES", "3")
+    monkeypatch.setattr(fg, "first_turn_candidates", lambda: 3)
+
+    fg.cmd_build(_fake_args(spec="A cube 10 mm with a 3 mm hole through it"))
+
+    assert recorded["brief"]["expected"] == fg.expected_for(recorded["spec"])
+    assert recorded["brief"]["expected"] == {"forbid_blind_holes": True}
+
+
+def test_expected_for_matches_the_gate_block():
+    """A spec that names a blind hole must not have blind holes forbidden; an empty spec
+    derives nothing at all (there is no spec text to derive it from)."""
+    assert fg.expected_for("a plate with a 5 mm blind hole")["forbid_blind_holes"] is False
+    assert fg.expected_for("a plate with a 5 mm through hole")["forbid_blind_holes"] is True
+    assert fg.expected_for("") == {}
+
+
+def test_candidate_scratch_is_removed_even_when_the_picker_raises(monkeypatch, tmp_path):
+    recorded = {}
+    _patch_common(monkeypatch, tmp_path, recorded)
+    monkeypatch.setenv("CAD_CANDIDATES", "3")
+    monkeypatch.setattr(fg, "first_turn_candidates", lambda: 3)
+    seen = {}
+
+    def boom(brief, spec, first_code, work_dir, n):
+        seen["dir"] = work_dir
+        (work_dir / "cand1").mkdir(exist_ok=True)
+        raise RuntimeError("picker blew up")
+
+    monkeypatch.setattr(fg.engine, "_pick_first_turn_candidate", boom)
+    try:
+        fg.cmd_build(_fake_args())
+    except RuntimeError:
+        pass
+    assert not seen["dir"].exists()

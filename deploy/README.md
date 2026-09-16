@@ -15,3 +15,18 @@ The family health watcher (`~/family-ai-server/bin/health-watch.sh`, timer every
 Whether it fits is a real question on one 24GB card: the maker running `gemma-4-31b` at ctx 16384 alone measures 21,435 MiB used of 24,576, leaving under 3.2GB free, so a critic cannot coexist with that arm at that context. `scripts/arms.py critic use <name>` is the gate for this: it reads each critic's `vram_gb` field, parses `nvidia-smi --query-gpu=memory.free` for the real free MiB, and refuses with exit code 2 and a message naming the free MiB whenever free VRAM is below `vram_gb + 0.5`. Only when it proceeds does it write `critic.env`, restart `critic-server`, wait for `/health`, and print `CAD_CRITIC_MODEL=local:<alias>` and `CAD_CRITIC_URL=http://127.0.0.1:8092/v1/chat/completions` for the card to consume (`run_card.py --critic-url ...` or the engine's own `CAD_CRITIC_URL`). `scripts/arms.py critic off` stops the unit; `scripts/arms.py critic list` shows what is on disk.
 
 Install: `install -m 755 deploy/critic-server ~/.local/bin/critic-server && install -m 644 deploy/critic-server.service ~/.config/systemd/user/critic-server.service && systemctl --user daemon-reload`
+
+## Known limitation: preflight still needs Ollama reachable
+
+`cad_engine.preflight()` calls `_installed_ollama_models()` before anything else, and only then
+does `_preflight_models()` decide which models it actually has to find. Models on the `local:`
+or `cloud/` rungs are skipped by that check, so a fully llama.cpp arm needs nothing from Ollama
+at build time. But the roster query has already happened, and the fast coder rung
+(`qwen2.5-coder:7b-instruct-q4_K_M`) is still an Ollama model, so the order cannot simply be
+inverted: preflight runs before the coder rung is chosen, which means an installation that has
+the Ollama fast rung configured still needs Ollama reachable for preflight to pass, even for a
+run that will only ever use the strong rung on `maker-server`.
+
+Not fixed here on purpose. `cad_engine.py` is imported live by every in-flight build and by the
+benchmark chain, so reordering its startup path is a Phase 2 change, taken together with cutting
+the Ollama fast rung out of the ladder rather than before it.
