@@ -194,11 +194,32 @@ def cmd_download(arm: dict) -> None:
         print(f"{dest / f}: {(dest / f).stat().st_size} bytes")
 
 
+def unit_active(unit: str) -> bool:
+    """True when `systemctl --user is-active <unit>` says active.
+
+    Never raises: systemctl missing, the unit not installed, a DBus hiccup, all read as
+    "not active". Both callers use this to decide whether to say something extra or stop
+    one more unit, and neither is worth failing an arm swap over."""
+    try:
+        out = subprocess.run(["systemctl", "--user", "is-active", unit],
+                             capture_output=True, text=True).stdout.strip()
+    except Exception:
+        return False
+    return out == "active"
+
+
 def cmd_use(arm: dict, start: bool = True) -> None:
     if not Path(arm["model_path"]).exists():
         raise SystemExit(f"{arm['model_path']} missing; run arms.py download {arm['name']}")
     apply_arm(arm)
     if start:
+        # The critic holds its own VRAM on the one card and cmd_use's arm load does not
+        # account for it: an arm that fits on an empty 3090 can OOM on load, or silently
+        # spill to system RAM, with a critic already resident. Say so rather than leaving
+        # the operator to read it off a mystery slowdown.
+        if unit_active("critic-server"):
+            print("WARNING: critic-server is active and holds VRAM; this arm's load does not "
+                  "account for it (python3 scripts/arms.py critic off to free it)", file=sys.stderr)
         # A maker-server that never becomes healthy (review finding on Task 4) must not
         # leave the box with no server at all: restore the resident before re-raising,
         # whatever the failure was (CalledProcessError from the restart, SystemExit from
@@ -220,11 +241,20 @@ def cmd_use(arm: dict, start: bool = True) -> None:
 
 
 def cmd_restore() -> None:
+    """Back to the resident: maker disabled, maker-server and critic-server stopped,
+    qwen38-server up and healthy.
+
+    critic-server is stopped too, and BEFORE the resident is started. The resident wants
+    around 23 GB of the 24 GB card, so a critic left running from a card run is the
+    difference between the resident loading and the resident OOMing or spilling to system
+    RAM. "Restore" has to mean the box is back to its normal state, not the maker half of
+    it: the card runner's finally calls only this."""
     disable_maker()
     subprocess.run(["systemctl", "--user", "stop", "maker-server"], check=False)
+    subprocess.run(["systemctl", "--user", "stop", "critic-server"], check=False)
     subprocess.run(["systemctl", "--user", "start", "qwen38-server"], check=False)
     _wait("http://127.0.0.1:8086/health", 300)
-    print("resident restored on :8086; maker disabled")
+    print("resident restored on :8086; maker disabled, critic-server stopped")
 
 
 def cmd_critic_list(critics: dict) -> None:

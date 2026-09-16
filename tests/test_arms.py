@@ -89,7 +89,8 @@ def test_cmd_use_restores_resident_if_maker_never_healthy(tmp_path, monkeypatch)
 
     assert wait_calls["n"] == 2   # cmd_use's own wait, then cmd_restore's wait
     cmds = [" ".join(c) for c in calls]
-    assert cmds[-2] == "systemctl --user stop maker-server"
+    assert cmds[-3] == "systemctl --user stop maker-server"
+    assert cmds[-2] == "systemctl --user stop critic-server"
     assert cmds[-1] == "systemctl --user start qwen38-server"
 
 
@@ -237,3 +238,53 @@ def test_cmd_use_recovery_does_not_mask_the_original_failure(tmp_path, monkeypat
     with pytest.raises(SystemExit, match="maker never healthy"):
         arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
     assert "resident unhealthy too" in capsys.readouterr().err
+
+
+def test_cmd_restore_stops_the_critic_before_starting_the_resident(monkeypatch):
+    """The resident wants ~23 GB of the 24 GB card. A critic left over from a card run is
+    the difference between the resident loading and the resident OOMing, so restore must
+    stop it, and stop it BEFORE the resident is started."""
+    calls = []
+    monkeypatch.setattr(arms, "disable_maker", lambda: None)
+    monkeypatch.setattr(arms.subprocess, "run",
+                        lambda cmd, **kw: calls.append(cmd) or type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+    arms.cmd_restore()
+    units = [(c[2], c[3]) for c in calls]
+    assert ("stop", "critic-server") in units
+    assert units.index(("stop", "critic-server")) < units.index(("start", "qwen38-server"))
+
+
+def test_cmd_use_warns_when_the_critic_is_holding_vram(tmp_path, monkeypatch, capsys):
+    model = tmp_path / "m.gguf"; model.write_text("x")
+    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms, "unit_active", lambda unit: unit == "critic-server")
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+    err = capsys.readouterr().err
+    assert "critic-server is active" in err and "critic off" in err
+
+
+def test_cmd_use_is_silent_when_no_critic_is_running(tmp_path, monkeypatch, capsys):
+    model = tmp_path / "m.gguf"; model.write_text("x")
+    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms, "unit_active", lambda unit: False)
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+    assert "critic-server" not in capsys.readouterr().err
+
+
+def test_unit_active_never_raises(monkeypatch):
+    """A missing systemctl must read as "not active", not take an arm swap down with it."""
+    def boom(*a, **kw):
+        raise FileNotFoundError("systemctl")
+    monkeypatch.setattr(arms.subprocess, "run", boom)
+    assert arms.unit_active("critic-server") is False
+    monkeypatch.setattr(arms.subprocess, "run",
+                        lambda *a, **kw: type("R", (), {"stdout": "active\n"})())
+    assert arms.unit_active("critic-server") is True
+    monkeypatch.setattr(arms.subprocess, "run",
+                        lambda *a, **kw: type("R", (), {"stdout": "inactive\n"})())
+    assert arms.unit_active("critic-server") is False
