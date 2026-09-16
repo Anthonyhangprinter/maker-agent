@@ -316,3 +316,43 @@ def test_knobs_critic_url_sets_env_var():
     k = rc.Knobs(critic_url="http://127.0.0.1:8092/v1/chat/completions")
     assert k.env()["CAD_CRITIC_URL"] == "http://127.0.0.1:8092/v1/chat/completions"
     assert rc.Knobs().env().get("CAD_CRITIC_URL") is None   # unset knob is a no-op
+
+
+def test_subset_stratifies_real_heldout_cqe_across_tiers():
+    """phase1think caps heldout-cqe at 10 of 25 specs, and the suite is stored as 15 tier-1
+    specs followed by 10 tier-2 ones: a first-N cut would be tier 1 only. Stratified it is
+    6 tier-1 + 4 tier-2 (the proportional ceilings, which already sum to the cap)."""
+    import run_card as rc
+    specs, acc = rc.load_suite("heldout-cqe")
+    assert len(specs) == 25, "suite changed; update this test's expected split"
+    cut = rc.apply_subset({"heldout-cqe": (specs, acc)}, "phase1think")["heldout-cqe"][0]
+    tiers = [s.get("tier", 0) for s in cut]
+    assert len(cut) == 10
+    assert tiers.count(1) == 6 and tiers.count(2) == 4
+    # file order preserved, and the cut is a subset of the uncapped phase1 selection
+    ids = [s["id"] for s in cut]
+    assert ids == [s["id"] for s in specs if s["id"] in set(ids)]
+    phase1_ids = {s["id"] for s in rc.apply_subset({"heldout-cqe": (specs, acc)}, "phase1")["heldout-cqe"][0]}
+    assert set(ids) <= phase1_ids
+
+
+def test_subset_stratifies_real_cad_arena_keeping_every_tier():
+    """cad-arena is 3 specs in each of four tiers; phase1think caps it at 6. The ceilings
+    allot 2 per tier (8), so two are trimmed off the largest tiers and all four tiers
+    survive: a subset that dropped tier 4 could not say anything about hard specs."""
+    import run_card as rc
+    specs, acc = rc.load_suite("cad-arena")
+    assert len(specs) == 12, "suite changed; update this test's expected split"
+    cut = rc.apply_subset({"cad-arena": (specs, acc)}, "phase1think")["cad-arena"][0]
+    tiers = [s.get("tier", 0) for s in cut]
+    assert len(cut) == 6
+    assert set(tiers) == {1, 2, 3, 4}
+
+
+def test_subset_tier_zero_suite_keeps_first_n():
+    """cadprompt and text2cadquery are entirely tier 0, so they keep the plain first-N cut:
+    that is what makes the phase1 baseline rows already on disk still valid."""
+    import run_card as rc
+    specs = {"cadprompt": ([{"id": f"cp-{i}", "spec": "x", "tier": 0} for i in range(100)], {})}
+    cut = rc.apply_subset(specs, "phase1")["cadprompt"][0]
+    assert [s["id"] for s in cut] == [f"cp-{i}" for i in range(30)]

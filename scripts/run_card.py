@@ -51,8 +51,10 @@ NON_CRITERIA = {"reference_stl", "normalized", "checks", "scoring", "source", "b
                 "min_holes_nulls", "heldout", "notes", "_meta"}
 TRAIN_FILES = [Path.home() / ".openclaw" / n for n in ("cad-sftpairs.jsonl", "cad-examples.jsonl", "cad-sft-train.jsonl")]
 
-# Phase 1 stratified subset: the first N specs of each suite, in file order, so the same
-# subset is reproduced every run without a random seed. "full" (the default) runs everything.
+# Phase 1 stratified subset: per-suite caps, sampled in file order so the same subset is
+# reproduced every run without a random seed. A suite whose specs carry nonzero tiers is
+# sampled per tier (see _stratified); a suite where every spec is tier 0 keeps the plain
+# first-N cut. "full" (the default) runs everything.
 SUBSETS = {
     "full": None,
     "phase1": {"cadprompt": 30, "text2cadquery": 30, "heldout-cqe": 25, "text-to-cad": 10,
@@ -88,13 +90,53 @@ class Knobs:
         return ["--no-fewshots"] if self.no_fewshots else []
 
 
+def _stratified(specs: list[dict], cap: int) -> list[dict]:
+    """`cap` specs sampled proportionally per tier, file order preserved throughout.
+
+    Each tier is allotted ceil(cap * tier_count / suite_count) specs, taken in file order.
+    Those ceilings can sum past `cap`, so the excess is trimmed one spec at a time off
+    whichever tier currently holds the most (ties broken towards the lowest tier), which
+    means no tier is emptied while another still has a spare.
+
+    This is what makes a capped suite representative. heldout-cqe is 15 tier-1 specs
+    followed by 10 tier-2 ones, so a plain first-N cut at cap 10 is ten tier-1 specs and
+    says nothing at all about tier 2; stratified it is 6 and 4.
+    """
+    total = len(specs)
+    if cap >= total:
+        return specs
+    idx_by_tier: dict[int, list[int]] = {}
+    for i, s in enumerate(specs):
+        idx_by_tier.setdefault(s.get("tier", 0), []).append(i)
+    take = {t: min(len(g), -(-cap * len(g) // total)) for t, g in idx_by_tier.items()}
+    while sum(take.values()) > cap:
+        # sorted() first, so max() returns the LOWEST tier among the tied maxima: a
+        # deterministic trim, never a dict-ordering accident.
+        t = max(sorted(take), key=lambda k: take[k])
+        take[t] -= 1
+        if take[t] == 0:
+            del take[t]
+    chosen = {i for t, n in take.items() for i in idx_by_tier[t][:n]}
+    return [s for i, s in enumerate(specs) if i in chosen]
+
+
 def apply_subset(suites: dict, name: str) -> dict:
-    """Cap each suite to the first N specs (file order, deterministic). `name` "full" is a
-    no-op; a suite not named in the subset's per-suite caps is left uncapped."""
+    """Cap each suite to its subset size: tier-stratified (_stratified) where the suite
+    carries nonzero tiers, the first N in file order where every spec is tier 0. `name`
+    "full" is a no-op; a suite not named in the subset's per-suite caps is left uncapped."""
     caps = SUBSETS[name]
     if caps is None:
         return suites
-    return {s: (specs[: caps.get(s, len(specs))], acc) for s, (specs, acc) in suites.items()}
+    out = {}
+    for s, (specs, acc) in suites.items():
+        cap = caps.get(s, len(specs))
+        if cap >= len(specs):
+            out[s] = (specs, acc)
+        elif any(sp.get("tier", 0) for sp in specs):
+            out[s] = (_stratified(specs, cap), acc)
+        else:
+            out[s] = (specs[:cap], acc)
+    return out
 
 
 def labelled(name: str, knobs: Knobs) -> str:
