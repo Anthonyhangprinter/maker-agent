@@ -683,6 +683,7 @@ def _mesh_worker():
 
 CARD_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "card.json"
 BENCHCAD_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "benchcad.json"
+LIFT_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "LIFT.json"
 
 
 @app.get("/api/lab/card")
@@ -699,6 +700,14 @@ def api_lab_benchcad():
     if not BENCHCAD_LATEST.exists():
         raise HTTPException(404, "no benchcad run yet")
     return json.loads(BENCHCAD_LATEST.read_text())
+
+
+@app.get("/api/lab/lift")
+def api_lab_lift():
+    """The latest lift table (scripts/lift_report.py) — per-arm deltas vs the baseline arm."""
+    if not LIFT_LATEST.exists():
+        raise HTTPException(404, "no lift table yet: run scripts/lift_report.py")
+    return json.loads(LIFT_LATEST.read_text())
 
 
 @app.get("/api/jobs/{job_id}")

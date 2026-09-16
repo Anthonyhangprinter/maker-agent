@@ -328,6 +328,7 @@
         <header><h2>Lab</h2><p class="muted">Latest benchmark card. Rows are arm and suite; invalid means no solid was produced.</p></header>
         <div id="labCard"><p class="muted">Loading the card...</p></div>
         <div id="labBenchcad"></div>
+        <div id="labLift"></div>
       </section>
     </div>
   </main>
@@ -399,6 +400,31 @@ $("labBtn").onclick = async () => {
     bcBox.innerHTML = `<h3>BenchCAD</h3><table class="card"><thead><tr><th>arm</th><th>CodeEdit</th><th>Code-QA</th><th>Vision2Code</th></tr></thead><tbody>` +
       rows.map(([arm, t]) => `<tr><td>${esc(arm)}</td><td>${score(t.codeedit)}</td><td>${score(t.codeqa)}</td><td>${score(t.vision2code)}</td></tr>`).join("") + "</tbody></table>";
   } catch (e) { bcBox.innerHTML = ""; }
+
+  const liftBox = $("labLift");
+  try {
+    const r = await fetch("/api/lab/lift");
+    if (!r.ok) { liftBox.innerHTML = ""; return; }
+    const lift = await r.json();
+    const pct = v => v == null ? "-" : Math.round(v * 100) + "%";
+    const signed = d => d === 0 ? "0" : (d > 0 ? "+" + d : "" + d);
+    const dpts = v => v == null ? "-" : signed(Math.round(v * 100));
+    const dsecs = v => v == null ? "-" : signed(Math.round(v));
+    const num = v => v == null ? "-" : Math.round(v);
+    const names = Object.keys(lift);
+    const baseline = names.find(a => !a.includes("+"));
+    const order = baseline ? [baseline, ...names.filter(a => a !== baseline).sort()] : names.sort();
+    liftBox.innerHTML = `<h3>Lift vs baseline</h3><table class="card"><thead><tr><th>variant</th><th>n</th><th>invalid</th><th>Δ</th><th>gate clean</th><th>Δ</th><th>acceptance</th><th>Δ</th><th>match</th><th>Δ</th><th>median s</th><th>Δ</th><th>tokens/build</th></tr></thead><tbody>` +
+      order.map(arm => {
+        const a = lift[arm], d = a.delta || {};
+        return `<tr><td>${esc(arm)}</td><td>${a.n}</td><td>${pct(a.invalid_ratio)}</td><td>${dpts(d.invalid_ratio)}</td>` +
+          `<td>${pct(a.gate_clean_rate)}</td><td>${dpts(d.gate_clean_rate)}</td>` +
+          `<td>${pct(a.acceptance)}</td><td>${dpts(d.acceptance)}</td>` +
+          `<td>${pct(a.match_rate)}</td><td>${dpts(d.match_rate)}</td>` +
+          `<td>${num(a.median_wall_s)}</td><td>${dsecs(d.median_wall_s)}</td>` +
+          `<td>${num(a.tokens_per_build)}</td></tr>`;
+      }).join("") + "</tbody></table>";
+  } catch (e) { liftBox.innerHTML = ""; }
 };
 
 $("go").onclick = async () => {
