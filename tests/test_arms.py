@@ -134,6 +134,7 @@ def test_single_quote_invariant_raises_value_error_not_assert():
 
 def test_load_arms_keeps_skipped_entries(tmp_path):
     src = json.loads((HERE / "benchmarks" / "arms.json").read_text())
+    src["arms"] = [{**arm, "skip": False} for arm in src["arms"]]   # the shipped file may skip real arms
     src["arms"][0] = {**src["arms"][0], "skip": True}
     p = tmp_path / "arms.json"; p.write_text(json.dumps(src))
     a = arms.load_arms(p)
