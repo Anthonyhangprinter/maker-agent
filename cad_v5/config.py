@@ -129,6 +129,11 @@ CODE_MODEL_DEFAULT = CODE_MODEL_FAST
 # now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
 # "local:<name>" routes the critic through the resident llama.cpp server (images supported).
 CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", "gemma4:e4b")
+# CAD_CRITIC_URL lets the critic run on its own server (e.g. a dedicated vision model
+# on a different port) instead of riding the coder server. Defaults to LOCAL_CODER_URL
+# so an unset env var is a no-op change from the prior single-URL behaviour.
+CRITIC_URL         = os.environ.get("CAD_CRITIC_URL", LOCAL_CODER_URL)
+CRITIC_HEALTH      = CRITIC_URL.replace("/v1/chat/completions", "/health")
 OLLAMA_HOST    = "http://localhost:11434"
 OLLAMA_URL     = OLLAMA_HOST + "/api/generate"
 OLLAMA_TAGS    = OLLAMA_HOST + "/api/tags"

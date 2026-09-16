@@ -159,6 +159,45 @@ def test_preflight_ignores_local_and_cloud_models(tmp_path, monkeypatch):
     cad_engine._preflight_models()   # must not raise
 
 
+def test_critic_url_defaults_to_coder_url(tmp_path, monkeypatch):
+    monkeypatch.delenv("CAD_CRITIC_URL", raising=False)
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.CRITIC_URL == cfg.LOCAL_CODER_URL
+
+
+def test_critic_call_goes_to_critic_url(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_CRITIC_URL", "http://127.0.0.1:8089/v1/chat/completions")
+    monkeypatch.setenv("CAD_CRITIC_MODEL", "local:minicpm-v")
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    urls = []
+
+    class R:
+        def __init__(s, url): urls.append(url)
+        def __enter__(s): return s
+        def __exit__(s, *a): return False
+        def read(s): return b'{"choices":[{"message":{"content":"ok"}}]}'
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", lambda req, timeout=0: R(req.full_url))
+    monkeypatch.setattr(cad_engine, "_ensure_default_server", lambda *a, **k: None)
+    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **k: None)
+    cad_engine._ollama("local:minicpm-v", "sys", "user", images=["QUJD"])
+    cad_engine._ollama("local:gemma-4-31b", "sys", "user")
+    assert urls == ["http://127.0.0.1:8089/v1/chat/completions", cfg.LOCAL_CODER_URL]
+
+
+def test_preflight_tolerates_ollama_down_when_all_local(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_CRITIC_MODEL", "local:gemma-4-31b")
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+
+    def boom(*a, **k): raise OSError("connection refused")
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", boom)
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: "local:gemma-4-31b")
+    assert cad_engine._installed_ollama_models() == set()
+
+
 def test_pause_hook_stops_maker_when_enabled(tmp_path, monkeypatch):
     cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
     import cad_engine; importlib.reload(cad_engine)
@@ -230,6 +269,8 @@ class _FakeHealthResponse:
 def teardown_module(module):
     os.environ.pop("CAD_CONFIG_FILE", None)
     os.environ.pop("CAD_KEEP_MAKER", None)
+    os.environ.pop("CAD_CRITIC_URL", None)
+    os.environ.pop("CAD_CRITIC_MODEL", None)
     import cad_v5.config as cfg
     importlib.reload(cfg)
     import cad_engine

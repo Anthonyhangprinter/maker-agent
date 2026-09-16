@@ -90,7 +90,7 @@ from cad_v5.config import (  # noqa: F401
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
     VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
-    LOCAL_CODER_URL, LOCAL_CODER_HEALTH,
+    LOCAL_CODER_URL, LOCAL_CODER_HEALTH, CRITIC_URL, CRITIC_HEALTH,
     REF_CRITIC_TIMEOUT, REF_IMAGE_MAX_PX, BUILD_LOCK_FILE,
     first_turn_candidates, CANDIDATE_TEMPS, SFTPAIRS_DIR, SFTPAIRS_FILE,
 )
@@ -575,8 +575,12 @@ def _ollama(model: str, system: str, prompt: str,
             # Merge rather than overwrite so this composes with the fmt/images branches.
             body["chat_template_kwargs"] = {**body.get("chat_template_kwargs", {}),
                                             "enable_thinking": False}
+        # Critic calls (keyed on model, not on images — images are just today's only
+        # critic use) ride CRITIC_URL, which defaults to LOCAL_CODER_URL so a critic
+        # pinned to the coder model is unaffected.
+        url = CRITIC_URL if model == CRITIC_MODEL else LOCAL_CODER_URL
         req = urllib.request.Request(
-            LOCAL_CODER_URL, data=json.dumps(body).encode(),
+            url, data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             resp = json.loads(r.read())
@@ -809,11 +813,20 @@ def spec_from_image(analysis: dict) -> str:
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
 def _installed_ollama_models() -> set:
-    """Ollama's /api/tags model list. Raises if Ollama itself is unreachable."""
+    """Ollama's /api/tags model list. Raises if Ollama itself is unreachable, UNLESS
+    every model this build needs is already off Ollama (local: or cloud/ rung) — in
+    which case Ollama being down is expected (it's being retired) and we log a warning
+    and carry on with an empty set instead of failing a build that never touches it."""
     try:
         with urllib.request.urlopen(OLLAMA_TAGS, timeout=10) as r:
             tags = json.loads(r.read())
     except Exception as e:
+        needed = (BRIEF_MODEL, _code_model(), CRITIC_MODEL)
+        if all(m.startswith(LOCAL_PREFIX) or m.startswith(CLOUD_PREFIX) for m in needed):
+            log.warning("[v5] Ollama not reachable at %s (%s), but all required models "
+                        "(%s) are local:/cloud/, continuing without it.",
+                        OLLAMA_HOST, e, ", ".join(needed))
+            return set()
         raise RuntimeError(
             f"Ollama not reachable at {OLLAMA_HOST} ({e}). Is `ollama serve` running?"
         )
@@ -840,7 +853,16 @@ def preflight() -> None:
     have = _installed_ollama_models()
     _preflight_models(have)
     if CRITIC_MODEL.startswith(LOCAL_PREFIX):
-        pass   # llama.cpp-served critic — covered by the strong-rung health check below
+        if CRITIC_URL != LOCAL_CODER_URL:
+            # Critic on its own server (not riding the coder) — its health is not
+            # covered by the strong-rung check below, so probe it directly and fail
+            # fast rather than discover it mid-build.
+            try:
+                with urllib.request.urlopen(CRITIC_HEALTH, timeout=3) as r:
+                    json.loads(r.read())
+            except Exception as e:
+                raise RuntimeError(f"critic server not healthy at {CRITIC_HEALTH} ({e})")
+        # else: covered by the strong-rung health check below (same server).
     elif CRITIC_MODEL not in have:
         log.warning("[v5] Critic model %s not installed — visual critique disabled "
                     "(loop falls back to numeric geometry state).", CRITIC_MODEL)
