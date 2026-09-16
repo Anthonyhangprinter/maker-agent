@@ -70,6 +70,7 @@ class Knobs:
     candidates: int = 0
     no_fewshots: bool = False
     critic: str = ""
+    critic_url: str = ""
 
     def env(self) -> dict:
         e = {}
@@ -77,6 +78,8 @@ class Knobs:
             e["CAD_CANDIDATES"] = str(self.candidates)
         if self.critic:
             e["CAD_CRITIC_MODEL"] = self.critic
+        if self.critic_url:
+            e["CAD_CRITIC_URL"] = self.critic_url
         return e
 
     def argv(self) -> list[str]:
@@ -354,6 +357,9 @@ def main() -> None:
                      help="CAD_CANDIDATES for the child build, best-of-N first turn (0 = engine default)")
     ap.add_argument("--no-fewshots", action="store_true", help="pass --no-fewshots to the child build")
     ap.add_argument("--critic", default="", help="CAD_CRITIC_MODEL for the child build (default: engine default)")
+    ap.add_argument("--critic-url", default="", help="CAD_CRITIC_URL for the child build, e.g. "
+                     "http://127.0.0.1:8092/v1/chat/completions to run the critic on deploy/critic-server "
+                     "instead of riding the coder server (default: engine default)")
     ap.add_argument("--subset", choices=sorted(SUBSETS), default="full",
                      help="cap each suite to a stratified subset, first N specs in file order "
                           "(default: full, no cap)")
@@ -366,7 +372,8 @@ def main() -> None:
         print(rescore(Path(ns.rescore)))
         return
 
-    knobs = Knobs(variant=ns.variant, candidates=ns.candidates, no_fewshots=ns.no_fewshots, critic=ns.critic)
+    knobs = Knobs(variant=ns.variant, candidates=ns.candidates, no_fewshots=ns.no_fewshots,
+                  critic=ns.critic, critic_url=ns.critic_url)
 
     all_arms = arms_mod.load_arms()
     names = list(all_arms) if ns.arms == "all" else ns.arms.split(",")

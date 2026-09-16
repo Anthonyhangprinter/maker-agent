@@ -1,0 +1,20 @@
+# deploy/critic-server.service  ->  ~/.config/systemd/user/critic-server.service
+[Unit]
+Description=Maker Agent optional vision critic server (llama.cpp, RTX 3090, :8092)
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/critic-server
+Restart=no
+MemoryHigh=4G
+# Dead-man switch, same rationale as maker-server.service: an abandoned critic run must
+# not hold VRAM forever. After 12 hours the unit self-terminates, well clear of any real
+# card run.
+RuntimeMaxSec=12h
+# Deliberately no Conflicts=. The critic is meant to coexist with the maker or the
+# resident when there is enough free VRAM for both: scripts/arms.py critic use checks
+# that before ever restarting this unit, so this file enforces a runtime ceiling, not
+# mutual exclusion with anything else on the box.
+
+[Install]
+WantedBy=default.target

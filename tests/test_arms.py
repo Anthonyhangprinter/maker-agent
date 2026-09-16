@@ -143,6 +143,82 @@ def test_load_arms_keeps_skipped_entries(tmp_path):
     assert all(a[n]["skip"] is False for n in a if n != first)
 
 
+def test_load_critics_shape():
+    c = arms.load_critics()
+    assert set(c) == {"minicpm-v-4.6", "gemma-4-12b"}
+    store = json.loads(arms.ARMS_FILE.read_text())["store"]
+    for critic in c.values():
+        assert critic["gguf"].endswith(".gguf")
+        assert critic["model_path"] == str(Path(store) / critic["gguf"])
+    minicpm = c["minicpm-v-4.6"]
+    assert minicpm["model_path"].endswith("MiniCPM-V-4.6-gguf/MiniCPM-V-4_6-Q8_0.gguf")
+    assert minicpm["mmproj_path"].endswith("MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf")
+    assert minicpm["vram_gb"] == 3.5
+    assert minicpm["port"] == 8092
+    gemma = c["gemma-4-12b"]
+    assert gemma["model_path"].endswith("gemma-4-12B-it-GGUF/gemma-4-12b-it-UD-Q4_K_XL.gguf")
+    assert gemma["mmproj_path"].endswith("gemma-4-12B-it-GGUF/mmproj-F16.gguf")
+    assert gemma["vram_gb"] == 9.5
+    assert gemma["port"] == 8092
+
+
+def test_render_critic_env_keys_and_quoting():
+    critic = arms.load_critics()["gemma-4-12b"]
+    env = arms.render_critic_env(critic)
+    for key in ("MODEL=", "MMPROJ=", "CTX='8192'", "PORT='8092'", "ALIAS='gemma-4-12b'", "EXTRA_ARGS="):
+        assert key in env
+    for line in env.splitlines():
+        if not line or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        assert v.startswith("'") and v.endswith("'"), f"{k} value is not single-quoted: {v!r}"
+
+
+def test_cmd_critic_use_refuses_when_vram_low(tmp_path, monkeypatch):
+    """The whole point of Task 4: a critic must not be started when it cannot fit beside
+    whatever else is already on the GPU. free_vram_gb() patched low must exit(2) and make
+    no systemctl call and no env write."""
+    critic = arms.load_critics()["gemma-4-12b"]
+    monkeypatch.setattr(arms, "free_vram_gb", lambda: 1.0)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(arms.subprocess, "run",
+                         lambda cmd, **kw: (calls.append(list(cmd)), type("R", (), {"returncode": 0})())[1])
+    env_path = tmp_path / "critic.env"
+    with pytest.raises(SystemExit) as exc:
+        arms.cmd_critic_use(critic, env_path=env_path)
+    assert exc.value.code == 2
+    assert not calls
+    assert not env_path.exists()
+
+
+def test_cmd_critic_use_proceeds_when_vram_high(tmp_path, monkeypatch, capsys):
+    critic = arms.load_critics()["minicpm-v-4.6"]
+    monkeypatch.setattr(arms, "free_vram_gb", lambda: 20.0)
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(arms.subprocess, "run", fake_run)
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+    env_path = tmp_path / "critic.env"
+    arms.cmd_critic_use(critic, env_path=env_path)
+    assert calls == [["systemctl", "--user", "restart", "critic-server"]]
+    assert "ALIAS='minicpm-v'" in env_path.read_text()
+    out = capsys.readouterr().out
+    assert "CAD_CRITIC_MODEL=local:minicpm-v" in out
+    assert "CAD_CRITIC_URL=http://127.0.0.1:8092/v1/chat/completions" in out
+
+
+def test_cmd_critic_off_stops_the_unit(monkeypatch):
+    calls: list[list[str]] = []
+    monkeypatch.setattr(arms.subprocess, "run",
+                         lambda cmd, **kw: (calls.append(list(cmd)), type("R", (), {"returncode": 0})())[1])
+    arms.cmd_critic_off()
+    assert calls == [["systemctl", "--user", "stop", "critic-server"]]
+
+
 def test_cmd_use_recovery_does_not_mask_the_original_failure(tmp_path, monkeypatch, capsys):
     """M8: a restore that itself fails must not become the only error anyone sees."""
     monkeypatch.setattr(arms, "apply_arm", lambda a: None)

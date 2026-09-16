@@ -307,3 +307,12 @@ def test_variant_labels_arm_and_env(monkeypatch):
     assert row["arm"] == "gemma-4-31b+bo3"
     assert seen["env"]["CAD_CANDIDATES"] == "3" and seen["env"]["CAD_CRITIC_MODEL"] == "local:minicpm-v"
     assert "--no-fewshots" in seen["cmd"]
+
+
+def test_knobs_critic_url_sets_env_var():
+    # Task 4: a card can point the critic at its own server (deploy/critic-server on
+    # :8092) instead of riding the coder server, via CAD_CRITIC_URL.
+    import run_card as rc
+    k = rc.Knobs(critic_url="http://127.0.0.1:8092/v1/chat/completions")
+    assert k.env()["CAD_CRITIC_URL"] == "http://127.0.0.1:8092/v1/chat/completions"
+    assert rc.Knobs().env().get("CAD_CRITIC_URL") is None   # unset knob is a no-op

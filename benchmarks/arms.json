@@ -116,5 +116,27 @@
       },
       "notes": "current fast rung as a llama.cpp arm"
     }
+  ],
+  "critics": [
+    {
+      "name": "minicpm-v-4.6",
+      "alias": "minicpm-v",
+      "gguf": "MiniCPM-V-4.6-gguf/MiniCPM-V-4_6-Q8_0.gguf",
+      "mmproj": "MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf",
+      "ctx": 8192,
+      "port": 8092,
+      "vram_gb": 3.5,
+      "notes": "cheap vision critic candidate, measured 2.5GB peak in the model lab; 3.5 here is conservative for mmproj + 8k ctx"
+    },
+    {
+      "name": "gemma-4-12b",
+      "alias": "gemma-4-12b",
+      "gguf": "gemma-4-12B-it-GGUF/gemma-4-12b-it-UD-Q4_K_XL.gguf",
+      "mmproj": "gemma-4-12B-it-GGUF/mmproj-F16.gguf",
+      "ctx": 8192,
+      "port": 8092,
+      "vram_gb": 9.5,
+      "notes": "non-Qwen judge/critic candidate, measured 9.2GB in the model lab; 9.5 here is conservative for mmproj + 8k ctx"
+    }
   ]
 }

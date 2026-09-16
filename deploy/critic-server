@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# critic-server: the optional vision critic server (Maker Agent 1.0 Task 4).
+# Reads ~/.openclaw/critic.env (written by scripts/arms.py critic use <name>). Unlike
+# maker-server, this launcher never evicts anything: scripts/arms.py critic use checks
+# free VRAM before ever restarting this unit, so critic-server is only ever started when
+# it is known to fit beside whatever else is already on the GPU.
+set -euo pipefail
+ENV_FILE="${CRITIC_ENV:-$HOME/.openclaw/critic.env}"
+[ -f "$ENV_FILE" ] || { echo "critic-server: $ENV_FILE missing; run scripts/arms.py critic use <name>" >&2; exit 2; }
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+DIR="${DIR:-$HOME/llama.cpp-cuda-src/build/bin}"
+PORT="${PORT:-8092}"
+CTX="${CTX:-8192}"
+: "${MODEL:?critic.env must set MODEL}"
+: "${ALIAS:?critic.env must set ALIAS}"
+
+MMPROJ_FLAG=()
+[ -n "${MMPROJ:-}" ] && MMPROJ_FLAG=(--mmproj "$MMPROJ")
+# shellcheck disable=SC2086
+exec env LD_LIBRARY_PATH="$DIR" "$DIR/llama-server" \
+  -m "$MODEL" "${MMPROJ_FLAG[@]}" \
+  --alias "$ALIAS" -ngl 999 \
+  -c "$CTX" -np 1 --cache-type-k q8_0 --cache-type-v q8_0 \
+  --cache-ram 0 -t 6 -fa on --jinja \
+  --host 127.0.0.1 --port "$PORT" ${EXTRA_ARGS:-} "$@"
