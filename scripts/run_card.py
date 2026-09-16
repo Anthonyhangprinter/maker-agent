@@ -306,10 +306,14 @@ def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, time
         except Exception as e:
             band = "fail"; stderr += f"\nband error: {e}"
     usage = res.get("usage") or {}
+    # has_ref, not "did this row get a band": a band is only produced when the build also
+    # succeeded, so scripts/lift_report.py cannot tell "this spec has no reference" from
+    # "this arm failed to build it" without the spec-side fact recorded here. Costs nothing
+    # and is what makes the match-rate denominator honest (an invalid build is a non-match).
     return {"arm": labelled(arm, knobs), "suite": suite, "id": spec["id"], "tier": spec.get("tier", 0), "ok": ok,
             "gate_hard": gate_hard, "gate_spec": gate_spec,
             "acc_passed": acc.get("passed", 0), "acc_total": acc.get("total", 0), "band": band,
-            "helper": bool(res.get("helper")),
+            "has_ref": bool(ref), "helper": bool(res.get("helper")),
             "wall_s": round(wall, 1), "tokens_out": usage.get("completion_tokens"),
             "build_dir": res.get("build_dir") or res.get("step_local") or "", "error": res.get("error"),
             "stderr_tail": stderr[-300:] if not ok else ""}
