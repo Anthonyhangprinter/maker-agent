@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -37,6 +38,7 @@ HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 import cad_engine as engine  # noqa: E402
 from cad_v5.diagnose import diagnose  # noqa: E402
+from cad_v5.config import first_turn_candidates, load_config  # noqa: E402
 
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
 
@@ -184,7 +186,10 @@ def cmd_build(a) -> dict:
             image_only = True
         if analysis:
             spec = spec + "\n" + engine.image_analysis_text(analysis, image_only=image_only)
+    build_dir = BUILDS_DIR / f"fluid_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}"
+    build_dir.mkdir(parents=True, exist_ok=True)
     helper = engine.spec_helper(spec)
+    n_used = 1
     if helper:
         code = engine.generate_code({"helper": helper, "notes": [], "expected": {}}, spec)
     else:
@@ -201,8 +206,18 @@ def cmd_build(a) -> dict:
                     spec = expansion["expanded_spec"]
         notes = engine.retrieval_notes_for(spec, use_fewshots=not a.no_fewshots)
         code = engine.generate_code_raw(spec, notes)
-    build_dir = BUILDS_DIR / f"fluid_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}"
-    build_dir.mkdir(parents=True, exist_ok=True)
+        # Best-of-N first turn (2026-09-16): explicit opt-in only. first_turn_candidates()
+        # defaults to 3 (CANDIDATES_DEFAULT in cad_v5/config.py), so calling it
+        # unconditionally here would turn best-of-N on for every fluid build and break the
+        # single-shot baseline it needs to be A/B'd against. Only sample extra candidates
+        # when the caller asked for it via CAD_CANDIDATES or cad.json's `candidates` key.
+        if os.environ.get("CAD_CANDIDATES") or load_config().get("cad", {}).get("candidates"):
+            n_cand = first_turn_candidates()
+            if n_cand > 1 and not engine._HELPER_RESULT_RE.search(code):
+                code = engine._pick_first_turn_candidate(
+                    {"helper": None, "notes": notes, "expected": {}, "_raw": True},
+                    spec, code, build_dir, n_cand)
+                n_used = n_cand
     if a.image:
         try:  # downscaled copy so the UI can show what conditioned the build
             (build_dir / "reference.jpg").write_bytes(
@@ -216,7 +231,7 @@ def cmd_build(a) -> dict:
     # Helper builds are correct by construction — a 7B "repair" of a bd_warehouse call
     # could only degrade it, so gate findings there are display-only.
     m = _materialize_with_salvage(spec, code, build_dir, gate_repair=not helper)
-    extra = {"build_dir": str(build_dir)}
+    extra = {"build_dir": str(build_dir), "candidates": n_used}
     if expansion:
         extra["expanded_spec"] = expansion["expanded_spec"]
         extra["assumptions"] = expansion["assumptions"]
