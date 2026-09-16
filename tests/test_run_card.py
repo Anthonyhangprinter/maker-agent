@@ -8,6 +8,10 @@ sys.path.insert(0, str(HERE / "scripts"))
 
 _spec = importlib.util.spec_from_file_location("run_card", HERE / "scripts" / "run_card.py")
 rc = importlib.util.module_from_spec(_spec)
+# Registered in sys.modules before exec: the dataclasses module (used by run_card.Knobs)
+# resolves annotations via sys.modules[cls.__module__] at class-definition time, which
+# raises AttributeError on a module that was exec'd but never registered.
+sys.modules[_spec.name] = rc
 _spec.loader.exec_module(rc)
 
 
@@ -85,7 +89,7 @@ def test_run_row_ok_is_always_a_real_bool_not_the_solids_count(monkeypatch):
     # the operand, not to a bool). Found live in the smoke run's rows.jsonl: oneshot rows
     # came out with ok=1 (the int solids count) instead of ok=True. run_row must coerce.
     res = {"ok": True, "facts": {"solids": 1, "bbox": [10, 10, 10], "faces": 6}, "build_dir": "/tmp/nope"}
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout: (res, 1.0, ""))
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None: (res, 1.0, ""))
     monkeypatch.setattr(rc, "score_acceptance", lambda geom, crit: {"passed": 0, "total": 0})
     row = rc.run_row("arm", "suite", {"id": "01", "spec": "x"}, {}, "oneshot", 60)
     assert row["ok"] is True and type(row["ok"]) is bool
@@ -93,7 +97,7 @@ def test_run_row_ok_is_always_a_real_bool_not_the_solids_count(monkeypatch):
 
 def test_run_row_ok_false_stays_false(monkeypatch):
     res = {"ok": False, "error": "boom"}
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout: (res, 1.0, "err"))
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None: (res, 1.0, "err"))
     monkeypatch.setattr(rc, "score_acceptance", lambda geom, crit: {"passed": 0, "total": 0})
     row = rc.run_row("arm", "suite", {"id": "01", "spec": "x"}, {}, "oneshot", 60)
     assert row["ok"] is False and type(row["ok"]) is bool
@@ -106,9 +110,9 @@ def test_acceptance_denominator_ignores_non_criterion_keys(monkeypatch):
     crit = {"solids": 1, "reference_stl": "refs/x.stl", "normalized": True,
             "source": "CADPrompt/0001", "bbox_notes": "emergent", "min_holes_nulls": True}
     assert rc.criteria_of(crit) == {"solids": 1}
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout: ({"ok": False, "error": "boom"}, 1.0, ""))
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None: ({"ok": False, "error": "boom"}, 1.0, ""))
     failed = rc.run_row("arm", "suite", {"id": "01", "spec": "x"}, crit, "oneshot", 60)
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout:
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None:
                         ({"ok": True, "facts": {"solids": 1, "bbox": [1, 1, 1], "faces": 6}}, 1.0, ""))
     ok = rc.run_row("arm", "suite", {"id": "01", "spec": "x"}, {"solids": 1}, "oneshot", 60)
     assert failed["acc_total"] == ok["acc_total"] == 1
@@ -120,7 +124,7 @@ def test_no_geometry_scores_zero_of_n_instead_of_raising(monkeypatch):
     Nones: with a min_holes criterion the None cyl_faces raised TypeError on `cyl >= 0`."""
     assert rc.geometry_of({"ok": False, "error": "boom"}, "oneshot") == {}
     assert rc.geometry_of({"ok": False}, "agent") == {}
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout: ({"ok": False, "error": "boom"}, 1.0, ""))
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None: ({"ok": False, "error": "boom"}, 1.0, ""))
     row = rc.run_row("arm", "suite", {"id": "01", "spec": "x"},
                      {"solids": 1, "min_holes": 4, "reference_stl": "refs/x.stl"}, "oneshot", 60)
     assert row["acc_passed"] == 0 and row["acc_total"] == 2
@@ -144,7 +148,7 @@ def test_band_normalisation_follows_the_suite_not_the_runner(monkeypatch, tmp_pa
 
 
 def test_helper_flag_rides_the_row(monkeypatch):
-    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout:
+    monkeypatch.setattr(rc, "build_once", lambda spec, mode, timeout, knobs=None:
                         ({"ok": True, "helper": True, "facts": {"solids": 1}}, 1.0, ""))
     row = rc.run_row("arm", "suite", {"id": "01", "spec": "a spur gear"}, {}, "oneshot", 60)
     assert row["helper"] is True
@@ -183,7 +187,7 @@ def test_run_card_skips_an_arm_that_will_not_load(tmp_path, monkeypatch):
     monkeypatch.setattr(rc, "contamination", lambda specs: [])
     rows = []
 
-    def fake_row(arm, suite, spec, crit, mode, timeout):
+    def fake_row(arm, suite, spec, crit, mode, timeout, knobs=None):
         rows.append(arm)
         return {"arm": arm, "suite": suite, "id": spec["id"], "tier": 1, "ok": True,
                 "gate_hard": 0, "gate_spec": 0, "acc_passed": 0, "acc_total": 0, "band": None,
@@ -278,3 +282,28 @@ def test_contamination_near_duplicate_ignores_degenerate_slug_buckets(tmp_path, 
     monkeypatch.setattr(rc, "TRAIN_FILES", [train_file])
     specs = [{"id": f"cp-{i}", "spec": shared_opening + f"cutting {i} holes."} for i in range(5)]
     assert rc.contamination({"cadprompt": specs}) == []
+
+
+def test_subset_phase1_caps_each_suite(monkeypatch):
+    import run_card as rc
+    specs = {"cadprompt": ([{"id": f"cp-{i}", "spec": "x", "tier": 0} for i in range(100)], {}),
+             "cad-arena": ([{"id": f"a-{i}", "spec": "y", "tier": 1} for i in range(12)], {})}
+    cut = rc.apply_subset(specs, "phase1")
+    assert len(cut["cadprompt"][0]) == 30 and [s["id"] for s in cut["cadprompt"][0]][:3] == ["cp-0", "cp-1", "cp-2"]
+    assert len(cut["cad-arena"][0]) == 12
+    assert rc.apply_subset(specs, "full") == specs
+
+
+def test_variant_labels_arm_and_env(monkeypatch):
+    import run_card as rc
+    seen = {}
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd; seen["env"] = kw["env"]
+        class P: stdout = '{"ok": true, "facts": {"solids": 1}, "gate_hard": [], "gate_spec": [], "usage": {"completion_tokens": 5}, "build_dir": ""}'; stderr = ""; returncode = 0
+        return P()
+    monkeypatch.setattr(rc.subprocess, "run", fake_run)
+    row = rc.run_row("gemma-4-31b", "cad-arena", {"id": "a-1", "spec": "A cube", "tier": 1}, {"solids": 1}, "oneshot", 60,
+                     knobs=rc.Knobs(variant="bo3", candidates=3, no_fewshots=True, critic="local:minicpm-v"))
+    assert row["arm"] == "gemma-4-31b+bo3"
+    assert seen["env"]["CAD_CANDIDATES"] == "3" and seen["env"]["CAD_CRITIC_MODEL"] == "local:minicpm-v"
+    assert "--no-fewshots" in seen["cmd"]

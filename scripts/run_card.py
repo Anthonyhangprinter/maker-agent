@@ -18,7 +18,8 @@ runner's own finally is the ONLY place that calls arms_mod.cmd_restore(): an int
 restore` is run by hand.
 """
 from __future__ import annotations
-import argparse, importlib.util, json, os, subprocess, sys, time
+import argparse, dataclasses, importlib.util, json, os, subprocess, sys, time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -49,6 +50,51 @@ EXTERNAL = hc.CARD_SUITES[4:]
 NON_CRITERIA = {"reference_stl", "normalized", "checks", "scoring", "source", "bbox_notes",
                 "min_holes_nulls", "heldout", "notes", "_meta"}
 TRAIN_FILES = [Path.home() / ".openclaw" / n for n in ("cad-sftpairs.jsonl", "cad-examples.jsonl", "cad-sft-train.jsonl")]
+
+# Phase 1 stratified subset: the first N specs of each suite, in file order, so the same
+# subset is reproduced every run without a random seed. "full" (the default) runs everything.
+SUBSETS = {
+    "full": None,
+    "phase1": {"cadprompt": 30, "text2cadquery": 30, "heldout-cqe": 25, "text-to-cad": 10,
+               "organic": 5, "hard-eval": 15, "cad-arena": 12},
+}
+
+
+@dataclass(frozen=True)
+class Knobs:
+    """The per-run configuration knobs a card variant sweeps, threaded from argparse down to
+    the child build subprocess. `variant` labels the arm (e.g. "bo3") so several configurations
+    of the same arm can coexist in one rows.jsonl; the rest become env vars / argv the child
+    build reads, none of them mandatory (empty/zero = engine default)."""
+    variant: str = ""
+    candidates: int = 0
+    no_fewshots: bool = False
+    critic: str = ""
+
+    def env(self) -> dict:
+        e = {}
+        if self.candidates > 0:
+            e["CAD_CANDIDATES"] = str(self.candidates)
+        if self.critic:
+            e["CAD_CRITIC_MODEL"] = self.critic
+        return e
+
+    def argv(self) -> list[str]:
+        return ["--no-fewshots"] if self.no_fewshots else []
+
+
+def apply_subset(suites: dict, name: str) -> dict:
+    """Cap each suite to the first N specs (file order, deterministic). `name` "full" is a
+    no-op; a suite not named in the subset's per-suite caps is left uncapped."""
+    caps = SUBSETS[name]
+    if caps is None:
+        return suites
+    return {s: (specs[: caps.get(s, len(specs))], acc) for s, (specs, acc) in suites.items()}
+
+
+def labelled(name: str, knobs: Knobs) -> str:
+    """The row/resume-key arm label: the arm name, plus "+variant" when a variant is given."""
+    return f"{name}+{knobs.variant}" if knobs.variant else name
 
 
 def load_suite(name: str) -> tuple[list[dict], dict]:
@@ -98,14 +144,17 @@ def contamination(specs_by_suite: dict[str, list[dict]]) -> list[str]:
     return clashes
 
 
-def build_once(spec: str, mode: str, timeout: int) -> tuple[dict, float, str]:
+def build_once(spec: str, mode: str, timeout: int, knobs: Knobs | None = None) -> tuple[dict, float, str]:
+    if knobs is None:
+        knobs = Knobs()
     # CAD_KEEP_MAKER=1: see the module docstring, the arm stays warm for the whole arm
     # loop instead of cad_engine cold-loading/evicting it around every single build.
-    env = {**os.environ, "CAD_BENCH": "1", "CAD_KEEP_MAKER": "1"}
+    env = {**os.environ, "CAD_BENCH": "1", "CAD_KEEP_MAKER": "1", **knobs.env()}
     if mode == "oneshot":
         cmd = [sys.executable, str(SCRIPTS / "fluid_gen.py"), "build", spec, "--coder", "strong", "--json"]
     else:
         cmd = [sys.executable, "-m", "cad_v5", spec, "--once", "--json", "--coder", "strong", "--target", "file"]
+    cmd += knobs.argv()
     t0 = time.time()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE, env=env)
@@ -183,8 +232,11 @@ def band_of(step: Path, reference: Path, crit: dict | None) -> str:
         step, reference, normalize=bool((crit or {}).get("normalized")))["band"]
 
 
-def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, timeout: int) -> dict:
-    res, wall, stderr = build_once(spec["spec"], mode, timeout)
+def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, timeout: int,
+            knobs: Knobs | None = None) -> dict:
+    if knobs is None:
+        knobs = Knobs()
+    res, wall, stderr = build_once(spec["spec"], mode, timeout, knobs)
     # bool(x) and y returns y verbatim when x is truthy (Python's `and` short-circuits to
     # the operand, not to a bool). solids is an int, so `ok` came out as e.g. 1 instead
     # of True for oneshot rows. Wrap the whole thing so ok is always a real bool.
@@ -207,7 +259,7 @@ def run_row(arm: str, suite: str, spec: dict, crit: dict | None, mode: str, time
         except Exception as e:
             band = "fail"; stderr += f"\nband error: {e}"
     usage = res.get("usage") or {}
-    return {"arm": arm, "suite": suite, "id": spec["id"], "tier": spec.get("tier", 0), "ok": ok,
+    return {"arm": labelled(arm, knobs), "suite": suite, "id": spec["id"], "tier": spec.get("tier", 0), "ok": ok,
             "gate_hard": gate_hard, "gate_spec": gate_spec,
             "acc_passed": acc.get("passed", 0), "acc_total": acc.get("total", 0), "band": band,
             "helper": bool(res.get("helper")),
@@ -296,6 +348,15 @@ def main() -> None:
     ap.add_argument("--out", default="")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--allow-contaminated", action="store_true")
+    ap.add_argument("--variant", default="", help="label appended to the arm as +LABEL, so several "
+                     "configurations of the same arm can share one rows.jsonl (default: none)")
+    ap.add_argument("--candidates", type=int, default=0,
+                     help="CAD_CANDIDATES for the child build, best-of-N first turn (0 = engine default)")
+    ap.add_argument("--no-fewshots", action="store_true", help="pass --no-fewshots to the child build")
+    ap.add_argument("--critic", default="", help="CAD_CRITIC_MODEL for the child build (default: engine default)")
+    ap.add_argument("--subset", choices=sorted(SUBSETS), default="full",
+                     help="cap each suite to a stratified subset, first N specs in file order "
+                          "(default: full, no cap)")
     ap.add_argument("--rescore", default="", metavar="DIR",
                     help="recompute acceptance/bands for an existing run dir from rows.jsonl and "
                          "rewrite its card; builds nothing, touches no GPU")
@@ -305,12 +366,15 @@ def main() -> None:
         print(rescore(Path(ns.rescore)))
         return
 
+    knobs = Knobs(variant=ns.variant, candidates=ns.candidates, no_fewshots=ns.no_fewshots, critic=ns.critic)
+
     all_arms = arms_mod.load_arms()
     names = list(all_arms) if ns.arms == "all" else ns.arms.split(",")
     suites = {s: load_suite(s) for s in ns.suites.split(",")}
     suites = {k: v for k, v in suites.items() if v[0]}
     if ns.limit:
         suites = {k: (v[0][: ns.limit], v[1]) for k, v in suites.items()}
+    suites = apply_subset(suites, ns.subset)
     clashes = contamination({k: v[0] for k, v in suites.items()})
     if clashes and not ns.allow_contaminated:
         print("REFUSING: card specs present in training data:\n  " + "\n  ".join(clashes)); sys.exit(2)
@@ -325,16 +389,18 @@ def main() -> None:
             r = json.loads(line); rows.append(r); done.add((r["arm"], r["suite"], r["id"]))
     meta = {"stamp": out.name, "mode": ns.mode, "arms": names, "suites": list(suites), "limit": ns.limit,
             "started": datetime.now().isoformat(timespec="seconds")}
+    meta.update(variant=knobs.variant, knobs=dataclasses.asdict(knobs), subset=ns.subset)
     try:
         for name in names:
             if all_arms[name].get("skip"):
                 print(f"== arm {name}: skipped (\"skip\": true in benchmarks/arms.json)")
                 meta.setdefault("skipped_arms", {})[name] = "skip: true in arms.json"
                 continue
-            todo = [(s, sp, acc.get(sp["id"])) for s, (specs, acc) in suites.items() for sp in specs if (name, s, sp["id"]) not in done]
+            label = labelled(name, knobs)
+            todo = [(s, sp, acc.get(sp["id"])) for s, (specs, acc) in suites.items() for sp in specs if (label, s, sp["id"]) not in done]
             if not todo:
                 continue
-            print(f"== arm {name}: {len(todo)} builds")
+            print(f"== arm {label}: {len(todo)} builds")
             try:
                 arms_mod.cmd_use(all_arms[name])
             except BaseException as exc:
@@ -346,7 +412,7 @@ def main() -> None:
                 meta.setdefault("skipped_arms", {})[name] = str(exc)[:200]
                 continue
             for suite, spec, crit in todo:
-                row = run_row(name, suite, spec, crit, ns.mode, ns.timeout)
+                row = run_row(name, suite, spec, crit, ns.mode, ns.timeout, knobs=knobs)
                 rows.append(row)
                 with rows_path.open("a") as f:
                     f.write(json.dumps(row) + "\n")
