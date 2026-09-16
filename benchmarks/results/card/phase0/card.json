@@ -26,7 +26,14 @@
     "skipped_arms": {
       "qwen3.8-27b-think": "skip: true in arms.json"
     },
-    "finished": "2026-09-16T13:01:34"
+    "finished": "2026-09-16T13:01:34",
+    "finished_benchcad": "2026-09-16T18:44",
+    "benchcad": {
+      "num": 60,
+      "seed": 42,
+      "finished": "2026-09-16T20:20",
+      "note": "27B codeedit rerun cleanly after stale rows from a killed 150-item run"
+    }
   },
   "summary": {
     "qwen3.8-27b-nothink|text-to-cad": {

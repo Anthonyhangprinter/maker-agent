@@ -1,4 +1,4 @@
-# Phase 0 decision: the base model to train (draft 2026-09-16, BenchCAD pending)
+# Phase 0 decision: the base model to train (final, 2026-09-16)
 
 Rule applied: docs/MAKER-1.0-CAMPAIGN.md section 6. Public suites rank first (invalid ratio on
 CADPrompt and Text-to-CadQuery, then the Chamfer match share on them), the internal suites break
@@ -66,7 +66,35 @@ Kept on disk: gemma-4-31b (winner), devstral-small-2 (runner-up, teacher), gpt-o
 qwen3-coder-30b-a3b, qwen2.5-coder-7b GGUFs. Not deleted automatically; the owner decides after
 reading this card.
 
-## BenchCAD (official harness, 150 items per task, seed 42)
+## BenchCAD (official harness, 60 items per task, seed 42, finished 2026-09-16 20:20)
 
-Pending: the chain runs CodeEdit and Code-QA on every arm and Vision2Code on the vision arms
-(27B, Gemma, Devstral) after the card; results are appended to card.md and summarised here.
+Run through the harness's own scorer with a local chat-completions adapter; the 27B CodeEdit
+row was rerun cleanly after stale rows from a killed 150-item attempt leaked into its first
+score. Published rows are the leaderboard values read on 2026-09-15.
+
+| arm | CodeEdit (headroom IoU) | Code-QA (accuracy) | Vision2Code (voxel IoU) |
+|---|---|---|---|
+| qwen3.8-27b-nothink (control) | 0.800 | 0.685 | 0.166 |
+| gemma-4-31b | 0.732 | 0.663 | 0.172 |
+| devstral-small-2 | 0.797 | 0.557 | 0.114 |
+| gpt-oss-20b | 0.692 | 0.639 | not vision |
+| qwen3-coder-30b-a3b | 0.702 | 0.524 | not vision |
+| glm-4.7-flash | 0.703 | 0.477 | not vision |
+| qwen2.5-coder-7b | 0.703 | 0.170 | not vision |
+| Gemma-4-31B-it (published) | - | 0.664 | - |
+| gpt-oss-120b (published) | 0.561 | 0.689 | - |
+| GPT-4o (published) | - | 0.726 | 0.182 |
+| Gemini 3.1 Pro (published) | 0.837 | 0.838 | 0.289 |
+
+Reading: Gemma's Code-QA reproduces its published score (0.663 vs 0.664), which validates the
+adapter. On BenchCAD the 27B and Gemma trade places (27B ahead on CodeEdit and Code-QA, Gemma
+ahead on Vision2Code); Devstral is a surprise on CodeEdit. None of it moves the decision: the
+spec ranks the geometry-scored public suites first, and there Gemma's margin is decisive.
+BenchCAD says the 27B remains the better editor of existing CadQuery programs, which is a
+Phase 3 note (edit-style training data) rather than a base-model reason. Sample cut from 150 to
+60 on 2026-09-16 (150 measured at about an hour per task on the 27B, roughly 14 hours across
+the arms); the finalists get 150 in a later phase.
+
+## Status
+
+Final. Base model for Phase 2: **Gemma-4-31B-it**. Runner-up and fallback: Devstral Small 2.

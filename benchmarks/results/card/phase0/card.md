@@ -53,3 +53,19 @@ Mode: oneshot. One row per arm and suite. invalid = no solid produced, gate clea
 | qwen3.8-27b-nothink | organic | 5 | 2 | 60% | 0 | 31% | 0 | 0 | 0 | 0 | 56 | 18598 | 0 |
 | qwen3.8-27b-nothink | text-to-cad | 10 | 6 | 40% | 5 | 58% | 0 | 0 | 0 | 0 | 49 | 20603 | 0 |
 | qwen3.8-27b-nothink | text2cadquery | 95 | 88 | 7% | 82 | 68% | 1 | 2 | 36 | 49 | 21 | 45976 | 0 |
+
+## Official BenchCAD (benchcad.com harness, local adapter)
+
+| arm | CodeEdit | Code-QA | Vision2Code IoU |
+|---|---|---|---|
+| devstral-small-2 | 0.797 | 0.557 | 0.114 |
+| gemma-4-31b | 0.732 | 0.663 | 0.172 |
+| glm-4.7-flash | 0.703 | 0.477 | - |
+| gpt-oss-20b | 0.692 | 0.639 | - |
+| qwen2.5-coder-7b | 0.703 | 0.170 | - |
+| qwen3-coder-30b-a3b | 0.702 | 0.524 | - |
+| qwen3.8-27b-nothink | 0.800 | 0.685 | 0.166 |
+| Gemma-4-31B-it (published) | - | 0.664 | - |
+| gpt-oss-120b (published) | 0.561 | 0.689 | - |
+| GPT-4o (published) | - | 0.726 | 0.182 |
+| Gemini 3.1 Pro (published) | 0.837 | 0.838 | 0.289 |

@@ -1,0 +1,243 @@
+{
+  "qwen3.8-27b-nothink": {
+    "codeqa": {
+      "score": 0.6847,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 58,
+          "api_fail": 2
+        },
+        "total_tokens": 68285
+      }
+    },
+    "vision2code": {
+      "score": 0.1664,
+      "n": 60,
+      "exec_rate": 0.5833,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/Vision2Code/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 35,
+          "exec_fail": 25
+        },
+        "total_tokens": 52024
+      }
+    },
+    "codeedit": {
+      "score": 0.8,
+      "n": 60,
+      "exec_rate": 0.8833,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 53,
+          "exec_fail": 7
+        },
+        "total_tokens": 155809
+      }
+    }
+  },
+  "gemma-4-31b": {
+    "codeedit": {
+      "score": 0.7324,
+      "n": 60,
+      "exec_rate": 0.9167,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 55,
+          "exec_fail": 5
+        },
+        "total_tokens": 156872
+      }
+    },
+    "codeqa": {
+      "score": 0.6635,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 58,
+          "api_fail": 2
+        },
+        "total_tokens": 85747
+      }
+    },
+    "vision2code": {
+      "score": 0.172,
+      "n": 60,
+      "exec_rate": 0.6833,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/Vision2Code/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 41,
+          "exec_fail": 19
+        },
+        "total_tokens": 51326
+      }
+    }
+  },
+  "qwen3-coder-30b-a3b": {
+    "vision2code": null,
+    "codeedit": {
+      "score": 0.7021,
+      "n": 60,
+      "exec_rate": 0.9167,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 55,
+          "exec_fail": 5
+        },
+        "total_tokens": 153066
+      }
+    },
+    "codeqa": {
+      "score": 0.5239,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 58,
+          "api_fail": 2
+        },
+        "total_tokens": 65790
+      }
+    }
+  },
+  "glm-4.7-flash": {
+    "vision2code": null,
+    "codeedit": {
+      "score": 0.7026,
+      "n": 60,
+      "exec_rate": 0.9667,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 58,
+          "exec_fail": 2
+        },
+        "total_tokens": 137188
+      }
+    },
+    "codeqa": {
+      "score": 0.4768,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 59,
+          "api_fail": 1
+        },
+        "total_tokens": 71000
+      }
+    }
+  },
+  "devstral-small-2": {
+    "codeedit": {
+      "score": 0.797,
+      "n": 60,
+      "exec_rate": 0.8667,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 52,
+          "exec_fail": 8
+        },
+        "total_tokens": 153466
+      }
+    },
+    "codeqa": {
+      "score": 0.5566,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 58,
+          "api_fail": 2
+        },
+        "total_tokens": 65919
+      }
+    },
+    "vision2code": {
+      "score": 0.1141,
+      "n": 60,
+      "exec_rate": 0.7,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/Vision2Code/results_prod/results.jsonl",
+        "status_counts": {
+          "exec_fail": 18,
+          "ok": 42
+        },
+        "total_tokens": 111783
+      }
+    }
+  },
+  "gpt-oss-20b": {
+    "vision2code": null,
+    "codeedit": {
+      "score": 0.692,
+      "n": 60,
+      "exec_rate": 0.8,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 48,
+          "exec_fail": 12
+        },
+        "total_tokens": 132999
+      }
+    },
+    "codeqa": {
+      "score": 0.6391,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 56,
+          "parse_fail": 3,
+          "api_fail": 1
+        },
+        "total_tokens": 102623
+      }
+    }
+  },
+  "qwen2.5-coder-7b": {
+    "vision2code": null,
+    "codeedit": {
+      "score": 0.7027,
+      "n": 60,
+      "exec_rate": 0.8833,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/CodeEdit/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 53,
+          "exec_fail": 7
+        },
+        "total_tokens": 153278
+      }
+    },
+    "codeqa": {
+      "score": 0.1698,
+      "n": 60,
+      "exec_rate": null,
+      "raw": {
+        "results_path": "benchmarks/external/benchcad/BenchCAD-main/QA/results_prod/results.jsonl",
+        "status_counts": {
+          "ok": 18,
+          "parse_fail": 40,
+          "api_fail": 2
+        },
+        "total_tokens": 66192
+      }
+    }
+  }
+}
