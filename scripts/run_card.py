@@ -57,6 +57,8 @@ SUBSETS = {
     "full": None,
     "phase1": {"cadprompt": 30, "text2cadquery": 30, "heldout-cqe": 25, "text-to-cad": 10,
                "organic": 5, "hard-eval": 15, "cad-arena": 12},
+    "phase1think": {"cadprompt": 15, "text2cadquery": 15, "heldout-cqe": 10, "text-to-cad": 5,
+                    "organic": 3, "hard-eval": 5, "cad-arena": 6},
 }
 
 

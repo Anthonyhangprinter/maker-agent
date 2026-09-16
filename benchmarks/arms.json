@@ -115,6 +115,18 @@
         ]
       },
       "notes": "current fast rung as a llama.cpp arm"
+    },
+    {
+      "name": "gemma-4-31b-think",
+      "alias": "gemma-4-31b",
+      "role": "variant",
+      "gguf": "gemma-4-31B-it-GGUF/gemma-4-31B-it-UD-Q4_K_XL.gguf",
+      "mmproj": "gemma-4-31B-it-GGUF/mmproj-F16.gguf",
+      "ctx": 16384,
+      "extra_args": "",
+      "hf": null,
+      "notes": "Phase 1 lever 6.4: same GGUF with the template default thinking ON; run only on the phase1think subset (196 s/build measured 2026-09-16)",
+      "skip": false
     }
   ],
   "critics": [
