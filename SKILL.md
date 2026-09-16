@@ -35,8 +35,14 @@ cad-builder/
 │                     #   cam_print.py / cam_cnc.py, freecad_export.py, USER_GUIDE.md, EXPLAINER.md
 ├── b123d/            # deterministic domain helpers: structural sections, gears (bd_warehouse), gussets
 ├── scripts/          # runners the loop shells out to: step, inspect, render, dxf, cnc, stl,
-│                     #   run_benchmarks.py
-├── benchmarks/       # suites (text-to-cad/, organic/) + results/ (json + artifacts per run)
+│                     #   run_benchmarks.py, arms.py (maker-server arm switch), run_card.py
+│                     #   (Maker Agent card runner), run_benchcad.py (official BenchCAD harness),
+│                     #   fetch_external.py (public suite loaders)
+├── benchmarks/       # suites (text-to-cad/, organic/, cadprompt/, cad-arena/, text2cadquery/)
+│                     #   + arms.json (candidate model declarations) + results/ (json + card/)
+├── deploy/           # maker-server launcher + systemd unit (swappable CAD coder arm, see
+│                     #   docs/MAKER-1.0-CAMPAIGN.md 4.2)
+├── webui/            # FastAPI web UI (cad-web.service); Lab view reads the latest benchmark card
 ├── tests/            # offline unit/behavioral tests (pytest)
 ├── integration/      # cad-telegram.py — Satine bot SOURCE (deployed: ~/.openclaw/cad-telegram.py
 │                     #   is a symlink to it; restart cad-telegram.service after editing)

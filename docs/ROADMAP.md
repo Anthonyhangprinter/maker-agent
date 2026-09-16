@@ -158,6 +158,12 @@ dependency; all tier differences expressed as config, never code branches.
 
 ## 6. Track D — Fine-tune (make the 7B rung sufficient)
 
+**Superseded 2026-09-16 by `docs/MAKER-1.0-CAMPAIGN.md`.** That spec inverts the order below:
+train and ship the strong rung first on the local RTX 3090, low rung later. Phase 0 (instruments
++ base-model shootout) finished 2026-09-16; the base model chosen for training is Gemma-4-31B-it
+(see `docs/PROJECT.md`'s 2026-09-15/16 section and `benchmarks/results/card/phase0/DECISION.md`).
+The rest of this section is kept as the pre-campaign record, not the current plan.
+
 The single biggest proven lever for small-model CAD quality (Text-to-CadQuery: consistent gains
 fine-tuning on 170k pairs; CADmium: Qwen2.5-Coder-14B on JSON CAD sequences; CAD-Coder: geometric-
 reward RL on top).
