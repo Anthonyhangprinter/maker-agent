@@ -1,0 +1,37 @@
+{
+  "args": {
+    "base": "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit",
+    "data": "lab/data",
+    "out": "lab/runs/smoke4",
+    "rank": 16,
+    "epochs": 1.0,
+    "max_seq": 5120,
+    "save_steps": 2,
+    "resume": null,
+    "max_steps": 3
+  },
+  "dataset": {
+    "train_kept": 348,
+    "train_dropped": 5,
+    "val_kept": 15,
+    "val_dropped": 1
+  },
+  "trainable_params": {
+    "vision": 0,
+    "language": 122429440
+  },
+  "peak_vram_gb": 21.307034015655518,
+  "wall_seconds": 284.3763222694397,
+  "steps": 3,
+  "train_loss": 0.8030916849772135,
+  "eval_loss": null,
+  "eval_tokens": 0,
+  "versions": {
+    "torch": "2.12.1+cu130",
+    "unsloth": "2026.9.5",
+    "transformers": "5.5.0",
+    "trl": "0.24.0",
+    "peft": "0.21.0",
+    "bitsandbytes": "0.50.2"
+  }
+}

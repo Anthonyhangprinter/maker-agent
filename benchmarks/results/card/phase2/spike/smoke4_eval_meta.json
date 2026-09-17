@@ -1,0 +1,9 @@
+{
+  "adapter": "/home/theultimatecunt/.openclaw/skills/cad-builder/lab/runs/smoke4/adapter",
+  "base": "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit",
+  "max_seq": 5120,
+  "eval_loss": 0.9533907397534385,
+  "eval_tokens": 6973,
+  "rows": 16,
+  "seconds": 96.98696303367615
+}
