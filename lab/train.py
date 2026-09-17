@@ -154,38 +154,153 @@ def count_trainable_params(model: Any) -> dict[str, int]:
     return counts
 
 
-def eval_loss(model: Any, tokenizer: Any, val_rows: list[dict], max_seq: int) -> tuple[float | None, int]:
+def chunked_completion_loss(hidden_states: Any, head: Any, labels: Any, chunk_size: int,
+                             softcap: float | None = None) -> tuple[float, int]:
+    """Shifted causal cross-entropy over `hidden_states`, computed a chunk of
+    positions at a time so the (chunk, vocab) fp32 logits tensor stays small
+    regardless of sequence length -- the point of chunking is to never
+    materialise a (seq_len, vocab) fp32 tensor at once (a ~5000-token row at
+    Gemma 4's 248k vocab needs ~4.3GB for that in one shot, which is exactly
+    what OOM'd both the plain trainer.evaluate() path and a bare
+    labels-forward call on this 24GB card -- see eval_loss()'s docstring).
+
+    hidden_states: (T, H) tensor (bf16 or fp32), a single sequence, no batch
+        dimension.
+    head: callable taking (n, H) -> (n, V) logits, e.g. an nn.Linear
+        (model.get_output_embeddings()) or a tied-embedding fallback.
+    labels: (T,) int64 tensor, -100 at positions to ignore (mask_example()'s
+        convention).
+    chunk_size: number of (post-shift) positions to score per chunk.
+    softcap: Gemma 4's `final_logit_softcapping` value, or None. Applied as
+        `cap * tanh(x / cap)` before the loss -- the exact formula
+        Gemma4ForConditionalGeneration.forward() applies to its own logits --
+        so this is numerically the same loss the model's own labels-forward
+        would compute, just chunked.
+
+    Returns (summed_loss, token_count) -- SUMMED not meaned, so callers can
+    token-weight-average across multiple sequences of different lengths.
+    Verified against a full, unchunked cross-entropy on random tensors in
+    tests/test_lab_train.py (agrees within 1e-4; also verifies -100 positions
+    never contribute to either the loss or the token count).
+    """
+    import torch
+    import torch.nn.functional as F
+
+    seq_len = hidden_states.shape[0]
+    shift_labels = labels[1:]
+    total_loss = 0.0
+    total_tokens = 0
+    for start in range(0, seq_len - 1, chunk_size):
+        end = min(start + chunk_size, seq_len - 1)
+        label_chunk = shift_labels[start:end]
+        n_chunk = int((label_chunk != -100).sum().item())
+        if n_chunk == 0:
+            continue
+        h_chunk = hidden_states[start:end]
+        logits = head(h_chunk).float()
+        if softcap is not None:
+            logits = torch.tanh(logits / softcap) * softcap
+        loss = F.cross_entropy(logits, label_chunk, ignore_index=-100, reduction="sum")
+        total_loss += loss.item()
+        total_tokens += n_chunk
+        del logits, loss, h_chunk
+    return total_loss, total_tokens
+
+
+def eval_loss(model: Any, tokenizer: Any, val_rows: list[dict], max_seq: int,
+              chunk_size: int = 512) -> tuple[float | None, int]:
     """Token-weighted mean completion-only loss over the val split.
 
-    Calls `model` directly (the caller must pass the raw, unwrapped model --
-    e.g. `trainer.model` right after `trainer.train()`, never
-    `trainer.model_wrapped` or `trainer.evaluate()`) so accelerate's bf16
-    forward wrapper never runs. That wrapper upcasts every forward call's
-    output tensors -- including the full-vocab (248k) logits SFTTrainer's own
-    compute_loss always materialises, to log entropy/token accuracy -- to
-    fp32; a single ~5000-token row needs ~4.3GB of scratch for that alone.
-    `trainer.evaluate()` re-wraps the model internally for its own eval pass
-    and OOMs on exactly that allocation once training has left the CUDA
-    caching allocator fragmented near the 24GB ceiling (confirmed by
-    traceback across two separate smoke tests, one before and one after
-    matching per_device_eval_batch_size to the train batch size, and a third
-    where torch.cuda.empty_cache() first was tried and did not help -- the
-    process legitimately holds ~21GB at that point, there is nothing spare to
-    reclaim). Calling the bare model directly is the same forward path
-    training already proved fits.
+    This is a full replacement for `trainer.evaluate()`, not a tuned-up
+    version of it -- two prior smoke tests confirmed evaluate() OOMs on this
+    24GB card (it re-wraps the model for its own eval pass via
+    accelerate, which upcasts the full-vocab logits SFTTrainer's own
+    compute_loss always materialises to fp32), and a third confirmed that
+    calling the bare model directly with `labels=` still OOMs too -- Gemma 4's
+    248k vocab makes even ONE fp32 (seq_len, vocab) logits tensor ~4.3GB for a
+    ~5000-token row, and torch.cuda.empty_cache() beforehand does not help
+    (the process legitimately holds ~21GB of real training-time allocations,
+    there is nothing spare to reclaim). So this function never asks the model
+    for logits at all: it pulls hidden states from the text decoder directly
+    (no LM head applied), then applies the head and cross-entropy itself in
+    `chunk_size`-position slices via chunked_completion_loss() -- the same
+    numbers, at a small fraction of the peak memory.
 
-    Uses this module's own mask_example() so the val loss is computed with
-    exactly the same completion-only masking as training, not the previous
-    trainer.evaluate() path (which used the same masking but the wrapped
-    model). Requires torch to already be imported into this module's globals
-    (main() does `global torch; import torch` before calling this).
+    `model` must be the raw, unwrapped model (e.g. `trainer.model` right
+    after `trainer.train()`, or the model FastModel.from_pretrained() /
+    PeftModel.from_pretrained() hands back for --eval-only) -- never
+    `trainer.model_wrapped` or anything passed through trainer.evaluate().
 
-    Returns (mean_loss_or_None, total_completion_tokens). Rows that mask_seq
+    Resolves the text-only decoder and output head defensively rather than
+    hardcoding Gemma4ForConditionalGeneration's attribute names, since `model`
+    may be wrapped in a PEFT LoraModel: tries `model.get_decoder()` first
+    (PreTrainedModel's generic lookup, forwarded through PEFT's
+    attribute-proxying __getattr__ chain, correctly resolves to the
+    Gemma4TextModel instance for this architecture -- verified by reading
+    transformers/models/gemma4/modeling_gemma4.py's base_model_prefix="model"
+    and Gemma4Model.language_model), and falls back to explicit attribute
+    paths if that ever returns the model itself (a sign the generic lookup
+    failed silently). Both paths print which one was used. The output head
+    similarly prefers `model.get_output_embeddings()`, which returns Gemma4's
+    real `lm_head` nn.Linear (its weight tensor is tied to the input
+    embeddings via `_tied_weights_keys`, but it is still the actual module
+    the model's own forward calls, so using it here matches exactly, LoRA or
+    not -- our own LoRA config does not target lm_head anyway) and falls back
+    to `F.linear` against the input embedding weight only if
+    get_output_embeddings() is ever None (fully tied architectures with no
+    separate head module at all).
+
+    Returns (mean_loss_or_None, total_completion_tokens). Rows mask_example()
     drops for exceeding max_seq are skipped, same as build_dataset() would.
     """
+    import torch
+
     device = next(model.parameters()).device
     was_training = model.training
     model.eval()
+
+    def _resolve_text_decoder(m):
+        top = m
+        try:
+            decoder = m.get_decoder()
+            if decoder is not top:
+                print(f"[eval] text decoder via model.get_decoder() -> {type(decoder).__name__}")
+                return decoder
+            print("[eval] model.get_decoder() returned the model itself (unhelpful); trying explicit paths")
+        except Exception as exc:
+            print(f"[eval] model.get_decoder() raised {exc!r}; trying explicit paths")
+
+        candidates = [
+            ("base_model.model.model.language_model", lambda x: x.base_model.model.model.language_model),
+            ("base_model.model.language_model", lambda x: x.base_model.model.language_model),
+            ("base_model.model.model", lambda x: x.base_model.model.model),
+            ("model.language_model", lambda x: x.model.language_model),
+            ("model.model", lambda x: x.model.model),
+        ]
+        for name, getter in candidates:
+            try:
+                decoder = getter(top)
+            except AttributeError:
+                continue
+            if decoder is not top:
+                print(f"[eval] text decoder via {name} -> {type(decoder).__name__}")
+                return decoder
+        raise RuntimeError("eval_loss: could not resolve a text-only decoder module from the model")
+
+    def _resolve_output_head(m):
+        head = m.get_output_embeddings()
+        if head is not None:
+            print(f"[eval] output head via model.get_output_embeddings() -> {type(head).__name__}")
+            return head
+        print("[eval] get_output_embeddings() is None (tied embeddings); using input embedding weight via F.linear")
+        weight = m.get_input_embeddings().weight
+        return lambda h: torch.nn.functional.linear(h, weight)
+
+    decoder = _resolve_text_decoder(model)
+    head = _resolve_output_head(model)
+    softcap = getattr(model.config.get_text_config(), "final_logit_softcapping", None)
+    print(f"[eval] final_logit_softcapping={softcap}")
+
     total_loss = 0.0
     total_tokens = 0
     try:
@@ -194,17 +309,22 @@ def eval_loss(model: Any, tokenizer: Any, val_rows: list[dict], max_seq: int) ->
                 ex = mask_example(row["prompt"], row["completion"], tokenizer, max_seq)
                 if ex is None:
                     continue
-                n_tokens = sum(1 for label in ex["labels"] if label != -100)
-                if n_tokens == 0:
+                labels_list = ex["labels"]
+                if all(label == -100 for label in labels_list):
                     continue
                 input_ids = torch.tensor([ex["input_ids"]], device=device)
                 attention_mask = torch.tensor([ex["attention_mask"]], device=device)
-                labels = torch.tensor([ex["labels"]], device=device)
+                labels = torch.tensor(labels_list, device=device)
+
                 with torch.autocast("cuda", dtype=torch.bfloat16):
-                    out = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-                total_loss += out.loss.item() * n_tokens
-                total_tokens += n_tokens
+                    out = decoder(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
+                hidden = out.last_hidden_state[0]
                 del out
+
+                row_loss, row_tokens = chunked_completion_loss(hidden, head, labels, chunk_size, softcap)
+                total_loss += row_loss
+                total_tokens += row_tokens
+                del hidden, labels
     finally:
         if was_training:
             model.train()
@@ -227,6 +347,11 @@ def build_argparser() -> argparse.ArgumentParser:
                          "or pass an explicit checkpoint path")
     p.add_argument("--max-steps", type=int, default=None,
                     help="cap optimizer steps (smoke-test use only; overrides --epochs)")
+    p.add_argument("--eval-only", action="store_true",
+                    help="skip training: load --adapter over the base model and just run eval_loss(), "
+                         "writing <adapter parent dir>/eval_meta.json")
+    p.add_argument("--adapter", default=None,
+                    help="adapter dir (from a previous run's <out>/adapter) to load for --eval-only")
     return p
 
 
@@ -245,15 +370,55 @@ def main(argv: list[str] | None = None) -> None:
 
     from unsloth import FastModel
 
-    # `global` so the module-level eval_loss() (called below with the raw,
-    # unwrapped model) can see `torch` too -- it is defined outside main() so
-    # its signature/behaviour is easy to find and reuse, but it still must
-    # not require torch at module import time for tests/test_lab_train.py.
-    global torch
     import torch
     from datasets import Dataset
     from transformers import TrainerCallback
     from trl import SFTConfig, SFTTrainer
+
+    if args.eval_only:
+        if not args.adapter:
+            raise SystemExit("--eval-only requires --adapter <dir>")
+        # Unsloth's FastModel.from_pretrained() auto-detects an adapter_config.json
+        # in model_name: it reads the PeftConfig, resolves the real base model from
+        # its base_model_name_or_path, loads that, then attaches the adapter via
+        # PeftModel.from_pretrained(..., is_trainable=True) itself (verified by
+        # reading unsloth/models/loader.py's is_peft branch) -- so pointing
+        # model_name at the adapter dir is the whole load, --base is not needed
+        # here (kept as a required CLI arg only for command-line symmetry with the
+        # training path; it is not read in this branch).
+        print(f"[eval-only] loading base+adapter from: {args.adapter}")
+        model, tokenizer = FastModel.from_pretrained(
+            model_name=args.adapter,
+            max_seq_length=args.max_seq,
+            load_in_4bit=True,
+            dtype=None,
+        )
+        if hasattr(tokenizer, "tokenizer"):
+            tokenizer = tokenizer.tokenizer
+        tokenizer.add_bos_token = True
+
+        data_dir = Path(args.data)
+        val_rows = load_rows(data_dir / "val.jsonl")
+        print(f"[eval-only] val rows: {len(val_rows)} (max_seq={args.max_seq})")
+
+        t_eval0 = time.time()
+        eval_loss_val, eval_tokens = eval_loss(model, tokenizer, val_rows, args.max_seq)
+        eval_seconds = time.time() - t_eval0
+
+        eval_meta = {
+            "adapter": str(Path(args.adapter).resolve()),
+            "base": args.base,
+            "max_seq": args.max_seq,
+            "eval_loss": eval_loss_val,
+            "eval_tokens": eval_tokens,
+            "rows": len(val_rows),
+            "seconds": eval_seconds,
+        }
+        eval_meta_path = Path(args.adapter).resolve().parent / "eval_meta.json"
+        eval_meta_path.write_text(json.dumps(eval_meta, indent=2))
+        print(f"[eval-only] wrote {eval_meta_path}")
+        print(json.dumps(eval_meta, indent=2))
+        return
 
     print(f"[train] loading base model: {args.base}")
     model, tokenizer = FastModel.from_pretrained(

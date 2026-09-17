@@ -1,10 +1,17 @@
-"""Offline tests for lab/train.py's pure functions (no torch/unsloth import).
+"""Offline tests for lab/train.py's pure functions (no unsloth/transformers/trl import).
 
 Loaded by file path (not `import lab.train`) so this test never needs
 lab/.venv's training deps on the machine running the plain repo test suite --
 only the module's pure functions (load_rows, mask_example, build_dataset,
-count_trainable_params) are exercised; main() and its heavy imports are never
-called here.
+count_trainable_params) are exercised without any heavy import at all;
+main() and its unsloth/transformers/trl imports are never called here.
+
+chunked_completion_loss() is the one exception: it needs bare torch (CPU is
+fine, no unsloth/transformers/trl/GPU) to verify the chunked loss maths
+against a full-sequence reference computation. Bare torch is normally
+available on this machine's system Python (see CLAUDE.md), but those tests
+are still skipped via pytest.importorskip rather than failing hard if it
+ever isn't, so the rest of this file's genuinely offline tests are unaffected.
 """
 import importlib.util
 import json
@@ -234,3 +241,106 @@ def test_argparser_max_steps_override():
         ["--base", "B", "--data", "D", "--out", "O", "--max-steps", "3"]
     )
     assert args.max_steps == 3
+
+
+def test_argparser_eval_only_and_adapter():
+    args = lt.build_argparser().parse_args(
+        ["--base", "B", "--data", "D", "--out", "O", "--eval-only", "--adapter", "lab/runs/spike1/adapter"]
+    )
+    assert args.eval_only is True
+    assert args.adapter == "lab/runs/spike1/adapter"
+
+
+def test_argparser_eval_only_defaults_false_and_adapter_none():
+    args = lt.build_argparser().parse_args(["--base", "B", "--data", "D", "--out", "O"])
+    assert args.eval_only is False
+    assert args.adapter is None
+
+
+# ---------------------------------------------------------------------------
+# chunked_completion_loss -- bare torch only (CPU), no unsloth/transformers/trl.
+# Verifies the chunked loss exactly reproduces a full, unchunked cross-entropy
+# computed the way Gemma4ForConditionalGeneration.forward() computes its own
+# (shift by one position, ignore_index=-100, optional cap*tanh(x/cap)
+# softcapping applied before the loss) -- see eval_loss()'s docstring for why
+# lab/train.py never gets to run that full computation directly on the real
+# 248k-vocab model without OOMing.
+# ---------------------------------------------------------------------------
+
+torch = pytest.importorskip("torch")
+F = pytest.importorskip("torch.nn.functional")
+
+
+def _reference_shifted_cross_entropy(hidden, weight, labels, softcap=None):
+    """The full, unchunked computation chunked_completion_loss() must match."""
+    shift_labels = labels[1:]
+    logits = F.linear(hidden[:-1], weight).float()
+    if softcap is not None:
+        logits = torch.tanh(logits / softcap) * softcap
+    loss = F.cross_entropy(logits, shift_labels, ignore_index=-100, reduction="sum")
+    tokens = int((shift_labels != -100).sum().item())
+    return loss.item(), tokens
+
+
+def test_chunked_completion_loss_matches_full_cross_entropy():
+    torch.manual_seed(0)
+    seq_len, hidden_size, vocab = 37, 8, 13  # seq_len not a multiple of chunk_size, on purpose
+    hidden = torch.randn(seq_len, hidden_size)
+    weight = torch.randn(vocab, hidden_size)  # nn.Linear-shaped weight (out_features, in_features)
+    head = lambda h: F.linear(h, weight)  # noqa: E731
+    labels = torch.randint(0, vocab, (seq_len,))
+    labels[:5] = -100  # mask a prefix, like mask_example() would for the prompt region
+
+    chunk_loss, chunk_tokens = lt.chunked_completion_loss(hidden, head, labels, chunk_size=8)
+    ref_loss, ref_tokens = _reference_shifted_cross_entropy(hidden, weight, labels)
+
+    assert chunk_tokens == ref_tokens
+    assert abs(chunk_loss - ref_loss) < 1e-4
+
+
+def test_chunked_completion_loss_matches_full_cross_entropy_with_softcap():
+    torch.manual_seed(1)
+    seq_len, hidden_size, vocab = 20, 6, 9
+    hidden = torch.randn(seq_len, hidden_size)
+    weight = torch.randn(vocab, hidden_size)
+    head = lambda h: F.linear(h, weight)  # noqa: E731
+    labels = torch.randint(0, vocab, (seq_len,))
+    cap = 30.0
+
+    chunk_loss, chunk_tokens = lt.chunked_completion_loss(hidden, head, labels, chunk_size=6, softcap=cap)
+    ref_loss, ref_tokens = _reference_shifted_cross_entropy(hidden, weight, labels, softcap=cap)
+
+    assert chunk_tokens == ref_tokens
+    assert abs(chunk_loss - ref_loss) < 1e-4
+
+
+def test_chunked_completion_loss_excludes_all_ignored_positions():
+    torch.manual_seed(2)
+    seq_len, hidden_size, vocab = 10, 4, 5
+    hidden = torch.randn(seq_len, hidden_size)
+    weight = torch.randn(vocab, hidden_size)
+    head = lambda h: F.linear(h, weight)  # noqa: E731
+    labels = torch.full((seq_len,), -100, dtype=torch.long)
+
+    loss, tokens = lt.chunked_completion_loss(hidden, head, labels, chunk_size=4)
+
+    assert tokens == 0
+    assert loss == 0.0
+
+
+def test_chunked_completion_loss_ignores_only_masked_positions_within_a_chunk():
+    # A chunk that mixes real and -100 labels must count/score only the real ones.
+    torch.manual_seed(3)
+    seq_len, hidden_size, vocab = 12, 4, 6
+    hidden = torch.randn(seq_len, hidden_size)
+    weight = torch.randn(vocab, hidden_size)
+    head = lambda h: F.linear(h, weight)  # noqa: E731
+    labels = torch.randint(0, vocab, (seq_len,))
+    # Mask every other post-shift label so every chunk mixes real and ignored.
+    labels[1::2] = -100
+
+    chunk_loss, chunk_tokens = lt.chunked_completion_loss(hidden, head, labels, chunk_size=3)
+    ref_loss, ref_tokens = _reference_shifted_cross_entropy(hidden, weight, labels)
+
+    assert chunk_tokens == ref_tokens
+    assert abs(chunk_loss - ref_loss) < 1e-4
