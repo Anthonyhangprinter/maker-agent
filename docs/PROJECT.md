@@ -868,7 +868,7 @@ A `gemma-4-31b-think` arm (same GGUF, thinking on via the template default) was 
 thinking-depth leg.
 
 **Lift table** (verbatim from `benchmarks/results/card/phase1/LIFT.md`; baseline arm
-`gemma-4-31b`, public suites only — cadprompt, text2cadquery, heldout-cqe — helper rows
+`gemma-4-31b`, public suites only (cadprompt, text2cadquery, heldout-cqe), helper rows
 excluded; invalid = no solid produced, gate clean = solid with zero hard and zero [spec]
 findings, acceptance = pooled checks, match = band==match over the rows that have a reference,
 deltas are percentage points vs the baseline except median s, tokens/build is the mean output
@@ -890,7 +890,7 @@ restates invalid. With n around 40 to 85 a 3-point delta is 1 to 3 builds, insid
 run-to-run noise of a single sample: the rule (`docs/plans/2026-09-16-phase1-agent-lift.md`
 Task 7) is that a lever locks in only if it improves the invalid ratio or the match rate by 3
 points or more, with neither metric worsening, at no more than 2x the baseline wall time, ties
-going to the cheaper setting — the flips column is the evidence, not the percentages alone.
+going to the cheaper setting: the flips column is the evidence, not the percentages alone.
 
 **Decisions** (from `benchmarks/results/card/phase1/DECISION.md`):
 
@@ -926,16 +926,16 @@ is the confirmation.
 
 **Defects found by the runs, fixed on this branch.** `cad_engine._new_build_dir` pruned build
 directories by name, so every date-named agent-mode build directory sorted ahead of the
-fluid-named ones and was deleted on its own creation — every full-loop build had been failing
+fluid-named ones and was deleted on its own creation, so every full-loop build had been failing
 at the STEP copy since the fluid directories appeared; fixed to prune by mtime, never the new
 directory, `KEEP_BUILDS` raised to 5000 (the first agent-mode leg was rerun after the fix, since
 its rows had been 100% invalid from the bug, not the model). The opus review of this branch
 also caught that the lift table's first draft compared each variant against the baseline's
 whole-suite average rather than a baseline restricted to the variant's own specs, and counted a
-failed build as excluded rather than as a non-match — together a 13-point artefact; both are
+failed build as excluded rather than as a non-match, together a 13-point artefact; both are
 fixed in `lift_report.py` and reflected in the table above.
 
-**VRAM.** Gemma-4-31B at ctx 16384 uses 21,435 MiB, leaving about 3GB free — no second
+**VRAM.** Gemma-4-31B at ctx 16384 uses 21,435 MiB, leaving about 3GB free, so no second
 vision-critic server fits at that context, so the small-critic A/B (a stock vision model beside
 the coder) was skipped this pass; an 8k-context critic-server arm is the follow-up if the
 self-critic result is ever revisited.
