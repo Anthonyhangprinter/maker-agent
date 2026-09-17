@@ -11,10 +11,10 @@ restore() {
     # stops qwen38-server as a side effect of the Conflicts relationship);
     # otherwise restore the resident.
     if [ "$MAKER_WAS" = "active" ]; then
-        systemctl --user start maker-server || true
+        systemctl --user start maker-server || echo "gpu_window: WARNING maker-server failed to restart" >&2
     else
         systemctl --user stop maker-server 2>/dev/null || true
-        systemctl --user start qwen38-server || true
+        systemctl --user start qwen38-server || echo "gpu_window: WARNING qwen38-server failed to restart, GPU has no resident" >&2
     fi
 }
 trap restore EXIT
