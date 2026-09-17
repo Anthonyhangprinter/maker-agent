@@ -912,12 +912,13 @@ going to the cheaper setting — the flips column is the evidence, not the perce
    model from the loop. The small-critic server variant (MiniCPM-V beside the coder) was ruled
    out by VRAM (21,435 MiB used at ctx 16384, about 3GB free) and stays a follow-up with an
    8k-context arm.
-6. Fluid auto-escalation (switching arms mid-build on a failing spec) is deliberately deferred
+6. Production defaults changed on this branch: fluid mode's default coder is now `strong` and
+   the web UI's `auto` choice maps to `strong` (the 7B fast rung measured 44% invalid on
+   CADPrompt against Gemma's 6%), and `cad.json` `maker` is enabled with the `gemma-4-31b` arm,
+   so a CAD build now swaps the resident out for the maker server for its duration; `arms.py
+   restore` returns to the resident-only regime.
+7. Fluid auto-escalation (switching arms mid-build on a failing spec) is deliberately deferred
    to Phase 3 as a teacher-arm question: it costs a server swap per failing spec.
-7. Production defaults changed on this branch: fluid mode's default coder is now `strong` (the
-   7B fast rung measured 44% invalid on CADPrompt against Gemma's 6%), and `cad.json` `maker`
-   is enabled with the `gemma-4-31b` arm, so a CAD build now swaps the resident out for the
-   maker server for its duration; `arms.py restore` returns to the resident-only regime.
 
 No separate confirmation run was needed: the locked defaults are the baseline configuration
 already measured (127 builds, 117 valid, 31s median on the public suites), so the baseline row
