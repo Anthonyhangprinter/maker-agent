@@ -950,3 +950,152 @@ needs Ollama reachable in the general case even though nothing in the locked def
 (a Phase 2 item, since preflight itself was only partly relieved of the Ollama dependency); the
 pre-existing `tests/test_n1_offline.py` failure is still open; Phase 2 (a training spike on
 Gemma-4-31B) is next.
+
+## 2026-09-17: Maker Agent 1.0 campaign, Phase 2 (training spike)
+
+Spec: `docs/MAKER-1.0-CAMPAIGN.md` (sections 4.4, 5, 6, 8). Plan:
+`docs/plans/2026-09-17-phase2-training-spike.md`. Ledger:
+`.superpowers/sdd/2026-09-17-phase2-training-spike/progress.md`. Work happened on branch
+**`maker-1.0/phase2`** (19 commits over `maker-1.0/phase1`, HEAD `8583987`, not yet merged).
+Goal: prove that a QLoRA fine-tune of Gemma-4-31B trains, merges, converts, quantises and
+serves on this box, locally, with no offload and no rented GPU, before Phase 3 spends time
+building a proper data engine.
+
+**Instruments built.** A `lab/` package with its own `uv` venv (`lab/.venv`, kept separate from
+the rest of the repo so training deps never collide with the CAD engine's runtime deps or the
+system torch; resolved versions in `lab/README.md`: torch 2.12.1+cu130, unsloth 2026.9.5,
+unsloth-zoo 2026.9.4, transformers 5.5.0, trl 0.24.0, peft 0.21.0, bitsandbytes 0.50.2, xformers
+0.0.35, triton 3.7.1, accelerate 1.15.0, datasets 4.3.0):
+
+- `lab/gpu_window.sh` — one bounded GPU job with both `qwen38-server` and `maker-server`
+  evicted for its duration and whichever was actually active before restored on exit; holds the
+  same machine-wide `cad-build.lock` every CAD frontend uses, so a training run and a CAD build
+  can never contend for the GPU at once; runs its command as a background child under a
+  `timeout` dead-man cap so `SIGTERM`/`SIGINT` are handled cleanly (a foreground job would have
+  let bash run the EXIT trap while the job was still live, which is how the resident once
+  started on top of a still-running 21.7GB training job and one of the two died of a CUDA OOM).
+  `SIGKILL` cannot be trapped by any shell: killing the wrapper that way leaves the child
+  running on the GPU and the build lock held by an orphan, which is why the holder line records
+  the child's own PID.
+- `lab/data.py` — reads the ChatML SFT rows, extracts each row's verbatim spec, drops any row
+  colliding with a card suite (exact key, or a near-duplicate slug that identifies exactly one
+  spec in its own suite), and renders the survivors through the checkpoint's OWN
+  `chat_template.jinja` into `{"prompt", "completion", "id", "kind"}` rows, refusing outright if
+  `--template` does not exist rather than quietly rendering through a built-in stand-in framing.
+  Measured: 353 train rows and 16 val rows kept, 0 dropped for a missing spec header, 0
+  contaminated against the 262 suite specs; re-running it after the fix round reproduced both
+  files byte-identically.
+- `lab/train.py` — Unsloth QLoRA with completion-only loss, and a chunked eval loop (512
+  positions per chunk, softcapping honoured) built specifically to avoid an OOM in the naive
+  `trainer.evaluate()` path, whose fp32 upcast of the 248k-vocab logits alone costs 4.3GB.
+- `lab/spike.sh` — a thin wrapper: creates the output directory and `exec`s `gpu_window.sh
+  lab/.venv/bin/python lab/train.py` with the spike's hyperparameters (`--base` the 4-bit
+  Gemma-4-31B checkpoint, `--data lab/data`, `--rank 16 --epochs 1 --max-seq 5120
+  --save-steps 25`); any `train.py` flag can be overridden without editing the script.
+- `lab/ship.py` — one idempotent subcommand per stage (`merge`, `convert`, `fetch-imatrix`,
+  `quantize`, `verify`, `register`, `clean`), each logging a JSON line to
+  `~/lab-scratch/ship_log.jsonl`. `merge` is a streaming per-tensor LoRA merge into the bf16
+  base rather than a full-model load, because a full load needs 62.5GB and cannot fit in RAM
+  headroom; it also refuses on a chat-template mismatch between the merged dir's base template
+  and the exact template `data.py` used to render training rows (`--skip-template-check`
+  overrides). `verify` refuses to run outside a GPU window (it loads an 18.7GB GGUF at `-ngl
+  99`, which fights a resident 23GB server for VRAM on a 24GB card if run bare). `register`
+  refuses without a passing `~/lab-scratch/verify.ok` (`--force` overrides, and also skips the
+  verify gate as a side effect, noted below as a parked finding). `ship.py all` stops after
+  `quantize` on purpose: `verify` needs a human at the GPU, `register` touches the shared
+  `benchmarks/arms.json`, and `clean` is destructive.
+
+**Measured (RTX 3090, 24GB, 64GB RAM, all local).**
+
+| step | result |
+|---|---|
+| fit | Unsloth QLoRA on the pre-quantised 4-bit checkpoint, r 16, language layers only (122.4M trainable, vision 0), 5120-token window, batch 1 x accum 4: peak VRAM 21.7 GB, no offload needed |
+| speed | 78 s per optimizer step (4 rows), 182 tokens/s; one epoch over 348 rows = 87 steps = 1 h 54 min |
+| loss | train 0.358 (mean of per-step batch means), completion-only eval 0.391 over 6,973 tokens (the same eval read 0.953 on the 3-step smoke adapter; no untrained-base eval was run, the smoke adapter is the nearest proxy since LoRA B starts at zero) |
+| merge | streaming per-tensor LoRA merge into the bf16 base, 1188 tensors / 410 deltas, 20 to 33 min, under 12 GB RAM (a full-model load needs 62.5 GB and cannot fit) |
+| convert | llama.cpp Gemma 4 converter, F16 GGUF 61.4 GB, 31 to 39 min |
+| quantise | Q4_K_M with the Unsloth importance matrix, 18.69 GB (stock UD-Q4_K_XL is 18.82 GB), 19 to 26 min |
+| serve | llama-server with the stock vision projector, three-prompt verify passed, 28 to 30 tok/s on the verify flags (the arm itself is served with the maker-server flags; not the same number) |
+| card | 127 builds, one-shot, phase1 subset, 1 h 25 min |
+| disk | root SSD peak about 185 GB (bf16 base 59 + merged 62.5 + F16 61.4); the bf16 base is kept at `~/lab-scratch/gemma-4-31B-it-bf16` for later rounds |
+
+**Lift vs the stock arm** (verbatim from `benchmarks/results/card/phase2/LIFT.md`; public
+suites only — cadprompt, text2cadquery, heldout-cqe — helper rows excluded; invalid = no solid
+produced, gate clean = solid with zero hard and zero [spec] findings, acceptance = pooled
+checks, match = band==match over the rows that have a reference, deltas are percentage points
+vs the baseline except median s, tokens/build is the mean output tokens; each delta is like for
+like, restricted to the variant's own specs; flips are +improved/-worsened paired spec by spec
+against the same spec in the base arm):
+
+| variant | base | n | base n | invalid | Δ | flips | gate clean | Δ | acceptance | Δ | match | ref n | Δ | flips | median s | Δ | tokens/build |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| gemma-4-31b | gemma-4-31b | 85 | 85 | 2% | 0 | +0/-0 | 89% | 0 | 76% | 0 | 35% | 84 | 0 | +0/-0 | 31 | 0 | 542 |
+| gemma-4-31b-cad-spike | gemma-4-31b | 85 | 85 | 12% | +9 | +1/-9 | 79% | -11 | 71% | -5 | 24% | 85 | -11 | +2/-11 | 24 | -7 | 343 |
+
+Per suite (ok builds / geometry matches): CADPrompt 25 vs 30 ok, 12 vs 15 matches; heldout-cqe
+21 vs 23 ok, 8 vs 14 matches; Text-to-CadQuery 29 vs 30 ok; internal suites flat to slightly
+worse (text-to-cad 5 vs 6, organic 2 vs 4, hard-eval 11 vs 12). What the fine-tune did: outputs
+got about 40% shorter (343 vs 542 tokens) and faster, and the extra failures are build123d API
+misuse (`Plane.sketch`, `Polyline.make_face`, `RegularPolygon` kwargs, `Arc` undefined, a
+`GroupBy` attribute) plus more near-misses on geometry — the signature of a training set of 353
+pairs written for and by the Qwen-era 7B pipeline (short, idiom-heavy scripts against a
+`<DIM>`-masked reference block), one epoch at lr 2e-4 on a model that already wrote correct
+build123d first try. The model moved toward the data, and the data is below the model.
+
+**Decision** (full text `benchmarks/results/card/phase2/DECISION.md`): **Pipeline: GO.** A 31B
+QLoRA fine-tune trains, merges, converts, quantises and serves on this box, locally, with no
+offload and no rented GPU. **Spike model: NO-SHIP.** The adapter trained on the existing 353
+gate-verified pairs makes Gemma-4-31B measurably worse on the public suites. `cad.json` keeps
+the stock `gemma-4-31b` arm. The spike arm `gemma-4-31b-cad-spike` stays registered for
+comparison only. The spike measured the pipeline, not the data. The data is now the
+bottleneck, which is exactly what Phase 3 (data engine) exists for.
+
+**Confounds, stated in DECISION.md:** (1) the spike is Q4_K_M + imatrix, the baseline is the
+stock UD-Q4_K_XL (a quant difference, not expected to explain an 11-point match drop); (2) the
+127 baseline rows are reused from the Phase 1 card (same arm, same one-shot code path, same
+subset); (3) the LoRA delta was learned against nf4-dequantised weights and merged into bf16;
+(4) n = 85 public specs, one sample per arm, so read the paired flips (+2 / -11) rather than
+the percentages.
+
+**Operational rules learned, now in `lab/README.md`:** verify only inside a GPU window from the
+NVMe with the root SSD quiet (a concurrent merge on the root SSD made an earlier verify attempt
+time out at 900s with disk io pressure at 92%, not a model problem); never edit a bash script
+that may be executing (the `gpu_window.sh` warn fix was held until the smoke test finished); run
+full test suites only when no GPU job holds the CAD lock, because `tests/test_n1_offline.py`
+blocks on the real `cad-build.lock`; log each training launch to a fresh file (two early smoke
+runs lost their logs to overwrites); `target_modules="all-linear"` must NOT be passed to
+Unsloth's `get_peft_model` (it silently forces `finetune_vision_layers` back to `True`; the
+plan text was wrong on this, the code is right). 333 of the suite's tests pass (the one
+pre-existing `tests/test_n1_offline.py` failure, unchanged from Phase 0/1).
+
+**Kept on disk:** the bf16 base at `~/lab-scratch/gemma-4-31B-it-bf16` (about 59GB, root SSD,
+kept because re-downloading `google/gemma-4-31B-it` costs about 80 minutes per later phase);
+the GGUF at `/mnt/nvme-apps/LinuxModels/gemma-4-31B-cad-spike/gemma-4-31b-cad-spike-Q4_K_M.gguf`
+(18.69 GB); provenance (sha256 of source/rendered datasets, adapter, chat template, Q4 GGUF and
+imatrix, train row ids, the ship log, git head) at `benchmarks/results/card/phase2/spike/`.
+
+**What this changes for Phase 3 and 4** (from DECISION.md): (1) data before training — Phase 3
+must produce pairs that are above the model, via rejection sampling from Gemma itself (expert
+iteration) on new specs, gate-verified and reference-scored where a reference exists,
+contamination-guarded against every card suite, with the old 7B-era pairs dropped or
+re-verified under the Phase 0 gate; training on the current corpus again would repeat this
+result; (2) round budget measured at about 2h per epoch per 350 rows, so a 2,000-pair round is
+roughly 11h of training plus 1.5h of ship chain plus 1.4h of card — one round fits an overnight
+window, three fixed rounds (Phase 4) are three nights; (3) recipe knobs to A/B in Phase 4, not
+now — lower LR (5e-5 to 1e-4), fewer target modules (attention only), rank 8, and an
+untrained-base eval as the true baseline for the eval loss; (4) ship rule — an arm is promoted
+only when its card beats the stock arm on the public suites by the invalid-ratio-then-match-
+share rule with the flips column in its favour; the spike fails that rule and stays unpromoted.
+
+**Open follow-ups.** All Low-severity, parked from the final review in DECISION.md: `register
+--force` also skips the verify gate (split the flags); the `gpu_window` holder JSON does not
+escape control characters; `QUANTIZE_DISK_FACTOR` 0.35 vs measured 0.30; the merge template
+canary checks the adapter's saved template rather than the exact `--template` `data.py` used
+(write a `data_meta.json`); `run_card.contamination` extracts specs fail-open per row while
+`lab/data.py` fails closed; the verify tok/s is a smoke number on different server flags; the
+shipped GGUF's `general.name` reads "Merged" (re-convert with `--model-name` next time). Plus:
+owner merge decision for `maker-1.0/phase0`, `maker-1.0/phase1` and `maker-1.0/phase2`; the same
+~39GB of Phase 0 loser GGUFs (GLM-4.7-Flash, Qwen3-Coder-30B-A3B, Qwen2.5-Coder-7B-Instruct)
+still not deleted; `preflight()` still requires Ollama reachable in the general case; the
+pre-existing `tests/test_n1_offline.py` failure is still open; Phase 3 (the data engine) is
+next.
