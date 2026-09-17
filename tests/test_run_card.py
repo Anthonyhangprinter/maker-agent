@@ -68,6 +68,33 @@ def test_contamination_clean_when_no_overlap(tmp_path, monkeypatch):
     assert rc.contamination(specs_by_suite) == []
 
 
+def test_contamination_reads_a_messages_only_training_row(tmp_path, monkeypatch):
+    """finding 11: the Phase 2 SFT files carry ChatML `messages` and no `spec` key, so every
+    one of their rows used to contribute the empty string and the guard was blind to the file
+    that actually trains a model. The spec now comes out of the user message through
+    lab.data.extract_spec."""
+    train_file = tmp_path / "cad-sft-train.jsonl"
+    train_file.write_text(json.dumps({
+        "kind": "good",
+        "messages": [
+            {"role": "system", "content": "You are a build123d expert."},
+            {"role": "user", "content": (
+                "USER REQUEST (verbatim, every number here is AUTHORITATIVE):\n"
+                "a 100x60x20mm enclosure with 2mm walls\n\nNotes:\n- idioms")},
+            {"role": "assistant", "content": "from build123d import *"},
+        ],
+    }) + "\n")
+    monkeypatch.setattr(rc, "TRAIN_FILES", [train_file])
+    clashes = rc.contamination(
+        {"text-to-cad": [{"id": "01", "spec": "a 100x60x20mm enclosure with 2mm walls"}]})
+    assert len(clashes) == 1 and clashes[0].startswith("text-to-cad/01:")
+
+
+def test_train_files_cover_both_phase2_sft_files():
+    names = {f.name for f in rc.TRAIN_FILES}
+    assert {"cad-sft-train.jsonl", "cad-sft-val.jsonl"} <= names
+
+
 def test_load_suite_unwraps_benchmarks_key(tmp_path, monkeypatch):
     suite_dir = tmp_path / "some-suite"
     suite_dir.mkdir()

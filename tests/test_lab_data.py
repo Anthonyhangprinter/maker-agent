@@ -85,7 +85,7 @@ def test_render_pairs_fails_closed_when_no_header_matches(tmp_path):
     }
     src = tmp_path / "train.jsonl"
     _write_jsonl(src, [row])
-    template, _ = ld.load_template(None)
+    template, _ = ld.load_template(None, allow_fallback=True)
 
     kept, dropped = ld.render_pairs(src, tmp_path / "out.jsonl", keys=set(), slugs=set(),
                                      template=template, tag="t")
@@ -97,10 +97,11 @@ def test_render_pairs_fails_closed_when_no_header_matches(tmp_path):
 
 
 def test_framing_matches_checkpoint_shape_exactly():
-    # load_template(None) forces the built-in fallback so this test does not depend on the
-    # checkpoint being downloaded on the machine running it. The fallback is verified (by
+    # load_template(None, allow_fallback=True) forces the built-in fallback so this test does
+    # not depend on the checkpoint being downloaded on the machine running it (the flag is
+    # mandatory since finding 9: a missing checkpoint template is an error by default). The fallback is verified (by
     # hand, against the real chat_template.jinja) to render this exact shape.
-    template, from_checkpoint = ld.load_template(None)
+    template, from_checkpoint = ld.load_template(None, allow_fallback=True)
     assert not from_checkpoint
 
     prompt = template.render(
@@ -117,7 +118,7 @@ def test_framing_matches_checkpoint_shape_exactly():
 def test_render_pairs_output_rows_have_four_keys(tmp_path):
     src = tmp_path / "train.jsonl"
     _write_jsonl(src, [_row("a plain 10mm cube")])
-    template, _ = ld.load_template(None)
+    template, _ = ld.load_template(None, allow_fallback=True)
 
     kept, dropped = ld.render_pairs(src, tmp_path / "out.jsonl", keys=set(), slugs=set(),
                                      template=template, tag="t")
@@ -136,7 +137,7 @@ def test_render_pairs_output_rows_have_four_keys(tmp_path):
 
 
 def test_contamination_exact_key_drops_planted_spec_keeps_clean_one():
-    template, _ = ld.load_template(None)
+    template, _ = ld.load_template(None, allow_fallback=True)
     contaminated_spec = "a 100x60x30mm enclosure with 2mm walls"
     clean_spec = "a 20mm diameter 15mm tall cylinder"
     src_rows = [_row(contaminated_spec), _row(clean_spec)]
@@ -160,7 +161,7 @@ def test_contamination_exact_key_drops_planted_spec_keeps_clean_one():
 
 
 def test_near_duplicate_slug_drops_only_when_unique_in_its_suite():
-    template, _ = ld.load_template(None)
+    template, _ = ld.load_template(None, allow_fallback=True)
     spec_a = "a bracket with a 40mm slot for mounting hardware here"
     spec_b = "a bracket with a 40mm slot for mounting hardware elsewhere"  # same 40-char slug
     # Both specs share a 40-character opening, so the slug seen at render time is the same
@@ -212,7 +213,7 @@ def test_render_pairs_completion_does_not_double_append_turn_end(tmp_path):
     row = _row("a plain 10mm cube", code="from build123d import *\nresult = Box(10, 10, 10)<turn|>\n")
     src = tmp_path / "train.jsonl"
     _write_jsonl(src, [row])
-    template, _ = ld.load_template(None)
+    template, _ = ld.load_template(None, allow_fallback=True)
 
     kept, dropped = ld.render_pairs(src, tmp_path / "out.jsonl", keys=set(), slugs=set(),
                                      template=template, tag="t")
@@ -227,3 +228,42 @@ def test_scan_special_tokens_flags_rows_that_already_contain_framing(tmp_path):
     _write_jsonl(src, [_row("clean spec"), _row("a spec with <|turn> already in it")])
     hits = ld.scan_special_tokens(src)
     assert hits == [f"{src.name}#1"]
+
+
+def test_load_template_refuses_the_fallback_unless_it_is_asked_for(tmp_path):
+    """finding 9: a moved/renamed/never-downloaded checkpoint template used to fall back to
+    the built-in framing with one printed line, so an unattended rerun could train a whole
+    corpus on a framing the checkpoint never used."""
+    import pytest
+
+    with pytest.raises(SystemExit, match="chat template not found"):
+        ld.load_template(tmp_path / "missing" / "chat_template.jinja")
+    template, from_checkpoint = ld.load_template(tmp_path / "missing" / "chat_template.jinja",
+                                                 allow_fallback=True)
+    assert from_checkpoint is False
+    assert template is not None
+
+
+def test_load_template_reads_a_real_checkpoint_template(tmp_path):
+    path = tmp_path / "chat_template.jinja"
+    path.write_text("{{ messages[0]['content'] }}")
+    template, from_checkpoint = ld.load_template(path)
+    assert from_checkpoint is True
+    assert template.render(messages=[{"role": "user", "content": "HI"}]) == "HI"
+
+
+def test_contamination_slug_uniqueness_is_counted_per_suite(monkeypatch):
+    """finding 13: run_card.contamination() counts slug uniqueness inside each suite, so a
+    slug appearing once in suite A and once in suite B is evidence in BOTH. The old global
+    count called it ambiguous and let such a row through, i.e. this guard was more permissive
+    than the one it claims to mirror."""
+    shared = "a-bracket-slug"
+    monkeypatch.setattr(ld.hc, "suite_keys", lambda: {"deadbeef"})
+    monkeypatch.setattr(ld.hc, "suite_slug_counts", lambda n=40: {
+        "suite-a": {shared: 1, "degenerate": 28},
+        "suite-b": {shared: 1},
+    })
+    keys, slugs = ld.default_contamination_sets()
+    assert keys == {"deadbeef"}
+    assert shared in slugs
+    assert "degenerate" not in slugs

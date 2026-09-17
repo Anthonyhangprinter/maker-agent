@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE))  # `lab.data` (the chat-template canary's renderer) lives here
 
 _spec = importlib.util.spec_from_file_location("lab_ship", HERE / "lab" / "ship.py")
 ship = importlib.util.module_from_spec(_spec)
@@ -469,6 +470,7 @@ def test_cmd_merge_runs_the_streaming_merge_copies_aux_files_and_writes_marker(t
     args = argparse.Namespace(
         scratch=str(tmp_path / "scratch"), force=False,
         adapter=str(adapter_dir), base=str(base_dir), out=str(out_dir),
+        train_template=None, skip_template_check=True,  # the fake base ships no chat template
     )
     ship.cmd_merge(args)
 
@@ -773,10 +775,12 @@ def test_cmd_convert_writes_to_a_partial_name_then_replaces_atomically(tmp_path,
         Path(argv[4]).write_text("f16 bytes")  # simulate convert_hf_to_gguf.py writing --outfile
 
     monkeypatch.setattr(ship.subprocess, "run", fake_run)
-    args = argparse.Namespace(scratch=str(tmp_path), force=False, merged=str(merged), out=str(out_file), python="FAKE_PY")
+    args = argparse.Namespace(scratch=str(tmp_path), force=False, merged=str(merged),
+                              out=str(out_file), python="FAKE_PY", model_name=None)
     ship.cmd_convert(args)
 
-    assert calls == [ship.convert_argv("FAKE_PY", merged, partial)]  # argv named the .partial path
+    # argv named the .partial path, and carries the GGUF's general.name (finding 23)
+    assert calls == [ship.convert_argv("FAKE_PY", merged, partial, "out")]
     assert not partial.exists()                                      # renamed away, never left behind
     assert out_file.read_text() == "f16 bytes"
     marker = ship.marker_path_for_file(out_file)
@@ -948,12 +952,22 @@ def test_cmd_register_writes_temp_arms_file_and_copies_gguf(tmp_path):
     arms_file = tmp_path / "arms.json"
     arms_file.write_text(json.dumps(arms_data, indent=2) + "\n")
 
+    scratch = tmp_path / "scratch"
+    ship.scratch_paths(scratch)["verify_ok"].parent.mkdir(parents=True, exist_ok=True)
+    ship.scratch_paths(scratch)["verify_ok"].write_text(json.dumps({"gguf": str(gguf)}) + "\n")
+
     args = argparse.Namespace(
-        scratch=str(tmp_path / "scratch"), gguf=str(gguf), name="gemma-4-31b-cad-spike",
+        scratch=str(scratch), gguf=str(gguf), name="gemma-4-31b-cad-spike",
         adapter="lab/runs/spike1/adapter", store=str(store / "gemma-4-31B-cad-spike"),
         arms_file=str(arms_file), quant_type="Q4_K_M", force=False,
     )
+    # The real benchmarks/arms.json must come back byte-identical: the point is that
+    # cmd_register touched only the --arms-file it was given. (Asserting the spike arm is
+    # ABSENT from it was wrong once b9cc26b legitimately registered that arm, and made the
+    # branch fail its own suite -- final review, finding 1.)
+    real_before = ship.ARMS_FILE.read_bytes()
     ship.cmd_register(args)
+    assert ship.ARMS_FILE.read_bytes() == real_before
 
     dest = store / "gemma-4-31B-cad-spike" / "gemma-4-31b-cad-spike-Q4_K_M.gguf"
     assert dest.read_bytes() == b"fake gguf bytes"
@@ -964,10 +978,6 @@ def test_cmd_register_writes_temp_arms_file_and_copies_gguf(tmp_path):
     new_arm = next(a for a in new_data["arms"] if a["name"] == "gemma-4-31b-cad-spike")
     assert new_arm["gguf"] == "gemma-4-31B-cad-spike/gemma-4-31b-cad-spike-Q4_K_M.gguf"
 
-    # the REAL benchmarks/arms.json must never be touched by this test
-    real = json.loads(ship.ARMS_FILE.read_text())
-    assert "gemma-4-31b-cad-spike" not in [a["name"] for a in real["arms"]]
-
 
 def test_cmd_register_refuses_duplicate_without_force(tmp_path):
     gguf = tmp_path / "g.gguf"; gguf.write_bytes(b"x")
@@ -977,12 +987,41 @@ def test_cmd_register_refuses_duplicate_without_force(tmp_path):
     arms_file = tmp_path / "arms.json"
     arms_file.write_text(json.dumps(arms_data, indent=2) + "\n")
 
+    scratch = tmp_path / "scratch"
+    ship.scratch_paths(scratch)["verify_ok"].parent.mkdir(parents=True, exist_ok=True)
+    ship.scratch_paths(scratch)["verify_ok"].write_text(json.dumps({"gguf": str(gguf)}) + "\n")
+
     args = argparse.Namespace(
-        scratch=str(tmp_path / "scratch"), gguf=str(gguf), name="gemma-4-31b",  # collides
+        scratch=str(scratch), gguf=str(gguf), name="gemma-4-31b",  # collides
         adapter=None, store=str(store), arms_file=str(arms_file), quant_type="Q4_K_M", force=False,
     )
     with pytest.raises(SystemExit, match="already exists"):
         ship.cmd_register(args)
+
+
+def test_cmd_register_refuses_without_a_passing_verify(tmp_path):
+    """finding 24: register publishes into the shared arms.json, so it demands the same
+    passing verify `clean` does."""
+    gguf = tmp_path / "g.gguf"; gguf.write_bytes(b"x")
+    args = argparse.Namespace(
+        scratch=str(tmp_path / "scratch"), gguf=str(gguf), name="gemma-4-31b-cad-spike",
+        adapter=None, store=str(tmp_path / "store"), arms_file=str(tmp_path / "arms.json"),
+        quant_type="Q4_K_M", force=False,
+    )
+    with pytest.raises(SystemExit, match="verify"):
+        ship.cmd_register(args)
+
+
+def test_check_verify_ok_for_warns_on_a_different_gguf(tmp_path, capsys):
+    paths = ship.scratch_paths(tmp_path)
+    paths["verify_ok"].write_text(json.dumps({"gguf": "/store/some-other-model.gguf"}) + "\n")
+    ship.check_verify_ok_for(tmp_path, Path("/store/this-one.gguf"), force=False)
+    assert "WARNING" in capsys.readouterr().out
+
+
+def test_check_verify_ok_for_force_allows_a_missing_marker(tmp_path, capsys):
+    ship.check_verify_ok_for(tmp_path, Path("/store/x.gguf"), force=True)
+    assert "WARNING" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
@@ -1005,10 +1044,11 @@ def test_cmd_clean_deletes_targets_and_reports_reclaimed_gb(tmp_path):
     (paths["merged"] / "model.safetensors").write_bytes(b"b" * (2 * 1024 * 1024))  # 2 MiB
     paths["f16_gguf"].write_bytes(b"c" * (1024 * 1024))  # 1 MiB
 
-    args = argparse.Namespace(scratch=str(tmp_path))
+    args = argparse.Namespace(scratch=str(tmp_path), include_base=False)
     ship.cmd_clean(args)
 
-    assert not paths["bf16_base"].exists()
+    # finding 6: the bf16 base is the ledger's keep-it decision, so a default clean leaves it.
+    assert paths["bf16_base"].exists()
     assert not paths["merged"].exists()
     assert not paths["f16_gguf"].exists()
     assert paths["verify_ok"].exists()  # clean never removes the marker itself
@@ -1016,14 +1056,25 @@ def test_cmd_clean_deletes_targets_and_reports_reclaimed_gb(tmp_path):
     log_lines = ship.scratch_paths(tmp_path)["log"].read_text().splitlines()
     row = json.loads(log_lines[-1])
     assert row["step"] == "clean"
-    expected_gb = (1 + 2 + 1) * 1024 * 1024 / (1024**3)  # 4 MiB reclaimed
+    expected_gb = (2 + 1) * 1024 * 1024 / (1024**3)  # 3 MiB reclaimed, base untouched
     assert row["reclaimed_gb"] == pytest.approx(round(expected_gb, 2))
+
+
+def test_cmd_clean_include_base_deletes_the_bf16_base(tmp_path):
+    paths = ship.scratch_paths(tmp_path)
+    paths["verify_ok"].write_text("{}")
+    paths["bf16_base"].mkdir()
+    (paths["bf16_base"] / "shard.bin").write_bytes(b"a" * (1024 * 1024))
+
+    ship.cmd_clean(argparse.Namespace(scratch=str(tmp_path), include_base=True))
+
+    assert not paths["bf16_base"].exists()
 
 
 def test_cmd_clean_handles_already_missing_targets(tmp_path):
     paths = ship.scratch_paths(tmp_path)
     paths["verify_ok"].write_text("{}")
-    args = argparse.Namespace(scratch=str(tmp_path))
+    args = argparse.Namespace(scratch=str(tmp_path), include_base=True)
     ship.cmd_clean(args)  # must not raise even though bf16_base/merged/f16_gguf never existed
 
 
@@ -1055,6 +1106,7 @@ def test_build_argparser_verify_requires_gguf_and_has_defaults():
     args = p.parse_args(["verify", "--gguf", "/g/model.gguf"])
     assert args.mmproj == str(ship.STOCK_MMPROJ)
     assert args.port == 8093
+    assert args.i_know_the_gpu_is_free is False
 
 
 def test_build_argparser_register_defaults():
@@ -1084,3 +1136,186 @@ def test_dispatch_table_covers_every_subcommand():
     sub_actions = [a for a in p._subparsers._group_actions if hasattr(a, "choices")]
     subcommands = set(sub_actions[0].choices.keys())
     assert subcommands == set(ship._DISPATCH.keys())
+
+
+# ---------------------------------------------------------------------------
+# fix round 3: disk precheck (finding 7), adapter validation (8), GPU window (5),
+# template canary (10), GGUF model name (23)
+# ---------------------------------------------------------------------------
+
+
+def test_check_disk_free_passes_when_there_is_room(tmp_path):
+    free = ship.check_disk_free(tmp_path / "not-created-yet" / "out.gguf", 1, "convert")
+    assert free > 0
+
+
+def test_check_disk_free_refuses_and_names_the_step_and_both_sizes(tmp_path):
+    with pytest.raises(SystemExit, match="quantize"):
+        ship.check_disk_free(tmp_path / "out.gguf", 10 ** 18, "quantize")
+
+
+def test_existing_ancestor_walks_up_to_a_real_directory(tmp_path):
+    assert ship._existing_ancestor(tmp_path / "a" / "b" / "c.gguf") == tmp_path.resolve()
+
+
+def test_validate_adapter_config_accepts_the_real_spike_config():
+    # The verified spike adapter_config.json shape: empty patterns, no dora, no extra modules.
+    ship.validate_adapter_config({
+        "r": 16, "lora_alpha": 16, "rank_pattern": {}, "alpha_pattern": {},
+        "modules_to_save": None, "use_dora": False, "lora_bias": False,
+    })
+
+
+@pytest.mark.parametrize("key,value", [
+    ("rank_pattern", {"layers.0.mlp": 32}),
+    ("alpha_pattern", {"layers.0.mlp": 64}),
+    ("modules_to_save", ["lm_head"]),
+    ("use_dora", True),
+    ("lora_bias", True),
+    ("trainable_token_indices", [1, 2, 3]),
+    ("fan_in_fan_out", True),
+])
+def test_validate_adapter_config_raises_on_unimplemented_features(key, value):
+    with pytest.raises(ValueError):
+        ship.validate_adapter_config({"r": 16, "lora_alpha": 16, key: value})
+
+
+def test_assert_all_adapter_tensors_consumed_passes_on_clean_pairs():
+    tensors = {
+        "base_model.model.model.layers.0.mlp.down_proj.lora_A.weight": object(),
+        "base_model.model.model.layers.0.mlp.down_proj.lora_B.weight": object(),
+    }
+    pairs = ship.build_lora_pairs(tensors)
+    ship.assert_all_adapter_tensors_consumed(tensors, pairs)
+
+
+def test_assert_all_adapter_tensors_consumed_raises_and_lists_leftovers():
+    tensors = {
+        "base_model.model.model.layers.0.mlp.down_proj.lora_A.weight": object(),
+        "base_model.model.model.layers.0.mlp.down_proj.lora_B.weight": object(),
+        "base_model.model.model.embed_tokens.lora_embedding_A": object(),
+    }
+    pairs = ship.build_lora_pairs(tensors)
+    with pytest.raises(ValueError, match="lora_embedding_A"):
+        ship.assert_all_adapter_tensors_consumed(tensors, pairs)
+
+
+def test_in_gpu_window_reads_the_marker_env():
+    assert ship.in_gpu_window({"CAD_GPU_WINDOW": "1"}) is True
+    assert ship.in_gpu_window({}) is False
+
+
+def test_require_gpu_window_refuses_outside_a_window(monkeypatch):
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    with pytest.raises(SystemExit, match="gpu_window"):
+        ship.require_gpu_window(argparse.Namespace(i_know_the_gpu_is_free=False))
+
+
+def test_require_gpu_window_allows_inside_a_window(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
+    ship.require_gpu_window(argparse.Namespace(i_know_the_gpu_is_free=False))
+
+
+def test_require_gpu_window_allows_the_explicit_manual_override(monkeypatch):
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    ship.require_gpu_window(argparse.Namespace(i_know_the_gpu_is_free=True))
+
+
+def test_cmd_verify_refuses_before_starting_a_server(monkeypatch, tmp_path):
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+
+    def boom(*a, **k):  # pragma: no cover - must never run
+        raise AssertionError("verify started a server outside a GPU window")
+
+    monkeypatch.setattr(ship.subprocess, "Popen", boom)
+    args = argparse.Namespace(scratch=str(tmp_path), gguf="/g/m.gguf", mmproj="/g/mm.gguf",
+                              port=8093, i_know_the_gpu_is_free=False)
+    with pytest.raises(SystemExit, match="GPU window"):
+        ship.cmd_verify(args)
+
+
+_TEMPLATE_A = (
+    "{% if messages and messages[0]['role'] == 'system' %}"
+    "<|turn>system\n{{ messages[0]['content'] | trim }}<turn|>\n"
+    "{% set loop_messages = messages[1:] %}{% else %}{% set loop_messages = messages %}{% endif %}"
+    "{% for message in loop_messages %}<|turn>{{ message['role'] }}\n"
+    "{{ message['content'] | trim }}<turn|>\n{% endfor %}"
+    "{% if add_generation_prompt %}<|turn>model\n{% endif %}"
+)
+_TEMPLATE_B = _TEMPLATE_A.replace("<|turn>model", "<|start>model")
+
+
+def test_check_template_match_passes_on_identical_framing(tmp_path):
+    base = tmp_path / "base"; base.mkdir()
+    (base / "chat_template.jinja").write_text(_TEMPLATE_A)
+    train = tmp_path / "train_chat_template.jinja"
+    train.write_text("{# a different file, same rendering #}" + _TEMPLATE_A)
+    rendered = ship.check_template_match(base, train)
+    assert rendered.endswith("<|turn>model\n")
+
+
+def test_check_template_match_refuses_on_a_serving_framing_that_differs(tmp_path):
+    base = tmp_path / "base"; base.mkdir()
+    (base / "chat_template.jinja").write_text(_TEMPLATE_B)
+    train = tmp_path / "train_chat_template.jinja"
+    train.write_text(_TEMPLATE_A)
+    with pytest.raises(SystemExit, match="chat template mismatch"):
+        ship.check_template_match(base, train)
+
+
+def test_check_template_match_refuses_when_the_base_has_no_template(tmp_path):
+    base = tmp_path / "base"; base.mkdir()
+    train = tmp_path / "t.jinja"; train.write_text(_TEMPLATE_A)
+    with pytest.raises(SystemExit, match="chat_template.jinja"):
+        ship.check_template_match(base, train)
+
+
+def test_training_template_path_prefers_the_adapters_own(tmp_path):
+    adapter = tmp_path / "adapter"; adapter.mkdir()
+    (adapter / "chat_template.jinja").write_text(_TEMPLATE_A)
+    assert ship.training_template_path(adapter) == adapter / "chat_template.jinja"
+
+
+def test_training_template_path_falls_back_to_lab_data_default(tmp_path):
+    adapter = tmp_path / "adapter"; adapter.mkdir()
+    from lab.data import DEFAULT_TEMPLATE
+    assert ship.training_template_path(adapter) == Path(DEFAULT_TEMPLATE)
+
+
+def test_default_model_name_strips_the_precision_tail():
+    assert ship.default_model_name(Path("/s/gemma-4-31b-cad-F16.gguf")) == "gemma-4-31b-cad"
+    assert ship.default_model_name(Path("/s/gemma-4-31b-cad-F16.gguf.partial")) == "gemma-4-31b-cad"
+    assert ship.default_model_name(
+        Path("/s/gemma-4-31b-cad-spike-Q4_K_M.gguf")) == "gemma-4-31b-cad-spike"
+
+
+def test_convert_argv_passes_model_name_when_given():
+    argv = ship.convert_argv("PY", Path("/m"), Path("/o/out.gguf"), "gemma-4-31b-cad-spike")
+    assert argv[-2:] == ["--model-name", "gemma-4-31b-cad-spike"]
+
+
+def test_cmd_merge_refuses_when_the_serving_template_differs_from_training(tmp_path, monkeypatch):
+    """finding 10: the merged dir (and therefore the GGUF) takes its chat template from the
+    bf16 BASE, while the training data was rendered with the checkpoint's. Nothing checked
+    that the two frame a conversation the same way."""
+    import torch
+
+    torch.manual_seed(2)
+    w_target = torch.randn(8, 4, dtype=torch.float32)
+    base_dir = _make_base_checkpoint(
+        tmp_path, w_target, torch.randn(6), torch.randn(3, 5), TARGET_KEY,
+    )
+    (base_dir / "chat_template.jinja").write_text(_TEMPLATE_B)
+    adapter_dir = _make_adapter(
+        tmp_path, TARGET_KEY, torch.randn(2, 4), torch.randn(8, 2), r=2, alpha=4)
+    (adapter_dir / "chat_template.jinja").write_text(_TEMPLATE_A)
+
+    monkeypatch.setattr(ship, "check_mem_available", lambda: 50.0)
+    args = argparse.Namespace(
+        scratch=str(tmp_path / "scratch"), force=False, adapter=str(adapter_dir),
+        base=str(base_dir), out=str(tmp_path / "merged"),
+        train_template=None, skip_template_check=False,
+    )
+    with pytest.raises(SystemExit, match="chat template mismatch"):
+        ship.cmd_merge(args)
+    assert not (tmp_path / "merged" / "model.safetensors.index.json").exists()
