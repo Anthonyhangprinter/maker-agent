@@ -7,7 +7,8 @@ unless --force) and each printing the argv/action it ran plus its elapsed time, 
 convert/fetch-imatrix/quantize/verify/register/clean) appending one JSON line to
 <scratch>/ship_log.jsonl:
 
-  merge         PEFT-merge the adapter into the bf16 base on CPU, save the merged HF dir.
+  merge         streaming per-tensor LoRA merge of the adapter into the bf16 base, save the
+                merged HF dir (fix round 2: no full-model load -- see streaming_merge()).
   convert       llama.cpp convert_hf_to_gguf.py: merged HF dir -> F16 GGUF.
   fetch-imatrix download the Unsloth importance matrix used to quantize the stock arm.
   quantize      llama-quantize --imatrix: F16 GGUF -> Q4_K_M GGUF.
@@ -47,12 +48,16 @@ cleanly under lab/.venv/bin/python but NOT under the system python3 (missing sen
 pick_converter_python() re-checks this at run time rather than trusting that one-time
 finding, in case either environment changes before this is actually run.
 
-Heavy imports (torch, transformers, peft) live inside merge_and_save(), never at module
-scope, so this module and every other function in it stay importable -- and unit-testable --
-without the training venv on the machine running the plain repo test suite. Nothing in this
-file talks to the GPU except verify's llama-server subprocess (started/stopped by the PID
-this module itself spawned, never by a pkill pattern); merge/convert/quantize/fetch-imatrix
-are CPU/network-only.
+Heavy imports (torch, safetensors) live inside streaming_merge()/load_adapter(), never at
+module scope, so this module and every other function in it stay importable -- and
+unit-testable -- without the training venv on the machine running the plain repo test suite.
+Fix round 2 removed transformers and peft from this module entirely: the earlier merge
+loaded the whole ~62.5GB bf16 checkpoint through transformers+PEFT, which does not fit this
+box's 47GB MemAvailable; the streaming per-tensor merge (see streaming_merge()) reads and
+writes one base tensor and one output shard buffer at a time instead, targeting well under
+12GB peak RSS. Nothing in this file talks to the GPU except verify's llama-server subprocess
+(started/stopped by the PID this module itself spawned, never by a pkill pattern);
+merge/convert/quantize/fetch-imatrix are CPU/network-only.
 
 Idempotency is completeness-based, not existence-based (fix round 1, 2026-09-17): merge/
 convert/fetch-imatrix/quantize each write a marker only after their real work has already
@@ -74,6 +79,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shutil
 import subprocess
 import time
@@ -110,7 +116,12 @@ DEFAULT_QUANT_TYPE = "Q4_K_M"
 DEFAULT_ARM_NAME = "gemma-4-31b-cad-spike"
 BASE_ARM_FOR_CLONE = "gemma-4-31b"
 
-MIN_MEM_AVAILABLE_GB = 40.0
+# Fix round 2: the streaming per-tensor merge peaks well under 12GB (one base tensor plus
+# one output shard buffer), never the full 62.5GB checkpoint -- 40GB was sized for the
+# now-removed full transformers+PEFT load and would refuse to run on this box's real 47GB
+# MemAvailable for no reason. 8GB is a floor that still catches "something else already
+# ate the RAM", not a tight sizing estimate.
+MIN_MEM_AVAILABLE_GB = 8.0
 
 # copy_aux_files() copies every top-level regular file from the bf16 base dir into the merged
 # dir EXCEPT these -- weight artifacts (already written by save_pretrained, or irrelevant to
@@ -267,16 +278,18 @@ def check_mem_available(
     """Refuse (SystemExit) unless at least min_gb of RAM is free right now. Returns the
     measured GB so the caller can log it.
 
-    The CPU bf16 merge loads the full ~62.5GB base (low_cpu_mem_usage lowers the peak but
-    does not eliminate it) plus the merged copy transiently; 40GB is a floor that catches
-    "something else is already holding memory on this box", not a tight sizing estimate.
+    Fix round 2: the streaming per-tensor merge (see streaming_merge()) never holds more than
+    one base tensor plus one output shard buffer (target under 12GB peak, even against the
+    real 62.5GB base), so the floor dropped from 40GB (sized for the removed full
+    transformers+PEFT load) to 8GB -- still a floor that catches "something else is already
+    holding memory on this box", not a tight sizing estimate.
     """
     kb = read_mem_available_kb(meminfo_path)
     gb = kb / (1024 * 1024)
     if gb < min_gb:
         raise SystemExit(
-            f"MemAvailable is {gb:.1f}GB, below the {min_gb:.0f}GB floor for a CPU bf16 "
-            f"merge; free up RAM (stop other heavy processes) before retrying"
+            f"MemAvailable is {gb:.1f}GB, below the {min_gb:.0f}GB floor for the merge; "
+            f"free up RAM (stop other heavy processes) before retrying"
         )
     return gb
 
@@ -351,7 +364,9 @@ def pick_converter_python(checker: Callable[[str], bool] = _can_import_convert_d
 
 
 # ---------------------------------------------------------------------------
-# merge (heavy step -- torch/transformers/peft imports live inside merge_and_save only)
+# merge (fix round 2: streaming per-tensor LoRA merge -- torch/safetensors imports live
+# inside streaming_merge/load_adapter only, and neither transformers nor peft is imported
+# anywhere in this module any more)
 # ---------------------------------------------------------------------------
 
 
@@ -368,11 +383,11 @@ def copy_aux_files(
     allow-list of filename patterns silently missed special_tokens_map.json/
     added_tokens.json).
 
-    Must be called AFTER save_pretrained() has already written the merged model's own
-    weights and config: any destination file that already exists is never overwritten, so
-    config.json and generation_config.json -- which save_pretrained just wrote for the
-    MERGED model -- always win over the base's copies. Returns the list of filenames
-    actually copied.
+    Fix round 2: the streaming merge never calls save_pretrained() (there is no HF model
+    object to save), so these files now come from the base dir with NOTHING already written
+    at the destination -- copy_aux_files() still never overwrites an existing destination
+    file (harmless now, defensive against a future caller that pre-populates the merged dir).
+    Returns the list of filenames actually copied.
     """
     copied = []
     base_dir = Path(base_dir)
@@ -392,54 +407,256 @@ def copy_aux_files(
     return copied
 
 
-def _from_pretrained_bf16_cpu(loader: Any, base_dir: Path, torch_module: Any) -> Any:
-    """`from_pretrained` with dtype=bfloat16 on CPU, low_cpu_mem_usage on. transformers 5.5
-    renamed the dtype kwarg from `torch_dtype` to `dtype` (fix round 1, LOW finding 3); try
-    `dtype=` first and fall back to `torch_dtype=` on TypeError so this keeps working against
-    an older transformers that has not made the rename yet."""
-    kwargs = dict(low_cpu_mem_usage=True, device_map={"": "cpu"})
-    try:
-        return loader.from_pretrained(str(base_dir), dtype=torch_module.bfloat16, **kwargs)
-    except TypeError:
-        return loader.from_pretrained(str(base_dir), torch_dtype=torch_module.bfloat16, **kwargs)
+# Verified 2026-09-17 against lab/runs/smoke4/adapter/adapter_model.safetensors (820
+# tensors, fp32, 0 unmapped): a PEFT LoRA key looks like
+# "base_model.model.model.language_model.layers.0.mlp.down_proj.lora_A.weight" and its base
+# target is "model.language_model.layers.0.mlp.down_proj.weight" -- strip the
+# "base_model.model." prefix, then replace the ".lora_A.weight"/".lora_B.weight" suffix with
+# plain ".weight".
+ADAPTER_KEY_PREFIX = "base_model.model."
+LORA_A_SUFFIX = ".lora_A.weight"
+LORA_B_SUFFIX = ".lora_B.weight"
+
+# safetensors reports dtype as one of these short strings via PySafeSlice.get_dtype(); sizes
+# in bytes per element. Used only to SIZE tensors (for shard planning) without materializing
+# them -- see plan_output_shards().
+SAFETENSORS_DTYPE_SIZES = {
+    "F64": 8, "F32": 4, "F16": 2, "BF16": 2,
+    "I64": 8, "I32": 4, "I16": 2, "I8": 1, "U8": 1, "BOOL": 1,
+    "F8_E4M3": 1, "F8_E5M2": 1,
+}
+
+# Flush an output shard once its buffered bytes exceed this. Matches the brief's 5GB target;
+# a single tensor larger than this still lands whole in its own shard (same convention HF's
+# own sharded save uses -- the cap bounds normal packing, not any one tensor).
+MAX_SHARD_BYTES = 5 * 1024 ** 3
 
 
-def _load_base_model(base_dir: Path, torch_module: Any) -> Any:
-    """Load the bf16 base for merging. Gemma 4 is a vision-capable ForConditionalGeneration
-    architecture (Task 3 loaded the 4-bit checkpoint through Unsloth's FastModel wrapper,
-    which hides this); transformers exposes conditional-generation multimodal heads under
-    AutoModelForImageTextToText in current versions, so try that first and fall back to
-    AutoModelForCausalLM for older transformers or a text-only config export. This path has
-    not been exercised against the real checkpoint in this dispatch (no heavy deps are
-    supposed to run here) -- confirm on the first real merge."""
-    import transformers
+def base_key_for_adapter_key(adapter_key: str) -> str | None:
+    """Map a PEFT adapter tensor key to the base model tensor it targets, or None if the key
+    is not a lora_A/lora_B weight (kept permissive rather than raising -- the verified real
+    adapter has 0 such keys, but a future PEFT version adding e.g. an embedding delta should
+    not crash the mapping step, only fail later if it turns out to matter)."""
+    if not adapter_key.startswith(ADAPTER_KEY_PREFIX):
+        return None
+    stripped = adapter_key[len(ADAPTER_KEY_PREFIX):]
+    for suffix in (LORA_A_SUFFIX, LORA_B_SUFFIX):
+        if stripped.endswith(suffix):
+            return stripped[: -len(suffix)] + ".weight"
+    return None
 
-    loader = getattr(transformers, "AutoModelForImageTextToText", None)
-    if loader is not None:
-        try:
-            return _from_pretrained_bf16_cpu(loader, base_dir, torch_module)
-        except (ValueError, OSError):
-            pass
-    from transformers import AutoModelForCausalLM
 
-    return _from_pretrained_bf16_cpu(AutoModelForCausalLM, base_dir, torch_module)
+def load_adapter(adapter_dir: Path) -> tuple[dict, dict]:
+    """Load every adapter tensor (small -- LoRA A/B matrices only, never the base model) plus
+    adapter_config.json. Returns (tensors, config). Heavy import (safetensors) lives here,
+    not at module scope."""
+    from safetensors.torch import load_file
+
+    tensors = load_file(str(Path(adapter_dir) / "adapter_model.safetensors"))
+    config = json.loads((Path(adapter_dir) / "adapter_config.json").read_text())
+    return tensors, config
+
+
+def lora_scale(config: dict) -> float:
+    """alpha / r by default; alpha / sqrt(r) when the adapter was trained with rslora
+    (`use_rslora: true` in adapter_config.json) -- PEFT's own two scaling conventions.
+    lora_dropout has no effect at merge time (it only ever applied during training) and is
+    not read here."""
+    r = config["r"]
+    alpha = config.get("lora_alpha", r)
+    if config.get("use_rslora"):
+        return alpha / math.sqrt(r)
+    return alpha / r
+
+
+def build_lora_pairs(tensors: dict) -> dict[str, tuple[str, str]]:
+    """{base_key: (lora_A_key, lora_B_key)} from a loaded adapter tensor dict. Raises
+    ValueError if any base key has an A without a matching B or vice versa -- a real PEFT
+    adapter never does this; if it happens, the mapping in base_key_for_adapter_key() has
+    drifted from the actual key format and merging would silently apply half a delta."""
+    a_keys: dict[str, str] = {}
+    b_keys: dict[str, str] = {}
+    for key in tensors:
+        base_key = base_key_for_adapter_key(key)
+        if base_key is None:
+            continue
+        if key.endswith(LORA_A_SUFFIX):
+            a_keys[base_key] = key
+        elif key.endswith(LORA_B_SUFFIX):
+            b_keys[base_key] = key
+    missing_b = set(a_keys) - set(b_keys)
+    missing_a = set(b_keys) - set(a_keys)
+    if missing_b or missing_a:
+        raise ValueError(
+            f"unpaired LoRA keys: {len(missing_b)} A-without-B, {len(missing_a)} B-without-A"
+        )
+    return {base_key: (a_key, b_keys[base_key]) for base_key, a_key in a_keys.items()}
+
+
+def base_model_index(base_dir: Path) -> dict:
+    """Read the base checkpoint's model.safetensors.index.json (shard map + total_size).
+    Required: the verified real base (google/gemma-4-31B-it bf16, 2 shards, 1188 tensors)
+    always ships one for a sharded checkpoint."""
+    index_path = Path(base_dir) / "model.safetensors.index.json"
+    if not index_path.exists():
+        raise SystemExit(
+            f"no model.safetensors.index.json in {base_dir}; expected a sharded safetensors "
+            f"checkpoint"
+        )
+    return json.loads(index_path.read_text())
+
+
+def shard_files_in_order(index: dict) -> list[str]:
+    """Every distinct base shard filename from an index's weight_map, in a stable
+    (numerically sorted, since shard names are zero-padded) order."""
+    return sorted(set(index["weight_map"].values()))
+
+
+def plan_output_shards(
+    base_dir: Path, index: dict, max_shard_bytes: int = MAX_SHARD_BYTES
+) -> tuple[dict[str, int], int, int]:
+    """First pass (fix round 2): decide which output shard bucket every base tensor key
+    lands in, reading only shape+dtype via safe_open().get_slice() -- never a full tensor.
+    Iterates shard files and keys in EXACTLY the order streaming_merge()'s real pass does, so
+    the two agree on which key goes in which bucket.
+
+    Returns (key_to_shard_index, n_shards, total_bytes), so the real merge pass can write
+    each output shard under its FINAL filename ("model-NNNNN-of-MMMMM.safetensors") the first
+    time -- no rename-after step needed."""
+    from safetensors import safe_open
+
+    key_to_shard: dict[str, int] = {}
+    shard_bytes = [0]
+    total_bytes = 0
+    for shard_file in shard_files_in_order(index):
+        with safe_open(str(Path(base_dir) / shard_file), framework="pt") as f:
+            for key in f.keys():
+                s = f.get_slice(key)
+                nbytes = SAFETENSORS_DTYPE_SIZES[s.get_dtype()]
+                for dim in s.get_shape():
+                    nbytes *= dim
+                if shard_bytes[-1] > 0 and shard_bytes[-1] + nbytes > max_shard_bytes:
+                    shard_bytes.append(0)
+                key_to_shard[key] = len(shard_bytes) - 1
+                shard_bytes[-1] += nbytes
+                total_bytes += nbytes
+    return key_to_shard, len(shard_bytes), total_bytes
+
+
+def streaming_merge(adapter_dir: Path, base_dir: Path, out_dir: Path) -> dict:
+    """Stream every base tensor through, apply its LoRA delta if one targets it, and write
+    straight to new output shards -- never holding more than one base tensor plus one output
+    shard buffer in memory (peak target well under 12GB, even against the real 62.5GB base,
+    so it can run beside a training job). Replaces the earlier full-model transformers+PEFT
+    load (fix round 1), which does not fit this box's 47GB MemAvailable against a 62.5GB bf16
+    checkpoint (2 shards, ~31GB each).
+
+    delta = (B @ A).float() * scale, added in fp32 then cast back to the base tensor's own
+    dtype -- matches PEFT's own merge math. Raises ValueError on: fan_in_fan_out=True (this
+    mapping assumes PEFT's default weight orientation, not the transposed one some old
+    Conv1D-style layers use), a LoRA target key not present in the base's weight_map, a delta
+    shape that does not match its base tensor, or (should never happen if the code above is
+    correct) a LoRA pair left unconsumed / a final tensor count or key set that disagrees
+    with the base index -- those last three are self-consistency checks on this function's
+    own bookkeeping, not normal user-input validation.
+
+    Returns a small summary dict (tensor/pair counts, shard count, bytes, elapsed) for
+    logging.
+    """
+    from safetensors import safe_open
+    from safetensors.torch import save_file
+
+    adapter_tensors, adapter_config = load_adapter(adapter_dir)
+    if adapter_config.get("fan_in_fan_out"):
+        raise ValueError("fan_in_fan_out=True adapters are not supported by this streaming merge")
+    scale = lora_scale(adapter_config)
+    lora_pairs = build_lora_pairs(adapter_tensors)
+
+    index = base_model_index(base_dir)
+    base_keys = set(index["weight_map"].keys())
+    unmapped = sorted(set(lora_pairs) - base_keys)
+    if unmapped:
+        raise ValueError(
+            f"{len(unmapped)} LoRA target(s) not found in the base model: {unmapped[:5]}"
+        )
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key_to_shard, n_shards, total_bytes = plan_output_shards(base_dir, index)
+
+    weight_map: dict[str, str] = {}
+    consumed: set[str] = set()
+    buffer: dict = {}
+    current_shard_idx = 0
+    tensor_count = 0
+
+    def flush(idx: int) -> None:
+        if not buffer:
+            return
+        name = f"model-{idx + 1:05d}-of-{n_shards:05d}.safetensors"
+        save_file(dict(buffer), str(out_dir / name), metadata={"format": "pt"})
+        for k in buffer:
+            weight_map[k] = name
+        buffer.clear()
+
+    t0 = time.time()
+    for shard_file in shard_files_in_order(index):
+        shard_t0 = time.time()
+        shard_tensor_count = 0
+        with safe_open(str(Path(base_dir) / shard_file), framework="pt") as f:
+            for key in f.keys():
+                target_shard = key_to_shard[key]
+                if target_shard != current_shard_idx:
+                    flush(current_shard_idx)
+                    current_shard_idx = target_shard
+                w = f.get_tensor(key)
+                if key in lora_pairs:
+                    a_key, b_key = lora_pairs[key]
+                    a = adapter_tensors[a_key]
+                    b = adapter_tensors[b_key]
+                    delta = (b.float() @ a.float()) * scale
+                    if tuple(delta.shape) != tuple(w.shape):
+                        raise ValueError(
+                            f"LoRA delta shape {tuple(delta.shape)} for {key!r} does not "
+                            f"match base tensor shape {tuple(w.shape)}"
+                        )
+                    w = (w.float() + delta).to(w.dtype)
+                    consumed.add(key)
+                buffer[key] = w
+                tensor_count += 1
+                shard_tensor_count += 1
+        print(f"[ship] merge: shard {shard_file} -> {shard_tensor_count} tensors in "
+              f"{time.time() - shard_t0:.1f}s ({tensor_count} total so far)")
+    flush(current_shard_idx)
+
+    if len(consumed) != len(lora_pairs):
+        missing = sorted(set(lora_pairs) - consumed)
+        raise ValueError(f"{len(missing)} LoRA pair(s) were never applied: {missing[:5]}")
+    if tensor_count != len(base_keys):
+        raise ValueError(f"merged {tensor_count} tensors but the base index lists {len(base_keys)}")
+    if set(weight_map) != base_keys:
+        raise ValueError("merged tensor keys do not match the base index's key set")
+
+    (out_dir / "model.safetensors.index.json").write_text(json.dumps({
+        "metadata": {"total_size": total_bytes},
+        "weight_map": weight_map,
+    }, indent=2) + "\n")
+
+    elapsed = time.time() - t0
+    print(f"[ship] merge: streamed {tensor_count} tensors ({len(consumed)} with a LoRA delta) "
+          f"into {n_shards} shard(s) in {elapsed:.1f}s")
+    return {
+        "tensor_count": tensor_count, "lora_pairs_applied": len(consumed),
+        "n_shards": n_shards, "total_bytes": total_bytes, "elapsed_s": elapsed,
+    }
 
 
 def merge_and_save(adapter_dir: Path, base_dir: Path, out_dir: Path) -> list[str]:
-    """The actual CPU bf16 PEFT merge. Heavy imports live here, not at module scope, so this
-    module stays importable -- and every other function in it unit-testable -- without
-    torch/transformers/peft installed. Not exercised by the offline test suite (there is no
-    way to unit-test a real 62.5GB merge in CI); the pieces it is built from (copy_aux_files,
-    check_mem_available, scratch_paths) are tested directly instead."""
-    import torch
-    from peft import PeftModel
-
-    base = _load_base_model(base_dir, torch)
-    merged = PeftModel.from_pretrained(base, str(adapter_dir))
-    merged = merged.merge_and_unload()
+    """streaming_merge() + copy_aux_files(). Heavy imports live inside streaming_merge/
+    load_adapter, not at module scope, so this module and every pure function in it stay
+    importable without torch/safetensors installed."""
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    merged.save_pretrained(str(out_dir), safe_serialization=True, max_shard_size="5GB")
+    streaming_merge(adapter_dir, base_dir, out_dir)
     return copy_aux_files(base_dir, out_dir)
 
 
@@ -462,16 +679,10 @@ def cmd_merge(args: argparse.Namespace) -> None:
         )
     mem_gb = check_mem_available()
 
-    adapter_config_path = adapter_dir / "adapter_config.json"
-    base_ref = ""
-    if adapter_config_path.exists():
-        base_ref = json.loads(adapter_config_path.read_text()).get("base_model_name_or_path", "")
-    is_4bit_ref = "4bit" in base_ref.lower() or "bnb" in base_ref.lower()
-
     print(
         f"[ship] merge: adapter={adapter_dir} base={base_dir} out={out_dir} "
-        f"mem_available={mem_gb:.1f}GB adapter_base_ref={base_ref!r} "
-        f"(loading the bf16 base regardless -- LoRA weights are dtype-independent)"
+        f"mem_available={mem_gb:.1f}GB (streaming per-tensor merge -- never loads the full "
+        f"model into memory)"
     )
     t0 = time.time()
     copied = merge_and_save(adapter_dir, base_dir, out_dir)
@@ -481,7 +692,6 @@ def cmd_merge(args: argparse.Namespace) -> None:
     log_step(
         scratch, "merge", "ok", elapsed,
         adapter=str(adapter_dir), base=str(base_dir), out=str(out_dir),
-        base_model_name_or_path=base_ref, adapter_base_is_4bit=is_4bit_ref,
         mem_available_gb=round(mem_gb, 1), copied_aux_files=copied,
     )
 
