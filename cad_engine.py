@@ -162,7 +162,7 @@ def _load_config() -> dict:
     return cfg
 
 BUILDS_DIR = _OPENCLAW / "cad-builds"
-KEEP_BUILDS = 200  # retention: benchmark days create dozens of builds; 20 rotated out
+KEEP_BUILDS = 5000  # retention by mtime (2026-09-17: name-sorted pruning deleted date-named dirs first, 200 was 1 card run)
                    # every model the user wanted to see (gallery lesson, 2026-07-05)
 
 def _new_build_dir(spec: str) -> Path:
@@ -171,7 +171,11 @@ def _new_build_dir(spec: str) -> Path:
     d = BUILDS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{slug}"
     d.mkdir(parents=True, exist_ok=True)
     try:
-        old = sorted(p for p in BUILDS_DIR.iterdir() if p.is_dir())[:-KEEP_BUILDS]
+        # Prune the OLDEST by mtime, never the dir just created. Sorting by name deleted
+        # date-named agent dirs ("2026...") before "fluid_*" ones, i.e. the new build's own
+        # dir, and every full-loop build then died at the STEP copy (found 2026-09-17).
+        others = [p for p in BUILDS_DIR.iterdir() if p.is_dir() and p != d]
+        old = sorted(others, key=lambda p: p.stat().st_mtime)[:max(0, len(others) - (KEEP_BUILDS - 1))]
         for p in old:
             shutil.rmtree(p, ignore_errors=True)
     except Exception as e:
