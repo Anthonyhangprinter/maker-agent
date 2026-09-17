@@ -67,12 +67,29 @@ def test_quantize_argv_custom_type():
     assert argv[-1] == "Q5_K_M"
 
 
-def test_fetch_imatrix_argv():
+def test_fetch_imatrix_argv_uses_hf_bin(monkeypatch):
+    monkeypatch.setattr(ship, "_hf_bin", lambda: "FAKE_HF")
     argv = ship.fetch_imatrix_argv(Path("/scratch/imatrix"))
     assert argv == [
-        "hf", "download", "unsloth/gemma-4-31B-it-GGUF", "imatrix_unsloth.gguf_file",
+        "FAKE_HF", "download", "unsloth/gemma-4-31B-it-GGUF", "imatrix_unsloth.gguf_file",
         "--local-dir", "/scratch/imatrix",
     ]
+
+
+# ---------------------------------------------------------------------------
+# _hf_bin (fix round 1, INFO finding 4)
+# ---------------------------------------------------------------------------
+
+
+def test_hf_bin_prefers_the_pinned_path_when_present(tmp_path, monkeypatch):
+    fake_hf = tmp_path / "hf"; fake_hf.write_text("x")
+    monkeypatch.setattr(ship, "HF_BIN", fake_hf)
+    assert ship._hf_bin() == str(fake_hf)
+
+
+def test_hf_bin_falls_back_to_path_lookup_when_pinned_path_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(ship, "HF_BIN", tmp_path / "does-not-exist" / "hf")
+    assert ship._hf_bin() == "hf"
 
 
 def test_verify_server_argv():
@@ -144,16 +161,31 @@ def test_check_mem_available_returns_gb_above_floor(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_copy_aux_files_copies_matching_patterns_and_skips_existing(tmp_path):
+def test_copy_aux_files_copies_every_non_weight_file_and_skips_existing(tmp_path):
+    """Fix round 1, HIGH finding 1: copy_aux_files must copy EVERY top-level regular file
+    except weight artifacts and repo plumbing, not an allow-list of filename patterns (the
+    old pattern list silently missed special_tokens_map.json / added_tokens.json)."""
     base = tmp_path / "base"; base.mkdir()
     merged = tmp_path / "merged"; merged.mkdir()
     (base / "config.json").write_text('{"base": true}')
     (base / "generation_config.json").write_text("{}")
     (base / "tokenizer.json").write_text("{}")
     (base / "tokenizer_config.json").write_text("{}")
+    (base / "tokenizer.model").write_bytes(b"spm")
+    (base / "special_tokens_map.json").write_text("{}")   # the exact gap the review found
+    (base / "added_tokens.json").write_text("{}")          # same gap
     (base / "chat_template.jinja").write_text("{{ bos_token }}")
+    (base / "processor_config.json").write_text("{}")
     (base / "preprocessor_config.json").write_text("{}")
-    (base / "model.safetensors").write_text("not aux")  # must NOT be copied
+    # weight artifacts and repo plumbing -- must NOT be copied
+    (base / "model.safetensors").write_text("not aux")
+    (base / "model-00001-of-00002.safetensors").write_text("not aux")
+    (base / "model.safetensors.index.json").write_text("{}")
+    (base / "some-mtp.gguf").write_text("not aux")
+    (base / "pytorch_model.bin").write_text("not aux")
+    (base / "adapter.pt").write_text("not aux")
+    (base / ".gitattributes").write_text("*.bin filter=lfs")
+    (base / "README.md").write_text("# model card")
     # merged already has its own config.json (as if save_pretrained wrote it) -- must survive
     (merged / "config.json").write_text('{"merged": true}')
 
@@ -162,10 +194,15 @@ def test_copy_aux_files_copies_matching_patterns_and_skips_existing(tmp_path):
     assert "config.json" not in copied  # already present in merged, left alone
     assert json.loads((merged / "config.json").read_text()) == {"merged": True}
     assert set(copied) == {
-        "generation_config.json", "tokenizer.json", "tokenizer_config.json",
-        "chat_template.jinja", "preprocessor_config.json",
+        "generation_config.json", "tokenizer.json", "tokenizer_config.json", "tokenizer.model",
+        "special_tokens_map.json", "added_tokens.json", "chat_template.jinja",
+        "processor_config.json", "preprocessor_config.json",
     }
-    assert not (merged / "model.safetensors").exists()
+    for weight_or_plumbing in (
+        "model.safetensors", "model-00001-of-00002.safetensors", "model.safetensors.index.json",
+        "some-mtp.gguf", "pytorch_model.bin", "adapter.pt", ".gitattributes", "README.md",
+    ):
+        assert not (merged / weight_or_plumbing).exists()
 
 
 def test_copy_aux_files_missing_optional_files_are_fine(tmp_path):
@@ -174,6 +211,19 @@ def test_copy_aux_files_missing_optional_files_are_fine(tmp_path):
     merged = tmp_path / "merged"
     copied = ship.copy_aux_files(base, merged)
     assert copied == ["config.json"]
+
+
+def test_copy_aux_files_never_overwrites_generation_config_either(tmp_path):
+    """The coordinator's ruling calls out config.json AND generation_config.json by name as
+    files that must never be overwritten -- both are just instances of the general
+    never-clobber-an-existing-destination rule, exercised here explicitly."""
+    base = tmp_path / "base"; base.mkdir()
+    (base / "generation_config.json").write_text('{"base": true}')
+    merged = tmp_path / "merged"; merged.mkdir()
+    (merged / "generation_config.json").write_text('{"merged": true}')
+    copied = ship.copy_aux_files(base, merged)
+    assert "generation_config.json" not in copied
+    assert json.loads((merged / "generation_config.json").read_text()) == {"merged": True}
 
 
 # ---------------------------------------------------------------------------
@@ -198,54 +248,227 @@ def test_dir_size_bytes_missing_path_is_zero(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# idempotency: merge/convert/fetch-imatrix/quantize skip when their output exists
+# completeness markers (fix round 1, HIGH finding 2)
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_merge_skips_when_out_config_exists(tmp_path, monkeypatch):
+def test_marker_path_for_dir_is_inside_the_directory():
+    assert ship.marker_path_for_dir(Path("/a/b")) == Path("/a/b/.ship_done")
+
+
+def test_marker_path_for_file_is_a_sibling_dot_done():
+    assert ship.marker_path_for_file(Path("/a/b/out.gguf")) == Path("/a/b/out.gguf.done")
+
+
+def test_dir_output_is_complete_false_until_marker_written(tmp_path):
+    d = tmp_path / "d"; d.mkdir()
+    assert ship.dir_output_is_complete(d) is False
+    ship.write_dir_done_marker(d, "merge", 5.0)
+    assert ship.dir_output_is_complete(d) is True
+
+
+def test_write_dir_done_marker_records_expected_fields(tmp_path):
+    d = tmp_path / "d"; d.mkdir()
+    (d / "a.bin").write_bytes(b"x" * 100)
+    marker = ship.write_dir_done_marker(d, "merge", 12.5)
+    row = json.loads(marker.read_text())
+    assert row["step"] == "merge" and row["elapsed_s"] == 12.5 and row["size_bytes"] == 100
+    assert "ts" in row
+
+
+def test_file_output_is_complete_false_without_marker(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    assert ship.file_output_is_complete(f) is False
+
+
+def test_write_file_done_marker_records_expected_fields(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    marker = ship.write_file_done_marker(f, "convert", 3.5)
+    row = json.loads(marker.read_text())
+    assert row == {"step": "convert", "elapsed_s": 3.5, "size_bytes": 10, "ts": row["ts"]}
+
+
+def test_file_output_is_complete_true_when_marker_size_matches(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(f, "convert", 3.0)
+    assert ship.file_output_is_complete(f) is True
+
+
+def test_file_output_is_complete_false_when_size_mismatches(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(f, "convert", 3.0)
+    f.write_bytes(b"y" * 3)  # something replaced the file after the marker was written
+    assert ship.file_output_is_complete(f) is False
+
+
+def test_file_output_is_complete_false_when_file_missing(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(f, "convert", 3.0)
+    f.unlink()
+    assert ship.file_output_is_complete(f) is False
+
+
+def test_file_output_is_complete_false_when_marker_is_corrupt(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 10)
+    ship.marker_path_for_file(f).write_text("not json")
+    assert ship.file_output_is_complete(f) is False
+
+
+def test_should_skip_file_only_true_with_a_matching_marker(tmp_path):
+    f = tmp_path / "f.gguf"; f.write_bytes(b"x" * 4)
+    assert ship._should_skip(f, force=False, label="convert") is False   # exists, no marker
+    ship.write_file_done_marker(f, "convert", 1.0)
+    assert ship._should_skip(f, force=False, label="convert") is True    # marker matches
+    assert ship._should_skip(f, force=True, label="convert") is False    # --force always proceeds
+
+
+def test_should_skip_dir_only_true_with_a_marker(tmp_path):
+    d = tmp_path / "d"; d.mkdir()
+    assert ship._should_skip(d, force=False, label="merge", is_dir=True) is False
+    ship.write_dir_done_marker(d, "merge", 1.0)
+    assert ship._should_skip(d, force=False, label="merge", is_dir=True) is True
+
+
+# ---------------------------------------------------------------------------
+# idempotency: merge/convert/fetch-imatrix/quantize skip on completeness, not bare
+# existence (fix round 1, HIGH finding 2) -- an existing-but-unmarked output must never be
+# treated as done, a matching marker must skip, and a size mismatch against the marker must
+# not skip.
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_merge_does_not_skip_without_a_marker(tmp_path, monkeypatch):
     out_dir = tmp_path / "merged"; out_dir.mkdir()
-    (out_dir / "config.json").write_text("{}")
+    (out_dir / "config.json").write_text("{}")  # partial leftover from a killed run, no marker
 
     def boom(*a, **kw):
-        raise AssertionError("merge_and_save must not run when the output already exists")
+        raise AssertionError("must not reach check_mem_available -- proves it did not skip AND "
+                              "did not incorrectly stop earlier for an unrelated reason")
 
-    monkeypatch.setattr(ship, "merge_and_save", boom)
     monkeypatch.setattr(ship, "check_mem_available", boom)
     args = argparse.Namespace(
         scratch=str(tmp_path), force=False, adapter=str(tmp_path / "nonexistent-adapter"),
         base=None, out=str(out_dir),
     )
-    ship.cmd_merge(args)  # must not raise
+    # Proceeds past the (non-)skip, then fails on the missing adapter dir -- proves the skip
+    # path was NOT taken (a real skip returns silently with no exception at all).
+    with pytest.raises(SystemExit, match="adapter dir not found"):
+        ship.cmd_merge(args)
 
 
-def test_cmd_convert_skips_when_out_file_exists(tmp_path, monkeypatch):
-    out_file = tmp_path / "out.gguf"; out_file.write_text("x")
+def test_cmd_merge_skips_when_marker_present(tmp_path, monkeypatch):
+    out_dir = tmp_path / "merged"; out_dir.mkdir()
+    ship.write_dir_done_marker(out_dir, "merge", 1.0)
 
     def boom(*a, **kw):
-        raise AssertionError("subprocess.run must not be called when the output already exists")
+        raise AssertionError("merge_and_save must not run when the marker says it's already done")
+
+    monkeypatch.setattr(ship, "merge_and_save", boom)
+    args = argparse.Namespace(
+        scratch=str(tmp_path), force=False, adapter=str(tmp_path / "nonexistent-adapter"),
+        base=None, out=str(out_dir),
+    )
+    ship.cmd_merge(args)  # must not raise -- skipped before the (missing) adapter is checked
+
+
+def test_cmd_convert_does_not_skip_without_a_marker(tmp_path):
+    out_file = tmp_path / "out.gguf"; out_file.write_text("leftover partial junk, no marker")
+    args = argparse.Namespace(
+        scratch=str(tmp_path), force=False, merged=str(tmp_path / "nope"), out=str(out_file), python=None,
+    )
+    # Proceeds past the (non-)skip, then fails on the missing merged dir -- proves it did not skip.
+    with pytest.raises(SystemExit, match="merged HF dir not found"):
+        ship.cmd_convert(args)
+
+
+def test_cmd_convert_skips_when_marker_matches_size(tmp_path, monkeypatch):
+    out_file = tmp_path / "out.gguf"; out_file.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(out_file, "convert", 1.0)
+
+    def boom(*a, **kw):
+        raise AssertionError("subprocess.run must not be called when the marker matches")
 
     monkeypatch.setattr(ship.subprocess, "run", boom)
     args = argparse.Namespace(scratch=str(tmp_path), force=False, merged=str(tmp_path), out=str(out_file), python=None)
     ship.cmd_convert(args)  # must not raise
 
 
-def test_cmd_fetch_imatrix_skips_when_dest_exists(tmp_path, monkeypatch):
+def test_cmd_convert_does_not_skip_when_marker_size_mismatches(tmp_path):
+    out_file = tmp_path / "out.gguf"; out_file.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(out_file, "convert", 1.0)
+    out_file.write_bytes(b"y" * 3)  # size changed since the marker was written
+
+    args = argparse.Namespace(
+        scratch=str(tmp_path), force=False, merged=str(tmp_path / "nope"), out=str(out_file), python=None,
+    )
+    with pytest.raises(SystemExit, match="merged HF dir not found"):
+        ship.cmd_convert(args)
+
+
+def test_cmd_fetch_imatrix_does_not_skip_without_a_marker(tmp_path, monkeypatch):
     out_dir = tmp_path / "imatrix"; out_dir.mkdir()
-    (out_dir / "imatrix_unsloth.gguf_file").write_text("x")
+    dest = out_dir / "imatrix_unsloth.gguf_file"
+    dest.write_text("leftover, no marker")
+    calls = []
+
+    def fake_run(argv, check):
+        calls.append(argv)
+        dest.write_text("refetched")
+
+    monkeypatch.setattr(ship.subprocess, "run", fake_run)
+    args = argparse.Namespace(scratch=str(tmp_path), force=False, out=str(out_dir))
+    ship.cmd_fetch_imatrix(args)
+    assert calls, "fetch-imatrix must not have skipped when no marker was present"
+
+
+def test_cmd_fetch_imatrix_skips_when_marker_matches_size(tmp_path, monkeypatch):
+    out_dir = tmp_path / "imatrix"; out_dir.mkdir()
+    dest = out_dir / "imatrix_unsloth.gguf_file"
+    dest.write_bytes(b"x" * 20)
+    ship.write_file_done_marker(dest, "fetch-imatrix", 1.0)
 
     def boom(*a, **kw):
-        raise AssertionError("subprocess.run must not be called when the output already exists")
+        raise AssertionError("subprocess.run must not be called when the marker matches")
 
     monkeypatch.setattr(ship.subprocess, "run", boom)
     args = argparse.Namespace(scratch=str(tmp_path), force=False, out=str(out_dir))
     ship.cmd_fetch_imatrix(args)  # must not raise
 
 
-def test_cmd_quantize_skips_when_out_file_exists(tmp_path, monkeypatch):
-    out_file = tmp_path / "q.gguf"; out_file.write_text("x")
+def test_cmd_fetch_imatrix_does_not_skip_when_marker_size_mismatches(tmp_path, monkeypatch):
+    out_dir = tmp_path / "imatrix"; out_dir.mkdir()
+    dest = out_dir / "imatrix_unsloth.gguf_file"
+    dest.write_bytes(b"x" * 20)
+    ship.write_file_done_marker(dest, "fetch-imatrix", 1.0)
+    dest.write_bytes(b"y" * 5)  # size changed since the marker was written
+    calls = []
+
+    def fake_run(argv, check):
+        calls.append(argv)
+        dest.write_bytes(b"z" * 20)
+
+    monkeypatch.setattr(ship.subprocess, "run", fake_run)
+    args = argparse.Namespace(scratch=str(tmp_path), force=False, out=str(out_dir))
+    ship.cmd_fetch_imatrix(args)
+    assert calls, "fetch-imatrix must not have skipped on a marker/size mismatch"
+
+
+def test_cmd_quantize_does_not_skip_without_a_marker(tmp_path):
+    out_file = tmp_path / "q.gguf"; out_file.write_text("leftover junk, no marker")
+    args = argparse.Namespace(
+        scratch=str(tmp_path), force=False, f16=str(tmp_path / "nope.gguf"),
+        imatrix=str(tmp_path / "nope2.gguf"), out=str(out_file), type="Q4_K_M",
+    )
+    with pytest.raises(SystemExit, match="F16 GGUF not found"):
+        ship.cmd_quantize(args)
+
+
+def test_cmd_quantize_skips_when_marker_matches_size(tmp_path, monkeypatch):
+    out_file = tmp_path / "q.gguf"; out_file.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(out_file, "quantize", 1.0)
 
     def boom(*a, **kw):
-        raise AssertionError("subprocess.run must not be called when the output already exists")
+        raise AssertionError("subprocess.run must not be called when the marker matches")
 
     monkeypatch.setattr(ship.subprocess, "run", boom)
     args = argparse.Namespace(
@@ -253,6 +476,19 @@ def test_cmd_quantize_skips_when_out_file_exists(tmp_path, monkeypatch):
         imatrix=str(tmp_path / "im.gguf"), out=str(out_file), type="Q4_K_M",
     )
     ship.cmd_quantize(args)  # must not raise
+
+
+def test_cmd_quantize_does_not_skip_when_marker_size_mismatches(tmp_path):
+    out_file = tmp_path / "q.gguf"; out_file.write_bytes(b"x" * 10)
+    ship.write_file_done_marker(out_file, "quantize", 1.0)
+    out_file.write_bytes(b"yy" * 10)  # size changed since the marker was written
+
+    args = argparse.Namespace(
+        scratch=str(tmp_path), force=False, f16=str(tmp_path / "nope.gguf"),
+        imatrix=str(tmp_path / "nope2.gguf"), out=str(out_file), type="Q4_K_M",
+    )
+    with pytest.raises(SystemExit, match="F16 GGUF not found"):
+        ship.cmd_quantize(args)
 
 
 def test_cmd_convert_raises_when_merged_dir_missing(tmp_path):
@@ -273,36 +509,71 @@ def test_cmd_quantize_raises_when_inputs_missing(tmp_path):
         ship.cmd_quantize(args)
 
 
-def test_cmd_convert_calls_subprocess_with_the_right_argv(tmp_path, monkeypatch):
+def test_cmd_convert_writes_to_a_partial_name_then_replaces_atomically(tmp_path, monkeypatch):
     merged = tmp_path / "merged"; merged.mkdir()
     out_file = tmp_path / "out.gguf"
+    partial = out_file.with_name(out_file.name + ".partial")
     calls = []
-    monkeypatch.setattr(ship.subprocess, "run", lambda argv, check: calls.append(argv))
+
+    def fake_run(argv, check):
+        calls.append(argv)
+        Path(argv[4]).write_text("f16 bytes")  # simulate convert_hf_to_gguf.py writing --outfile
+
+    monkeypatch.setattr(ship.subprocess, "run", fake_run)
     args = argparse.Namespace(scratch=str(tmp_path), force=False, merged=str(merged), out=str(out_file), python="FAKE_PY")
     ship.cmd_convert(args)
-    assert calls == [ship.convert_argv("FAKE_PY", merged, out_file)]
+
+    assert calls == [ship.convert_argv("FAKE_PY", merged, partial)]  # argv named the .partial path
+    assert not partial.exists()                                      # renamed away, never left behind
+    assert out_file.read_text() == "f16 bytes"
+    marker = ship.marker_path_for_file(out_file)
+    assert marker.exists()
+    assert json.loads(marker.read_text())["size_bytes"] == out_file.stat().st_size
     log_lines = ship.scratch_paths(tmp_path)["log"].read_text().splitlines()
     assert json.loads(log_lines[-1])["step"] == "convert"
 
 
-def test_cmd_quantize_calls_subprocess_with_the_right_argv(tmp_path, monkeypatch):
+def test_cmd_quantize_writes_to_a_partial_name_then_replaces_atomically(tmp_path, monkeypatch):
     f16 = tmp_path / "f16.gguf"; f16.write_text("x")
     imatrix = tmp_path / "im.gguf"; imatrix.write_text("x")
     out_file = tmp_path / "out.gguf"
+    partial = out_file.with_name(out_file.name + ".partial")
     calls = []
-    monkeypatch.setattr(ship.subprocess, "run", lambda argv, check: calls.append(argv))
+
+    def fake_run(argv, check):
+        calls.append(argv)
+        Path(argv[4]).write_text("quantized bytes")  # simulate llama-quantize writing its output arg
+
+    monkeypatch.setattr(ship.subprocess, "run", fake_run)
     args = argparse.Namespace(scratch=str(tmp_path), force=False, f16=str(f16), imatrix=str(imatrix), out=str(out_file), type="Q4_K_M")
     ship.cmd_quantize(args)
-    assert calls == [ship.quantize_argv(imatrix, f16, out_file, "Q4_K_M")]
+
+    assert calls == [ship.quantize_argv(imatrix, f16, partial, "Q4_K_M")]
+    assert not partial.exists()
+    assert out_file.read_text() == "quantized bytes"
+    marker = ship.marker_path_for_file(out_file)
+    assert marker.exists()
+    assert json.loads(marker.read_text())["size_bytes"] == out_file.stat().st_size
 
 
 def test_cmd_fetch_imatrix_calls_subprocess_with_the_right_argv(tmp_path, monkeypatch):
     out_dir = tmp_path / "imatrix"
+    dest = out_dir / "imatrix_unsloth.gguf_file"
     calls = []
-    monkeypatch.setattr(ship.subprocess, "run", lambda argv, check: calls.append(argv))
+
+    def fake_run(argv, check):
+        calls.append(argv)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dest.write_text("imatrix bytes")  # simulate `hf download` landing the file
+
+    monkeypatch.setattr(ship.subprocess, "run", fake_run)
     args = argparse.Namespace(scratch=str(tmp_path), force=False, out=str(out_dir))
     ship.cmd_fetch_imatrix(args)
+
     assert calls == [ship.fetch_imatrix_argv(out_dir)]
+    marker = ship.marker_path_for_file(dest)
+    assert marker.exists()
+    assert json.loads(marker.read_text())["size_bytes"] == dest.stat().st_size
 
 
 # ---------------------------------------------------------------------------

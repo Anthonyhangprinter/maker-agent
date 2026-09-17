@@ -54,6 +54,18 @@ file talks to the GPU except verify's llama-server subprocess (started/stopped b
 this module itself spawned, never by a pkill pattern); merge/convert/quantize/fetch-imatrix
 are CPU/network-only.
 
+Idempotency is completeness-based, not existence-based (fix round 1, 2026-09-17): merge/
+convert/fetch-imatrix/quantize each write a marker only after their real work has already
+succeeded (a `.ship_done` file inside the merged dir for merge's directory output; a sibling
+`<file>.done` for convert/fetch-imatrix/quantize's single-file outputs), and `_should_skip()`
+checks that marker, never bare path existence -- a path that exists because a previous run
+was killed mid-write must never be mistaken for "done". convert and quantize additionally
+write to a `<out>.partial` name and atomically `Path.replace()` it onto the real output path
+only after their subprocess exits 0, so the final filename itself never names a truncated
+file. The `.done` marker for a file output also records `size_bytes`, and a mismatch against
+the file's current size on disk (e.g. something replaced the file out from under ship.py
+after a genuine completion) is treated the same as "not done".
+
 This module writes code only -- Task 4's brief is explicit that the heavy steps (merge,
 convert, quantize, verify) are executed later by the controller once the adapter and the
 bf16 base are actually on disk. Nothing in this dispatch ran any of them.
@@ -85,6 +97,11 @@ LLAMA_SERVER_BIN = LLAMA_CPP_SRC / "build" / "bin" / "llama-server"
 SYSTEM_PYTHON = "python3"
 LAB_VENV_PYTHON = HERE / "lab" / ".venv" / "bin" / "python"
 
+# Pinned per fix round 1: every other subprocess binary in this module is a Path.home()
+# -anchored constant (LLAMA_QUANTIZE_BIN, LLAMA_SERVER_BIN, CONVERT_SCRIPT); `hf` was the one
+# bare-PATH-lookup exception. Verified present on this box 2026-09-17.
+HF_BIN = Path.home() / ".local" / "bin" / "hf"
+
 IMATRIX_REPO = "unsloth/gemma-4-31B-it-GGUF"
 # Verified against the live repo file listing 2026-09-17 -- this really is the exact name.
 IMATRIX_FILENAME = "imatrix_unsloth.gguf_file"
@@ -95,13 +112,14 @@ BASE_ARM_FOR_CLONE = "gemma-4-31b"
 
 MIN_MEM_AVAILABLE_GB = 40.0
 
-# Copied from the bf16 base dir into the merged dir after save_pretrained(); a file already
-# present in the merged dir (e.g. config.json, which the model's own save_pretrained writes)
-# is left alone -- copy_aux_files() never clobbers an existing destination file.
-AUX_FILE_GLOBS = (
-    "config.json", "generation_config.json", "tokenizer*", "chat_template.jinja",
-    "processor_config.json", "preprocessor_config.json",
-)
+# copy_aux_files() copies every top-level regular file from the bf16 base dir into the merged
+# dir EXCEPT these -- weight artifacts (already written by save_pretrained, or irrelevant to
+# a merged checkpoint) and repo plumbing. This is an exclude-list, not an allow-list (fix
+# round 1: an allow-list of tokenizer/config filenames silently missed
+# special_tokens_map.json and added_tokens.json), so a checkpoint shipping one more small
+# config/tokenizer file than expected still gets it copied.
+AUX_EXCLUDE_SUFFIXES = (".safetensors", ".safetensors.index.json", ".gguf", ".bin", ".pt")
+AUX_EXCLUDE_NAMES = frozenset({".gitattributes", "README.md"})
 
 # (label, prompt, needs_build123d) -- the three verify smoke prompts. The first two must come
 # back containing "from build123d import"; the third (text-only) only needs a non-empty reply.
@@ -142,11 +160,88 @@ def log_step(scratch: Path, step: str, status: str, elapsed_s: float, **extra: A
         f.write(json.dumps(row) + "\n")
 
 
-def _should_skip(output_path: Path, force: bool, label: str) -> bool:
-    if output_path.exists() and not force:
-        print(f"[ship] {label}: {output_path} already exists, skipping (--force to redo)")
+def marker_path_for_dir(out_dir: Path) -> Path:
+    """A directory-shaped output's completeness marker lives INSIDE it, so deleting the
+    directory (e.g. `clean`) removes the marker along with everything else -- there is never
+    a marker pointing at a directory that no longer exists."""
+    return Path(out_dir) / ".ship_done"
+
+
+def marker_path_for_file(out_file: Path) -> Path:
+    """A file-shaped output's completeness marker is a sibling `<file>.done`."""
+    out_file = Path(out_file)
+    return out_file.with_name(out_file.name + ".done")
+
+
+def write_dir_done_marker(out_dir: Path, step: str, elapsed_s: float) -> Path:
+    """Written only after the caller's real work (merge_and_save, including its aux-file
+    copy) has already returned successfully. size_bytes is informational here (the total
+    merged-dir size) -- unlike a file output, a directory's completeness is judged by the
+    marker's mere existence, not a size comparison (see file_output_is_complete)."""
+    marker = marker_path_for_dir(out_dir)
+    marker.write_text(json.dumps({
+        "step": step, "elapsed_s": round(elapsed_s, 3),
+        "size_bytes": dir_size_bytes(out_dir), "ts": time.time(),
+    }) + "\n")
+    return marker
+
+
+def write_file_done_marker(out_file: Path, step: str, elapsed_s: float) -> Path:
+    """Written only after the caller's real work has already produced the final `out_file`
+    (for convert/quantize, that means AFTER the `<out>.partial` -> `out_file` atomic
+    replace). Records the file's real size so a later run can tell "done" from "something
+    else replaced this file since"."""
+    out_file = Path(out_file)
+    marker = marker_path_for_file(out_file)
+    marker.write_text(json.dumps({
+        "step": step, "elapsed_s": round(elapsed_s, 3),
+        "size_bytes": out_file.stat().st_size, "ts": time.time(),
+    }) + "\n")
+    return marker
+
+
+def dir_output_is_complete(out_dir: Path) -> bool:
+    """A directory output is "done" purely on its marker's existence -- unlike a file, there
+    is no single size to compare against, and the marker is written last (after every file
+    merge_and_save produces), so its existence already proves the whole directory landed."""
+    return marker_path_for_dir(out_dir).exists()
+
+
+def file_output_is_complete(out_file: Path) -> bool:
+    """True only when BOTH the marker exists and its recorded size_bytes equals the file's
+    current size on disk -- catches "never finished" (no marker, e.g. a killed run left a
+    real but truncated/empty file at the target path) and "finished, then the file changed
+    underneath ship.py" (size mismatch) as both "not done"."""
+    out_file = Path(out_file)
+    marker = marker_path_for_file(out_file)
+    if not marker.exists() or not out_file.exists():
+        return False
+    try:
+        recorded = json.loads(marker.read_text())
+    except (json.JSONDecodeError, OSError):
+        return False
+    return recorded.get("size_bytes") == out_file.stat().st_size
+
+
+def _should_skip(output_path: Path, force: bool, label: str, *, is_dir: bool = False) -> bool:
+    """Idempotency check: skip only when the step's own completeness marker says the output
+    is done, never on bare path existence -- a partial/interrupted run can leave a real file
+    or directory at the target path with nothing actually finished inside it (fix round 1)."""
+    output_path = Path(output_path)
+    complete = dir_output_is_complete(output_path) if is_dir else file_output_is_complete(output_path)
+    if complete and not force:
+        marker = marker_path_for_dir(output_path) if is_dir else marker_path_for_file(output_path)
+        print(f"[ship] {label}: {output_path} already complete ({marker}), skipping (--force to redo)")
         return True
     return False
+
+
+def _hf_bin() -> str:
+    """Prefer the pinned ~/.local/bin/hf (verified present 2026-09-17, same convention as
+    every other subprocess binary this module hardcodes); fall back to a bare "hf" PATH
+    lookup so this keeps working on a box where it only lives somewhere else (e.g.
+    lab/.venv/bin/hf, or a future reinstall)."""
+    return str(HF_BIN) if HF_BIN.exists() else "hf"
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +302,7 @@ def quantize_argv(
 
 
 def fetch_imatrix_argv(out_dir: Path) -> list[str]:
-    return ["hf", "download", IMATRIX_REPO, IMATRIX_FILENAME, "--local-dir", str(out_dir)]
+    return [_hf_bin(), "download", IMATRIX_REPO, IMATRIX_FILENAME, "--local-dir", str(out_dir)]
 
 
 def verify_server_argv(gguf_file: Path, mmproj_file: Path, port: int) -> list[str]:
@@ -261,25 +356,52 @@ def pick_converter_python(checker: Callable[[str], bool] = _can_import_convert_d
 
 
 def copy_aux_files(
-    base_dir: Path, merged_dir: Path, patterns: tuple[str, ...] = AUX_FILE_GLOBS
+    base_dir: Path, merged_dir: Path,
+    exclude_suffixes: tuple[str, ...] = AUX_EXCLUDE_SUFFIXES,
+    exclude_names: frozenset[str] = AUX_EXCLUDE_NAMES,
 ) -> list[str]:
-    """Copy tokenizer/processor/config files from the bf16 base dir into the merged dir,
-    skipping any filename the merge's own save_pretrained() already wrote there (never
-    clobbers an existing destination file, e.g. the merged model's own config.json). Returns
-    the list of filenames actually copied."""
+    """Copy EVERY top-level regular file from the bf16 base dir into the merged dir except
+    weight artifacts and repo plumbing (config.json, generation_config.json, tokenizer.json,
+    tokenizer_config.json, tokenizer.model, special_tokens_map.json, added_tokens.json,
+    chat_template.jinja, processor_config.json, preprocessor_config.json, and anything else
+    HF ships alongside a checkpoint all come across this way -- fix round 1: the previous
+    allow-list of filename patterns silently missed special_tokens_map.json/
+    added_tokens.json).
+
+    Must be called AFTER save_pretrained() has already written the merged model's own
+    weights and config: any destination file that already exists is never overwritten, so
+    config.json and generation_config.json -- which save_pretrained just wrote for the
+    MERGED model -- always win over the base's copies. Returns the list of filenames
+    actually copied.
+    """
     copied = []
+    base_dir = Path(base_dir)
     merged_dir = Path(merged_dir)
     merged_dir.mkdir(parents=True, exist_ok=True)
-    for pattern in patterns:
-        for src in sorted(Path(base_dir).glob(pattern)):
-            if not src.is_file():
-                continue
-            dst = merged_dir / src.name
-            if dst.exists():
-                continue
-            shutil.copy2(src, dst)
-            copied.append(src.name)
+    for src in sorted(base_dir.iterdir()):
+        if not src.is_file():
+            continue
+        name = src.name
+        if name in exclude_names or any(name.endswith(suffix) for suffix in exclude_suffixes):
+            continue
+        dst = merged_dir / name
+        if dst.exists():
+            continue
+        shutil.copy2(src, dst)
+        copied.append(name)
     return copied
+
+
+def _from_pretrained_bf16_cpu(loader: Any, base_dir: Path, torch_module: Any) -> Any:
+    """`from_pretrained` with dtype=bfloat16 on CPU, low_cpu_mem_usage on. transformers 5.5
+    renamed the dtype kwarg from `torch_dtype` to `dtype` (fix round 1, LOW finding 3); try
+    `dtype=` first and fall back to `torch_dtype=` on TypeError so this keeps working against
+    an older transformers that has not made the rename yet."""
+    kwargs = dict(low_cpu_mem_usage=True, device_map={"": "cpu"})
+    try:
+        return loader.from_pretrained(str(base_dir), dtype=torch_module.bfloat16, **kwargs)
+    except TypeError:
+        return loader.from_pretrained(str(base_dir), torch_dtype=torch_module.bfloat16, **kwargs)
 
 
 def _load_base_model(base_dir: Path, torch_module: Any) -> Any:
@@ -292,16 +414,15 @@ def _load_base_model(base_dir: Path, torch_module: Any) -> Any:
     supposed to run here) -- confirm on the first real merge."""
     import transformers
 
-    kwargs = dict(low_cpu_mem_usage=True, device_map={"": "cpu"}, torch_dtype=torch_module.bfloat16)
     loader = getattr(transformers, "AutoModelForImageTextToText", None)
     if loader is not None:
         try:
-            return loader.from_pretrained(str(base_dir), **kwargs)
+            return _from_pretrained_bf16_cpu(loader, base_dir, torch_module)
         except (ValueError, OSError):
             pass
     from transformers import AutoModelForCausalLM
 
-    return AutoModelForCausalLM.from_pretrained(str(base_dir), **kwargs)
+    return _from_pretrained_bf16_cpu(AutoModelForCausalLM, base_dir, torch_module)
 
 
 def merge_and_save(adapter_dir: Path, base_dir: Path, out_dir: Path) -> list[str]:
@@ -329,7 +450,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
     out_dir = Path(args.out) if args.out else paths["merged"]
     adapter_dir = Path(args.adapter)
 
-    if _should_skip(out_dir / "config.json", args.force, "merge"):
+    if _should_skip(out_dir, args.force, "merge", is_dir=True):
         return
     if not adapter_dir.exists():
         raise SystemExit(f"adapter dir not found: {adapter_dir}")
@@ -355,6 +476,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
     t0 = time.time()
     copied = merge_and_save(adapter_dir, base_dir, out_dir)
     elapsed = time.time() - t0
+    write_dir_done_marker(out_dir, "merge", elapsed)
     print(f"[ship] merge: done in {elapsed:.1f}s, copied aux files: {copied}")
     log_step(
         scratch, "merge", "ok", elapsed,
@@ -381,12 +503,15 @@ def cmd_convert(args: argparse.Namespace) -> None:
         raise SystemExit(f"merged HF dir not found: {merged_dir}; run `ship.py merge` first")
 
     python_bin = args.python or pick_converter_python()
-    argv = convert_argv(python_bin, merged_dir, out_file)
-    print(f"[ship] convert: {' '.join(argv)}")
     out_file.parent.mkdir(parents=True, exist_ok=True)
+    partial = out_file.with_name(out_file.name + ".partial")
+    argv = convert_argv(python_bin, merged_dir, partial)
+    print(f"[ship] convert: {' '.join(argv)}")
     t0 = time.time()
     subprocess.run(argv, check=True)
+    partial.replace(out_file)  # atomic: out_file never names a truncated/in-progress file
     elapsed = time.time() - t0
+    write_file_done_marker(out_file, "convert", elapsed)
     print(f"[ship] convert: done in {elapsed:.1f}s -> {out_file}")
     log_step(scratch, "convert", "ok", elapsed, python=python_bin, merged=str(merged_dir), out=str(out_file))
 
@@ -409,7 +534,11 @@ def cmd_fetch_imatrix(args: argparse.Namespace) -> None:
     print(f"[ship] fetch-imatrix: {' '.join(argv)}")
     t0 = time.time()
     subprocess.run(argv, check=True)
+    # `hf download` itself writes to a temp name and atomically renames onto `dest` (unlike
+    # convert_hf_to_gguf.py/llama-quantize), so no local .partial dance is needed here -- just
+    # the completeness marker so a later run's skip check is consistent with the other steps.
     elapsed = time.time() - t0
+    write_file_done_marker(dest, "fetch-imatrix", elapsed)
     print(f"[ship] fetch-imatrix: done in {elapsed:.1f}s -> {dest}")
     log_step(scratch, "fetch-imatrix", "ok", elapsed, out=str(dest))
 
@@ -437,11 +566,14 @@ def cmd_quantize(args: argparse.Namespace) -> None:
         raise SystemExit(f"imatrix not found: {imatrix_file}; run `ship.py fetch-imatrix` first")
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    argv = quantize_argv(imatrix_file, f16_file, out_file, args.type)
+    partial = out_file.with_name(out_file.name + ".partial")
+    argv = quantize_argv(imatrix_file, f16_file, partial, args.type)
     print(f"[ship] quantize: {' '.join(argv)}")
     t0 = time.time()
     subprocess.run(argv, check=True)
+    partial.replace(out_file)  # atomic: out_file never names a truncated/in-progress file
     elapsed = time.time() - t0
+    write_file_done_marker(out_file, "quantize", elapsed)
     print(f"[ship] quantize: done in {elapsed:.1f}s -> {out_file}")
     log_step(
         scratch, "quantize", "ok", elapsed,
