@@ -127,6 +127,17 @@
       "hf": null,
       "notes": "Phase 1 lever 6.4: same GGUF with the template default thinking ON; run only on the phase1think subset (196 s/build measured 2026-09-16)",
       "skip": false
+    },
+    {
+      "name": "gemma-4-31b-cad-spike",
+      "alias": "gemma-4-31b-cad-spike",
+      "role": "spike",
+      "gguf": "gemma-4-31B-cad-spike/gemma-4-31b-cad-spike-Q4_K_M.gguf",
+      "mmproj": "gemma-4-31B-it-GGUF/mmproj-F16.gguf",
+      "ctx": 16384,
+      "extra_args": "--chat-template-kwargs {\"enable_thinking\":false}",
+      "hf": null,
+      "notes": "Phase 2 QLoRA training spike: gemma-4-31b's base model with a LoRA adapter merged in, quantized plain Q4_K_M with the Unsloth importance matrix (NOT the stock arm's Unsloth UD dynamic quant -- a different recipe, note it when comparing card results). Adapter: unrecorded."
     }
   ],
   "critics": [
