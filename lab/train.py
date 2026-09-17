@@ -399,7 +399,17 @@ def main(argv: list[str] | None = None) -> None:
 
         data_dir = Path(args.data)
         val_rows = load_rows(data_dir / "val.jsonl")
-        print(f"[eval-only] val rows: {len(val_rows)} (max_seq={args.max_seq})")
+        # Report kept/dropped the same way the training path does (via
+        # build_dataset(), the exact same mask_example()-per-row predicate
+        # eval_loss() itself uses to skip a row): run 5 reported "rows: 16"
+        # here against training's "val rows: kept=15 dropped=1" for the same
+        # val.jsonl and --max-seq, because this printed len(val_rows) (every
+        # row loaded from disk, unfiltered) instead of how many rows actually
+        # contributed to eval_loss's sum. eval_loss()'s own per-row loop was
+        # never wrong -- it already skips a row mask_example() drops -- only
+        # this reporting line was inconsistent with the training path's.
+        val_kept, val_dropped = build_dataset(val_rows, tokenizer, args.max_seq)
+        print(f"[eval-only] val rows: kept={len(val_kept)} dropped={val_dropped} (max_seq={args.max_seq})")
 
         t_eval0 = time.time()
         eval_loss_val, eval_tokens = eval_loss(model, tokenizer, val_rows, args.max_seq)
@@ -411,7 +421,8 @@ def main(argv: list[str] | None = None) -> None:
             "max_seq": args.max_seq,
             "eval_loss": eval_loss_val,
             "eval_tokens": eval_tokens,
-            "rows": len(val_rows),
+            "rows": len(val_kept),
+            "rows_dropped": val_dropped,
             "seconds": eval_seconds,
         }
         eval_meta_path = Path(args.adapter).resolve().parent / "eval_meta.json"

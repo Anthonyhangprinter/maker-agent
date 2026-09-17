@@ -170,6 +170,46 @@ def test_build_dataset_keeps_all_rows_when_none_exceed_max_seq():
     assert [ex["id"] for ex in kept] == ["r0", "r1"]
 
 
+def test_build_dataset_kept_rows_match_what_mask_example_would_keep_per_row():
+    # Regression for a run-5 discrepancy: training reported "val rows: kept=15
+    # dropped=1" via build_dataset(), while --eval-only reported "rows: 16"
+    # because it printed len(val_rows) (every row loaded from disk) instead of
+    # how many rows actually survived the same --max-seq filter and
+    # contributed to eval_loss()'s sum. The fix (lab/train.py's --eval-only
+    # branch) now calls build_dataset() too and reports its kept/dropped
+    # counts, on the assumption that build_dataset()'s per-row keep/drop
+    # decision is identical to the one mask_example() makes inside
+    # eval_loss()'s own per-row loop -- both call
+    # mask_example(prompt, completion, tokenizer, max_seq) with the same
+    # arguments. This test locks in that assumption directly: build_dataset()
+    # must keep exactly the rows for which a standalone mask_example() call
+    # returns non-None, no more and no less, so a caller reporting
+    # build_dataset()'s kept count is reporting the truth about what
+    # eval_loss() will actually use.
+    tok = FakeTokenizer()
+    long_prompt = " ".join(f"word{i}" for i in range(30)) + " "
+    rows = [
+        {"prompt": "short prompt ", "completion": "short completion", "id": "r0", "kind": "good"},
+        {"prompt": long_prompt, "completion": "also quite a long completion indeed here", "id": "r1", "kind": "good"},
+        {"prompt": "another short one ", "completion": "tiny completion", "id": "r2", "kind": "good"},
+    ]
+    r0_len = len(tok(rows[0]["prompt"] + rows[0]["completion"], add_special_tokens=True)["input_ids"])
+    r1_len = len(tok(rows[1]["prompt"] + rows[1]["completion"], add_special_tokens=True)["input_ids"])
+    r2_len = len(tok(rows[2]["prompt"] + rows[2]["completion"], add_special_tokens=True)["input_ids"])
+    assert r1_len > max(r0_len, r2_len)  # sanity: row r1 really is the longer one
+    max_seq = max(r0_len, r2_len)  # sized to fit r0/r2 but not the long r1
+
+    kept, dropped = lt.build_dataset(rows, tok, max_seq)
+
+    survivors = [
+        row["id"] for row in rows
+        if lt.mask_example(row["prompt"], row["completion"], tok, max_seq) is not None
+    ]
+    assert [ex["id"] for ex in kept] == survivors
+    assert dropped == len(rows) - len(survivors)
+    assert survivors == ["r0", "r2"]
+
+
 # ---------------------------------------------------------------------------
 # count_trainable_params
 # ---------------------------------------------------------------------------
