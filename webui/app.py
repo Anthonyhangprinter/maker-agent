@@ -390,7 +390,7 @@ def _run_build(job: dict):
     else:                                     # fluid: fast single turn, no gate vetoes
         cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
                "build", job["spec"], "--coder",
-               job["coder"] if job["coder"] in ("fast", "strong", "cloud") else "fast",
+               job["coder"] if job["coder"] in ("fast", "strong", "cloud") else "strong",  # auto = strong since the Phase 1 lock-in
                "--json"]
     if job["image"]:
         cmd += ["--image", job["image"]]

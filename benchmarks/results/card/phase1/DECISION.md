@@ -49,12 +49,12 @@ and the flips column counts paired spec-by-spec changes (see LIFT.md for the ful
    model from the loop. The small-critic server variant (MiniCPM-V beside the coder) was ruled
    out by VRAM (21.4GB used at ctx 16384, about 3GB free) and stays a follow-up with an
    8k-context arm.
-7. **Production defaults changed on this branch**: fluid mode's default coder is now `strong`
+6. **Production defaults changed on this branch**: fluid mode's default coder is now `strong` and the web UI's `auto` choice maps to `strong`
    (the 7B fast rung measured 44% invalid on CADPrompt against Gemma's 6%), and `cad.json`
    `maker` is enabled with the `gemma-4-31b` arm, so a CAD build swaps the resident out for the
    maker server for its duration (spec 4.2; the resident comes back in the build's finally).
    `arms.py restore` returns to the resident-only regime.
-6. **Fluid auto-escalation** (spec Phase 1 lever) is deliberately deferred to Phase 3 as a
+7. **Fluid auto-escalation** (spec Phase 1 lever) is deliberately deferred to Phase 3 as a
    teacher-arm question: switching arms mid-build costs a server swap per failing spec.
 
 ## Defects found by the runs (fixed on this branch)
