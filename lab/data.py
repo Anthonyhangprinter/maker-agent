@@ -16,11 +16,13 @@ Template: the checkpoint ships its own chat_template.jinja (Gemma 4's private
 <|turn>role\\n...<turn|> framing). Rendering with that exact file, not a hand-rolled copy,
 is the point: any drift between what this script renders and what the checkpoint's own
 tokenizer.apply_chat_template() would render at inference is training on the wrong string.
-A small built-in fallback template stands in only when the checkpoint file is absent (a
-machine that never downloaded it, or a test run), so the pipeline is still exercisable
-everywhere; it reproduces the exact framing this script depends on for a plain
+A small built-in fallback template exists for test runs and for a machine that never
+downloaded the checkpoint; it reproduces the exact framing this script depends on for a plain
 system+user+assistant conversation with no tool calls, images, or thinking traces, which is
-all the source data ever contains.
+all the source data ever contains. It is NOT reached by accident: since fix round 3 (finding
+9) a missing checkpoint template is a hard error unless --allow-fallback-template is passed,
+because silently rendering a whole training set through a stand-in framing the checkpoint
+never used is an expensive, invisible failure.
 """
 from __future__ import annotations
 
@@ -103,14 +105,28 @@ def extract_spec(user_content: str) -> str:
     return ""
 
 
-def load_template(path: Path | None):
+def load_template(path: Path | None, allow_fallback: bool = False):
     """Return (jinja_template, from_checkpoint). `tojson` is registered because the real
     checkpoint template family uses it for structured tool-call arguments; harmless to
-    register even when the specific template in use does not call it."""
+    register even when the specific template in use does not call it.
+
+    Fix round 3 (finding 9): the checkpoint's own template is MANDATORY by default. A moved,
+    renamed or never-downloaded checkpoint used to fall back to FALLBACK_TEMPLATE with a
+    single printed line, so an unattended rerun could train on a framing the checkpoint never
+    used. Callers that genuinely want the stand-in (tests, a machine without the checkpoint)
+    pass allow_fallback=True, which is what --allow-fallback-template sets."""
     env = jinja2.Environment()
     env.filters["tojson"] = json.dumps
-    if path and path.exists():
-        return env.from_string(path.read_text()), True
+    if path and Path(path).exists():
+        return env.from_string(Path(path).read_text()), True
+    if not allow_fallback:
+        raise SystemExit(
+            f"chat template not found: {path}. Rendering training rows through the built-in "
+            f"fallback framing instead of the checkpoint's own template is a silent, "
+            f"expensive mistake, so it now has to be asked for: pass "
+            f"--allow-fallback-template (or allow_fallback=True) if that is really what you "
+            f"want."
+        )
     return env.from_string(FALLBACK_TEMPLATE), False
 
 
@@ -120,14 +136,17 @@ def default_contamination_sets():
     Mirrors scripts/run_card.py's contamination(): a slug is trusted as evidence of a
     match only when it identifies exactly one suite spec, since a public suite like
     text2cadquery collapses dozens of specs onto one truncated 40-char opening -- a slug
-    shared by 28 specs is not evidence about any single one of them."""
+    shared by 28 specs is not evidence about any single one of them.
+
+    Fix round 3 (finding 13): uniqueness is counted PER SUITE, through
+    harvest_census.suite_slug_counts(), exactly as run_card.contamination() counts it. The
+    earlier global count made a slug appearing once in each of two suites non-unique here
+    while run_card still treated it as evidence in both, i.e. this guard was marginally more
+    permissive than the one it claims to mirror."""
     keys = hc.suite_keys()
-    specs = hc._suite_specs()
-    counts: dict[str, int] = {}
-    for s in specs:
-        slug = hc._slug(s, 40)
-        counts[slug] = counts.get(slug, 0) + 1
-    unique_slugs = {slug for slug, n in counts.items() if n == 1}
+    unique_slugs: set[str] = set()
+    for counts in hc.suite_slug_counts(40).values():
+        unique_slugs |= {slug for slug, n in counts.items() if n == 1}
     return keys, unique_slugs
 
 
@@ -277,10 +296,13 @@ def main() -> None:
                     help="checkpoint chat_template.jinja to render with")
     ap.add_argument("--tokenizer", type=Path, default=None,
                     help="directory holding tokenizer.json; enables real token-count stats")
+    ap.add_argument("--allow-fallback-template", action="store_true",
+                    help="render with the built-in stand-in framing when the checkpoint's own "
+                         "chat_template.jinja is missing (default: refuse)")
     a = ap.parse_args()
 
     keys, slugs = default_contamination_sets()
-    template, from_checkpoint = load_template(a.template)
+    template, from_checkpoint = load_template(a.template, allow_fallback=a.allow_fallback_template)
     if from_checkpoint:
         print(f"template: checkpoint ({a.template})")
     else:

@@ -55,7 +55,8 @@ EXTERNAL = hc.CARD_SUITES[4:]
 # (as the failed-row branch used to) silently inflates every failure's total.
 NON_CRITERIA = {"reference_stl", "normalized", "checks", "scoring", "source", "bbox_notes",
                 "min_holes_nulls", "heldout", "notes", "_meta"}
-TRAIN_FILES = [Path.home() / ".openclaw" / n for n in ("cad-sftpairs.jsonl", "cad-examples.jsonl", "cad-sft-train.jsonl")]
+TRAIN_FILES = [Path.home() / ".openclaw" / n for n in (
+    "cad-sftpairs.jsonl", "cad-examples.jsonl", "cad-sft-train.jsonl", "cad-sft-val.jsonl")]
 
 # Phase 1 stratified subset: per-suite caps, sampled in file order so the same subset is
 # reproduced every run without a random seed. A suite whose specs carry nonzero tiers is
@@ -164,6 +165,26 @@ def load_suite(name: str) -> tuple[list[dict], dict]:
     return specs, acc
 
 
+_LAB_EXTRACT_WARNED: set[str] = set()
+
+
+def _spec_from_messages(row: dict, src: Path) -> str:
+    """The verbatim spec out of a ChatML training row's user message, via lab.data's own
+    extract_spec (imported lazily: this script must keep running on a box where lab/ or its
+    jinja2 dependency is not installed). Falls back to the empty string with ONE warning per
+    file naming it, so a blind guard is visible in the run output instead of silent."""
+    try:
+        from lab.data import extract_spec
+    except Exception as e:                       # pragma: no cover - import-environment path
+        if str(src) not in _LAB_EXTRACT_WARNED:
+            _LAB_EXTRACT_WARNED.add(str(src))
+            print(f"WARNING: cannot import lab.data.extract_spec ({e}); rows in {src} that "
+                  f"carry `messages` instead of `spec` are NOT contamination-checked")
+        return ""
+    user = next((m for m in row.get("messages", []) if m.get("role") == "user"), None)
+    return extract_spec(user.get("content", "")) if user else ""
+
+
 def contamination(specs_by_suite: dict[str, list[dict]]) -> list[str]:
     """Card specs that also appear in the training data.
 
@@ -176,15 +197,25 @@ def contamination(specs_by_suite: dict[str, list[dict]]) -> list[str]:
     clash is text-to-cad/05, whose training copy is the SAME part reworded, not the same
     string. So a slug match is also reported, as a near duplicate, and only when that slug
     identifies exactly one spec in its own suite. That condition is what keeps the degenerate
-    public-suite buckets out: a slug shared by 28 specs is not evidence about any of them."""
+    public-suite buckets out: a slug shared by 28 specs is not evidence about any of them.
+
+    Not every training file carries a `spec` key: the Phase 2 SFT files
+    (~/.openclaw/cad-sft-train.jsonl, cad-sft-val.jsonl) are ChatML `messages` rows, so every
+    one of their 353 rows used to contribute the empty string and the guard was blind to the
+    file that now actually trains a model (final review, finding 11). Those rows go through
+    lab.data.extract_spec, the same extractor the training data itself was rendered with."""
     train = set()
     for f in TRAIN_FILES:
         if f.exists():
             for line in f.read_text().splitlines():
                 try:
-                    train.add(json.loads(line).get("spec", ""))
+                    row = json.loads(line)
                 except Exception:
-                    pass
+                    continue
+                spec = row.get("spec", "")
+                if not spec and row.get("messages"):
+                    spec = _spec_from_messages(row, f)
+                train.add(spec)
     train_keys = {hc._key(t) for t in train}
     train_slugs = {hc._slug(t, 40) for t in train}
     clashes = []

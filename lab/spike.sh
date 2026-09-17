@@ -16,7 +16,19 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-mkdir -p lab/runs/spike1
+# Create ONLY the output directory this run will actually use (finding 25): a smoke run that
+# overrides --out used to create an empty lab/runs/spike1 beside its real output. train.py
+# creates --out itself; this mkdir just means a caller sees the directory immediately.
+OUT="lab/runs/spike1"
+prev=""
+for arg in "$@"; do
+    case "$arg" in
+        --out=*) OUT="${arg#--out=}" ;;
+    esac
+    if [ "$prev" = "--out" ]; then OUT="$arg"; fi
+    prev="$arg"
+done
+mkdir -p "$OUT"
 
 exec lab/gpu_window.sh lab/.venv/bin/python lab/train.py \
     --base /mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit \

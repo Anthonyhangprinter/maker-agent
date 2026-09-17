@@ -11,12 +11,15 @@ Tokenization contract (important, do not "simplify" this):
     chat_template.jinja emits it itself at generation time via `{{ bos_token }}`);
     this script must therefore make the *tokenizer* add exactly one BOS when it
     tokenizes the raw prompt/completion strings, not apply a chat template again.
-  - The checkpoint's tokenizer config ships `add_bos_token=False` (verified against
-    the on-disk tokenizer_config.json), so plain `tokenizer(text)` adds nothing.
-    Setting `tokenizer.add_bos_token = True` after load makes `tokenizer(text,
-    add_special_tokens=True)` prepend exactly one BOS -- verified empirically
-    against all 369 real train+val rows (see mask_example()'s assertions, which
-    re-check this on every row rather than trusting it silently).
+  - The checkpoint's tokenizer_config.json has NO `add_bos_token` key at all, so
+    plain `tokenizer(text)` adds nothing (finding 20: an earlier version of this
+    note claimed the file shipped `add_bos_token=False`, which it does not).
+    Setting `tokenizer.add_bos_token = True` after load works because this is a
+    Gemma tokenizer class, whose `add_bos_token` setter rewrites the
+    post-processor; it makes `tokenizer(text, add_special_tokens=True)` prepend
+    exactly one BOS. Nothing here trusts that silently: mask_example() asserts it
+    per row, so a base model whose tokenizer class lacks that setter fails loudly
+    on row 1 instead of training on unframed text.
   - `prompt + completion` is tokenized as ONE string so the tokenizer sees the
     real token boundary (tokenizing prompt and completion separately and
     concatenating ids can split a token across the join, e.g. mid-BPE-merge,

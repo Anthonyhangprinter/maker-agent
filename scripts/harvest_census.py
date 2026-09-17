@@ -172,16 +172,33 @@ CARD_SUITES = ["text-to-cad", "organic", "heldout-cqe", "hard-eval",
                "cadprompt", "cad-arena", "text2cadquery"]   # every suite the card reads; never train on these
 
 
-def _suite_specs() -> list[str]:
-    out = []
+def _suite_specs_by_suite() -> dict[str, list[str]]:
+    """{suite name: [spec, ...]} for every card suite present on disk. Per-suite because
+    contamination evidence is per-suite: a truncated slug is only trusted when it identifies
+    exactly ONE spec IN ITS OWN SUITE (scripts/run_card.py's contamination() has always
+    counted that way; lab/data.py now shares this accessor instead of counting globally)."""
+    out: dict[str, list[str]] = {}
     for suite in CARD_SUITES:
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
             data = json.loads(f.read_text())
             if isinstance(data, dict):   # text-to-cad wraps the list in {"benchmarks": [...]}
                 data = data.get("benchmarks", [])
-            out.extend(b["spec"] for b in data)
+            out[suite] = [b["spec"] for b in data]
     return out
+
+
+def _suite_specs() -> list[str]:
+    return [spec for specs in _suite_specs_by_suite().values() for spec in specs]
+
+
+def suite_slug_counts(n: int = 40) -> dict[str, dict[str, int]]:
+    """{suite name: {slug: how many specs in THAT suite share it}}. The uniqueness test a
+    contamination guard needs: counts[suite][slug] == 1 means the slug identifies one spec in
+    that suite, so a training row sharing that opening is evidence about it."""
+    return {suite: {slug: [_slug(s, n) for s in specs].count(slug)
+                    for slug in {_slug(s, n) for s in specs}}
+            for suite, specs in _suite_specs_by_suite().items()}
 
 
 def suite_slugs() -> set[str]:
