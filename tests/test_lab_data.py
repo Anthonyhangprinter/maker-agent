@@ -46,6 +46,56 @@ def test_extract_spec_pulls_text_between_header_and_blank_line():
     assert spec == "a 40x30x15mm open-top box with 2mm walls"
 
 
+def test_extract_spec_recognises_target_part_header():
+    # revise_script's GIFT-FAIL repair prompt (cad_engine.py:1892): spec is inline, on the
+    # same line as the header, not on a following line.
+    content = (
+        "Target part: a 100x60x30mm enclosure with 2mm walls\n\n"
+        "Problem to fix:\nresult produced no output\n\n"
+        "Current code:\n```python\nfrom build123d import *\n```\n\n"
+        "Return the complete fixed script:"
+    )
+    assert ld.extract_spec(content) == "a 100x60x30mm enclosure with 2mm walls"
+
+
+def test_extract_spec_recognises_user_request_lowercase_header():
+    # decide_or_edit's agent-loop revise turn (cad_engine.py:1934): also inline.
+    content = (
+        "User request: a 20mm diameter 15mm tall cylinder\n\n"
+        "Current code:\n```python\nfrom build123d import *\n```\n\n"
+        "Geometry report:\nsolids=1\n\n"
+        "Visual critique:\n(visual critique unavailable)\n\n"
+        "Reply DONE if correct, otherwise return the corrected full script:"
+    )
+    assert ld.extract_spec(content) == "a 20mm diameter 15mm tall cylinder"
+
+
+def test_extract_spec_returns_empty_for_unrecognised_header():
+    assert ld.extract_spec("Some other prompt shape entirely:\nno known header here") == ""
+
+
+def test_render_pairs_fails_closed_when_no_header_matches(tmp_path):
+    row = {
+        "messages": [
+            {"role": "system", "content": "You are a build123d expert."},
+            {"role": "user", "content": "Some other prompt shape entirely:\nno known header"},
+            {"role": "assistant", "content": "from build123d import *\nresult = Box(1, 1, 1)"},
+        ],
+        "kind": "good",
+    }
+    src = tmp_path / "train.jsonl"
+    _write_jsonl(src, [row])
+    template, _ = ld.load_template(None)
+
+    kept, dropped = ld.render_pairs(src, tmp_path / "out.jsonl", keys=set(), slugs=set(),
+                                     template=template, tag="t")
+
+    # Fail closed: a row whose spec cannot be extracted is dropped, never kept unchecked.
+    assert kept == []
+    assert dropped == [("t-0000", "no-spec-header")]
+    assert (tmp_path / "out.jsonl").read_text() == ""
+
+
 def test_framing_matches_checkpoint_shape_exactly():
     # load_template(None) forces the built-in fallback so this test does not depend on the
     # checkpoint being downloaded on the machine running it. The fallback is verified (by
@@ -145,6 +195,31 @@ def test_stats_shape_percentile_helper():
     assert ld._pctl([1, 2, 3, 4, 5], 50) == 3.0
     p95 = ld._pctl(list(range(1, 101)), 95)
     assert 94 <= p95 <= 96
+
+
+def test_make_completion_does_not_double_append_turn_end():
+    assert ld._make_completion("CODE HERE") == "CODE HERE<turn|>\n"
+    # Reproduces the review's exact repro case: content already ending in the marker must
+    # not get a second one appended.
+    assert ld._make_completion("CODE HERE<turn|>\n") == "CODE HERE<turn|>\n"
+    assert ld._make_completion("CODE HERE<turn|>") == "CODE HERE<turn|>\n"
+    # Trailing whitespace between the code and an existing marker is also collapsed away,
+    # not preserved as a gap before the single closing marker.
+    assert ld._make_completion("CODE HERE  <turn|>  \n") == "CODE HERE<turn|>\n"
+
+
+def test_render_pairs_completion_does_not_double_append_turn_end(tmp_path):
+    row = _row("a plain 10mm cube", code="from build123d import *\nresult = Box(10, 10, 10)<turn|>\n")
+    src = tmp_path / "train.jsonl"
+    _write_jsonl(src, [row])
+    template, _ = ld.load_template(None)
+
+    kept, dropped = ld.render_pairs(src, tmp_path / "out.jsonl", keys=set(), slugs=set(),
+                                     template=template, tag="t")
+
+    assert dropped == []
+    assert kept[0]["completion"] == "from build123d import *\nresult = Box(10, 10, 10)<turn|>\n"
+    assert kept[0]["completion"].count("<turn|>") == 1
 
 
 def test_scan_special_tokens_flags_rows_that_already_contain_framing(tmp_path):

@@ -64,29 +64,43 @@ FALLBACK_TEMPLATE = (
     "{% endif %}"
 )
 
-_SPEC_HEADER = "USER REQUEST"
+# cad_engine.py builds the coder-prompt user message in three different shapes depending on
+# which prompt function wrote it (grep-confirmed against cad_engine.py on this branch):
+#   - generate_code / generate_code_raw (cad_engine.py:1592, :1672): a block header
+#     "USER REQUEST (verbatim ... AUTHORITATIVE...):" with the spec on the following
+#     line(s), up to the first blank line.
+#   - revise_script (cad_engine.py:1892, the GIFT-FAIL repair prompt): "Target part: <spec>"
+#     inline, on the same line as the header.
+#   - decide_or_edit (cad_engine.py:1934, the agent-loop revise turn): "User request: <spec>"
+#     inline, on the same line as the header.
+# Fix round 1 (2026-09-17): the first version of this function only recognised the first
+# shape, so extract_spec() silently returned "" for every "Target part:"/"User request:"
+# row (78 of 353 real training rows: all 45 fail-kind GIFT-FAIL pairs plus 33 good-kind
+# revise-turn pairs) and render_pairs()'s `if spec:` guard then skipped the contamination
+# check on those rows entirely, with no drop and no warning. Recognising all three headers
+# fixes the miss; extract_spec() returning "" now means none of the three headers were
+# found at all, which render_pairs() treats as a fail-closed drop, never a silent pass.
+_SPEC_BLOCK_HEADER = "USER REQUEST"
+_SPEC_INLINE_PREFIXES = ("Target part: ", "User request: ")
 
 
 def extract_spec(user_content: str) -> str:
-    """Pull the verbatim spec out of a coder prompt's user message.
-
-    The user message opens with a fixed header line naming the spec as authoritative,
-    then the spec text itself, then a blank line, then a Notes section. The spec is
-    everything between the header line and that first blank line."""
+    """Pull the verbatim spec out of a coder prompt's user message, across all three header
+    shapes cad_engine.py emits (see the module-level comment above). Returns "" if none of
+    them are found."""
     lines = user_content.split("\n")
-    start = None
     for i, line in enumerate(lines):
-        if line.startswith(_SPEC_HEADER):
-            start = i + 1
-            break
-    if start is None:
-        return ""
-    out = []
-    for line in lines[start:]:
-        if line.strip() == "":
-            break
-        out.append(line)
-    return "\n".join(out).strip()
+        if line.startswith(_SPEC_BLOCK_HEADER):
+            out = []
+            for follow in lines[i + 1:]:
+                if follow.strip() == "":
+                    break
+                out.append(follow)
+            return "\n".join(out).strip()
+        for prefix in _SPEC_INLINE_PREFIXES:
+            if line.startswith(prefix):
+                return line[len(prefix):].strip()
+    return ""
 
 
 def load_template(path: Path | None):
@@ -117,6 +131,17 @@ def default_contamination_sets():
     return keys, unique_slugs
 
 
+def _tally_reasons(dropped: list[tuple[str, str]]) -> dict[str, int]:
+    """Drop reasons grouped by category (the part of the reason string before the first
+    ':', or the whole reason when there is no ':') so a run's drop counts are auditable at
+    a glance instead of only as a per-id list."""
+    tally: dict[str, int] = {}
+    for _rid, reason in dropped:
+        cat = reason.split(":", 1)[0]
+        tally[cat] = tally.get(cat, 0) + 1
+    return tally
+
+
 def _pctl(values: list[float], p: float) -> float:
     if not values:
         return 0.0
@@ -144,6 +169,22 @@ def scan_special_tokens(src: Path) -> list[str]:
                     hits.append(f"{src.name}#{i}")
                     break
     return hits
+
+
+_TURN_END = "<turn|>"
+
+
+def _make_completion(assistant_content: str) -> str:
+    """assistant content, framed with exactly one closing <turn|> marker.
+
+    Source rows are gate-verified build123d code and should never contain the literal
+    framing token, but a naive `.strip() + "<turn|>\\n"` would double it up if one ever did
+    (e.g. a stray copy-paste of a rendered example). Strip an existing trailing marker
+    first, then append it once."""
+    content = assistant_content.strip()
+    if content.endswith(_TURN_END):
+        content = content[: -len(_TURN_END)].rstrip()
+    return content + _TURN_END + "\n"
 
 
 def render_pairs(src: Path, out: Path, keys=None, slugs=None, template=None, tag="row"):
@@ -179,18 +220,23 @@ def render_pairs(src: Path, out: Path, keys=None, slugs=None, template=None, tag
                 dropped.append((row_id, "missing a system/user/assistant message"))
                 continue
             spec = extract_spec(user_msg["content"])
-            if spec:
-                key = hc._key(spec)
-                slug = hc._slug(spec, 40)
-                if key in keys:
-                    dropped.append((row_id, f"exact suite match: {spec[:70]}"))
-                    continue
-                if slug in slugs:
-                    dropped.append((row_id, f"near-duplicate suite slug: {spec[:70]}"))
-                    continue
+            if not spec:
+                # Fail closed: none of the known headers matched, so contamination could
+                # not be checked. Never keep a row unchecked (see the note above
+                # extract_spec for the bug this replaced).
+                dropped.append((row_id, "no-spec-header"))
+                continue
+            key = hc._key(spec)
+            slug = hc._slug(spec, 40)
+            if key in keys:
+                dropped.append((row_id, f"exact suite match: {spec[:70]}"))
+                continue
+            if slug in slugs:
+                dropped.append((row_id, f"near-duplicate suite slug: {spec[:70]}"))
+                continue
             prompt = template.render(messages=[system_msg, user_msg], bos_token="",
                                       add_generation_prompt=True)
-            completion = assistant_msg["content"].strip() + "<turn|>\n"
+            completion = _make_completion(assistant_msg["content"])
             kept.append({"prompt": prompt, "completion": completion, "id": row_id,
                          "kind": row.get("kind", "unknown")})
 
@@ -265,6 +311,10 @@ def main() -> None:
         print(f"\n{tag}: {len(kept)} rows kept, {len(dropped)} dropped -> {out}")
         for rid, reason in dropped:
             print(f"  dropped {rid}: {reason}")
+        if dropped:
+            tally = _tally_reasons(dropped)
+            tally_str = ", ".join(f"{cat}={n}" for cat, n in sorted(tally.items()))
+            print(f"  dropped reasons tallied: {tally_str}")
         _print_length_stats(tag, kept, tokenizer)
 
 
