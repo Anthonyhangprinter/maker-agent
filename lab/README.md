@@ -124,8 +124,8 @@ Reads the ChatML SFT rows, extracts each row's verbatim spec, drops any row coll
 card suite (exact key, or a near-duplicate slug that identifies exactly one spec in its own
 suite), and renders the survivors through the checkpoint's OWN `chat_template.jinja` into
 `{"prompt", "completion", "id", "kind"}` rows under `lab/data/`. Measured on this corpus: 353
-train rows kept, 0 dropped for a missing spec header, 0 contaminated against the 262 suite
-specs; 15 val rows.
+train rows and 16 val rows kept, 0 dropped for a missing spec header, 0 contaminated against
+the 262 suite specs. Re-running it after the fix round reproduced both files byte-identically.
 
 The checkpoint template is mandatory: if `--template` does not exist the script refuses rather
 than quietly rendering through its built-in stand-in framing. `--allow-fallback-template` is the
@@ -146,7 +146,8 @@ so any `train.py` flag can be overridden without editing the script.
 
 Measured for the real epoch: 87 steps at about 78 s/step, 1 h 54 min total, peak VRAM 21.7GB,
 train loss 0.358, eval loss 0.391, 348 of 353 rows kept at `--max-seq 5120` (5 dropped as too
-long, never truncated), 122.4M trainable parameters, 0 of them vision.
+long, never truncated) and 15 of the 16 val rows, 122.4M trainable parameters, 0 of them
+vision.
 
 Resume a killed run with `--resume` (bare flag = latest checkpoint in `--out`). Re-score any
 adapter without training:
