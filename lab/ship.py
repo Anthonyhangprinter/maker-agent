@@ -9,14 +9,24 @@ convert/fetch-imatrix/quantize/verify/register/clean) appending one JSON line to
 
   merge         streaming per-tensor LoRA merge of the adapter into the bf16 base, save the
                 merged HF dir (fix round 2: no full-model load -- see streaming_merge()).
-  convert       llama.cpp convert_hf_to_gguf.py: merged HF dir -> F16 GGUF.
+                Refuses an adapter using features this merge does not implement, and refuses
+                when the bf16 base's chat template renders the canary conversation
+                differently from the template the training data was rendered with
+                (--skip-template-check overrides).
+  convert       llama.cpp convert_hf_to_gguf.py: merged HF dir -> F16 GGUF, with
+                --model-name so the GGUF advertises the model, not the scratch dir name.
   fetch-imatrix download the Unsloth importance matrix used to quantize the stock arm.
   quantize      llama-quantize --imatrix: F16 GGUF -> Q4_K_M GGUF.
-  verify        throwaway llama-server + three chat-completions smoke prompts.
+  verify        throwaway llama-server + three chat-completions smoke prompts. GPU step:
+                refuses to run outside lab/gpu_window.sh (CAD_GPU_WINDOW=1) unless
+                --i-know-the-gpu-is-free, and stops its server on SIGTERM/SIGINT too.
   register      copy the Q4_K_M GGUF into the permanent store and add an arm to
-                benchmarks/arms.json.
-  clean         delete the scratch bf16 base / merged dir / F16 GGUF -- refuses unless a
-                passing `verify` has already written <scratch>/verify.ok.
+                benchmarks/arms.json -- refuses without a passing <scratch>/verify.ok
+                unless --force.
+  clean         delete the scratch merged dir / F16 GGUF -- refuses unless a passing
+                `verify` has already written <scratch>/verify.ok. The bf16 base is KEPT
+                unless --include-base (the ledger's ruling: re-downloading it costs about
+                80 minutes per later phase).
   all           merge -> convert -> fetch-imatrix -> quantize, in that order. Deliberately
                 stops there: verify needs a human to look at the GPU run, register touches
                 the shared arms.json, and clean is destructive -- none of those three should
@@ -57,7 +67,10 @@ box's 47GB MemAvailable; the streaming per-tensor merge (see streaming_merge()) 
 writes one base tensor and one output shard buffer at a time instead, targeting well under
 12GB peak RSS. Nothing in this file talks to the GPU except verify's llama-server subprocess
 (started/stopped by the PID this module itself spawned, never by a pkill pattern);
-merge/convert/quantize/fetch-imatrix are CPU/network-only.
+merge/convert/quantize/fetch-imatrix are CPU/network-only. merge, convert and quantize each
+refuse up front when the filesystem their output lands on does not have the free space the
+step needs (fix round 3: RAM was guarded, disk was not, and a full disk fails late and
+expensively).
 
 Idempotency is completeness-based, not existence-based (fix round 1, 2026-09-17): merge/
 convert/fetch-imatrix/quantize each write a marker only after their real work has already
@@ -80,8 +93,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import shutil
+import signal
 import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -122,6 +138,35 @@ BASE_ARM_FOR_CLONE = "gemma-4-31b"
 # MemAvailable for no reason. 8GB is a floor that still catches "something else already
 # ate the RAM", not a tight sizing estimate.
 MIN_MEM_AVAILABLE_GB = 8.0
+
+# Free-space headroom each heavy step demands on the FILESYSTEM ITS OUTPUT LANDS ON, as a
+# multiple of its own input size (fix round 3, finding 7: RAM was guarded, disk was not, and
+# this session ran the root SSD down to 28GB free). merge writes a copy of the base
+# checkpoint (same bytes plus the small aux files), convert writes an F16 GGUF of about the
+# same size as the merged dir, quantize writes a Q4_K_M of about a third of the F16. The
+# factors are deliberately loose: this is a "you will run out" precheck, not a sizing model.
+MERGE_DISK_FACTOR = 1.05
+CONVERT_DISK_FACTOR = 1.05
+QUANTIZE_DISK_FACTOR = 0.35
+
+# verify starts a real llama-server on the whole card. gpu_window.sh exports CAD_GPU_WINDOW=1
+# for its child, which is the only evidence this module has that the resident/maker were
+# evicted and the build lock is held (fix round 3, finding 5).
+GPU_WINDOW_ENV = "CAD_GPU_WINDOW"
+
+# adapter_config.json keys this merge does NOT implement. A non-empty/true value means the
+# adapter carries trained state or a per-layer scale that base_key_for_adapter_key() and
+# lora_scale() would silently drop or get wrong (fix round 3, finding 8).
+UNSUPPORTED_ADAPTER_CONFIG_KEYS = ("rank_pattern", "alpha_pattern", "modules_to_save",
+                                   "use_dora", "lora_bias", "trainable_token_indices")
+
+# The canary conversation rendered through both chat templates in cmd_merge (finding 10): a
+# system+user turn with add_generation_prompt=True and thinking off, i.e. exactly the shape
+# lab/data.py rendered every training row in.
+CANARY_MESSAGES = (
+    {"role": "system", "content": "You are a build123d expert."},
+    {"role": "user", "content": "Write build123d Python code for a 20mm cube."},
+)
 
 # copy_aux_files() copies every top-level regular file from the bf16 base dir into the merged
 # dir EXCEPT these -- weight artifacts (already written by save_pretrained, or irrelevant to
@@ -295,15 +340,70 @@ def check_mem_available(
 
 
 # ---------------------------------------------------------------------------
+# Disk precheck (fix round 3, finding 7)
+# ---------------------------------------------------------------------------
+
+
+def _existing_ancestor(path: Path) -> Path:
+    """The nearest existing directory at or above `path` -- shutil.disk_usage needs a path
+    that exists, and an output path usually does not yet."""
+    path = Path(path).resolve()
+    while not path.exists():
+        parent = path.parent
+        if parent == path:
+            return path
+        path = parent
+    return path
+
+
+def check_disk_free(out_path: Path, required_bytes: int, label: str) -> int:
+    """Refuse (SystemExit) unless the filesystem `out_path` lands on has `required_bytes`
+    free right now. Returns the measured free bytes so the caller can log/print them.
+
+    The step is named in the message along with both numbers, because the whole point is
+    that a full disk should fail in one second at the start instead of after the 30 minutes
+    it takes to write most of a 62GB file."""
+    free = shutil.disk_usage(_existing_ancestor(out_path)).free
+    if free < required_bytes:
+        raise SystemExit(
+            f"{label}: needs about {required_bytes / 1024**3:.1f}GB free on the filesystem "
+            f"holding {out_path}, but only {free / 1024**3:.1f}GB is free; free space (or "
+            f"point --out at another filesystem) before retrying"
+        )
+    return free
+
+
+# ---------------------------------------------------------------------------
 # argv builders (pure -- no subprocess call here, just the list construction)
 # ---------------------------------------------------------------------------
 
 
-def convert_argv(python_bin: str, merged_dir: Path, out_file: Path) -> list[str]:
-    return [
+def default_model_name(out_file: Path) -> str:
+    """The GGUF's `general.name`, derived from the output file stem with the quant/precision
+    suffix dropped: "gemma-4-31b-cad-F16.gguf" -> "gemma-4-31b-cad" (fix round 3, finding 23
+    -- without --model-name the converter names the model after the merged scratch DIRECTORY,
+    which is how the shipped spike GGUF ended up advertising itself as "Merged")."""
+    stem = Path(out_file).name
+    for suffix in (".partial", ".gguf"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+    for tail in ("-F16", "-f16", "-BF16", "-Q4_K_M", "-Q5_K_M", "-Q8_0"):
+        if stem.endswith(tail):
+            stem = stem[: -len(tail)]
+            break
+    return stem
+
+
+def convert_argv(
+    python_bin: str, merged_dir: Path, out_file: Path, model_name: str | None = None
+) -> list[str]:
+    argv = [
         str(python_bin), str(CONVERT_SCRIPT), str(merged_dir),
         "--outfile", str(out_file), "--outtype", "f16",
     ]
+    if model_name:
+        argv += ["--model-name", model_name]
+    return argv
 
 
 def quantize_argv(
@@ -446,6 +546,45 @@ def base_key_for_adapter_key(adapter_key: str) -> str | None:
     return None
 
 
+def validate_adapter_config(config: dict) -> None:
+    """Raise ValueError on any adapter feature this merge does not implement (fix round 3,
+    finding 8). base_key_for_adapter_key() only maps lora_A/lora_B weights and lora_scale()
+    only reads the GLOBAL r/lora_alpha/use_rslora, so an adapter carrying per-layer ranks or
+    alphas (rank_pattern/alpha_pattern), fully trained extra modules (modules_to_save,
+    trainable_token_indices), a DoRA magnitude vector (use_dora) or trained LoRA biases
+    (lora_bias) would merge SILENTLY WRONG -- wrong scale on some layers, or trained weights
+    dropped outright. The verified spike adapter sets none of them; this is the guard for the
+    Phase 3/4 reuse of the same path.
+
+    fan_in_fan_out is checked here too (it was previously checked inline in streaming_merge):
+    this key mapping assumes PEFT's default weight orientation, not the transposed one.
+    """
+    if config.get("fan_in_fan_out"):
+        raise ValueError("fan_in_fan_out=True adapters are not supported by this streaming merge")
+    unsupported = [k for k in UNSUPPORTED_ADAPTER_CONFIG_KEYS if config.get(k)]
+    if unsupported:
+        raise ValueError(
+            f"adapter_config.json sets {', '.join(unsupported)}, which this merge does not "
+            f"implement (it merges global-scale lora_A/lora_B pairs only); merge with PEFT's "
+            f"own merge_and_unload() instead, or extend streaming_merge() first"
+        )
+
+
+def assert_all_adapter_tensors_consumed(tensors: dict, lora_pairs: dict) -> None:
+    """Every tensor in the adapter file must belong to a merged A/B pair (fix round 3,
+    finding 8). A leftover key means the adapter carries trained state this merge is about to
+    throw away, so it raises and names the leftovers rather than merging a partial adapter.
+    Verified against the real spike adapter: 820 tensors, 410 pairs, 0 leftovers."""
+    used = {key for pair in lora_pairs.values() for key in pair}
+    leftover = sorted(set(tensors) - used)
+    if leftover:
+        raise ValueError(
+            f"{len(leftover)} adapter tensor(s) are not part of a lora_A/lora_B pair and "
+            f"would be dropped by this merge: {leftover[:5]}"
+            + (f" (+{len(leftover) - 5} more)" if len(leftover) > 5 else "")
+        )
+
+
 def load_adapter(adapter_dir: Path) -> tuple[dict, dict]:
     """Load every adapter tensor (small -- LoRA A/B matrices only, never the base model) plus
     adapter_config.json. Returns (tensors, config). Heavy import (safetensors) lives here,
@@ -552,9 +691,10 @@ def streaming_merge(adapter_dir: Path, base_dir: Path, out_dir: Path) -> dict:
     checkpoint (2 shards, ~31GB each).
 
     delta = (B @ A).float() * scale, added in fp32 then cast back to the base tensor's own
-    dtype -- matches PEFT's own merge math. Raises ValueError on: fan_in_fan_out=True (this
-    mapping assumes PEFT's default weight orientation, not the transposed one some old
-    Conv1D-style layers use), a LoRA target key not present in the base's weight_map, a delta
+    dtype -- matches PEFT's own merge math. Raises ValueError on: any adapter_config feature
+    this merge does not implement, including fan_in_fan_out=True (see
+    validate_adapter_config), an adapter tensor left out of every A/B pair (see
+    assert_all_adapter_tensors_consumed), a LoRA target key not present in the base's weight_map, a delta
     shape that does not match its base tensor, or (should never happen if the code above is
     correct) a LoRA pair left unconsumed / a final tensor count or key set that disagrees
     with the base index -- those last three are self-consistency checks on this function's
@@ -567,10 +707,10 @@ def streaming_merge(adapter_dir: Path, base_dir: Path, out_dir: Path) -> dict:
     from safetensors.torch import save_file
 
     adapter_tensors, adapter_config = load_adapter(adapter_dir)
-    if adapter_config.get("fan_in_fan_out"):
-        raise ValueError("fan_in_fan_out=True adapters are not supported by this streaming merge")
+    validate_adapter_config(adapter_config)
     scale = lora_scale(adapter_config)
     lora_pairs = build_lora_pairs(adapter_tensors)
+    assert_all_adapter_tensors_consumed(adapter_tensors, lora_pairs)
 
     index = base_model_index(base_dir)
     base_keys = set(index["weight_map"].keys())
@@ -651,6 +791,90 @@ def streaming_merge(adapter_dir: Path, base_dir: Path, out_dir: Path) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# serving-vs-training chat template canary (fix round 3, finding 10)
+# ---------------------------------------------------------------------------
+
+
+def _load_template_renderer(path: Path):
+    """lab/data.py's own load_template, imported lazily so this module keeps working (and
+    keeps importing) without jinja2 on the box. Deliberately NOT a second copy of the
+    renderer: the whole point of the canary is that it renders the way data.py rendered the
+    training rows."""
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    from lab.data import load_template
+
+    template, from_checkpoint = load_template(Path(path), allow_fallback=False)
+    if not from_checkpoint:  # load_template raises on a missing file; belt and braces
+        raise SystemExit(f"chat template not found: {path}")
+    return template
+
+
+def render_canary(template_path: Path) -> str:
+    """Render CANARY_MESSAGES through one chat_template.jinja: a system+user conversation
+    with add_generation_prompt=True and thinking off, the exact shape lab/data.py rendered
+    every training row in."""
+    template = _load_template_renderer(template_path)
+    return template.render(messages=[dict(m) for m in CANARY_MESSAGES], bos_token="",
+                           add_generation_prompt=True, enable_thinking=False)
+
+
+def training_template_path(adapter_dir: Path) -> Path:
+    """The template the TRAINING side used: the adapter's own chat_template.jinja when it
+    saved one, else the 4-bit checkpoint lab/data.py renders against (lab.data's
+    DEFAULT_TEMPLATE)."""
+    adapter_template = Path(adapter_dir) / "chat_template.jinja"
+    if adapter_template.exists():
+        return adapter_template
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    from lab.data import DEFAULT_TEMPLATE
+
+    return Path(DEFAULT_TEMPLATE)
+
+
+def check_template_match(base_dir: Path, train_template: Path) -> str:
+    """Refuse (SystemExit) when the bf16 base's chat_template.jinja -- the one copy_aux_files
+    puts in the merged dir, and therefore the one baked into the GGUF and used at serve time
+    -- renders the canary conversation differently from the template the training data was
+    rendered with.
+
+    The spike shipped fine (the two templates differ only in a header comment and a tool-call
+    branch, and render identically for this message shape), but nothing checked it: a future
+    base/checkpoint pairing could silently ship a serving framing that disagrees with
+    training, which is the one defect no benchmark would explain. Returns the rendered canary
+    on a match, for logging."""
+    base_template = Path(base_dir) / "chat_template.jinja"
+    if not base_template.exists():
+        raise SystemExit(
+            f"no chat_template.jinja in the bf16 base dir {base_dir}; cannot check that the "
+            f"serving framing matches training (pass --skip-template-check to merge anyway)"
+        )
+    train_template = Path(train_template)
+    if not train_template.exists():
+        raise SystemExit(
+            f"training chat template not found: {train_template}; pass --train-template "
+            f"<path> or --skip-template-check"
+        )
+    serve_render = render_canary(base_template)
+    train_render = render_canary(train_template)
+    if serve_render != train_render:
+        import difflib
+
+        diff = "\n".join(difflib.unified_diff(
+            train_render.splitlines(), serve_render.splitlines(),
+            fromfile=str(train_template), tofile=str(base_template), lineterm=""))
+        raise SystemExit(
+            "chat template mismatch: the bf16 base's template (which ends up in the GGUF and "
+            "frames every request at serve time) renders the canary conversation differently "
+            f"from the template the training data was rendered with.\n{diff}\n"
+            "Fix the pairing, or pass --skip-template-check if the difference is understood "
+            "and harmless for this data shape."
+        )
+    return serve_render
+
+
 def merge_and_save(adapter_dir: Path, base_dir: Path, out_dir: Path) -> list[str]:
     """streaming_merge() + copy_aux_files(). Heavy imports live inside streaming_merge/
     load_adapter, not at module scope, so this module and every pure function in it stay
@@ -678,11 +902,22 @@ def cmd_merge(args: argparse.Namespace) -> None:
             f"trigger that ~62.5GB download itself"
         )
     mem_gb = check_mem_available()
+    base_bytes = dir_size_bytes(base_dir)
+    free_bytes = check_disk_free(out_dir, int(base_bytes * MERGE_DISK_FACTOR), "merge")
+
+    if args.skip_template_check:
+        print("[ship] merge: WARNING --skip-template-check, the serving template is NOT "
+              "checked against the training template")
+    else:
+        train_template = Path(args.train_template) if args.train_template else training_template_path(adapter_dir)
+        check_template_match(base_dir, train_template)
+        print(f"[ship] merge: chat template canary ok (serve={base_dir}/chat_template.jinja "
+              f"renders identically to train={train_template})")
 
     print(
         f"[ship] merge: adapter={adapter_dir} base={base_dir} out={out_dir} "
-        f"mem_available={mem_gb:.1f}GB (streaming per-tensor merge -- never loads the full "
-        f"model into memory)"
+        f"mem_available={mem_gb:.1f}GB disk_free={free_bytes / 1024**3:.1f}GB "
+        f"(streaming per-tensor merge -- never loads the full model into memory)"
     )
     t0 = time.time()
     copied = merge_and_save(adapter_dir, base_dir, out_dir)
@@ -692,7 +927,8 @@ def cmd_merge(args: argparse.Namespace) -> None:
     log_step(
         scratch, "merge", "ok", elapsed,
         adapter=str(adapter_dir), base=str(base_dir), out=str(out_dir),
-        mem_available_gb=round(mem_gb, 1), copied_aux_files=copied,
+        mem_available_gb=round(mem_gb, 1), disk_free_gb=round(free_bytes / 1024**3, 1),
+        copied_aux_files=copied,
     )
 
 
@@ -714,8 +950,11 @@ def cmd_convert(args: argparse.Namespace) -> None:
 
     python_bin = args.python or pick_converter_python()
     out_file.parent.mkdir(parents=True, exist_ok=True)
+    merged_bytes = dir_size_bytes(merged_dir)
+    free_bytes = check_disk_free(out_file, int(merged_bytes * CONVERT_DISK_FACTOR), "convert")
+    model_name = args.model_name or default_model_name(out_file)
     partial = out_file.with_name(out_file.name + ".partial")
-    argv = convert_argv(python_bin, merged_dir, partial)
+    argv = convert_argv(python_bin, merged_dir, partial, model_name)
     print(f"[ship] convert: {' '.join(argv)}")
     t0 = time.time()
     subprocess.run(argv, check=True)
@@ -723,7 +962,9 @@ def cmd_convert(args: argparse.Namespace) -> None:
     elapsed = time.time() - t0
     write_file_done_marker(out_file, "convert", elapsed)
     print(f"[ship] convert: done in {elapsed:.1f}s -> {out_file}")
-    log_step(scratch, "convert", "ok", elapsed, python=python_bin, merged=str(merged_dir), out=str(out_file))
+    log_step(scratch, "convert", "ok", elapsed, python=python_bin, merged=str(merged_dir),
+             out=str(out_file), model_name=model_name,
+             disk_free_gb=round(free_bytes / 1024**3, 1))
 
 
 # ---------------------------------------------------------------------------
@@ -776,6 +1017,8 @@ def cmd_quantize(args: argparse.Namespace) -> None:
         raise SystemExit(f"imatrix not found: {imatrix_file}; run `ship.py fetch-imatrix` first")
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
+    free_bytes = check_disk_free(
+        out_file, int(f16_file.stat().st_size * QUANTIZE_DISK_FACTOR), "quantize")
     partial = out_file.with_name(out_file.name + ".partial")
     argv = quantize_argv(imatrix_file, f16_file, partial, args.type)
     print(f"[ship] quantize: {' '.join(argv)}")
@@ -788,6 +1031,7 @@ def cmd_quantize(args: argparse.Namespace) -> None:
     log_step(
         scratch, "quantize", "ok", elapsed,
         f16=str(f16_file), imatrix=str(imatrix_file), out=str(out_file), type=args.type,
+        disk_free_gb=round(free_bytes / 1024**3, 1),
     )
 
 
@@ -852,13 +1096,65 @@ def _post_chat(url: str, payload: dict, timeout: int = 300) -> tuple[str, dict, 
     return reply, body.get("usage", {}), body.get("timings", {})
 
 
+def in_gpu_window(env: dict | None = None) -> bool:
+    """True when this process is a child of lab/gpu_window.sh, which exports CAD_GPU_WINDOW=1
+    for its child only after it has taken the CAD build lock and evicted both the resident and
+    the maker arm."""
+    env = os.environ if env is None else env
+    return env.get(GPU_WINDOW_ENV) == "1"
+
+
+def require_gpu_window(args: argparse.Namespace) -> None:
+    """Refuse (SystemExit) to start a GPU server outside a GPU window (fix round 3, finding
+    5). verify loads an 18.7GB GGUF at -ngl 99: run bare while the 23GB resident is up on a
+    24GB card, it fights the resident for VRAM and takes no build lock, so a CAD frontend can
+    start a build on top of it. --i-know-the-gpu-is-free is the manual escape hatch for a
+    human who has already evicted everything by hand."""
+    if getattr(args, "i_know_the_gpu_is_free", False) or in_gpu_window():
+        return
+    raise SystemExit(
+        "verify starts a llama-server on the whole GPU, so it must run inside a GPU window: "
+        "`lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify --gguf <path>` (that "
+        "holds ~/.openclaw/cad-build.lock, evicts the resident and the maker arm, and exports "
+        f"{GPU_WINDOW_ENV}=1). Pass --i-know-the-gpu-is-free only when the GPU is already "
+        "free by hand."
+    )
+
+
+def _stop_server(proc: subprocess.Popen) -> None:
+    """TERM, then KILL after 30s. Safe to call twice (a finished process just returns)."""
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=30)
+
+
+def _install_server_signal_handlers(proc: subprocess.Popen) -> dict:
+    """On SIGTERM/SIGINT, stop the spawned llama-server before dying (fix round 3, finding 5:
+    a `finally` alone does not run when the process is signalled, so a TERM to ship.py
+    orphaned a server holding the whole card). Returns the previous handlers so the caller can
+    restore them."""
+    def handler(signum, _frame):
+        print(f"[ship] verify: signal {signum}, stopping llama-server pid {proc.pid}")
+        _stop_server(proc)
+        raise SystemExit(128 + signum)
+
+    return {sig: signal.signal(sig, handler) for sig in (signal.SIGTERM, signal.SIGINT)}
+
+
 def cmd_verify(args: argparse.Namespace) -> None:
     """Starts a throwaway llama-server on args.port, waits for /health, sends the three
     VERIFY_PROMPTS, and kills the server by the PID this call spawned (never a pkill
-    pattern) whether the checks pass or not. Intentionally does NOT skip on a pre-existing
-    verify.ok -- a stale pass must never stand in for testing the actual current GGUF, so
-    every invocation runs the full check fresh and verify.ok is overwritten on the next
-    success."""
+    pattern) whether the checks pass, fail or the process is signalled. Refuses to run at all
+    outside a GPU window (see require_gpu_window). Intentionally does NOT skip on a
+    pre-existing verify.ok -- a stale pass must never stand in for testing the actual current
+    GGUF, so every invocation runs the full check fresh and verify.ok is overwritten on the
+    next success."""
+    require_gpu_window(args)
     scratch = Path(args.scratch)
     gguf = Path(args.gguf)
     mmproj = Path(args.mmproj)
@@ -868,6 +1164,7 @@ def cmd_verify(args: argparse.Namespace) -> None:
     print(f"[ship] verify: starting {' '.join(argv)}")
     t0 = time.time()
     proc = subprocess.Popen(argv)
+    previous_handlers = _install_server_signal_handlers(proc)
     results: dict[str, dict] = {}
     try:
         _wait_health(f"http://127.0.0.1:{port}/health", timeout=900)
@@ -880,12 +1177,9 @@ def cmd_verify(args: argparse.Namespace) -> None:
             results[label] = {"reply_chars": len(reply), "tokens_per_s": toks_per_s}
             print(f"[ship] verify: {label} ok" + (f" ({toks_per_s:.1f} tok/s)" if toks_per_s else ""))
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=30)
+        _stop_server(proc)
+        for sig, old in previous_handlers.items():
+            signal.signal(sig, old)
 
     elapsed = time.time() - t0
     scratch.mkdir(parents=True, exist_ok=True)
@@ -945,10 +1239,34 @@ def register_arm(arms_data: dict, arm: dict, force: bool = False) -> dict:
     return arms_data
 
 
+def check_verify_ok_for(scratch: Path, gguf: Path, force: bool) -> None:
+    """register publishes the arm into the shared benchmarks/arms.json that `arms.py use` and
+    run_card.py read, so it now demands the same passing verify `clean` does (fix round 3,
+    finding 24). A verify.ok naming a DIFFERENT GGUF is a loud warning, not a refusal: the
+    common case is a re-quantized file at a new path, and the marker's own record makes what
+    happened auditable in the log."""
+    verify_ok = scratch_paths(scratch)["verify_ok"]
+    if not verify_ok.exists():
+        if force:
+            print(f"[ship] register: WARNING {verify_ok} not found, registering anyway (--force)")
+            return
+        raise SystemExit(
+            f"{verify_ok} not found; run `ship.py verify --gguf {gguf}` (inside a GPU window) "
+            f"before registering the arm, or pass --force"
+        )
+    try:
+        recorded = json.loads(verify_ok.read_text()).get("gguf", "")
+    except (json.JSONDecodeError, OSError):
+        recorded = ""
+    if recorded and Path(recorded).name != Path(gguf).name:
+        print(f"[ship] register: WARNING {verify_ok} records {recorded}, not {gguf}")
+
+
 def cmd_register(args: argparse.Namespace) -> None:
     gguf = Path(args.gguf)
     if not gguf.exists():
         raise SystemExit(f"gguf not found: {gguf}")
+    check_verify_ok_for(Path(args.scratch), gguf, args.force)
 
     store_dir = Path(args.store)
     store_dir.mkdir(parents=True, exist_ok=True)
@@ -998,7 +1316,13 @@ def cmd_clean(args: argparse.Namespace) -> None:
             f"clean refuses to delete the merge inputs/outputs before a passing verify"
         )
 
-    targets = [paths["bf16_base"], paths["merged"], paths["f16_gguf"]]
+    # The bf16 base is KEPT by default (fix round 3, finding 6): the ledger's ruling is that
+    # the ~59GB google/gemma-4-31B-it download stays on disk for the Phase 3/4 rounds, because
+    # re-downloading it costs about 80 minutes per round. --include-base is the explicit opt-in
+    # to delete it anyway.
+    targets = [paths["merged"], paths["f16_gguf"]]
+    if getattr(args, "include_base", False):
+        targets.insert(0, paths["bf16_base"])
     reclaimed = 0
     for target in targets:
         reclaimed += dir_size_bytes(target)
@@ -1029,10 +1353,12 @@ def cmd_all(args: argparse.Namespace) -> None:
     cmd_merge(argparse.Namespace(
         scratch=args.scratch, force=args.force,
         adapter=args.adapter, base=args.base, out=str(paths["merged"]),
+        train_template=args.train_template, skip_template_check=args.skip_template_check,
     ))
     cmd_convert(argparse.Namespace(
         scratch=args.scratch, force=args.force,
         merged=str(paths["merged"]), out=str(paths["f16_gguf"]), python=args.python,
+        model_name=args.model_name,
     ))
     cmd_fetch_imatrix(argparse.Namespace(
         scratch=args.scratch, force=args.force, out=str(paths["imatrix_dir"]),
@@ -1058,12 +1384,19 @@ def build_argparser() -> argparse.ArgumentParser:
     m.add_argument("--adapter", required=True, help="lab/runs/<run>/adapter dir (Task 3 output)")
     m.add_argument("--base", default=None, help="bf16 base dir (default: <scratch>/gemma-4-31B-it-bf16)")
     m.add_argument("--out", default=None, help="merged HF dir out (default: <scratch>/merged)")
+    m.add_argument("--train-template", default=None,
+                   help="chat_template.jinja the training data was rendered with (default: "
+                        "the adapter's own, else lab/data.py's DEFAULT_TEMPLATE)")
+    m.add_argument("--skip-template-check", action="store_true",
+                   help="skip the serving-vs-training chat template canary")
     m.add_argument("--force", action="store_true")
 
     c = sub.add_parser("convert")
     c.add_argument("--merged", default=None, help="merged HF dir (default: <scratch>/merged)")
     c.add_argument("--out", default=None, help="F16 GGUF out (default: <scratch>/gemma-4-31b-cad-F16.gguf)")
     c.add_argument("--python", default=None, help="override the auto-picked converter interpreter")
+    c.add_argument("--model-name", default=None,
+                   help="GGUF general.name (default: derived from the --out file stem)")
     c.add_argument("--force", action="store_true")
 
     fi = sub.add_parser("fetch-imatrix")
@@ -1081,6 +1414,8 @@ def build_argparser() -> argparse.ArgumentParser:
     v.add_argument("--gguf", required=True)
     v.add_argument("--mmproj", default=str(STOCK_MMPROJ))
     v.add_argument("--port", type=int, default=8093)
+    v.add_argument("--i-know-the-gpu-is-free", action="store_true",
+                   help="run outside a GPU window (only when the GPU was freed by hand)")
 
     r = sub.add_parser("register")
     r.add_argument("--gguf", required=True)
@@ -1091,7 +1426,10 @@ def build_argparser() -> argparse.ArgumentParser:
     r.add_argument("--quant-type", default=DEFAULT_QUANT_TYPE)
     r.add_argument("--force", action="store_true")
 
-    sub.add_parser("clean")
+    cl = sub.add_parser("clean")
+    cl.add_argument("--include-base", action="store_true",
+                    help="also delete the bf16 base (kept by default: re-downloading it costs "
+                         "about 80 minutes per later phase)")
 
     a = sub.add_parser("all")
     a.add_argument("--adapter", required=True)
@@ -1099,6 +1437,9 @@ def build_argparser() -> argparse.ArgumentParser:
     a.add_argument("--python", default=None)
     a.add_argument("--quant-type", default=DEFAULT_QUANT_TYPE)
     a.add_argument("--quant-out", default=None)
+    a.add_argument("--model-name", default=None)
+    a.add_argument("--train-template", default=None)
+    a.add_argument("--skip-template-check", action="store_true")
     a.add_argument("--force", action="store_true")
 
     return p
