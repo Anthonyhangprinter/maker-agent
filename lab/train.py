@@ -74,6 +74,27 @@ def load_rows(path: Path) -> list[dict]:
     return rows
 
 
+def base_from_adapter_config(adapter_dir: str | Path) -> str:
+    """Read `base_model_name_or_path` out of `<adapter_dir>/adapter_config.json`.
+
+    This is the exact same field Unsloth's `FastModel.from_pretrained()`
+    itself resolves the real base model from when `model_name` points at a
+    saved LoRA adapter (see `unsloth/models/loader.py`'s `is_peft` branch,
+    which reads a `PeftConfig` and uses `peft_config.base_model_name_or_path`
+    to find and load the base before attaching the adapter). Used only to
+    default `--base` for `--eval-only`'s own recorded metadata when the
+    caller omits it -- the actual model load never needs this value passed
+    explicitly, Unsloth resolves it internally from the same file.
+
+    Raises FileNotFoundError / KeyError with the normal, informative
+    messages if `adapter_dir` is not a saved PEFT adapter directory.
+    """
+    config_path = Path(adapter_dir) / "adapter_config.json"
+    with open(config_path, encoding="utf-8") as f:
+        config = json.load(f)
+    return config["base_model_name_or_path"]
+
+
 def mask_example(prompt: str, completion: str, tokenizer: Any, max_seq: int) -> dict | None:
     """Tokenize prompt+completion as one string and mask the prompt out of the loss.
 
@@ -152,6 +173,55 @@ def count_trainable_params(model: Any) -> dict[str, int]:
         bucket = "vision" if any(k in name.lower() for k in _VISION_KEYWORDS) else "language"
         counts[bucket] += param.numel()
     return counts
+
+
+def compute_metric_row(step: int, loss: float, learning_rate: float | None, elapsed: float,
+                        tokens_seen: int, last_step: int, last_tokens: int,
+                        last_time: float | None, now: float, peak_vram_gb: float,
+                        reserved_vram_gb: float) -> dict:
+    """Pure delta/cumulative throughput math for one MetaLogger.on_log() row.
+
+    Split out of MetaLogger itself (a nested TrainerCallback inside main(),
+    since it needs live torch.cuda.* VRAM figures every call and so cannot be
+    exercised outside lab/.venv on real hardware) so the actual arithmetic --
+    the part review findings #4/#5 were about -- is independently testable
+    with plain floats/ints, no CUDA context needed.
+
+    `step`/`tokens_seen` are the trainer's own cumulative counters
+    (state.global_step / logs["num_input_tokens_seen"]), which keep counting
+    across a --resume (they are restored from the checkpoint). `last_step` /
+    `last_tokens` / `last_time` are the values from the PREVIOUS on_log call
+    -- or, for the first call after a fresh start OR a --resume, whatever
+    on_train_begin seeded them to (0/0/t0 on a fresh run; the checkpoint's own
+    resumed global_step/num_input_tokens_seen and t0 on a resume).
+
+    Returns a row with both:
+    - `s_per_step` / `tokens_per_s`: DELTA-based, i.e. divided by
+      `now - last_time` and `step - last_step` / `tokens_seen - last_tokens`.
+      Correct immediately after a --resume, when step/tokens_seen are large
+      pre-resume-inclusive counts but this invocation's own elapsed time is
+      small -- a plain elapsed/step there would read as a nonsensical burst
+      of steps in a few seconds.
+    - `s_per_step_cum` / `tokens_per_s_cum`: the previous (pre-fix) behaviour,
+      divided by `elapsed`/`step`/`tokens_seen` since THIS invocation's own
+      start -- kept for continuity/comparison, but wrong (reads low) for the
+      first several rows after any resume.
+    """
+    step_delta = step - last_step
+    token_delta = tokens_seen - last_tokens
+    time_delta = (now - last_time) if last_time is not None else elapsed
+    return {
+        "step": step,
+        "loss": loss,
+        "learning_rate": learning_rate,
+        "elapsed_s": elapsed,
+        "s_per_step": (time_delta / step_delta) if step_delta > 0 else None,
+        "tokens_per_s": (token_delta / time_delta) if time_delta > 0 else None,
+        "s_per_step_cum": (elapsed / step) if step else None,
+        "tokens_per_s_cum": (tokens_seen / elapsed) if elapsed > 0 else None,
+        "peak_vram_gb": peak_vram_gb,
+        "reserved_vram_gb": reserved_vram_gb,
+    }
 
 
 def chunked_completion_loss(hidden_states: Any, head: Any, labels: Any, chunk_size: int,
@@ -334,7 +404,10 @@ def eval_loss(model: Any, tokenizer: Any, val_rows: list[dict], max_seq: int,
 
 def build_argparser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--base", required=True, help="path to the 4-bit base checkpoint dir")
+    p.add_argument("--base", default=None,
+                    help="path to the 4-bit base checkpoint dir; required for training, "
+                         "optional for --eval-only (defaults from the adapter's own "
+                         "adapter_config.json base_model_name_or_path when omitted)")
     p.add_argument("--data", required=True, help="dir containing train.jsonl and val.jsonl")
     p.add_argument("--out", required=True, help="output dir for checkpoints, adapter, and metrics")
     p.add_argument("--rank", type=int, default=16, help="LoRA rank (lora_alpha is set equal to it)")
@@ -358,6 +431,8 @@ def build_argparser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     t_start = time.time()
     args = build_argparser().parse_args(argv)
+    if not args.eval_only and not args.base:
+        raise SystemExit("--base is required (unless --eval-only is used with --adapter)")
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -383,9 +458,13 @@ def main(argv: list[str] | None = None) -> None:
         # its base_model_name_or_path, loads that, then attaches the adapter via
         # PeftModel.from_pretrained(..., is_trainable=True) itself (verified by
         # reading unsloth/models/loader.py's is_peft branch) -- so pointing
-        # model_name at the adapter dir is the whole load, --base is not needed
-        # here (kept as a required CLI arg only for command-line symmetry with the
-        # training path; it is not read in this branch).
+        # model_name at the adapter dir is the whole load; --base is never read
+        # for loading in this branch. It is optional here and, when omitted,
+        # is resolved from the adapter's own adapter_config.json purely so
+        # eval_meta.json has a real value in its "base" field instead of null.
+        if not args.base:
+            args.base = base_from_adapter_config(args.adapter)
+            print(f"[eval-only] --base not given; resolved from {args.adapter}/adapter_config.json: {args.base}")
         print(f"[eval-only] loading base+adapter from: {args.adapter}")
         model, tokenizer = FastModel.from_pretrained(
             model_name=args.adapter,
@@ -449,6 +528,25 @@ def main(argv: list[str] | None = None) -> None:
     # training on unprefixed sequences.
     tokenizer.add_bos_token = True
 
+    # target_modules is deliberately left at unsloth's default (None), NOT
+    # "all-linear" as a literal reading of the original brief suggested.
+    # unsloth/models/vision.py's FastModel.get_peft_model has a special case
+    # that fires on the literal string target_modules == "all-linear" and
+    # unconditionally forces finetune_vision_layers = finetune_language_layers
+    # = finetune_attention_modules = finetune_mlp_modules =
+    # finetune_audio_layers = True, overriding whatever the caller passes for
+    # those flags. Passing target_modules="all-linear" together with
+    # finetune_vision_layers=False here would have that flag silently flipped
+    # back to True, defeating the language-only requirement (and burning
+    # VRAM/compute on the vision tower with no vision training data at all).
+    # Leaving target_modules=None takes vision.py's target_modules-is-None
+    # branch instead, which respects the caller's finetune_* flags as given --
+    # functionally equivalent to "all-linear" but correctly scoped to language
+    # layers. The `assert param_counts["vision"] == 0` right below is the
+    # guard for this: if a future unsloth version ever changes this behaviour
+    # (or this comment's understanding of it is wrong), that assert fails
+    # loudly the first time this runs, instead of silently training the
+    # vision tower.
     model = FastModel.get_peft_model(
         model,
         finetune_vision_layers=False,
@@ -525,37 +623,76 @@ def main(argv: list[str] | None = None) -> None:
 
     class MetaLogger(TrainerCallback):
         """Appends one JSON line per on_log call (logging_steps=1, so per
-        optimizer step): step, loss, lr, elapsed time, and RUNNING (cumulative
-        average, not instantaneous) s/step and tokens/s, plus current VRAM.
+        optimizer step): step, loss, lr, elapsed time, DELTA-based s/step and
+        tokens/s (since the previous logged row, or since this invocation's
+        own start for the first row), the same figures as CUMULATIVE-since-
+        this-invocation for continuity, plus current VRAM.
+
+        Resume-safe (review findings #4/#5 on an earlier version of this
+        class): a --resume run's state.global_step and
+        state.num_input_tokens_seen are restored from the checkpoint and
+        continue their pre-resume-inclusive cumulative counts, but this
+        process's own elapsed clock (self.t0) starts fresh at zero. A plain
+        elapsed/step or tokens_seen/elapsed on those cumulative counters would
+        divide a small per-invocation elapsed time by a large pre-resume
+        count, producing bogus throughput numbers on the first several rows
+        after any resume -- that is why s_per_step/tokens_per_s below are
+        deltas since the previous on_log call (seeded from the checkpoint's
+        own resumed step/token counts in on_train_begin, so even the FIRST
+        post-resume row's delta is correct, not measured against zero).
         """
 
-        def __init__(self, path: Path):
+        def __init__(self, path: Path, resuming: bool):
             self.path = path
             self.t0: float | None = None
-            # Truncate any stale file from a previous run in the same --out dir.
-            self.path.write_text("")
+            self.last_step = 0
+            self.last_tokens = 0
+            self.last_time: float | None = None
+            # A --resume run into the same --out dir must not discard the
+            # metrics rows recorded before the resume point -- only truncate
+            # a stale train_meta.jsonl on a genuinely fresh run.
+            if not resuming:
+                self.path.write_text("")
 
         def on_train_begin(self, args, state, control, **kwargs):
             self.t0 = time.time()
+            self.last_time = self.t0
+            # Seed the delta trackers from the checkpoint's own resumed counts
+            # (0 on a fresh run, since global_step/num_input_tokens_seen both
+            # start at 0) so the first on_log after a resume computes its
+            # delta against this session's own progress, not against zero.
+            self.last_step = state.global_step
+            self.last_tokens = state.num_input_tokens_seen
 
         def on_log(self, args, state, control, logs=None, **kwargs):
             if not logs or "loss" not in logs or self.t0 is None:
                 return
-            elapsed = time.time() - self.t0
+            now = time.time()
+            elapsed = now - self.t0
             step = state.global_step
             tokens_seen = logs.get("num_input_tokens_seen", 0)
-            row = {
-                "step": step,
-                "loss": logs["loss"],
-                "learning_rate": logs.get("learning_rate"),
-                "elapsed_s": elapsed,
-                "s_per_step": (elapsed / step) if step else None,
-                "tokens_per_s": (tokens_seen / elapsed) if elapsed > 0 else None,
-                "peak_vram_gb": torch.cuda.max_memory_allocated() / 2**30,
-                "reserved_vram_gb": torch.cuda.memory_reserved() / 2**30,
-            }
+
+            row = compute_metric_row(
+                step=step,
+                loss=logs["loss"],
+                learning_rate=logs.get("learning_rate"),
+                elapsed=elapsed,
+                tokens_seen=tokens_seen,
+                last_step=self.last_step,
+                last_tokens=self.last_tokens,
+                last_time=self.last_time,
+                now=now,
+                peak_vram_gb=torch.cuda.max_memory_allocated() / 2**30,
+                reserved_vram_gb=torch.cuda.memory_reserved() / 2**30,
+            )
             with self.path.open("a") as f:
                 f.write(json.dumps(row) + "\n")
+
+            self.last_step = step
+            self.last_tokens = tokens_seen
+            self.last_time = now
+
+    resume = args.resume if args.resume else None
 
     trainer = SFTTrainer(
         model=model,
@@ -563,10 +700,9 @@ def main(argv: list[str] | None = None) -> None:
         train_dataset=train_ds,
         eval_dataset=val_ds,
         processing_class=tokenizer,
-        callbacks=[MetaLogger(meta_path)],
+        callbacks=[MetaLogger(meta_path, resuming=resume is not None)],
     )
 
-    resume = args.resume if args.resume else None
     train_result = trainer.train(resume_from_checkpoint=resume)
 
     # Save the adapter and write a first cut of train_meta.json BEFORE eval,

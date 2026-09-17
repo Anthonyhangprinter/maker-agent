@@ -297,6 +297,125 @@ def test_argparser_eval_only_defaults_false_and_adapter_none():
     assert args.adapter is None
 
 
+def test_argparser_base_defaults_to_none_and_is_not_required():
+    # --base must be parseable-optional at the argparse level: --eval-only can
+    # default it from the adapter's own adapter_config.json (main() resolves
+    # that at runtime, not argparse) -- so parsing must not reject its absence.
+    args = lt.build_argparser().parse_args(
+        ["--data", "D", "--out", "O", "--eval-only", "--adapter", "lab/runs/spike1/adapter"]
+    )
+    assert args.base is None
+
+
+def test_main_requires_base_unless_eval_only():
+    # The runtime check in main() (not argparse) enforces --base for training;
+    # it must fire, and fire BEFORE any heavy unsloth/torch import, so this is
+    # exercisable without the training venv.
+    with pytest.raises(SystemExit):
+        lt.main(["--data", "D", "--out", "O"])
+
+
+def test_base_from_adapter_config_reads_base_model_name_or_path(tmp_path):
+    adapter_dir = tmp_path / "adapter"
+    adapter_dir.mkdir()
+    (adapter_dir / "adapter_config.json").write_text(json.dumps({
+        "base_model_name_or_path": "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit",
+        "peft_type": "LORA",
+    }))
+    assert lt.base_from_adapter_config(adapter_dir) == (
+        "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit"
+    )
+
+
+# ---------------------------------------------------------------------------
+# compute_metric_row -- the delta-vs-cumulative throughput math MetaLogger's
+# on_log() uses, split out so it is testable without a real CUDA context
+# (MetaLogger itself is nested inside main() and always calls torch.cuda.*).
+# Regression coverage for review findings #4/#5 (a --resume run's
+# elapsed/step and tokens_seen/elapsed reading as bogus bursts because
+# step/tokens_seen are large pre-resume-inclusive counters).
+# ---------------------------------------------------------------------------
+
+
+def test_compute_metric_row_first_row_delta_equals_cumulative():
+    # Nothing logged before this row (last_step=last_tokens=0, last_time=t0):
+    # delta and cumulative must agree, matching the pre-fix behaviour exactly
+    # for a fresh run's very first logged step.
+    row = lt.compute_metric_row(
+        step=1, loss=0.9, learning_rate=0.0, elapsed=10.0, tokens_seen=500,
+        last_step=0, last_tokens=0, last_time=100.0, now=110.0,
+        peak_vram_gb=20.0, reserved_vram_gb=21.0,
+    )
+    assert row["s_per_step"] == pytest.approx(10.0)
+    assert row["tokens_per_s"] == pytest.approx(50.0)
+    assert row["s_per_step_cum"] == pytest.approx(10.0)
+    assert row["tokens_per_s_cum"] == pytest.approx(50.0)
+
+
+def test_compute_metric_row_two_consecutive_logs_diverge_delta_from_cumulative():
+    # Simulates MetaLogger's own state threading (last_step/last_tokens/
+    # last_time carried forward from one on_log call to the next) across two
+    # consecutive rows of a normal (non-resumed) run.
+    row1 = lt.compute_metric_row(
+        step=1, loss=0.9, learning_rate=0.0, elapsed=10.0, tokens_seen=500,
+        last_step=0, last_tokens=0, last_time=100.0, now=110.0,
+        peak_vram_gb=20.0, reserved_vram_gb=21.0,
+    )
+
+    # Row 2, 5 seconds after row 1's `now`: one more step, 500 more tokens.
+    # Cumulative keeps averaging over the whole 15s/2-step/1000-token run
+    # since t0=100.0; delta reflects only the 5s/1-step/500-token gap since
+    # row 1.
+    row2 = lt.compute_metric_row(
+        step=2, loss=0.8, learning_rate=4e-5, elapsed=15.0, tokens_seen=1000,
+        last_step=row1["step"], last_tokens=500, last_time=110.0, now=115.0,
+        peak_vram_gb=20.5, reserved_vram_gb=21.2,
+    )
+    assert row2["s_per_step"] == pytest.approx(5.0)
+    assert row2["tokens_per_s"] == pytest.approx(100.0)
+    assert row2["s_per_step_cum"] == pytest.approx(7.5)
+    assert row2["tokens_per_s_cum"] == pytest.approx(1000 / 15)
+    # The two views genuinely disagree here -- that divergence is the whole point.
+    assert row2["s_per_step"] != pytest.approx(row2["s_per_step_cum"])
+    assert row2["tokens_per_s"] != pytest.approx(row2["tokens_per_s_cum"])
+
+
+def test_compute_metric_row_first_row_after_resume_uses_seeded_delta_state():
+    # Simulates a --resume from checkpoint-25 (2500 tokens seen so far):
+    # on_train_begin seeds last_step=25/last_tokens=2500/last_time=t0 from the
+    # checkpoint's own resumed state, NOT zero. Without that seeding, this
+    # first post-resume row's cumulative fields would misreport "26 steps in
+    # 8 seconds" -- exactly review finding #5 -- which is why the DELTA
+    # fields, not the cumulative ones, are the trustworthy throughput number
+    # immediately after a resume.
+    t0 = 1000.0
+    row = lt.compute_metric_row(
+        step=26, loss=0.5, learning_rate=1e-4, elapsed=8.0, tokens_seen=2550,
+        last_step=25, last_tokens=2500, last_time=t0, now=t0 + 8.0,
+        peak_vram_gb=20.0, reserved_vram_gb=21.0,
+    )
+    assert row["s_per_step"] == pytest.approx(8.0)
+    assert row["tokens_per_s"] == pytest.approx(50 / 8)
+    # The cumulative view is the misleading one right after a resume:
+    assert row["s_per_step_cum"] == pytest.approx(8.0 / 26)
+    assert row["tokens_per_s_cum"] == pytest.approx(2550 / 8.0)
+
+
+def test_compute_metric_row_step_delta_zero_yields_none_not_division_error():
+    # Defensive: if a caller ever logs twice for the same global_step (should
+    # not happen with logging_steps=1, but the guard exists for stray/duplicate
+    # on_log calls), s_per_step must be None (step_delta==0), never a
+    # ZeroDivisionError; tokens_per_s is still well-defined (time_delta>0,
+    # token_delta==0 here) and correctly reads 0.0, not None.
+    row = lt.compute_metric_row(
+        step=5, loss=0.5, learning_rate=1e-4, elapsed=20.0, tokens_seen=1000,
+        last_step=5, last_tokens=1000, last_time=118.0, now=120.0,
+        peak_vram_gb=20.0, reserved_vram_gb=21.0,
+    )
+    assert row["s_per_step"] is None
+    assert row["tokens_per_s"] == pytest.approx(0.0)
+
+
 # ---------------------------------------------------------------------------
 # chunked_completion_loss -- bare torch only (CPU), no unsloth/transformers/trl.
 # Verifies the chunked loss exactly reproduces a full, unchunked cross-entropy
