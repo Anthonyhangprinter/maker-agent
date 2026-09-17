@@ -839,3 +839,113 @@ just when a named model is missing; `cad-builds/` pruning has not been revisited
 shootout's 262-builds-per-arm x 7 arms left a large `KEEP_BUILDS=200` working set; and the
 ~39GB of loser GGUFs (glm-4.7-flash, qwen3-coder-30b-a3b, qwen2.5-coder-7b) named as deletion
 candidates in DECISION.md are not deleted — the owner decides after reading the card.
+
+## 2026-09-16/17: Maker Agent 1.0 campaign, Phase 1 (agent lift)
+
+Spec: `docs/MAKER-1.0-CAMPAIGN.md`. Plan: `docs/plans/2026-09-16-phase1-agent-lift.md`. Ledger:
+`.superpowers/sdd/2026-09-16-phase1-agent-lift/progress.md`. Work happened on branch
+**`maker-1.0/phase1`** (16 commits over `maker-1.0/phase0`, not yet merged; HEAD `76d59b2`).
+Goal: measure, one lever at a time on the Phase 0 winner (Gemma-4-31B on the maker server), the
+cheap capability levers that need no weight change, and lock the winning configuration as the
+default before Phase 2 touches training.
+
+**Instruments built.** `scripts/run_card.py` gained variant labels and pass-through knobs
+(`--variant --candidates --no-fewshots --critic --critic-url --subset phase1|phase1think`) so
+several configurations of the same arm coexist in one `rows.jsonl`, plus tier-stratified
+subsets (`phase1`: about 127 builds; `phase1think`: 59 builds, tier-stratified, for the
+expensive legs). `scripts/fluid_gen.py` gained an opt-in best-of-N first turn
+(`CAD_CANDIDATES` env or `cad.json` `candidates`, so baselines stay single-shot by default).
+The visual critic got its own server seam: `CRITIC_URL` in `cad_v5/config.py` (env
+`CAD_CRITIC_URL`), and `_ollama()`'s local branch routes a critic call there when the model
+matches `CRITIC_MODEL`, so a small vision model can run beside the coder when VRAM allows, or
+the coder can judge its own render. `preflight()` no longer hard-requires Ollama reachable when
+every configured model is `local:`/`cloud/`-prefixed. An optional second `critic-server.service`
+(:8092, no `Conflicts=` so it can coexist with the maker) plus `scripts/arms.py critic use|off`
+(VRAM-checked before starting) were built for a small-critic arm. `scripts/lift_report.py`
+computes the lift table as a pure function (`lift_table(rows, baseline) -> dict`,
+`render_lift_md`), consumed by both the runner and a new Lab-view route (`GET /api/lab/lift`).
+A `gemma-4-31b-think` arm (same GGUF, thinking on via the template default) was added for the
+thinking-depth leg.
+
+**Lift table** (verbatim from `benchmarks/results/card/phase1/LIFT.md`; baseline arm
+`gemma-4-31b`, public suites only — cadprompt, text2cadquery, heldout-cqe — helper rows
+excluded; invalid = no solid produced, gate clean = solid with zero hard and zero [spec]
+findings, acceptance = pooled checks, match = band==match over the rows that have a reference,
+deltas are percentage points vs the baseline except median s, tokens/build is the mean output
+tokens; each delta is like for like, restricted to the variant's own specs; flips are
++improved/-worsened paired spec by spec against the same spec in the base arm):
+
+| variant | base | n | base n | invalid | Δ | flips | gate clean | Δ | acceptance | Δ | match | ref n | Δ | flips | median s | Δ | tokens/build |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| gemma-4-31b | gemma-4-31b | 85 | 85 | 2% | 0 | +0/-0 | 89% | 0 | 76% | 0 | 35% | 84 | 0 | +0/-0 | 31 | 0 | 542 |
+| gemma-4-31b+agent-gemma4 | gemma-4-31b | 40 | 40 | 8% | +8 | +0/-3 | 90% | -5 | 92% | +8 | 35% | 40 | -5 | +1/-3 | 129 | +99 | - |
+| gemma-4-31b+agent-self | gemma-4-31b+agent-gemma4 | 40 | 40 | 8% | 0 | +0/-0 | 90% | 0 | 92% | 0 | 40% | 40 | +5 | +2/-0 | 100 | -29 | - |
+| gemma-4-31b+bo3 | gemma-4-31b | 85 | 85 | 5% | +2 | +0/-2 | 89% | 0 | 75% | -1 | 36% | 85 | +2 | +3/-1 | 76 | +44 | 1406 |
+| gemma-4-31b+nofs | gemma-4-31b | 85 | 85 | 8% | +6 | +1/-6 | 88% | -1 | 69% | -7 | 28% | 85 | -6 | +2/-7 | 30 | -1 | 540 |
+| gemma-4-31b-think | gemma-4-31b | 40 | 40 | 0% | 0 | +0/-0 | 98% | +3 | 86% | +2 | 45% | 40 | +5 | +3/-1 | 150 | +120 | 3838 |
+
+Acceptance is near-redundant with the invalid ratio on cadprompt and text2cadquery, whose
+acceptance entries carry the single `solids` criterion, so on those suites the column mostly
+restates invalid. With n around 40 to 85 a 3-point delta is 1 to 3 builds, inside the
+run-to-run noise of a single sample: the rule (`docs/plans/2026-09-16-phase1-agent-lift.md`
+Task 7) is that a lever locks in only if it improves the invalid ratio or the match rate by 3
+points or more, with neither metric worsening, at no more than 2x the baseline wall time, ties
+going to the cheaper setting — the flips column is the evidence, not the percentages alone.
+
+**Decisions** (from `benchmarks/results/card/phase1/DECISION.md`):
+
+1. One-shot with retrieval on, thinking off, single candidate stays the build mode.
+   `candidates` stays unset for fluid mode. The full agent loop is not a geometry win over
+   one-shot on Gemma (both critics: invalid 8% vs 0%, match at best equal) and costs 3.4x to
+   4.2x the time; it remains the interactive refine path, not the benchmark or batch default.
+2. Thinking depth becomes an escalation option, not a default: the `gemma-4-31b-think` arm
+   stays in `benchmarks/arms.json` for Phase 3 teacher duty on specs the fast setting fails,
+   and for hard tiers where five minutes per part is acceptable.
+3. Best-of-N is off for the strong rung. The Phase 0 GIFT result (best-of-3 doubling the 7B's
+   acceptance) does not transfer to a model that is already reliable on the first sample.
+4. Retrieval is confirmed as a measured lift on the strong rung (7 of 85 public specs flip to
+   failure without it), validating the Phase 3 corpus work.
+5. Critic locked in: the coder judges its own render (`CRITIC_MODEL` defaults to
+   `CODE_MODEL_STRONG`; `CAD_CRITIC_MODEL` still overrides). Paired on the same 40 specs the
+   self-critic beat the stock Ollama `gemma4:e4b` critic on match (40% vs 35%, two improved,
+   none worsened) and on time (100s vs 129s), with no VRAM cost, and it removes the last Ollama
+   model from the loop. The small-critic server variant (MiniCPM-V beside the coder) was ruled
+   out by VRAM (21,435 MiB used at ctx 16384, about 3GB free) and stays a follow-up with an
+   8k-context arm.
+6. Fluid auto-escalation (switching arms mid-build on a failing spec) is deliberately deferred
+   to Phase 3 as a teacher-arm question: it costs a server swap per failing spec.
+7. Production defaults changed on this branch: fluid mode's default coder is now `strong` (the
+   7B fast rung measured 44% invalid on CADPrompt against Gemma's 6%), and `cad.json` `maker`
+   is enabled with the `gemma-4-31b` arm, so a CAD build now swaps the resident out for the
+   maker server for its duration; `arms.py restore` returns to the resident-only regime.
+
+No separate confirmation run was needed: the locked defaults are the baseline configuration
+already measured (127 builds, 117 valid, 31s median on the public suites), so the baseline row
+is the confirmation.
+
+**Defects found by the runs, fixed on this branch.** `cad_engine._new_build_dir` pruned build
+directories by name, so every date-named agent-mode build directory sorted ahead of the
+fluid-named ones and was deleted on its own creation — every full-loop build had been failing
+at the STEP copy since the fluid directories appeared; fixed to prune by mtime, never the new
+directory, `KEEP_BUILDS` raised to 5000 (the first agent-mode leg was rerun after the fix, since
+its rows had been 100% invalid from the bug, not the model). The opus review of this branch
+also caught that the lift table's first draft compared each variant against the baseline's
+whole-suite average rather than a baseline restricted to the variant's own specs, and counted a
+failed build as excluded rather than as a non-match — together a 13-point artefact; both are
+fixed in `lift_report.py` and reflected in the table above.
+
+**VRAM.** Gemma-4-31B at ctx 16384 uses 21,435 MiB, leaving about 3GB free — no second
+vision-critic server fits at that context, so the small-critic A/B (a stock vision model beside
+the coder) was skipped this pass; an 8k-context critic-server arm is the follow-up if the
+self-critic result is ever revisited.
+
+**Tests:** 167 passed, 1 pre-existing failure (`tests/test_n1_offline.py`, unrelated to this
+branch, unchanged from Phase 0).
+
+**Open follow-ups.** Owner merge decision for both `maker-1.0/phase0` and `maker-1.0/phase1`;
+the ~39GB of Phase 0 loser GGUFs (GLM-4.7-Flash, Qwen3-Coder-30B-A3B, Qwen2.5-Coder-7B-Instruct)
+are still not deleted; `preflight()` still runs before the coder rung is chosen, so it still
+needs Ollama reachable in the general case even though nothing in the locked defaults calls it
+(a Phase 2 item, since preflight itself was only partly relieved of the Ollama dependency); the
+pre-existing `tests/test_n1_offline.py` failure is still open; Phase 2 (a training spike on
+Gemma-4-31B) is next.
