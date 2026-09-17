@@ -14,3 +14,7 @@ benchmarks/text2cadquery/*
 !benchmarks/cadprompt/README.md
 !benchmarks/text2cadquery/README.md
 benchmarks/external/benchcad/BenchCAD-main/
+lab/.venv/
+lab/runs/
+lab/data/
+unsloth_compiled_cache/
