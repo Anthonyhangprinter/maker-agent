@@ -1,0 +1,242 @@
+{
+  "baseline": "gemma-4-31b",
+  "baseline_for": {
+    "gemma-4-31b+agent-self": "gemma-4-31b+agent-gemma4"
+  },
+  "table": {
+    "gemma-4-31b": {
+      "n": 85,
+      "ref_n": 84,
+      "invalid_ratio": 0.023529411764705882,
+      "gate_clean_rate": 0.8941176470588236,
+      "acceptance": 0.7636363636363637,
+      "match_rate": 0.34523809523809523,
+      "median_wall_s": 31.1,
+      "tokens_per_build": 542.2352941176471,
+      "base": "gemma-4-31b",
+      "base_n": 85,
+      "base_metrics": {
+        "n": 85,
+        "ref_n": 84,
+        "invalid_ratio": 0.023529411764705882,
+        "gate_clean_rate": 0.8941176470588236,
+        "acceptance": 0.7636363636363637,
+        "match_rate": 0.34523809523809523,
+        "median_wall_s": 31.1,
+        "tokens_per_build": 542.2352941176471
+      },
+      "delta": {
+        "invalid_ratio": 0,
+        "gate_clean_rate": 0,
+        "acceptance": 0,
+        "match_rate": 0,
+        "median_wall_s": 0
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 0
+        },
+        "match_rate": {
+          "improved": 0,
+          "worsened": 0
+        }
+      }
+    },
+    "gemma-4-31b+agent-gemma4": {
+      "n": 40,
+      "ref_n": 40,
+      "invalid_ratio": 0.075,
+      "gate_clean_rate": 0.9,
+      "acceptance": 0.92,
+      "match_rate": 0.35,
+      "median_wall_s": 128.65,
+      "tokens_per_build": null,
+      "base": "gemma-4-31b",
+      "base_n": 40,
+      "base_metrics": {
+        "n": 40,
+        "ref_n": 40,
+        "invalid_ratio": 0.0,
+        "gate_clean_rate": 0.95,
+        "acceptance": 0.84,
+        "match_rate": 0.4,
+        "median_wall_s": 29.2,
+        "tokens_per_build": 445.025
+      },
+      "delta": {
+        "invalid_ratio": 0.075,
+        "gate_clean_rate": -0.04999999999999993,
+        "acceptance": 0.08000000000000007,
+        "match_rate": -0.050000000000000044,
+        "median_wall_s": 99.45
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 3
+        },
+        "match_rate": {
+          "improved": 1,
+          "worsened": 3
+        }
+      }
+    },
+    "gemma-4-31b+agent-self": {
+      "n": 40,
+      "ref_n": 40,
+      "invalid_ratio": 0.075,
+      "gate_clean_rate": 0.9,
+      "acceptance": 0.92,
+      "match_rate": 0.4,
+      "median_wall_s": 100.1,
+      "tokens_per_build": null,
+      "base": "gemma-4-31b+agent-gemma4",
+      "base_n": 40,
+      "base_metrics": {
+        "n": 40,
+        "ref_n": 40,
+        "invalid_ratio": 0.075,
+        "gate_clean_rate": 0.9,
+        "acceptance": 0.92,
+        "match_rate": 0.35,
+        "median_wall_s": 128.65,
+        "tokens_per_build": null
+      },
+      "delta": {
+        "invalid_ratio": 0.0,
+        "gate_clean_rate": 0.0,
+        "acceptance": 0.0,
+        "match_rate": 0.050000000000000044,
+        "median_wall_s": -28.55000000000001
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 0
+        },
+        "match_rate": {
+          "improved": 2,
+          "worsened": 0
+        }
+      }
+    },
+    "gemma-4-31b+bo3": {
+      "n": 85,
+      "ref_n": 85,
+      "invalid_ratio": 0.047058823529411764,
+      "gate_clean_rate": 0.8941176470588236,
+      "acceptance": 0.7545454545454545,
+      "match_rate": 0.36470588235294116,
+      "median_wall_s": 75.5,
+      "tokens_per_build": 1405.870588235294,
+      "base": "gemma-4-31b",
+      "base_n": 85,
+      "base_metrics": {
+        "n": 85,
+        "ref_n": 84,
+        "invalid_ratio": 0.023529411764705882,
+        "gate_clean_rate": 0.8941176470588236,
+        "acceptance": 0.7636363636363637,
+        "match_rate": 0.34523809523809523,
+        "median_wall_s": 31.1,
+        "tokens_per_build": 542.2352941176471
+      },
+      "delta": {
+        "invalid_ratio": 0.023529411764705882,
+        "gate_clean_rate": 0.0,
+        "acceptance": -0.00909090909090915,
+        "match_rate": 0.019467787114845925,
+        "median_wall_s": 44.4
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 2
+        },
+        "match_rate": {
+          "improved": 3,
+          "worsened": 1
+        }
+      }
+    },
+    "gemma-4-31b+nofs": {
+      "n": 85,
+      "ref_n": 85,
+      "invalid_ratio": 0.08235294117647059,
+      "gate_clean_rate": 0.8823529411764706,
+      "acceptance": 0.6909090909090909,
+      "match_rate": 0.2823529411764706,
+      "median_wall_s": 30.1,
+      "tokens_per_build": 539.8941176470588,
+      "base": "gemma-4-31b",
+      "base_n": 85,
+      "base_metrics": {
+        "n": 85,
+        "ref_n": 84,
+        "invalid_ratio": 0.023529411764705882,
+        "gate_clean_rate": 0.8941176470588236,
+        "acceptance": 0.7636363636363637,
+        "match_rate": 0.34523809523809523,
+        "median_wall_s": 31.1,
+        "tokens_per_build": 542.2352941176471
+      },
+      "delta": {
+        "invalid_ratio": 0.058823529411764705,
+        "gate_clean_rate": -0.01176470588235301,
+        "acceptance": -0.07272727272727275,
+        "match_rate": -0.06288515406162465,
+        "median_wall_s": -1.0
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 1,
+          "worsened": 6
+        },
+        "match_rate": {
+          "improved": 2,
+          "worsened": 7
+        }
+      }
+    },
+    "gemma-4-31b-think": {
+      "n": 40,
+      "ref_n": 40,
+      "invalid_ratio": 0.0,
+      "gate_clean_rate": 0.975,
+      "acceptance": 0.86,
+      "match_rate": 0.45,
+      "median_wall_s": 149.65,
+      "tokens_per_build": 3838.125,
+      "base": "gemma-4-31b",
+      "base_n": 40,
+      "base_metrics": {
+        "n": 40,
+        "ref_n": 40,
+        "invalid_ratio": 0.0,
+        "gate_clean_rate": 0.95,
+        "acceptance": 0.84,
+        "match_rate": 0.4,
+        "median_wall_s": 29.2,
+        "tokens_per_build": 445.025
+      },
+      "delta": {
+        "invalid_ratio": 0.0,
+        "gate_clean_rate": 0.025000000000000022,
+        "acceptance": 0.020000000000000018,
+        "match_rate": 0.04999999999999999,
+        "median_wall_s": 120.45
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 0
+        },
+        "match_rate": {
+          "improved": 3,
+          "worsened": 1
+        }
+      }
+    }
+  }
+}

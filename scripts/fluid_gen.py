@@ -304,7 +304,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build")
     b.add_argument("spec", nargs="?", default="")
-    b.add_argument("--coder", default="fast", choices=["fast", "strong", "cloud"])
+    b.add_argument("--coder", default="strong", choices=["fast", "strong", "cloud"])  # strong since the Phase 1 lock-in
     b.add_argument("--image", default=None)
     b.add_argument("--no-fewshots", action="store_true")
     b.add_argument("--json", action="store_true")

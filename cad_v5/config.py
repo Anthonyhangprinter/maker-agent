@@ -128,7 +128,11 @@ CODE_MODEL_DEFAULT = CODE_MODEL_FAST
 # CAD_CRITIC_MODEL env override exists for A/B evals (2026-08-15: gemma4 vs the resident 35B,
 # now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
 # "local:<name>" routes the critic through the resident llama.cpp server (images supported).
-CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", "gemma4:e4b")
+# Phase 1 lock-in (2026-09-17): the coder judges its own two-panel render ("self-critic") on the
+# same llama.cpp server. Measured on Gemma-4-31B against the Ollama gemma4:e4b critic, paired on
+# the same 40 public specs: match 40% vs 35% (+2/-0 flips), 22% faster, no VRAM cost, and no
+# Ollama model left in the loop. CAD_CRITIC_MODEL still overrides (e.g. "gemma4:e4b").
+CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", CODE_MODEL_STRONG)
 # CAD_CRITIC_URL lets the critic run on its own server (e.g. a dedicated vision model
 # on a different port) instead of riding the coder server. Defaults to LOCAL_CODER_URL
 # so an unset env var is a no-op change from the prior single-URL behaviour.
