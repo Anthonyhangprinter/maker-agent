@@ -4,7 +4,11 @@
   arms.py list
   arms.py download <name>      # hf download into the NVMe store
   arms.py use <name>           # write ~/.openclaw/maker.env + cad.json maker block, start maker-server
-  arms.py restore              # maker.enabled=false, stop maker-server, start the resident
+                                #   (saves the pre-use maker block + maker.env once per run)
+  arms.py restore              # stop maker-server, start the resident; re-applies the
+                                #   saved pre-use maker block + maker.env if `use` saved one,
+                                #   else maker.enabled=false
+  arms.py restore --disable    # always maker.enabled=false, drop any saved pre-use state
   arms.py critic list
   arms.py critic use <name>    # VRAM check, write ~/.openclaw/critic.env, start critic-server (:8092)
   arms.py critic off           # stop critic-server
@@ -163,6 +167,66 @@ def disable_maker(cad_json: Path = CAD_JSON) -> None:
     _write_json(cad_json, cfg)
 
 
+def _pre_arm_paths(cad_json: Path, env_path: Path) -> tuple[Path, Path]:
+    return (cad_json.with_suffix(cad_json.suffix + ".pre-arm"),
+            env_path.with_suffix(env_path.suffix + ".pre-arm"))
+
+
+def _save_pre_arm(cad_json: Path, env_path: Path) -> None:
+    """Snapshot the maker block and maker.env before a `use` switches them, but only when
+    no snapshot already exists (2026-09-19, the Phase 2 trap): a card that walks several
+    arms calls `cmd_use` once per arm without restoring in between, so the FIRST call in
+    that sequence is the one whose snapshot matters -- it is the state from before the
+    whole run, and every later call in the same run must leave it alone.
+
+    The maker.env side records whether the file existed at all, not just its bytes: a
+    box that has never run `arms.py use` has no maker.env yet, and restore must be able
+    to tell "put nothing back" apart from "put back an empty file"."""
+    pre_cad, pre_env = _pre_arm_paths(cad_json, env_path)
+    if not pre_cad.exists():
+        cfg = _read_json(cad_json)
+        pre_cad.write_text(json.dumps({"maker": cfg.get("maker")}, indent=2) + "\n")
+    if not pre_env.exists():
+        envelope = {
+            "existed": env_path.exists(),
+            "content": env_path.read_text() if env_path.exists() else None,
+        }
+        pre_env.write_text(json.dumps(envelope, indent=2) + "\n")
+
+
+def _pop_pre_arm(cad_json: Path, env_path: Path) -> bool:
+    """Re-apply the maker block and maker.env saved by `_save_pre_arm` and delete both
+    snapshots. Returns False (no-op) when there is nothing to restore, which is the
+    ordinary case on a box that has never run `arms.py use`."""
+    pre_cad, pre_env = _pre_arm_paths(cad_json, env_path)
+    if not pre_cad.exists():
+        return False
+    saved = json.loads(pre_cad.read_text())
+    cfg = _read_json(cad_json)
+    if saved.get("maker") is None:
+        cfg.pop("maker", None)
+    else:
+        cfg["maker"] = saved["maker"]
+    _write_json(cad_json, cfg)
+    if pre_env.exists():
+        envelope = json.loads(pre_env.read_text())
+        if envelope.get("existed"):
+            env_path.write_text(envelope.get("content") or "")
+        else:
+            env_path.unlink(missing_ok=True)
+        pre_env.unlink()
+    pre_cad.unlink()
+    return True
+
+
+def _clear_pre_arm(cad_json: Path, env_path: Path) -> None:
+    """Drop any pre-arm snapshot without re-applying it: the `restore --disable` escape
+    hatch back to today's behaviour."""
+    pre_cad, pre_env = _pre_arm_paths(cad_json, env_path)
+    pre_cad.unlink(missing_ok=True)
+    pre_env.unlink(missing_ok=True)
+
+
 def _wait(url: str, timeout: int) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -208,10 +272,14 @@ def unit_active(unit: str) -> bool:
     return out == "active"
 
 
-def cmd_use(arm: dict, start: bool = True) -> None:
+def cmd_use(arm: dict, start: bool = True, cad_json: Path = CAD_JSON, env_path: Path = ENV_PATH) -> None:
     if not Path(arm["model_path"]).exists():
         raise SystemExit(f"{arm['model_path']} missing; run arms.py download {arm['name']}")
-    apply_arm(arm)
+    # Snapshot BEFORE writing the new arm, and regardless of --no-start: this is what
+    # `restore` re-applies later, and the marker rule (only write it once) is what lets a
+    # card that walks several arms in a row keep the state from before the whole run.
+    _save_pre_arm(cad_json, env_path)
+    apply_arm(arm, cad_json, env_path)
     if start:
         # The critic holds its own VRAM on the one card and cmd_use's arm load does not
         # account for it: an arm that fits on an empty 3090 can OOM on load, or silently
@@ -231,7 +299,7 @@ def cmd_use(arm: dict, start: bool = True) -> None:
             _wait(f"http://127.0.0.1:{PORT}/health", 900)
         except BaseException:
             try:
-                cmd_restore()
+                cmd_restore(cad_json=cad_json, env_path=env_path)
             except BaseException as restore_exc:
                 # The recovery must never replace the real cause: a restore that itself fails
                 # (resident unhealthy too) would otherwise be the only error anyone sees.
@@ -240,21 +308,39 @@ def cmd_use(arm: dict, start: bool = True) -> None:
     print(f"maker-server -> {arm['name']} ({arm['alias']}) on :{PORT}")
 
 
-def cmd_restore() -> None:
-    """Back to the resident: maker disabled, maker-server and critic-server stopped,
-    qwen38-server up and healthy.
+def cmd_restore(cad_json: Path = CAD_JSON, env_path: Path = ENV_PATH, disable: bool = False) -> None:
+    """Back to the resident: maker-server and critic-server stopped, qwen38-server up and
+    healthy.
+
+    When a pre-arm snapshot exists (written by `cmd_use` before the switch this call is
+    undoing) and `disable` was not asked for, the saved maker block and maker.env are
+    re-applied and the snapshot deleted -- this is the Phase 2 trap fix: cad.json and
+    maker.env travel together back to exactly what they held before the run, instead of
+    cad.json going to plain-disabled while maker.env is left pointing at whatever GGUF
+    was loaded last. With no snapshot on disk, or with `disable=True`, this falls back to
+    today's plain disable (`maker.enabled=false`, alias/arm left as-is).
 
     critic-server is stopped too, and BEFORE the resident is started. The resident wants
     around 23 GB of the 24 GB card, so a critic left running from a card run is the
     difference between the resident loading and the resident OOMing or spilling to system
     RAM. "Restore" has to mean the box is back to its normal state, not the maker half of
     it: the card runner's finally calls only this."""
-    disable_maker()
+    restored = False
+    if disable:
+        disable_maker(cad_json)
+        _clear_pre_arm(cad_json, env_path)
+    else:
+        restored = _pop_pre_arm(cad_json, env_path)
+        if not restored:
+            disable_maker(cad_json)
     subprocess.run(["systemctl", "--user", "stop", "maker-server"], check=False)
     subprocess.run(["systemctl", "--user", "stop", "critic-server"], check=False)
     subprocess.run(["systemctl", "--user", "start", "qwen38-server"], check=False)
     _wait("http://127.0.0.1:8086/health", 300)
-    print("resident restored on :8086; maker disabled, critic-server stopped")
+    if restored:
+        print("resident restored on :8086; pre-arm maker block and maker.env re-applied, critic-server stopped")
+    else:
+        print("resident restored on :8086; maker disabled, critic-server stopped")
 
 
 def cmd_critic_list(critics: dict) -> None:
@@ -299,7 +385,9 @@ def main() -> None:
     sub.add_parser("list")
     sub.add_parser("download").add_argument("name")
     u = sub.add_parser("use"); u.add_argument("name"); u.add_argument("--no-start", action="store_true")
-    sub.add_parser("restore")
+    r = sub.add_parser("restore")
+    r.add_argument("--disable", action="store_true",
+                    help="force the plain disable (ignore/clear any pre-arm snapshot)")
     c = sub.add_parser("critic")
     csub = c.add_subparsers(dest="critic_cmd", required=True)
     csub.add_parser("list")
@@ -316,7 +404,7 @@ def main() -> None:
     if ns.cmd == "list": cmd_list(a)
     elif ns.cmd == "download": cmd_download(a[ns.name])
     elif ns.cmd == "use": cmd_use(a[ns.name], start=not ns.no_start)
-    elif ns.cmd == "restore": cmd_restore()
+    elif ns.cmd == "restore": cmd_restore(disable=ns.disable)
 
 
 if __name__ == "__main__":
