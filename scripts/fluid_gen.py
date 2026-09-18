@@ -34,12 +34,13 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 import cad_engine as engine  # noqa: E402
 from cad_v5.diagnose import diagnose  # noqa: E402
-from cad_v5.config import first_turn_candidates, load_config  # noqa: E402
+from cad_v5.config import first_turn_candidates, load_config, repair_think_enabled  # noqa: E402
 
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
 
@@ -116,6 +117,22 @@ def _materialize(code: str, build_dir: Path, spec: str = "") -> dict:
     return out
 
 
+def _revise_on_repair_rung(spec: str, code: str, problem: str) -> tuple[str, Optional[str]]:
+    """engine.revise_script(), riding the think rung when the repair_think knob is on
+    (CAD_REPAIR_THINK=1 or cad.json's `repair_think`, default OFF, Task 1b, 2026-09-19: a
+    repair-only think turn has never been measured, so the first codegen attempt is always
+    unaffected and this only ever touches the one salvage/repair call). Returns
+    (fixed_code, rung_used_or_None), where None is the unchanged pre-Task-1b behaviour."""
+    if not repair_think_enabled():
+        return engine.revise_script(spec, code, problem), None
+    prev = engine._ACTIVE_CODE_MODEL
+    engine._ACTIVE_CODE_MODEL = engine.CODE_MODEL_THINK
+    try:
+        return engine.revise_script(spec, code, problem), engine.CODE_MODEL_THINK
+    finally:
+        engine._ACTIVE_CODE_MODEL = prev
+
+
 def _materialize_with_salvage(spec: str, code: str, build_dir: Path,
                               gate_repair: bool = True) -> dict:
     """One build attempt + at most ONE automatic recovery turn. Two triggers:
@@ -123,18 +140,24 @@ def _materialize_with_salvage(spec: str, code: str, build_dir: Path,
       a chat that dead-ends every other message isn't fluid
     - gate repair (initial non-helper builds only): hard fails / [spec] contradictions get
       one revise. The repair is kept only if it IMPROVES (fewer findings, still builds);
-      otherwise the original artifacts are restored — never ship the regression."""
+      otherwise the original artifacts are restored, never ship the regression.
+
+    repair_rung (in the returned dict) names which rung the winning repair call rode, or
+    None when no repair happened or the repair_think knob is off, see
+    _revise_on_repair_rung()."""
     m = _materialize(code, build_dir, spec)
+    m.setdefault("repair_rung", None)
     if m["error"]:
         try:
             # Same failure taxonomy the full loop uses — a fillet crash gets the targeted
             # "wrap it in try/except, don't repeat the call" hint, not just the traceback.
             _, hint = diagnose(m["error"])
             problem = m["error"] + (f"\nRepair hint: {hint}" if hint else "")
-            fixed = engine.revise_script(spec, code, problem)
+            fixed, rung = _revise_on_repair_rung(spec, code, problem)
             m2 = _materialize(fixed, build_dir, spec)
             if not m2["error"]:
                 m2["salvaged"] = True
+                m2["repair_rung"] = rung
                 return m2
         except Exception:
             pass
@@ -151,11 +174,12 @@ def _materialize_with_salvage(spec: str, code: str, build_dir: Path,
             problem = ("Deterministic measurements of the built solid contradict the "
                        "request (authoritative — they measure the actual geometry):\n- "
                        + "\n- ".join(findings))
-            fixed = engine.revise_script(spec, code, problem)
+            fixed, rung = _revise_on_repair_rung(spec, code, problem)
             m2 = _materialize(fixed, build_dir, spec)
             if not m2["error"] and \
                     len(m2["gate_hard"] + m2["gate_spec"]) < len(findings):
                 m2["gate_repaired"] = True
+                m2["repair_rung"] = rung
                 return m2
         except Exception:
             pass
@@ -175,6 +199,7 @@ def _result(m: dict, extra: dict, t0: float, helper: bool = False) -> dict:
            "gate_adv": m["gate_adv"][:6],
            "salvaged": m.get("salvaged", False),
            "gate_repaired": m.get("gate_repaired", False),
+           "repair_rung": m.get("repair_rung"),
            "error": m["error"],
            # Per-build total across every local: call (codegen + salvage + repair + ...),
            # not just the last one. reset_usage() below zeroes it per build/revise.
