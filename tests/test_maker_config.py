@@ -30,7 +30,7 @@ def test_enabled_maker_rewrites_port_and_alias(tmp_path):
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8088/v1/chat/completions"
     assert cfg.LOCAL_CODER_HEALTH == "http://127.0.0.1:8088/health"
     assert cfg.CODE_MODEL_STRONG == "local:gemma-4-31b"
-    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b", "local:gemma-4-31b+think"]
 
 
 def test_ensure_hook_starts_maker_and_resume_restores(tmp_path, monkeypatch):
@@ -229,6 +229,172 @@ def test_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
     assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
 
 
+# ── Task 1b: the think rung (2026-09-19) ───────────────────────────────────────
+
+def _offline_ollama(monkeypatch, cad_engine, response_extra=None):
+    """Common offline plumbing for the think-rung tests below: no systemctl, no health
+    probe, no real network, just a captured request body per call."""
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append(json.loads(req.data.decode()))
+        msg = {"content": "ok"}
+        if response_extra:
+            msg.update(response_extra)
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": msg}],
+             "usage": {"prompt_tokens": 1, "completion_tokens": 1}}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    return captured
+
+
+def test_think_suffix_sends_enable_thinking_true_to_the_same_alias_and_url(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "gemma-4-31b"}})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append((req.full_url, json.loads(req.data.decode())))
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+
+    cad_engine._ollama("local:gemma-4-31b", "sys", "user")
+    cad_engine._ollama("local:gemma-4-31b+think", "sys", "user")
+
+    (url_plain, body_plain), (url_think, body_think) = captured
+    assert url_plain == url_think == cfg.LOCAL_CODER_URL
+    assert body_plain["model"] == body_think["model"] == "gemma-4-31b"   # suffix stripped
+    assert "chat_template_kwargs" not in body_plain
+    assert body_think["chat_template_kwargs"] == {"enable_thinking": True}
+    assert body_think["max_tokens"] == cfg.CODE_MAX_TOKENS_THINK
+    assert cfg.CODE_MAX_TOKENS_THINK >= 12000
+
+
+def test_think_keyword_without_a_rung_suffix(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "user", think=True)
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": True}
+    assert captured[-1]["model"] == "qwen3.8-27b"
+
+
+def test_no_think_wins_over_the_think_suffix(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", no_think=True)
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert captured[-1]["model"] == "qwen3.8-27b"
+
+
+def test_no_think_and_think_both_true_raises(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    with pytest.raises(ValueError):
+        cad_engine._ollama("local:qwen3.8-27b", "sys", "user", no_think=True, think=True)
+
+
+def test_images_call_never_sends_true_even_on_the_think_rung(tmp_path, monkeypatch):
+    """The critic (and the image-analysis pre-pass) always pass images=. CRITIC_MODEL never
+    carries "+think" by construction, but this must hold even if a caller somehow reached
+    here with a think-suffixed model and an image, because the critic path must be provably
+    safe, not merely unreachable in today's call graph."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", images=["QUJD"])
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_schema_call_never_sends_true_even_on_the_think_rung(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", fmt={"type": "object"})
+    assert captured[-1]["chat_template_kwargs"]["enable_thinking"] is False
+
+
+def test_reasoning_content_is_ignored_only_content_is_returned(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    _offline_ollama(monkeypatch, cad_engine,
+                     response_extra={"reasoning_content": "a" * 4439, "content": "result = 1"})
+    out = cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", think=True)
+    assert out == "result = 1"
+
+
+def test_usage_counts_completion_tokens_on_a_think_call(tmp_path, monkeypatch):
+    """_LAST_USAGE / _USAGE_TOTAL must keep counting completion_tokens on a think call.
+    The server's own usage block already includes reasoning tokens in that count, and
+    _ollama() must not special-case the think rung when banking it."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+
+    def fake_urlopen(req, timeout=None):
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": "ok"}}],
+             "usage": {"prompt_tokens": 50, "completion_tokens": 1864}}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    cad_engine.reset_usage()
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user")
+    assert cad_engine._USAGE_TOTAL["completion_tokens"] == 1864
+    assert cad_engine._LAST_USAGE["completion_tokens"] == 1864
+
+
+def test_code_timeout_uses_the_strong_cap_on_the_think_rung(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: cad_engine.CODE_MODEL_THINK)
+    assert cad_engine._code_timeout() == cfg.CODE_TIMEOUT_STRONG
+
+
+def test_ladder_climbs_from_strong_to_think_then_stops(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    assert cad_engine._next_code_model(cfg.CODE_MODEL_STRONG) == cfg.CODE_MODEL_THINK
+    assert cad_engine._next_code_model(cfg.CODE_MODEL_THINK) is None
+
+
+def test_fast_override_accepts_the_think_form(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "local:some-arm+think")
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.CODE_MODEL_FAST == "local:some-arm+think"
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "qwen2.5-coder:7b-instruct-q4_K_M+think")
+    with pytest.raises(RuntimeError, match="not a local: model"):
+        _reload_with(tmp_path, {})
+
+
+# ── Task 1b: repair_think config accessor ──────────────────────────────────────
+
+def test_repair_think_defaults_off(tmp_path, monkeypatch):
+    monkeypatch.delenv("CAD_REPAIR_THINK", raising=False)
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.repair_think_enabled() is False
+
+
+def test_repair_think_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_REPAIR_THINK", "1")
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.repair_think_enabled() is True
+
+
+def test_repair_think_cad_json_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("CAD_REPAIR_THINK", raising=False)
+    cfg = _reload_with(tmp_path, {"repair_think": True})
+    assert cfg.repair_think_enabled() is True
+
+
 # ── lab_config() (Phase 3 Task 2, fix round 1: malformed-block tolerance) ──────
 
 def test_lab_config_defaults(tmp_path):
@@ -285,8 +451,7 @@ def test_lab_config_returns_deep_copies_never_shared_with_the_defaults(tmp_path)
 
     assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
     assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 10
-    assert cfg._LAB_DEFAULTS["harvest"]["teacher_arms"] == ["gemma-4-31b-think",
-                                                            "devstral-small-2"]
+    assert cfg._LAB_DEFAULTS["harvest"]["teacher_arms"] == ["think"]
 
     lc2 = cfg.lab_config()
     assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
@@ -332,14 +497,16 @@ def teardown_module(module):
 
 # ── Ollama retirement (2026-09-19) ─────────────────────────────────────────────
 
-def test_ladder_is_one_local_rung(tmp_path, monkeypatch):
+def test_ladder_is_two_local_rungs(tmp_path, monkeypatch):
     """The 7B fast rung lived on Ollama. With Ollama off the box the local ladder is the
-    strong rung alone, and CODE_MODEL_FAST keeps its name pointing at it so importers
-    (fluid_gen, gift_sample, pinned benchmark legs) still resolve something real."""
+    strong rung, then the SAME arm thinking on (Task 1b, 2026-09-19, no second server), and
+    CODE_MODEL_FAST keeps its name pointing at the strong rung so importers (fluid_gen,
+    gift_sample, pinned benchmark legs) still resolve something real."""
     monkeypatch.delenv("CAD_CODE_MODEL_FAST", raising=False)
     cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
                                             "alias": "gemma-4-31b"}})
-    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b", "local:gemma-4-31b+think"]
+    assert cfg.CODE_MODEL_THINK == "local:gemma-4-31b+think"
     assert cfg.CODE_MODEL_FAST == cfg.CODE_MODEL_DEFAULT == cfg.CODE_MODEL_STRONG
     assert "ollama" not in cfg.CODE_MODEL_FAST.lower()
 

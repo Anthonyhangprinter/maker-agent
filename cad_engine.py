@@ -85,6 +85,7 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 from cad_v5.config import (  # noqa: F401
     use_brief as _cfg_use_brief,        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
+    CODE_MODEL_THINK, THINK_SUFFIX, CODE_MAX_TOKENS_THINK,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     LLM_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
@@ -104,8 +105,12 @@ def _code_timeout() -> int:
     in) on its first call of a build, so it gets the long cap; the 600s default killed every
     call of the 2026-07-17 strong A/B before first token. Since the fast rung was retired
     (2026-09-19) only a pinned cad.code_model can land on the short cap. The old
-    Ollama /api/tags weights-size lookup went with it: there is no tags API to ask."""
-    return CODE_TIMEOUT_STRONG if _code_model() == CODE_MODEL_STRONG else CODE_TIMEOUT
+    Ollama /api/tags weights-size lookup went with it: there is no tags API to ask.
+    The think rung (CODE_MODEL_THINK) rides the same long cap: it is the same server as
+    CODE_MODEL_STRONG, plus a reasoning preamble on top, so it can only need MORE time,
+    never less (Task 1b, 2026-09-19)."""
+    return (CODE_TIMEOUT_STRONG if _code_model() in (CODE_MODEL_STRONG, CODE_MODEL_THINK)
+            else CODE_TIMEOUT)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -463,15 +468,26 @@ def _tg_token() -> str:
 
 def _ollama(model: str, system: str, prompt: str,
             timeout: int = LLM_TIMEOUT, images: Optional[list[str]] = None,
-            temperature: Optional[float] = None, fmt=None, no_think: bool = False) -> str:
+            temperature: Optional[float] = None, fmt=None, no_think: bool = False,
+            think: bool = False) -> str:
     """One chat call. The name is historical: Ollama was retired from this agent on
     2026-09-19 and every model string must now be "local:<alias>" (an llama.cpp server —
-    the maker arm on :8088 or the resident on :8086) or "cloud/<model>" (the paid rung).
+    the maker arm on :8088 or the resident on :8086), "local:<alias>+think" (the SAME
+    server, one request with thinking switched on), or "cloud/<model>" (the paid rung).
     A bare Ollama tag raises rather than falling back, per the no-Ollama user rule.
     The name is kept because several modules and scripts import it.
 
     fmt: "json" or a JSON-schema dict — llama.cpp enforces the output grammar server-side
-    via response_format."""
+    via response_format.
+
+    think: request enable_thinking=true WITHOUT a "+think" rung string (Task 1b, 2026-09-19:
+    the Phase 3 harvest's teacher pass wants this without threading a rung name through).
+    A "+think" suffix on `model` has the same effect; either way is fine, both compose.
+    no_think ALWAYS wins over both (mutually exclusive with think, raises otherwise), because
+    a caller that explicitly asked for no thinking (a schema call, a utility call) must never
+    be silently overridden by a stray rung string."""
+    if no_think and think:
+        raise ValueError("_ollama: no_think and think are mutually exclusive")
     if model.startswith(CLOUD_PREFIX):
         # The paid rung rides the same seam every local call uses — nothing upstream
         # knows or cares which provider answered. fmt is ignored (cloud rung = coder only).
@@ -482,6 +498,18 @@ def _ollama(model: str, system: str, prompt: str,
         # output arrives in reasoning_content, which we drop — only content is the answer.
         # Images ride as OpenAI content parts (the server carries the mmproj since
         # 2026-08-15) — that is what lets the critic run on this rung for A/B evals.
+        alias = model[len(LOCAL_PREFIX):]
+        want_think = think
+        if alias.endswith(THINK_SUFFIX):
+            # The "+think" rung is a request-shape suffix, not a real model name: the
+            # server was never launched with an alias carrying it (maker.env's ALIAS has
+            # no suffix), so it must never reach the "model" field below. Stripping it
+            # here is the ONE place in the engine that resolves it: every other server
+            # lookup (maker_config(), _ensure_default_server(), _maker_server_active(),
+            # preflight's health probe) already targets the server by cad.json's `maker`
+            # block, never by parsing this string, so they need no change at all.
+            alias = alias[:-len(THINK_SUFFIX)]
+            want_think = True
         _ensure_default_server()
         if images:
             user_content = [{"type": "text", "text": prompt}] + [
@@ -491,14 +519,24 @@ def _ollama(model: str, system: str, prompt: str,
         else:
             user_content = prompt
         body = {
-            "model": model[len(LOCAL_PREFIX):],
+            "model": alias,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user_content}],
             **({"temperature": temperature} if temperature is not None else {}),
         }
+        if want_think:
+            # Measured 2026-09-19: a request carrying enable_thinking=true on a server
+            # launched with it false produced 1,864 completion tokens (4,439 chars of
+            # reasoning) in 67s, against 127 tokens/5s without it; max_tokens must cover
+            # reasoning PLUS the code that follows it, not just the code.
+            body["chat_template_kwargs"] = {"enable_thinking": True}
+            body["max_tokens"] = CODE_MAX_TOKENS_THINK
         if images and not fmt:
             # A visual critique is a judgment, not code — at 12 tok/s a thinking
-            # preamble adds minutes per turn for no measured gain.
+            # preamble adds minutes per turn for no measured gain. This is also the
+            # critic's guard against ever inheriting +think: CRITIC_MODEL never carries
+            # the suffix, but every critic call also passes images, so this branch would
+            # force thinking off regardless.
             body["chat_template_kwargs"] = {"enable_thinking": False}
         if fmt:
             # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
@@ -512,12 +550,16 @@ def _ollama(model: str, system: str, prompt: str,
             # (CODE_MODEL_STRONG) and must keep the server's default reasoning_effort
             # (the maker arm's own thinking setting included) — only a genuine utility
             # call (brief/patch/lesson/questions/describe/refine) passes no_think=True.
-            # Merge rather than overwrite so this composes with the fmt/images branches.
+            # This is also what makes no_think WIN over a "+think" rung string or an
+            # explicit think=True: it is applied last, unconditionally, after every
+            # other branch above (including the want_think branch) has had its say.
             body["chat_template_kwargs"] = {**body.get("chat_template_kwargs", {}),
                                             "enable_thinking": False}
         # Critic calls (keyed on model, not on images — images are just today's only
         # critic use) ride CRITIC_URL, which defaults to LOCAL_CODER_URL so a critic
-        # pinned to the coder model is unaffected.
+        # pinned to the coder model is unaffected. Compared against the ORIGINAL `model`
+        # string (not the stripped `alias`): CRITIC_MODEL never carries "+think" by
+        # construction (cad_v5/config.py), so this equality is unaffected either way.
         url = CRITIC_URL if model == CRITIC_MODEL else LOCAL_CODER_URL
         req = urllib.request.Request(
             url, data=json.dumps(body).encode(),
@@ -530,6 +572,8 @@ def _ollama(model: str, system: str, prompt: str,
             _USAGE_TOTAL["prompt_tokens"] += int(_LAST_USAGE.get("prompt_tokens") or 0)
             _USAGE_TOTAL["completion_tokens"] += int(_LAST_USAGE.get("completion_tokens") or 0)
         _USAGE_TOTAL["calls"] += 1
+        # reasoning_content (the think rung's preamble) is deliberately ignored here:
+        # only `content` is the answer, thinking or not, exactly as before this rung existed.
         return (resp["choices"][0]["message"].get("content") or "").strip()
     raise RuntimeError(
         f"Ollama is retired; model tags must be local:<alias> (got {model!r}). "

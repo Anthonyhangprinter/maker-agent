@@ -122,11 +122,13 @@ BRIEF_MODEL        = CODE_MODEL_STRONG
 # (benchmarks/results/card/phase0/card.md), which is why Phase 1 made fluid mode's
 # default --coder "strong". CODE_MODEL_FAST keeps its NAME so scripts/fluid_gen.py,
 # scripts/gift_sample.py and any pinned benchmark leg still import something real; it
-# now resolves to the strong rung. The ladder is one rung, so nothing escalates and
-# _next_code_model() returns None unless a cloud rung is configured.
+# now resolves to the strong rung. The retired fast->strong escalation is gone; Task 1b
+# (2026-09-19, below) adds the think rung back as the one escalation step that exists.
 #
 # CAD_CODE_MODEL_FAST survives as an A/B override, but ONLY for a local: alias — an
-# Ollama tag would reach _ollama()'s hard error mid-build instead of failing here.
+# Ollama tag would reach _ollama()'s hard error mid-build instead of failing here. A
+# trailing "+think" (CODE_MODEL_THINK's suffix) passes this check unchanged: it is still
+# a "local:..." string, and cad_engine._ollama() is what strips the suffix, not this check.
 _FAST_OVERRIDE = os.environ.get("CAD_CODE_MODEL_FAST", "")
 if _FAST_OVERRIDE and not _FAST_OVERRIDE.startswith(("local:", "cloud/")):
     raise RuntimeError(
@@ -137,9 +139,28 @@ if _FAST_OVERRIDE and not _FAST_OVERRIDE.startswith(("local:", "cloud/")):
     )
 CODE_MODEL_FAST    = _FAST_OVERRIDE or CODE_MODEL_STRONG
 FAST_RUNG_RETIRED  = "fast rung retired 2026-09-19, using the strong rung"
-# One-rung ladder (local). A configured cad.json `cloud` block still appends a paid rung
-# above it at runtime (cad_engine._ladder()), so escalation is not structurally dead.
-CODE_MODEL_LADDER  = [CODE_MODEL_STRONG]
+# ── Think rung (Task 1b, 2026-09-19) ──────────────────────────────────────────
+# Measured 2026-09-19: thinking is a PER-REQUEST switch on the same loaded maker arm. A
+# request carrying chat_template_kwargs.enable_thinking=true produced 1,864 completion
+# tokens (4,439 chars of reasoning) in 67s, against 127 tokens / 5s without it. No relaunch,
+# no second server, no extra VRAM. So the second rung is a suffix on the SAME model string,
+# not a new alias: cad_engine._ollama() strips "+think" before it ever reaches the server
+# and turns enable_thinking on for that one call. This also means CAD_CODE_MODEL_FAST and
+# any local: alias accept the suffix unchanged (the prefix check below never inspects it),
+# and maker_config()/_ensure_default_server()/_maker_server_active() need no change at all:
+# none of them resolve a server from the code-model string, only from cad.json's `maker`
+# block, so "local:<alias>+think" is already, structurally, the same server as
+# "local:<alias>". CRITIC_MODEL is a separate constant (never derived from CODE_MODEL_THINK
+# or from cad_engine._code_model()), so the critic never inherits +think by construction.
+THINK_SUFFIX       = "+think"
+CODE_MODEL_THINK   = CODE_MODEL_STRONG + THINK_SUFFIX
+# Reasoning needs headroom beyond a plain codegen call: a think call's max_tokens must cover
+# the reasoning_content PLUS the code that follows it. _ollama() only sets this on a think
+# call (no_think / plain calls are unaffected, same as before this rung existed).
+CODE_MAX_TOKENS_THINK = int(os.environ.get("CAD_THINK_MAX_TOKENS", 12000))
+# Two-rung ladder (local): the strong rung, then the same arm with thinking on. A configured
+# cad.json `cloud` block still appends a paid rung above both at runtime (cad_engine._ladder()).
+CODE_MODEL_LADDER  = [CODE_MODEL_STRONG, CODE_MODEL_THINK]
 CODE_MODEL_DEFAULT = CODE_MODEL_STRONG
 # CAD_CRITIC_MODEL env override exists for A/B evals (2026-08-15: gemma4 vs the resident 35B,
 # now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
@@ -149,6 +170,11 @@ CODE_MODEL_DEFAULT = CODE_MODEL_STRONG
 # the same 40 public specs: match 40% vs 35% (+2/-0 flips), 22% faster, no VRAM cost, and no
 # Ollama model left in the loop. CAD_CRITIC_MODEL still overrides, but only with another
 # local: alias — Ollama came off the box 2026-09-19 and _ollama() rejects bare tags.
+# NEVER point this at CODE_MODEL_THINK (or set CAD_CRITIC_MODEL to a "+think" string): a
+# visual critique is a judgment call, not code, and _ollama() already forces thinking off
+# for every images= call regardless of rung, so a +think critic would just pay the reasoning
+# tokens for no effect. The default here is CODE_MODEL_STRONG, which never carries the
+# suffix, so this is thinking-off by construction, not by convention.
 CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", CODE_MODEL_STRONG)
 # CAD_CRITIC_URL lets the critic run on its own server (e.g. a dedicated vision model
 # on a different port) instead of riding the coder server. Defaults to LOCAL_CODER_URL
@@ -281,6 +307,19 @@ def use_brief() -> bool:
     return bool(load_config().get("cad", {}).get("use_brief", False))
 
 
+def repair_think_enabled() -> bool:
+    """Should fluid mode's ONE crash-salvage turn and ONE gate-repair turn ride the think
+    rung (CODE_MODEL_THINK) instead of the plain strong rung? Default FALSE (2026-09-19,
+    Task 1b): a repair-only think turn has never been measured, see the Task 1b probe in
+    docs/plans/2026-09-19-phase3-data-engine.md, and the controller, not this code, decides
+    whether to flip the default after reviewing that data. The first codegen attempt is
+    never affected either way. CAD_REPAIR_THINK=1 overrides cad.json's `repair_think` key.
+    """
+    if os.environ.get("CAD_REPAIR_THINK") == "1":
+        return True
+    return bool(load_config().get("cad", {}).get("repair_think", False))
+
+
 def public_uploads() -> bool:
     # Free Onshape accounts can ONLY create public documents, so public is the default.
     return bool(load_config().get("cad", {}).get("public_uploads", True))
@@ -303,7 +342,15 @@ _LAB_DEFAULTS = {
         "candidates": 3,
         "temps": [0.2, 0.5, 0.8],
         "max_pairs_per_spec": 2,
-        "teacher_arms": ["gemma-4-31b-think", "devstral-small-2"],
+        # Task 1b (2026-09-19): teaching is a per-request think pass on the SAME arm, not a
+        # separate model. "gemma-4-31b-think" (a distinct server launch) is retired along
+        # with the benchmarks/arms.json entry of that name. Task 3's harvest unit reads
+        # this list to decide which passes to try when a spec fails the student twice, and
+        # "think" means "the active rung with enable_thinking on", never a second arm.
+        # devstral-small-2 is dropped too: Phase 0 measured it weaker than the student
+        # (15% invalid / 22 matches vs Gemma-4-31B's 6% / 39 on CADPrompt), and the
+        # Decisions section rules a weaker model out as a teacher regardless of gating.
+        "teacher_arms": ["think"],
     }
 }
 
