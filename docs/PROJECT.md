@@ -1099,3 +1099,14 @@ owner merge decision for `maker-1.0/phase0`, `maker-1.0/phase1` and `maker-1.0/p
 still not deleted; `preflight()` still requires Ollama reachable in the general case; the
 pre-existing `tests/test_n1_offline.py` failure is still open; Phase 3 (the data engine) is
 next.
+
+---
+
+## 2026-09-19: Ollama out of the CAD agent
+
+- The 7B fast rung is retired. `CODE_MODEL_LADDER` is one local rung and `--coder fast|auto|strong` (plus Satine's `fast:`/`strong:` prefixes) all resolve to it, logging "fast rung retired 2026-09-19, using the strong rung"; `CODE_MODEL_FAST` keeps its name pointing at the strong rung so `fluid_gen`, `gift_sample` and pinned benchmark legs still import something real.
+- `_ollama()` keeps its name and signature (several modules import it) but the `:11434` branch is a hard error, "Ollama is retired; model tags must be local:<alias>". No fallback through Ollama, per the user rule.
+- The vision pre-pass for `--image` rides the `local:` branch on `CODE_MODEL_STRONG` with the photo as an OpenAI image content part, thinking off, same JSON schema and same `<photo>.analysis.json` cache; the `gemma4:e4b` pre-pass is gone, which was the last Ollama model in the build path.
+- `preflight()` no longer probes Ollama or `/api/tags`: it asserts every rung is `local:`/`cloud/`, hard-probes a separately-hosted critic server, and logs an advisory when the strong rung is cold. `spec_needs_strong_coder()` is a no-op returning True, saving a schema-constrained round trip whose answer was foregone.
+- Dead with them: `_pause_default_server_for()`, `_unload_ollama_guests()`, `_PAUSED_DEFAULT_SERVER`, `_model_size_gb()`, `VRAM_RESIDENT_GB_MAX` and the `OLLAMA_HOST/URL/TAGS` constants (`OLLAMA_TIMEOUT` became `LLM_TIMEOUT`). The resident/maker swap in `_ensure_default_server`/`_resume_default_server` is untouched. The web UI title worker moved from the deleted `qwen3:8b` on `:11434/api/generate` to the resident alias through the gpu-proxy on `:8085` (chat completions, top-level `reasoning_effort: "none"`, `max_tokens` 24), with its request shape split into `webui/titler.py` so it is testable without FastAPI.
+- Verified live on the maker arm: `cad --once --json "a 20mm cube"` converged in 1 turn at `local:gemma-4-31b` (accepted via critic, 20x20x20mm, 1 solid), and an `--image` build converged in 2 turns with the pre-pass returning a full structured analysis at confidence high and caching it. Suite: 343 passed, 1 failed (334 collected on master, 344 here) (`tests/test_n1_offline.py`, pre-existing and identical on master).

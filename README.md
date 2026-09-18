@@ -4,7 +4,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Python](https://img.shields.io/badge/python-3.10+-blue) ![build123d](https://img.shields.io/badge/kernel-build123d%20%2F%20OCCT-orange) ![Local-first](https://img.shields.io/badge/inference-100%25%20local-red)
 
-The agent writes [build123d](https://github.com/gumyr/build123d) Python, executes it, **measures the resulting geometry**, renders it, has a multimodal critic judge it against the spec, and edits until it converges — an observe–edit loop where a deterministic verification gate, not the LLM, decides whether a part is acceptable. Everything runs on a single RTX 3090 (24 GB, CUDA): a resident 27B via llama.cpp for chat and a swappable "maker" coder server for builds. No cloud calls at build time. (The 8 GB RX 6600 era, with a resident 35B MoE plus Ollama guests, ended 2026-09-04.)
+The agent writes [build123d](https://github.com/gumyr/build123d) Python, executes it, **measures the resulting geometry**, renders it, has a multimodal critic judge it against the spec, and edits until it converges — an observe–edit loop where a deterministic verification gate, not the LLM, decides whether a part is acceptable. Everything runs on a single RTX 3090 (24 GB, CUDA): a resident 27B via llama.cpp for chat and a swappable "maker" coder server for builds. No cloud calls at build time. **Ollama was retired from the agent on 2026-09-19**: the 7B fast rung and the gemma4:e4b critic are gone, every rung is an llama.cpp server, and a bare model tag raises rather than falling back. (The 8 GB RX 6600 era, with a resident 35B MoE plus Ollama guests, ended 2026-09-04.)
 
 The project's operating rule is **measure, don't claim**: every capability ships with an A/B benchmark, and negative results are kept in the record alongside the wins.
 
@@ -14,7 +14,7 @@ The project's operating rule is **measure, don't claim**: every capability ships
 |---|---|---|
 | Best-of-N first-turn sampling (N=3) doubles acceptance **and** cuts wall time | 5/22 → **10/22** accepted, suite time 2097 s → **1221 s** (same engine both legs) | `benchmarks/results/run_20260719_*.json` |
 | Engine scaffolding is worth ~3× to a small coder | same 7B model: **13/22** in the full loop vs 4/22 pipeline-only vs 0/22 bare | model-refresh A/B, 2026-07-17 |
-| Few-shot retrieval lifts a code-specialist +23 pts, generalist +0 | qwen2.5-coder-7B: 4/22 → **13/22** with retrieved examples; qwen3-8B flat | 2×2 A/B, 2026-07-17 |
+| Few-shot retrieval lifts a code-specialist +23 pts, generalist +0 | qwen2.5-coder-7B: 4/22 → **13/22** with retrieved examples; qwen3-8B flat | 2×2 A/B, 2026-07-17 (both models retired 2026-09-19) |
 | Removing the LLM "brief" planning stage *helped* the local 7B | tiers 1–2 convergence **3/6 → 6/6** | brief A/B, 2026-07-30 |
 | Deterministic gate vs. blind human CAD review | agreement **9/11** after adding interference/assembly checks (was 6/11) | gate overhaul, 2026-07-30 |
 | QLoRA fine-tune (369 verified teacher pairs) honestly evaluated | FT 5/10 vs stock 6/10 → **no-ship; stock model kept its place** | `docs/RUNPOD_RUNBOOK.md`, `logs/ft_*.log` |
@@ -35,7 +35,7 @@ More in [`benchmarks/results/artifacts/`](benchmarks/results/artifacts/) — eve
 ```mermaid
 flowchart TD
     S["spec (text and/or reference photo)"] --> T["triage + ambiguity gate<br/>resident 35B, schema-constrained"]
-    T --> C["codegen — 2-rung coder ladder<br/>7B fast rung → resident 35B strong rung"]
+    T --> C["codegen: one local rung<br/>maker arm (Gemma-4-31B) or the resident"]
     C --> R["run → STEP (OCCT)"]
     R --> I["inspect: measured geometry facts<br/>bbox, solids, holes, walls, interference"]
     I --> G{"deterministic verification gate<br/>hard fails / [spec] vetoes / advisories"}
@@ -56,7 +56,7 @@ Key design decisions, each with its measurement in [`docs/PROJECT.md`](docs/PROJ
 
 ## Quick start
 
-Requires Python 3.10+, a llama.cpp build with `llama-server`, and the build123d stack (`pip install build123d`). Models: a small coder (e.g. Qwen2.5-Coder-7B Q4), a multimodal critic (Gemma 4 class), nomic-embed-text-v1.5 for retrieval via a local embed server, and a strong rung served by llama.cpp (Qwen3.8-27B today; the Maker Agent 1.0 campaign in `docs/MAKER-1.0-CAMPAIGN.md` is choosing and training it).
+Requires Python 3.10+, a llama.cpp build with `llama-server`, and the build123d stack (`pip install build123d`). Models: one multimodal coder served by llama.cpp, which writes the code and also judges its own render (Gemma-4-31B on the maker server today, or the resident Qwen3.8-27B when the maker block is disabled), plus nomic-embed-text-v1.5 for retrieval via a local embed server. The Maker Agent 1.0 campaign in `docs/MAKER-1.0-CAMPAIGN.md` is choosing and training the coder.
 
 ```bash
 git clone https://github.com/Anthonyhangprinter/maker-agent

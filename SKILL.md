@@ -1,6 +1,6 @@
 ---
 name: cad-builder
-description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v5: cad_v5 package + cad_engine.py core): brief (qwen3:8b) → auto-routed 2-rung coder ladder (qwen3:8b → qwen3-coder:30b; 14b manual-only) → run/inspect/render → gemma4:e4b visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local via Ollama — no Claude API calls."
+description: "Build CAD models from natural-language specs. build123d agentic observe-edit loop (v5: cad_v5 package + cad_engine.py core): brief → single local coder rung (the maker arm, Gemma-4-31B, on llama.cpp) → run/inspect/render → the coder judges its own render as the visual critic → edit, until it matches. Outputs: local CAD Viewer (default via `cad`), Onshape, STEP/STL/DXF/FCStd. Handles enclosures/boxes, brackets, plates, holes/pockets, fillets, structural sections, gears, bolts. Use when: user asks to build/modify a part, or check a CAD model. All inference local on llama.cpp, no Ollama since 2026-09-19, no Claude API calls."
 metadata:
   {
     "openclaw":
@@ -13,10 +13,13 @@ metadata:
 
 # CAD Builder Skill (v5: cad_v5 package + cad_engine.py core)
 
-Build and iterate on CAD models from text specs. All inference runs locally via Ollama
-(qwen3:8b for brief+code, qwen3-coder:30b escalation, 14b manual-only, gemma4:e4b critic).
-**No Claude API calls.** Default output target is the local CAD Viewer (via the `cad` launcher);
-Onshape is opt-in.
+Build and iterate on CAD models from text specs. All inference runs locally on **llama.cpp**:
+the brief, the coder and the visual critic all ride the strong rung (`maker-server` :8088
+serving Gemma-4-31B when `maker.enabled` in `~/.openclaw/cad.json`, otherwise the resident
+qwen3.8-27b on :8086). **Ollama was retired from this agent 2026-09-19**: the 7B fast rung,
+the gemma4:e4b critic and the qwen3:8b brief are all gone, a bare Ollama tag now raises, and
+there is no fallback through it. **No Claude API calls.** Default output target is the local
+CAD Viewer (via the `cad` launcher); Onshape is opt-in.
 
 The agent writes **build123d** Python (algebra mode), runs it → STEP, inspects the geometry,
 renders a 2-panel PNG (isometric + top-down), has a multimodal critic judge it against the spec,
@@ -76,7 +79,8 @@ SCRIPT=~/.openclaw/skills/cad-builder/cad_engine.py       # core ENGINE (also a 
 # Legacy / rollback only (moved to legacy/): cad_agent_v3.py, cad_agent_v2.py, onshape_cad_agent.py
 ```
 
-**Reference images (`--image`, 2026-07-17; image-only mode 2026-07-18):** a gemma4:e4b vision
+**Reference images (`--image`, 2026-07-17; image-only mode 2026-07-18; on the strong rung
+since 2026-09-19):** a local vision
 pre-pass describes the photo (shape family, features, proportions, `suggested_spec`) into an
 `IMAGE ANALYSIS` addendum the brief reads, and the critic receives the photo as a SECOND image
 each turn to judge form/features/proportions against (two-image attention verified 2026-07-17).
@@ -108,8 +112,8 @@ Session: `~/.openclaw/cad-session.json`. Per-build artifacts: `~/.openclaw/cad-b
 ```bash
 python3 $SCRIPT build "a 100x60x30mm enclosure with 2mm walls"        # → Onshape URL
 python3 $SCRIPT build "W200x100 I-beam 1500mm"                        # uses structural_section()
-python3 $SCRIPT build "<spec>" --coder strong                        # force the 30B coder
-python3 $SCRIPT build "<spec>" --coder fast                          # force the fast rung (qwen3:8b)
+python3 $SCRIPT build "<spec>" --coder strong                        # the only local rung
+python3 $SCRIPT build "<spec>" --coder fast                          # accepted, resolves to strong
 python3 $SCRIPT session                                              # last build state (JSON)
 python3 $SCRIPT rate <1-5> [comment]                                 # store ≥4★ as a few-shot
 python3 $SCRIPT brief "<spec>"                                       # debug: structured brief only
@@ -120,15 +124,16 @@ python3 $SCRIPT inspect "<onshape_url>"                              # describe 
 
 ## The Loop (one build)
 
-1. **Brief** (`qwen3:8b`, temp 0.2) — NL spec → structured JSON `{name, dimensions, features,
+1. **Brief** (the strong rung, temp 0.2, thinking off): NL spec → structured JSON `{name, dimensions, features,
    notes, helper}`. Interprets intent: box/case/enclosure/container/tray/bin ⇒ **hollow, open-top,
    ~2mm walls** unless "solid"/"block"/"plate" etc. is said.
-2. **Coder triage** (`qwen3:8b`) — decides if the spec is hard enough to SKIP the fast rung and start
-   directly on the strong 30B rung.
+2. **Coder triage**: retired 2026-09-19 with the fast rung, `spec_needs_strong_coder()` is a
+   no-op returning True without spending a call, since there is only one local rung to pick.
 3. **Codegen** (auto-routed coder, temp 0.15) — build123d algebra-mode script.
 4. **Run → STEP** (`scripts/step`), **inspect** (`scripts/inspect`), **render** (`scripts/render`,
    2 panels).
-5. **Visual critic** (`gemma4:e4b`) — describes BOTH panels; the top-down panel is where top-face
+5. **Visual critic** (the coder itself, `CRITIC_MODEL = CODE_MODEL_STRONG` since Phase 1):
+   describes BOTH panels; the top-down panel is where top-face
    holes/pockets show.
 6. **Decide / edit** — `###DONE###` if every requested feature is genuinely present (verified
    against code + geometry, not just the render), else edit and loop. Max `MAX_TURNS` (4) /
@@ -139,13 +144,13 @@ correct by construction, and **bypass codegen and the critic** (~60s).
 
 ## Coder routing
 
-Escalation ladder is **2 rungs: qwen3:8b → 30B** (`CODE_MODEL_LADDER = [CODE_MODEL_FAST,
-CODE_MODEL_STRONG]`, weakest first, one rung per escalation). Default fast rung is **`qwen3:8b`**
-(2026-07-12 A/B: 15/22 acceptance vs the code-tuned 7B's 8/22 under identical prompts — it also
-keeps one model warm across brief/triage/codegen/decide); triage makes hard specs SKIP it and
-start on the strong `qwen3-coder:30b` (~7min/call, CPU offload) — the last resort, reached by
-triage or escalation. There is NO mid rung: the 14B was measured out twice and the model + the
-`--coder mid` alias were REMOVED 2026-07-16 (as were qwen2.5-coder:7b, qwen3.5:4b/9b, phi3).
+**The fast rung was retired 2026-09-19** when Ollama came off the box. `CODE_MODEL_LADDER` is
+one local rung, `[CODE_MODEL_STRONG]` (the maker arm, or the resident when maker is disabled);
+a configured `cad.json` `cloud` block still appends a paid rung above it. `CODE_MODEL_FAST`
+keeps its name pointing at the strong rung so importers still resolve. The rung it replaced
+was `qwen2.5-coder:7b-instruct-q4_K_M`, which Phase 0 measured at 44% invalid on CADPrompt
+against Gemma-4-31B's 6%; it had already lost the argument on merit before Ollama went.
+`CAD_CODE_MODEL_FAST` still overrides for A/B legs but accepts only a `local:` alias.
 - Force per build: `--coder auto|fast|strong`.
 - Telegram (Satine): prefix the message `fast: <spec>` or `strong: <spec>`.
 - Pin permanently: set `cad.code_model` in `~/.openclaw/cad.json` (disables auto-climbing).
@@ -173,7 +178,7 @@ Small-model quality comes from retrieval + memory, not parameters:
   into the brief. `rate ≥4★` adds the current build. Measured: it flipped a flange variant the 7B
   couldn't build (`--no-fewshots`) into a clean converged build.
 - **Fail→fix memory** `~/.openclaw/cad-lessons.jsonl` — a recovered build auto-distills one concrete
-  pitfall (qwen3:8b), retrieved + injected as "PITFALLS to avoid" on similar future specs.
+  pitfall (the strong rung), retrieved + injected as "PITFALLS to avoid" on similar future specs.
 - **Measure the lift:** `build --no-fewshots` (or the runner's `--no-fewshots`) disables retrieval so
   any claimed improvement is A/B-checkable. If a piece shows no benchmark lift, remove it.
 - **Fine-tune harvest (GIFT, 2026-07-19 — arXiv 2603.27448):** every converged organic build
