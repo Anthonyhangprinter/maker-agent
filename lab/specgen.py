@@ -522,7 +522,8 @@ def _run_arms(*args: str) -> subprocess.CompletedProcess:
     supervisor's log still shows what it did, but returning the CompletedProcess so a
     non-zero exit is visible to the caller instead of being silently swallowed the way a
     bare `subprocess.run(..., check=False)` with no capture would leave it."""
-    p = subprocess.run([sys.executable, str(ARMS_PY), *args], capture_output=True, text=True)
+    p = subprocess.run([sys.executable, str(ARMS_PY), *args], capture_output=True,
+                       encoding="utf-8", errors="replace")
     if p.stdout:
         sys.stdout.write(p.stdout if p.stdout.endswith("\n") else p.stdout + "\n")
     if p.stderr:

@@ -245,7 +245,8 @@ def build_once(spec: str, mode: str, timeout: int, knobs: Knobs | None = None) -
     cmd += knobs.argv()
     t0 = time.time()
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE, env=env)
+        p = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                          timeout=timeout, cwd=HERE, env=env)
         wall = time.time() - t0
         last = [l for l in p.stdout.splitlines() if l.startswith("{")]
         return (json.loads(last[-1]) if last else {"ok": False, "error": f"rc={p.returncode} no json"}), wall, p.stderr[-800:]
