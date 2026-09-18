@@ -450,6 +450,9 @@ def test_critic_pin_is_allowed_when_the_url_is_the_coder_server():
 
 
 def test_non_local_critic_never_conflicts():
+    """The reroute guard keys on the local: prefix, so a non-local pin is out of its scope.
+    Such a pin no longer RUNS (Ollama was retired 2026-09-19 and preflight rejects a bare
+    tag) — this asserts the guard stays silent about it, not that it would work."""
     import run_card as rc
-    k = rc.Knobs(critic="gemma4:e4b", critic_url="http://127.0.0.1:8092/v1/chat/completions")
+    k = rc.Knobs(critic="some-bare-tag", critic_url="http://127.0.0.1:8092/v1/chat/completions")
     assert rc.critic_conflict(k, {"gemma-4-31b"}) == ""

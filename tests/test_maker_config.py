@@ -30,7 +30,7 @@ def test_enabled_maker_rewrites_port_and_alias(tmp_path):
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8088/v1/chat/completions"
     assert cfg.LOCAL_CODER_HEALTH == "http://127.0.0.1:8088/health"
     assert cfg.CODE_MODEL_STRONG == "local:gemma-4-31b"
-    assert cfg.CODE_MODEL_LADDER[1] == "local:gemma-4-31b"
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
 
 
 def test_ensure_hook_starts_maker_and_resume_restores(tmp_path, monkeypatch):
@@ -39,7 +39,6 @@ def test_ensure_hook_starts_maker_and_resume_restores(tmp_path, monkeypatch):
     importlib.reload(cad_engine)
     calls = []
     monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
     monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
     cad_engine._ensure_default_server(timeout=1)
     assert ["systemctl", "--user", "stop", "qwen38-server"] in calls
@@ -57,7 +56,6 @@ def test_keep_maker_reuses_warm_arm_without_systemctl(tmp_path, monkeypatch):
     importlib.reload(cad_engine)
     calls = []
     monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
                          lambda url, timeout=3: _FakeHealthResponse())
     cad_engine._ensure_default_server(timeout=1)
@@ -79,44 +77,25 @@ def test_disabled_maker_ignores_a_stale_alias_and_port(tmp_path):
 
 
 def test_keep_maker_falls_through_to_start_when_probe_fails(tmp_path, monkeypatch):
-    """The warm fast path is a probe, not a promise: when no arm answers, _ensure_default_server
-    must fall through to the normal maker path (stop resident, start maker) and clear the
-    paused flag, or every later _pause_default_server_for() silently becomes a no-op."""
+    """The warm fast path is a probe, not a promise: when no arm answers,
+    _ensure_default_server must fall through to the normal maker path (stop resident,
+    start maker) rather than return as if an arm were up."""
     cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
     monkeypatch.setenv("CAD_KEEP_MAKER", "1")
     import cad_engine
     importlib.reload(cad_engine)
     calls = []
     monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *_a, **_k: None)
     monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
 
     def dead_probe(url, timeout=3):
         raise OSError("connection refused")
 
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen", dead_probe)
-    cad_engine._PAUSED_DEFAULT_SERVER = True
     cad_engine._ensure_default_server(timeout=1)
     assert ["systemctl", "--user", "stop", "qwen38-server"] in calls
     assert ["systemctl", "--user", "start", "maker-server"] in calls
-    assert cad_engine._PAUSED_DEFAULT_SERVER is False
-
-
-def test_keep_maker_warm_hit_clears_the_paused_flag(tmp_path, monkeypatch):
-    """The arm IS up on the warm path, so "paused" is no longer true. Leaving the flag set
-    made _pause_default_server_for() a no-op for the rest of the build and let a gemma4
-    critic call spill against a warm arm."""
-    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
-    monkeypatch.setenv("CAD_KEEP_MAKER", "1")
-    import cad_engine
-    importlib.reload(cad_engine)
-    monkeypatch.setattr(cad_engine.subprocess, "run",
-                        lambda argv, **kw: pytest.fail(f"warm path must not shell out: {argv}"))
-    monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
-                        lambda url, timeout=3: _FakeHealthResponse())
-    cad_engine._PAUSED_DEFAULT_SERVER = True
-    cad_engine._ensure_default_server(timeout=1)
-    assert cad_engine._PAUSED_DEFAULT_SERVER is False
+    assert cad_engine._MAKER_STARTED is True
 
 
 def test_local_usage_accumulates_across_calls(tmp_path, monkeypatch):
@@ -126,7 +105,6 @@ def test_local_usage_accumulates_across_calls(tmp_path, monkeypatch):
     import cad_engine; importlib.reload(cad_engine)
     monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
     monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **kw: None)
 
     bodies = [{"choices": [{"message": {"content": "one"}}],
                "usage": {"prompt_tokens": 10, "completion_tokens": 5}},
@@ -151,12 +129,14 @@ def test_brief_model_is_the_local_strong_rung(tmp_path):
     assert cfg.BRIEF_MODEL == cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
 
 
-def test_preflight_ignores_local_and_cloud_models(tmp_path, monkeypatch):
+def test_preflight_accepts_local_and_cloud_models(tmp_path, monkeypatch):
     cfg = _reload_with(tmp_path, {})
     import cad_engine; importlib.reload(cad_engine)
-    monkeypatch.setattr(cad_engine, "_installed_ollama_models", lambda: set())  # nothing on Ollama
     monkeypatch.setattr(cad_engine, "_code_model", lambda: "local:qwen3.8-27b")
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
+                        lambda url, timeout=0: _FakeHealthResponse())
     cad_engine._preflight_models()   # must not raise
+    cad_engine.preflight()           # nor this — no Ollama probe left in it
 
 
 def test_critic_url_defaults_to_coder_url(tmp_path, monkeypatch):
@@ -180,13 +160,14 @@ def test_critic_call_goes_to_critic_url(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen", lambda req, timeout=0: R(req.full_url))
     monkeypatch.setattr(cad_engine, "_ensure_default_server", lambda *a, **k: None)
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **k: None)
     cad_engine._ollama("local:minicpm-v", "sys", "user", images=["QUJD"])
     cad_engine._ollama("local:gemma-4-31b", "sys", "user")
     assert urls == ["http://127.0.0.1:8089/v1/chat/completions", cfg.LOCAL_CODER_URL]
 
 
-def test_preflight_tolerates_ollama_down_when_all_local(tmp_path, monkeypatch):
+def test_preflight_never_touches_the_network_for_a_model_list(tmp_path, monkeypatch):
+    """The Ollama /api/tags reachability check is gone (2026-09-19). A dead server must
+    leave preflight advisory, not raise: _ensure_default_server() starts the unit."""
     monkeypatch.setenv("CAD_CRITIC_MODEL", "local:gemma-4-31b")
     cfg = _reload_with(tmp_path, {})
     import cad_engine; importlib.reload(cad_engine)
@@ -195,21 +176,15 @@ def test_preflight_tolerates_ollama_down_when_all_local(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen", boom)
     monkeypatch.setattr(cad_engine, "_code_model", lambda: "local:gemma-4-31b")
-    assert cad_engine._installed_ollama_models() == set()
+    cad_engine.preflight()   # must not raise
 
 
-def test_pause_hook_stops_maker_when_enabled(tmp_path, monkeypatch):
-    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "arm-x"}})
+def test_preflight_rejects_a_bare_ollama_tag(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
     import cad_engine; importlib.reload(cad_engine)
-    calls = []
-    monkeypatch.setattr(cad_engine.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
-    monkeypatch.setattr(cad_engine, "_model_size_gb", lambda m: 3.4)
-    # The is-active probe goes through subprocess.run too (systemctl is-active <unit>); patch
-    # it directly so the recorded calls list only carries the actual pause action, not the probe.
-    monkeypatch.setattr(cad_engine, "_maker_server_active", lambda: True)
-    cad_engine._PAUSED_DEFAULT_SERVER = False
-    cad_engine._pause_default_server_for("gemma4:e4b")
-    assert calls == [["systemctl", "--user", "stop", "maker-server"]]
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: "qwen2.5-coder:7b-instruct-q4_K_M")
+    with pytest.raises(RuntimeError, match="retired"):
+        cad_engine.preflight()
 
 
 class _FakeChatResponse:
@@ -226,7 +201,7 @@ class _FakeChatResponse:
         return self._body
 
 
-def test_ollama_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
+def test_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
     """no_think must be a caller-declared kwarg, never inferred from `model == BRIEF_MODEL` —
     that string equality would also silently catch strong-rung codegen/revise/decide calls,
     which ride the exact same model string as BRIEF_MODEL (CODE_MODEL_STRONG) and must keep
@@ -237,7 +212,6 @@ def test_ollama_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch)
     # which would otherwise shell out to real systemctl and probe a real health endpoint.
     monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
     monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
-    monkeypatch.setattr(cad_engine, "_unload_ollama_guests", lambda *a, **kw: None)
 
     captured = []
 
@@ -275,3 +249,100 @@ def teardown_module(module):
     importlib.reload(cfg)
     import cad_engine
     importlib.reload(cad_engine)
+
+
+# ── Ollama retirement (2026-09-19) ─────────────────────────────────────────────
+
+def test_ladder_is_one_local_rung(tmp_path, monkeypatch):
+    """The 7B fast rung lived on Ollama. With Ollama off the box the local ladder is the
+    strong rung alone, and CODE_MODEL_FAST keeps its name pointing at it so importers
+    (fluid_gen, gift_sample, pinned benchmark legs) still resolve something real."""
+    monkeypatch.delenv("CAD_CODE_MODEL_FAST", raising=False)
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b"}})
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
+    assert cfg.CODE_MODEL_FAST == cfg.CODE_MODEL_DEFAULT == cfg.CODE_MODEL_STRONG
+    assert "ollama" not in cfg.CODE_MODEL_FAST.lower()
+
+
+def test_coder_fast_resolves_to_the_strong_rung(tmp_path, monkeypatch):
+    """--coder fast (and Satine's fast: prefix) must keep parsing — every saved command and
+    benchmark leg uses it — but land on the only rung that exists."""
+    monkeypatch.delenv("CAD_CODE_MODEL_FAST", raising=False)
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b"}})
+    sys.path.insert(0, str(HERE / "scripts"))
+    import cad_engine; importlib.reload(cad_engine)
+    import fluid_gen; importlib.reload(fluid_gen)
+    for word in ("fast", "auto", "strong"):
+        fluid_gen._model_for(word)
+        assert fluid_gen.engine._ACTIVE_CODE_MODEL == "local:gemma-4-31b", word
+
+
+def test_fast_override_refuses_an_ollama_tag(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "qwen2.5-coder:7b-instruct-q4_K_M")
+    with pytest.raises(RuntimeError, match="not a local: model"):
+        _reload_with(tmp_path, {})
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "local:some-arm")
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.CODE_MODEL_FAST == "local:some-arm"
+
+
+def test_ollama_tag_raises_instead_of_calling_11434(tmp_path, monkeypatch):
+    """No fallback through Ollama (user rule): a bare tag is a hard error, never an HTTP
+    call to :11434."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+
+    def no_http(*a, **k):
+        pytest.fail("a bare Ollama tag must not reach the network")
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", no_http)
+    with pytest.raises(RuntimeError, match="Ollama is retired"):
+        cad_engine._ollama("qwen3:8b", "sys", "user")
+
+
+def test_triage_is_a_free_no_op(tmp_path, monkeypatch):
+    """With one local rung the triage answer is foregone; it must not spend a round trip."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_ollama",
+                        lambda *a, **k: pytest.fail("triage must not call a model"))
+    assert cad_engine.spec_needs_strong_coder("a 20mm cube", {}) is True
+
+
+def test_vision_prepass_rides_the_local_rung_with_an_image_part(tmp_path, monkeypatch):
+    """The gemma4:e4b pre-pass is gone: the analysis call must go to the strong rung's
+    chat-completions endpoint, carry the photo as an OpenAI image part, and run thinking
+    off with the same JSON contract."""
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b"}})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_ensure_default_server", lambda *a, **k: None)
+    monkeypatch.setattr(cad_engine, "_prep_image_b64", lambda p: "QUJD")
+    sent = {}
+    analysis = {"shape_family": "plate", "features": [], "proportions": "flat",
+                "legible_dimensions_mm": [], "symmetry": "none",
+                "suggested_spec": "a 50mm plate", "confidence": "low"}
+
+    def fake_urlopen(req, timeout=None):
+        sent["url"] = req.full_url
+        sent["body"] = json.loads(req.data.decode())
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": json.dumps(analysis)}}]}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    photo = tmp_path / "ref.jpg"
+    photo.write_bytes(b"not-a-real-jpeg")
+    assert cad_engine.analyze_reference_image(str(photo)) == analysis
+    assert sent["url"] == "http://127.0.0.1:8088/v1/chat/completions"
+    assert sent["body"]["model"] == "gemma-4-31b"
+    parts = sent["body"]["messages"][1]["content"]
+    assert parts[0]["type"] == "text"
+    assert parts[1]["image_url"]["url"].endswith("QUJD")
+    assert sent["body"]["chat_template_kwargs"]["enable_thinking"] is False
+    assert sent["body"]["response_format"]["type"] == "json_object"
+    # the per-photo cache still short-circuits the second call
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
+                        lambda *a, **k: pytest.fail("cached analysis must not re-call"))
+    assert cad_engine.analyze_reference_image(str(photo)) == analysis
