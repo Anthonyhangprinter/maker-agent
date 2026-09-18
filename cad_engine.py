@@ -223,12 +223,12 @@ _MAKER_STARTED = False
 
 def _default_server_active() -> bool:
     r = subprocess.run(["systemctl", "--user", "is-active", _QWEN36_UNIT],
-                       capture_output=True, text=True)
+                       capture_output=True, encoding="utf-8", errors="replace")
     return r.stdout.strip() == "active"
 
 def _maker_server_active() -> bool:
     r = subprocess.run(["systemctl", "--user", "is-active", _MAKER_UNIT],
-                       capture_output=True, text=True)
+                       capture_output=True, encoding="utf-8", errors="replace")
     return r.stdout.strip() == "active"
 
 def _resume_default_server() -> None:
@@ -1838,7 +1838,7 @@ def run_step(code: str, work_dir: Path) -> tuple[Path, str]:
 
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "step"), str(src), str(step)],
-        capture_output=True, text=True, timeout=STEP_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STEP_TIMEOUT,
     )
     output = result.stdout + result.stderr
     if result.returncode != 0 or not step.exists():
@@ -1848,7 +1848,7 @@ def run_step(code: str, work_dir: Path) -> tuple[Path, str]:
 def run_inspect(step_path: Path) -> dict:
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "inspect"), str(step_path)],
-        capture_output=True, text=True, timeout=INSPECT_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=INSPECT_TIMEOUT,
     )
     output   = result.stdout + result.stderr
     valid    = result.returncode == 0
@@ -1863,7 +1863,7 @@ def run_diff(old_step: Path, new_step: Path) -> str:
     try:
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "inspect"), str(new_step), "--diff", str(old_step)],
-            capture_output=True, text=True, timeout=INSPECT_TIMEOUT,
+            capture_output=True, encoding="utf-8", errors="replace", timeout=INSPECT_TIMEOUT,
         )
         out = (result.stdout or "").strip()
         return "\n".join(ln for ln in out.splitlines() if ln.startswith(("Δ", "DIFF")))
@@ -2531,7 +2531,7 @@ def run_render(step_path: Path, work_dir: Path, section: bool = False) -> Path:
     cmd = [sys.executable, str(SCRIPTS_DIR / "render"), str(step_path), str(png)]
     if section:
         cmd.append("--section")   # add a 3rd cut-through panel for hollow/internal parts
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=RENDER_TIMEOUT)
+    result = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=RENDER_TIMEOUT)
     if result.returncode != 0 or not png.exists():
         raise RuntimeError(result.stdout + result.stderr)
     return png
@@ -2540,7 +2540,7 @@ def run_stl(step_path: Path, out_path: Path) -> Path:
     """Export STEP → watertight binary STL (sliceable for printing). Returns the STL path."""
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "stl"), str(step_path), str(out_path)],
-        capture_output=True, text=True, timeout=STL_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STL_TIMEOUT,
     )
     if result.returncode != 0 or not out_path.exists():
         raise RuntimeError(result.stdout + result.stderr)
@@ -2551,7 +2551,7 @@ def run_dxf(step_path: Path, out_path: Path) -> tuple[Path, str]:
     applicable flat face — caller treats that as 'not a sheet part', not a hard error."""
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "dxf"), str(step_path), str(out_path)],
-        capture_output=True, text=True, timeout=STL_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STL_TIMEOUT,
     )
     out = result.stdout + result.stderr
     if result.returncode != 0 or not out_path.exists():
