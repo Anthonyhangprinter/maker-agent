@@ -39,6 +39,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import mesh as meshmod
+import titler
 
 SKILL_ROOT  = Path(__file__).resolve().parent.parent          # …/skills/cad-builder
 STATIC_DIR  = Path(__file__).resolve().parent / "static"
@@ -51,9 +52,10 @@ BUILD_TIMEOUT = 2 * 1860                # engine budget + a full lock wait (matc
 LOG_TAIL    = 40
 ARTIFACT_EXTS = {".step", ".stl", ".dxf", ".png", ".py", ".jpg", ".scad"}
 CODERS = {"auto", "fast", "strong"}
-# Titles are named by the same small model the engine uses for its brief (cad_v5/config.py).
-TITLE_MODEL = "qwen3:8b"
-OLLAMA_GEN  = "http://localhost:11434/api/generate"
+# Title worker config + request shape live in webui/titler.py (importable without FastAPI,
+# so the request shape is testable): the resident through the gpu-proxy on :8085 since the
+# Ollama qwen3:8b call was retired 2026-09-19.
+TITLE_MODEL = titler.TITLE_MODEL
 # Files copied aside before a revise overwrites them in place (fluid_gen revises the SAME dir).
 TURN_FILES = (("render", "build.png"), ("step", "build.step"),
               ("stl", "build.stl"), ("source", "build_source.py"))
@@ -144,8 +146,8 @@ _queue: "queue.Queue[str]" = queue.Queue()
 # Mesh jobs run remotely (no GPU, no build lock) — their own queue so a mesh generation
 # never waits behind a CAD build or vice versa.
 _mesh_queue: "queue.Queue[str]" = queue.Queue()
-# Set while a job holds the box. The title worker waits on this: naming a creation swaps the
-# model in VRAM (OLLAMA_MAX_LOADED_MODELS=1) and must never happen during a build.
+# Set while a job holds the box. The title worker waits on this: a build evicts the resident
+# for the maker arm, so a title call during a build would contend for the card.
 _gpu_busy = threading.Event()
 _title_ping = threading.Event()
 
@@ -205,44 +207,30 @@ def _fallback_title(job: dict) -> str:
 
 
 def _title_for(job: dict):
-    """Name the creation with the small local model — CADAM-style rail titles.
+    """Name the creation with the resident model — CADAM-style rail titles.
 
-    Only ever called from the title worker while the GPU is idle: OLLAMA_MAX_LOADED_MODELS=1,
-    so this call evicts the coder from VRAM and a cold qwen3:8b load costs ~30s. Running it
-    inline after a build would push that cost onto the next queued build. Any failure leaves
-    the truncated-spec fallback in place.
+    Only ever called from the title worker while the GPU is idle (the _gpu_busy interlock):
+    a build owns the card, and while the maker arm is loaded the resident is stopped, so a
+    title call during a build would queue behind the eviction or fight it for VRAM. Any
+    failure leaves the truncated-spec fallback in place.
     """
     job.setdefault("title", _fallback_title(job))
     if job.get("titled") or not (job.get("spec") or "").strip():
         return
-    prompt = ("Name this 3D CAD creation with a short title of 2 to 5 words in Title Case. "
-              "Reply with the title only — no quotes, no punctuation, no explanation.\n\n"
-              f"Description: {job['spec'][:400]}")
-    data = json.dumps({"model": TITLE_MODEL, "prompt": prompt, "stream": False,
-                       "think": False, "options": {"temperature": 0.2}}).encode()
-    raw = ""
-    for attempt in range(3):
-        try:
-            req = urllib.request.Request(OLLAMA_GEN, data=data,
-                                         headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=180) as r:
-                payload = json.loads(r.read())
-        except Exception as e:
-            return _title_gave_up(job, f"{type(e).__name__}: {e}")
-        # Ollama answers a request that arrives mid-model-swap with this instead of blocking.
-        if payload.get("error"):
-            if "loading model" in str(payload["error"]) and attempt < 2:
-                time.sleep(10)
-                continue
-            return _title_gave_up(job, str(payload["error"]))
-        raw = payload.get("response", "")
-        break
-    # qwen3 can still emit a think block even with think:false on older builds — strip it.
-    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.S)
-    title = raw.strip().strip('"\'' + "“”").splitlines()[0].strip() if raw.strip() else ""
-    if not title or len(title) > 60 or title.lower().startswith(("i ", "here", "sure")):
-        return _title_gave_up(job, f"unusable response {raw[:80]!r}")
-    job["title"], job["titled"] = title[:48], True
+    url, body = titler.build_request(job["spec"])
+    try:
+        req = urllib.request.Request(url, data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            payload = json.loads(r.read())
+    except Exception as e:
+        return _title_gave_up(job, f"{type(e).__name__}: {e}")
+    if payload.get("error"):
+        return _title_gave_up(job, str(payload["error"]))
+    title = titler.parse_title(payload)
+    if not title:
+        return _title_gave_up(job, f"unusable response {str(payload)[:120]!r}")
+    job["title"], job["titled"] = title, True
 
 
 def _title_gave_up(job: dict, why: str):
@@ -252,9 +240,9 @@ def _title_gave_up(job: dict, why: str):
 
 
 def _title_worker():
-    """Names finished creations, but only while nothing is building — the title call swaps
-    the model in VRAM, so it must never contend with a build. Re-checks every 2 minutes,
-    which also covers titles skipped because the box was busy."""
+    """Names finished creations, but only while nothing is building — a build owns the card
+    (the resident is evicted for the maker arm), so a title call must never contend with one.
+    Re-checks every 2 minutes, which also covers titles skipped because the box was busy."""
     while True:
         _title_ping.wait(timeout=120)
         _title_ping.clear()
