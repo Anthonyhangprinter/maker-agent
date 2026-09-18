@@ -58,6 +58,7 @@ def test_repair_think_off_by_default_leaves_the_active_rung_untouched(monkeypatc
 
 def test_repair_think_on_routes_crash_salvage_to_the_think_rung(monkeypatch, tmp_path):
     monkeypatch.setattr(fg, "repair_think_enabled", lambda: True)
+    monkeypatch.setattr(fg, "think_rung_available", lambda: True)
     monkeypatch.setattr(fg.engine, "_ACTIVE_CODE_MODEL", "local:gemma-4-31b")
     monkeypatch.setattr(fg.engine, "CODE_MODEL_THINK", "local:gemma-4-31b+think")
 
@@ -89,6 +90,7 @@ def test_repair_think_on_routes_crash_salvage_to_the_think_rung(monkeypatch, tmp
 
 def test_repair_think_on_routes_gate_repair_to_the_think_rung(monkeypatch, tmp_path):
     monkeypatch.setattr(fg, "repair_think_enabled", lambda: True)
+    monkeypatch.setattr(fg, "think_rung_available", lambda: True)
     monkeypatch.setattr(fg.engine, "_ACTIVE_CODE_MODEL", "local:gemma-4-31b")
     monkeypatch.setattr(fg.engine, "CODE_MODEL_THINK", "local:gemma-4-31b+think")
     (tmp_path / "build_source.py").write_text("code0")
@@ -120,10 +122,47 @@ def test_repair_think_on_routes_gate_repair_to_the_think_rung(monkeypatch, tmp_p
     assert m["repair_rung"] == "local:gemma-4-31b+think"
 
 
+def test_repair_think_on_but_rung_unavailable_is_a_no_op(monkeypatch, tmp_path):
+    """Fix round 1, 2026-09-19: the knob being on is not enough. When
+    think_rung_available() says the active server would not treat "+think" as a
+    different request (maker disabled, or an arm without the enable_thinking:false
+    extra_arg), the repair call must ride the plain rung and repair_rung stays None,
+    exactly as if the knob itself were off."""
+    monkeypatch.setattr(fg, "repair_think_enabled", lambda: True)
+    monkeypatch.setattr(fg, "think_rung_available", lambda: False)
+    monkeypatch.setattr(fg.engine, "_ACTIVE_CODE_MODEL", "local:qwen3.8-27b")
+
+    seen_rung_during_call = {}
+
+    def fake_revise_script(spec, code, problem, state=""):
+        seen_rung_during_call["rung"] = fg.engine._ACTIVE_CODE_MODEL
+        return "fixed = 1\n"
+
+    monkeypatch.setattr(fg.engine, "revise_script", fake_revise_script)
+
+    calls = {"n": 0}
+
+    def fake_materialize(code, build_dir, spec=""):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _clean_materialize_result(error="boom")
+        return _clean_materialize_result(error=None)
+
+    monkeypatch.setattr(fg, "_materialize", fake_materialize)
+
+    m = fg._materialize_with_salvage("a cube", "code0", tmp_path)
+
+    assert seen_rung_during_call["rung"] == "local:qwen3.8-27b"   # never switched
+    assert fg.engine._ACTIVE_CODE_MODEL == "local:qwen3.8-27b"
+    assert m["salvaged"] is True
+    assert m["repair_rung"] is None
+
+
 def test_no_repair_needed_records_no_rung(monkeypatch, tmp_path):
     """The knob must never fire when there is nothing to repair: a clean first attempt
     keeps repair_rung None regardless of the knob."""
     monkeypatch.setattr(fg, "repair_think_enabled", lambda: True)
+    monkeypatch.setattr(fg, "think_rung_available", lambda: True)
     monkeypatch.setattr(fg.engine, "_ACTIVE_CODE_MODEL", "local:gemma-4-31b")
 
     def fail_revise(*a, **k):

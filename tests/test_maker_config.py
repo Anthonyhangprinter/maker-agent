@@ -18,7 +18,8 @@ def _reload_with(tmp_path, cad_json: dict):
 def test_defaults_point_at_resident(tmp_path):
     cfg = _reload_with(tmp_path, {})
     m = cfg.maker_config()
-    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
+                "arm": None}
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
 
@@ -71,7 +72,8 @@ def test_disabled_maker_ignores_a_stale_alias_and_port(tmp_path):
     cfg = _reload_with(tmp_path, {"maker": {"enabled": False, "port": 8088, "alias": "gemma-4-31b",
                                              "arm": "gemma-4-31b"}})
     m = cfg.maker_config()
-    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
+                "arm": None}
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
 
@@ -360,7 +362,11 @@ def test_code_timeout_uses_the_strong_cap_on_the_think_rung(tmp_path, monkeypatc
 
 
 def test_ladder_climbs_from_strong_to_think_then_stops(tmp_path, monkeypatch):
-    cfg = _reload_with(tmp_path, {})
+    # gemma-4-31b's real benchmarks/arms.json entry launches with
+    # enable_thinking:false, so think_rung_available() is True here (fix round 1: the
+    # ladder only offers the think rung where it is a genuinely different request).
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
     import cad_engine; importlib.reload(cad_engine)
     assert cad_engine._next_code_model(cfg.CODE_MODEL_STRONG) == cfg.CODE_MODEL_THINK
     assert cad_engine._next_code_model(cfg.CODE_MODEL_THINK) is None
@@ -373,6 +379,54 @@ def test_fast_override_accepts_the_think_form(tmp_path, monkeypatch):
     monkeypatch.setenv("CAD_CODE_MODEL_FAST", "qwen2.5-coder:7b-instruct-q4_K_M+think")
     with pytest.raises(RuntimeError, match="not a local: model"):
         _reload_with(tmp_path, {})
+
+
+# ── Fix round 1: think_rung_available() ─────────────────────────────────────────
+
+def test_think_rung_available_true_for_a_real_thinking_off_arm(tmp_path):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    assert cfg.think_rung_available() is True
+
+
+def test_think_rung_available_false_when_maker_disabled(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.think_rung_available() is False
+    assert cfg.CODE_MODEL_LADDER == [cfg.CODE_MODEL_STRONG]
+
+
+def test_think_rung_available_false_for_an_arm_without_the_thinking_off_flag(tmp_path):
+    # devstral-small-2's real benchmarks/arms.json entry has extra_args="" -- it never
+    # tells the server to launch with thinking off, so a "+think" request would not be
+    # a meaningfully different call from the plain one.
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "devstral-small-2",
+                                            "arm": "devstral-small-2"}})
+    assert cfg.think_rung_available() is False
+    assert cfg.CODE_MODEL_LADDER == [cfg.CODE_MODEL_STRONG]
+
+
+def test_think_rung_available_false_and_no_exception_when_arms_json_unreadable(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    monkeypatch.setattr(cfg, "ARMS_FILE", tmp_path / "does-not-exist.json")
+    assert cfg.think_rung_available() is False
+
+
+def test_think_rung_available_false_and_no_exception_when_arms_json_malformed(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    bad = tmp_path / "arms.json"
+    bad.write_text("not json")
+    monkeypatch.setattr(cfg, "ARMS_FILE", bad)
+    assert cfg.think_rung_available() is False
+
+
+def test_think_rung_available_false_when_the_arm_is_absent_from_arms_json(tmp_path):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "some-unknown-alias",
+                                            "arm": "some-unknown-arm"}})
+    assert cfg.think_rung_available() is False
 
 
 # ── Task 1b: repair_think config accessor ──────────────────────────────────────
@@ -408,7 +462,7 @@ def test_lab_config_partial_override_keeps_other_defaults(tmp_path):
     lc = cfg.lab_config()
     assert lc["harvest"]["hours_per_day"] == 6
     assert lc["harvest"]["unit_minutes"] == 10   # untouched default survives
-    assert lc["harvest"]["teacher_arms"] == cfg._LAB_DEFAULTS["harvest"]["teacher_arms"]
+    assert lc["harvest"]["teacher_passes"] == cfg._LAB_DEFAULTS["harvest"]["teacher_passes"]
 
 
 @pytest.mark.parametrize("bad_value", ["a string", ["a", "list"], 5])
@@ -447,11 +501,11 @@ def test_lab_config_returns_deep_copies_never_shared_with_the_defaults(tmp_path)
     lc1 = cfg.lab_config()
     lc1["harvest"]["temps"].append(999)
     lc1["harvest"]["unit_minutes"] = 999999
-    lc1["harvest"]["teacher_arms"].append("some-new-arm")
+    lc1["harvest"]["teacher_passes"].append("some-new-pass")
 
     assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
     assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 10
-    assert cfg._LAB_DEFAULTS["harvest"]["teacher_arms"] == ["think"]
+    assert cfg._LAB_DEFAULTS["harvest"]["teacher_passes"] == ["think"]
 
     lc2 = cfg.lab_config()
     assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]

@@ -40,7 +40,8 @@ HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 import cad_engine as engine  # noqa: E402
 from cad_v5.diagnose import diagnose  # noqa: E402
-from cad_v5.config import first_turn_candidates, load_config, repair_think_enabled  # noqa: E402
+from cad_v5.config import (first_turn_candidates, load_config,  # noqa: E402
+                          repair_think_enabled, think_rung_available)
 
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
 
@@ -122,8 +123,14 @@ def _revise_on_repair_rung(spec: str, code: str, problem: str) -> tuple[str, Opt
     (CAD_REPAIR_THINK=1 or cad.json's `repair_think`, default OFF, Task 1b, 2026-09-19: a
     repair-only think turn has never been measured, so the first codegen attempt is always
     unaffected and this only ever touches the one salvage/repair call). Returns
-    (fixed_code, rung_used_or_None), where None is the unchanged pre-Task-1b behaviour."""
-    if not repair_think_enabled():
+    (fixed_code, rung_used_or_None), where None is the unchanged pre-Task-1b behaviour.
+
+    Also a no-op (fix round 1, 2026-09-19) when think_rung_available() says the active
+    server would not actually change behaviour for a "+think" request (maker disabled, or
+    an arm that does not launch with enable_thinking:false): switching rungs there would
+    burn the longer timeout for a request identical to the one already running, so
+    repair_rung stays None exactly as if the knob were off."""
+    if not repair_think_enabled() or not think_rung_available():
         return engine.revise_script(spec, code, problem), None
     prev = engine._ACTIVE_CODE_MODEL
     engine._ACTIVE_CODE_MODEL = engine.CODE_MODEL_THINK

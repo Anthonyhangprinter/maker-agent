@@ -85,7 +85,7 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 from cad_v5.config import (  # noqa: F401
     use_brief as _cfg_use_brief,        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
-    CODE_MODEL_THINK, THINK_SUFFIX, CODE_MAX_TOKENS_THINK,
+    CODE_MODEL_THINK, THINK_SUFFIX, CODE_MAX_TOKENS_THINK, think_rung_available,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     LLM_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
@@ -485,7 +485,12 @@ def _ollama(model: str, system: str, prompt: str,
     A "+think" suffix on `model` has the same effect; either way is fine, both compose.
     no_think ALWAYS wins over both (mutually exclusive with think, raises otherwise), because
     a caller that explicitly asked for no thinking (a schema call, a utility call) must never
-    be silently overridden by a stray rung string."""
+    be silently overridden by a stray rung string. A caller passing think=True directly
+    (rather than via a "+think" rung string) is responsible for checking
+    cad_v5.config.think_rung_available() itself first, fix round 1, 2026-09-19: this
+    function only warns on the suffix form, since that is the one the escalation ladder
+    and a pinned cad.json code_model can produce without the caller choosing it turn by
+    turn."""
     if no_think and think:
         raise ValueError("_ollama: no_think and think are mutually exclusive")
     if model.startswith(CLOUD_PREFIX):
@@ -510,6 +515,17 @@ def _ollama(model: str, system: str, prompt: str,
             # block, never by parsing this string, so they need no change at all.
             alias = alias[:-len(THINK_SUFFIX)]
             want_think = True
+            if not think_rung_available():
+                # Reached only via an explicit --coder / pinned cad.json code_model naming
+                # a "+think" rung by hand (the ladder itself never offers this rung unless
+                # think_rung_available() already agreed it does something -- see
+                # cad_v5/config.py CODE_MODEL_LADDER). Harmless per the fix-round-1
+                # measurement (the resident echoes an unrecognised enable_thinking kwarg
+                # rather than erroring), so this proceeds rather than raising.
+                log.warning("[v5] %r was requested but think_rung_available() is False "
+                           "(maker disabled, or the active arm's extra_args do not use "
+                           "enable_thinking) -- sending it anyway; it will not change "
+                           "the reply on this server.", model)
         _ensure_default_server()
         if images:
             user_content = [{"type": "text", "text": prompt}] + [

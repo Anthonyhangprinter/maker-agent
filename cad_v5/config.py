@@ -92,15 +92,24 @@ def maker_config() -> dict:
     A stale `alias` left behind by `scripts/arms.py restore` (which only flips `enabled`
     to false) must NOT keep routing strong-rung calls at a model the resident does not
     serve, so port, alias and unit are all read from the block only while enabled is true.
+
+    `arm` is the entry NAME in benchmarks/arms.json (written by scripts/arms.py's
+    apply_arm as `cad.json`'s maker.arm), which can differ from `alias` (the llama.cpp
+    `--alias` the server actually answers as, e.g. the "qwen3.8-27b-nothink" arm serves
+    alias "qwen3.8-27b") -- think_rung_available() below looks the card up by this name,
+    not by alias. None when disabled (the resident is not a benchmarks/arms.json entry).
     """
     m = load_config().get("cad", {}).get("maker") or {}
     if not bool(m.get("enabled", False)):
-        return {"enabled": False, "port": 8086, "alias": RESIDENT_ALIAS, "unit": "qwen38-server"}
+        return {"enabled": False, "port": 8086, "alias": RESIDENT_ALIAS, "unit": "qwen38-server",
+                "arm": None}
+    alias = str(m.get("alias", RESIDENT_ALIAS))
     return {
         "enabled": True,
         "port": int(m.get("port", 8088)),
-        "alias": str(m.get("alias", RESIDENT_ALIAS)),
+        "alias": alias,
         "unit": "maker-server",
+        "arm": str(m.get("arm") or alias),
     }
 
 
@@ -158,9 +167,62 @@ CODE_MODEL_THINK   = CODE_MODEL_STRONG + THINK_SUFFIX
 # the reasoning_content PLUS the code that follows it. _ollama() only sets this on a think
 # call (no_think / plain calls are unaffected, same as before this rung existed).
 CODE_MAX_TOKENS_THINK = int(os.environ.get("CAD_THINK_MAX_TOKENS", 12000))
-# Two-rung ladder (local): the strong rung, then the same arm with thinking on. A configured
-# cad.json `cloud` block still appends a paid rung above both at runtime (cad_engine._ladder()).
-CODE_MODEL_LADDER  = [CODE_MODEL_STRONG, CODE_MODEL_THINK]
+ARMS_FILE = _HERE / "benchmarks" / "arms.json"   # card arms, used only to check thinking support
+
+def think_rung_available() -> bool:
+    """Whether CODE_MODEL_THINK (the "+think" suffix) actually changes anything on the
+    CURRENTLY ACTIVE strong-rung server, as opposed to being a no-op or a wrong-lever
+    kwarg sent to a model that does not use it. Fix round 1 (2026-09-19), from a review
+    finding: the think rung was originally built unconditionally from CODE_MODEL_STRONG,
+    which is wrong whenever the strong rung resolves to the resident, not a maker arm.
+
+    Measured 2026-09-19 on the two servers this engine can route the strong rung to:
+    - the maker arms in benchmarks/arms.json launch llama.cpp with
+      `--chat-template-kwargs {"enable_thinking":false}` (e.g. the gemma-4-31b arm's
+      extra_args), so a per-request `enable_thinking: true` genuinely flips them from off
+      to on -- this is the case the Task 1b live probe measured (67s / 1,864 completion
+      tokens with reasoning vs 5s / 127 tokens without, on gemma-4-31b).
+    - the resident qwen3.8-27b (maker.enabled=false) thinks by default and uses a
+      DIFFERENT lever, chat_template_kwargs.reasoning_effort, not enable_thinking (see
+      CLAUDE.md's architecture notes: "enable_thinking is gone" for this model line).
+      Measured directly on the resident the same day: no kwarg = 37 completion tokens
+      with reasoning; {"enable_thinking": false} = 2 tokens, no reasoning (no_think=True
+      still works there, utility calls are fine); {"enable_thinking": true} = 37 tokens,
+      IDENTICAL to the no-kwarg default, no error. So on the resident the plain rung
+      already thinks, and "+think" is behaviourally the same request: offering it as a
+      second, different escalation rung would be misleading, not merely redundant.
+
+    Returns False (never raises) unless it can POSITIVELY confirm the active arm's
+    benchmarks/arms.json entry launches with enable_thinking:false: maker disabled,
+    arms.json missing/unreadable/malformed, the active arm absent from it, or its
+    extra_args missing the flag all return False. benchmarks/arms.json is a card-only
+    file with no guaranteed presence in every deployment, and this module is imported by
+    the live engine, so a missing or broken file must degrade quietly, never crash import
+    or a build.
+    """
+    m = _MAKER
+    if not m.get("enabled"):
+        return False
+    try:
+        arms = json.loads(ARMS_FILE.read_text()).get("arms", [])
+    except Exception:
+        return False
+    arm_name = m.get("arm")
+    for arm in arms:
+        if arm.get("name") == arm_name:
+            # Whitespace-tolerant: extra_args is a shell-quoted string, not JSON, so
+            # "enable_thinking": false vs "enable_thinking":false are both valid.
+            flat = "".join((arm.get("extra_args") or "").split())
+            return '"enable_thinking":false' in flat
+    return False
+
+# Two-rung ladder (local) ONLY where the second rung is a genuinely different request
+# (think_rung_available() above); otherwise the ladder stays one rung, exactly as before
+# Task 1b, rather than offering a rung that "escalates" to an identical call. A configured
+# cad.json `cloud` block still appends a paid rung above whichever local ladder this is,
+# at runtime (cad_engine._ladder()).
+CODE_MODEL_LADDER  = ([CODE_MODEL_STRONG, CODE_MODEL_THINK] if think_rung_available()
+                     else [CODE_MODEL_STRONG])
 CODE_MODEL_DEFAULT = CODE_MODEL_STRONG
 # CAD_CRITIC_MODEL env override exists for A/B evals (2026-08-15: gemma4 vs the resident 35B,
 # now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
@@ -342,15 +404,18 @@ _LAB_DEFAULTS = {
         "candidates": 3,
         "temps": [0.2, 0.5, 0.8],
         "max_pairs_per_spec": 2,
-        # Task 1b (2026-09-19): teaching is a per-request think pass on the SAME arm, not a
-        # separate model. "gemma-4-31b-think" (a distinct server launch) is retired along
+        # Task 1b (2026-09-19): teaching is a per-request think PASS on the SAME arm, not a
+        # separate model or arm, so the key is named for what it now holds (fix round 1;
+        # the plan's own Global Constraints block always called this teacher_passes, the
+        # code lagged it). "gemma-4-31b-think" (a distinct server launch) is retired along
         # with the benchmarks/arms.json entry of that name. Task 3's harvest unit reads
         # this list to decide which passes to try when a spec fails the student twice, and
-        # "think" means "the active rung with enable_thinking on", never a second arm.
+        # "think" means "the active rung with enable_thinking on" (only where
+        # think_rung_available() agrees it is a real second rung), never a second arm.
         # devstral-small-2 is dropped too: Phase 0 measured it weaker than the student
         # (15% invalid / 22 matches vs Gemma-4-31B's 6% / 39 on CADPrompt), and the
         # Decisions section rules a weaker model out as a teacher regardless of gating.
-        "teacher_arms": ["think"],
+        "teacher_passes": ["think"],
     }
 }
 
@@ -401,7 +466,7 @@ def lab_config() -> dict:
     never crashes or leaks a wrong type on a malformed one):
       {"harvest": {"night_start", "night_end", "day_allowed", "hours_per_day",
                     "unit_minutes", "candidates", "temps", "max_pairs_per_spec",
-                    "teacher_arms"}}
+                    "teacher_passes"}}
     Same file/pattern as maker_config()/cloud_config()/print_config() above: never put
     this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
     Global Constraints for where these defaults come from."""
