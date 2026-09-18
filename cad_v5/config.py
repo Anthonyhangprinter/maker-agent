@@ -27,6 +27,8 @@ CAD_CONFIG_FILE = Path(os.environ.get("CAD_CONFIG_FILE", str(_OPENCLAW / "cad.js
                                            # (env override lets tests point at a temp file)
 SCRIPTS_DIR   = _HERE / "scripts"
 B123D_DIR     = _HERE / "b123d"
+LAB_STATE     = _HERE / "lab" / "state"   # Phase 3 data engine: bank/ledger/pairs JSONL, git-ignored
+                                           # except specs.jsonl + val_specs.json (see lab_config())
 
 STEP_OUT      = _OPENCLAW / "cad-last-build.step"    # persisted so a failed export is recoverable
 STL_OUT       = _OPENCLAW / "cad-last-build.stl"     # sliceable mesh, always exported alongside STEP
@@ -289,6 +291,49 @@ def cloud_config() -> dict:
     Returns {} (rung disabled) unless provider+model are both set."""
     c = load_config().get("cad", {}).get("cloud") or {}
     return c if c.get("model") and c.get("provider") in ("anthropic", "openrouter") else {}
+
+_LAB_DEFAULTS = {
+    "harvest": {
+        "night_start": "22:00",
+        "night_end": "07:00",
+        "day_allowed": True,
+        "hours_per_day": 12,
+        "unit_minutes": 10,
+        "candidates": 3,
+        "temps": [0.2, 0.5, 0.8],
+        "max_pairs_per_spec": 2,
+        "teacher_arms": ["gemma-4-31b-think", "devstral-small-2"],
+    }
+}
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursive dict merge: `override` wins key-by-key, but a nested dict merges into
+    the corresponding default dict instead of replacing it outright — a cad.json lab
+    block that only sets `{"harvest": {"hours_per_day": 6}}` must still get every other
+    harvest default, not lose them."""
+    out = dict(base)
+    for k, v in override.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def lab_config() -> dict:
+    """cad.json `lab` block (Phase 3 "data engine" — the harvest unit that samples the
+    maker arm's own verified builds into training pairs), deep-merged over the defaults
+    below so a partial override keeps every default it doesn't name:
+      {"harvest": {"night_start", "night_end", "day_allowed", "hours_per_day",
+                    "unit_minutes", "candidates", "temps", "max_pairs_per_spec",
+                    "teacher_arms"}}
+    Same file/pattern as maker_config()/cloud_config()/print_config() above — never put
+    this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
+    Global Constraints for where these defaults come from."""
+    user = load_config().get("cad", {}).get("lab") or {}
+    return _deep_merge(_LAB_DEFAULTS, user)
+
 
 def tg_token() -> str:
     cfg = load_config()

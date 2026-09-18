@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+"""lab/specbank.py -- build and extend the Phase 3 spec bank (lab/state/specs.jsonl).
+
+The bank is the pool the harvest unit (Task 3) samples from: the 414 existing teacher
+specs (benchmarks/teacher-*/specs.json, hand-written or cloud-generated in earlier
+phases) plus new specs written locally by the maker model (lab/specgen.py) plus, when
+present, owner reference parts (~/CAD/references/<name>/spec.txt + model.step|model.stl).
+
+Every row is tier-tagged and contamination-keyed against every card suite BEFORE it is
+admitted: a spec is refused if its exact text matches a card-suite spec
+(harvest_census.suite_keys()), if its 40-char slug uniquely identifies one spec in a card
+suite (harvest_census.suite_slug_counts() -- the same per-suite-unique-slug rule
+scripts/run_card.py and lab/data.py already use), or if it is already in the bank by
+exact key. Refusal is silent per-item (the caller sees counts + reasons), never a hard
+stop for the whole batch.
+
+  python3 lab/specbank.py import-teacher [--dry-run]
+  python3 lab/specbank.py import-references [--dir ~/CAD/references] [--dry-run]
+  python3 lab/specbank.py add specs.json --source specgen [--group plate] [--tier 2]
+  python3 lab/specbank.py stats
+
+Row shape: {id, spec, tier, group, source, key, added} (+ reference_stl for
+owner-reference rows). Rows are appended to lab/state/specs.jsonl under an exclusive
+flock so concurrent writers (specgen batches now, the harvest unit later) never
+interleave partial lines; the file is never rewritten wholesale.
+"""
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import shutil
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE / "scripts"))
+sys.path.insert(0, str(HERE))
+
+import harvest_census as hc  # noqa: E402
+from lab.data import default_contamination_sets  # noqa: E402 -- reuse, not a third copy
+
+STATE_DIR = HERE / "lab" / "state"
+SPECS_FILE = STATE_DIR / "specs.jsonl"
+REFS_DIR = STATE_DIR / "refs"
+REFERENCES_ROOT = Path.home() / "CAD" / "references"
+
+# (suite tag, path) -- the five teacher/training spec files. Card (eval) suites are a
+# different list (harvest_census.CARD_SUITES) and are never read here as a source.
+TEACHER_FILES = [
+    ("teacher-pilot", HERE / "benchmarks" / "teacher-pilot" / "specs.json"),
+    ("teacher-complex", HERE / "benchmarks" / "teacher-complex" / "specs.json"),
+    ("teacher-hard", HERE / "benchmarks" / "teacher-hard" / "specs.json"),
+    ("teacher-mech2", HERE / "benchmarks" / "teacher-mech2" / "specs.json"),
+    ("teacher-batch2", HERE / "benchmarks" / "teacher-batch2" / "specs.json"),
+]
+
+
+def _load_items(p: Path) -> list[dict]:
+    d = json.loads(p.read_text())
+    return d["benchmarks"] if isinstance(d, dict) else d
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def load_bank(path: Path | None = None) -> list[dict]:
+    # `path` defaults dynamically to the module-level SPECS_FILE (looked up at CALL time,
+    # not bound as a mutable default argument) so tests that monkeypatch
+    # specbank.SPECS_FILE to a tmp path are honoured by every caller that omits `path`.
+    path = path if path is not None else SPECS_FILE
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line:
+            rows.append(json.loads(line))
+    return rows
+
+
+def _append_atomic(path: Path, rows: list[dict]) -> None:
+    """Append `rows` to a JSONL file under an exclusive flock -- concurrent writers
+    (this module and, later, lab/harvest.py) never interleave partial lines, and a
+    crash mid-write loses at most the in-flight append, never corrupts earlier rows."""
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def contamination_sets():
+    """(exact suite keys, per-suite-unique suite slugs) -- straight from lab.data, the
+    same primitive scripts/run_card.py's contamination() and the eventual compiler use.
+    Not recomputed here: a second copy of this rule drifting from the first is exactly
+    the kind of bug a shared contamination guard exists to prevent."""
+    return default_contamination_sets()
+
+
+def refusal_reason(key: str, spec: str, suite_keys: set, suite_slugs: set,
+                    bank_keys: set) -> str | None:
+    """None when `spec` (already reduced to its contamination `key`) may be admitted;
+    otherwise the reason it is refused. Bank-duplicate is checked first since it is the
+    cheapest and most common case once a bank exists."""
+    if key in bank_keys:
+        return "duplicate-in-bank"
+    if key in suite_keys:
+        return "suite-exact-match"
+    if hc._slug(spec, 40) in suite_slugs:
+        return "suite-unique-slug-match"
+    return None
+
+
+def add_items(items: list[dict], source: str, group_default: str | None = None,
+              tier_default: int | None = None, dry_run: bool = False) -> dict:
+    """Admit a list of {"spec", "tier"?, "group"?, "id"?} dicts (specgen's own output
+    shape, or a hand-authored JSON file via the `add` CLI) into the bank. Returns
+    {"accepted": int, "refused": [{"spec", "reason"}, ...]}."""
+    bank = load_bank()
+    bank_keys = {r["key"] for r in bank}
+    suite_keys, suite_slugs = contamination_sets()
+    accepted: list[dict] = []
+    refused: list[dict] = []
+    now = _now()
+    for it in items:
+        spec = str(it.get("spec", "")).strip()
+        if not spec:
+            refused.append({"spec": spec, "reason": "empty-spec"})
+            continue
+        key = hc._key(spec)
+        reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+        if reason:
+            refused.append({"spec": spec, "reason": reason})
+            continue
+        tier = int(it.get("tier") or tier_default or 2)
+        group = it.get("group") or group_default or "unspecified"
+        row = {
+            "id": it.get("id") or f"g:{source}:{key[:16]}",
+            "spec": spec,
+            "tier": tier,
+            "group": group,
+            "source": source,
+            "key": key,
+            "added": now,
+        }
+        if it.get("reference_stl"):
+            row["reference_stl"] = it["reference_stl"]
+        accepted.append(row)
+        bank_keys.add(key)   # dedup within this batch too, not just against the on-disk bank
+    if accepted and not dry_run:
+        _append_atomic(SPECS_FILE, accepted)
+    return {"accepted": len(accepted), "refused": refused}
+
+
+def import_teacher(dry_run: bool = False) -> dict:
+    """Read the five benchmarks/teacher-*/specs.json files, tag each admitted row
+    `id = "t:<suite>:<orig id>"`, `source = "teacher-suite"`, and append. Per-suite and
+    total counts are returned so a stale/incomplete teacher corpus is visible, not
+    silently short."""
+    bank = load_bank()
+    bank_keys = {r["key"] for r in bank}
+    suite_keys, suite_slugs = contamination_sets()
+    accepted: list[dict] = []
+    refused: list[tuple[str, str, str]] = []
+    per_suite: dict[str, dict] = {}
+    now = _now()
+    for suite, path in TEACHER_FILES:
+        if not path.exists():
+            per_suite[suite] = {"found": 0, "accepted": 0, "refused": 0}
+            continue
+        items = _load_items(path)
+        suite_accepted = 0
+        suite_refused = 0
+        for it in items:
+            spec = str(it.get("spec", "")).strip()
+            orig_id = str(it.get("id", ""))
+            if not spec:
+                refused.append((suite, orig_id, "empty-spec"))
+                suite_refused += 1
+                continue
+            key = hc._key(spec)
+            reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+            if reason:
+                refused.append((suite, orig_id, reason))
+                suite_refused += 1
+                continue
+            row = {
+                "id": f"t:{suite}:{orig_id}",
+                "spec": spec,
+                "tier": int(it.get("tier") or 2),
+                "group": it.get("group", ""),
+                "source": "teacher-suite",
+                "key": key,
+                "added": now,
+            }
+            accepted.append(row)
+            bank_keys.add(key)
+            suite_accepted += 1
+        per_suite[suite] = {"found": len(items), "accepted": suite_accepted,
+                            "refused": suite_refused}
+    if accepted and not dry_run:
+        _append_atomic(SPECS_FILE, accepted)
+    return {
+        "per_suite": per_suite,
+        "accepted": len(accepted),
+        "refused": len(refused),
+        "refused_detail": [{"suite": s, "id": i, "reason": r} for s, i, r in refused],
+    }
+
+
+def _materialize_reference_stl(folder: Path, step_file: Path, stl_file: Path,
+                               key: str) -> str | None:
+    """Owner reference intake: a provided model.stl is copied as-is; a model.step is
+    converted once via geom_bands.step_to_stl (build123d import_step/export_stl -- the
+    same conversion the band scorer itself uses). Cached at lab/state/refs/<key>.stl so
+    a rerun of import-references never reconverts an already-materialised part.
+    build123d is only imported here, lazily, so a bank/stats/import-teacher run with no
+    reference folders never needs it on the path."""
+    REFS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = REFS_DIR / f"{key[:16]}.stl"
+    if dest.exists():
+        return str(dest)
+    try:
+        if stl_file.exists():
+            shutil.copyfile(stl_file, dest)
+        else:
+            sys.path.insert(0, str(HERE / "scripts"))
+            import geom_bands  # noqa: PLC0415 -- lazy, build123d-heavy
+            geom_bands.step_to_stl(step_file, dest)
+        return str(dest)
+    except Exception as e:
+        print(f"WARNING: could not materialise reference STL for {folder.name}: {e}",
+              file=sys.stderr)
+        return None
+
+
+def import_references(refs_dir: Path = REFERENCES_ROOT, dry_run: bool = False) -> dict:
+    """Walk `refs_dir`/<name>/ folders, each holding spec.txt (one spec sentence, mm,
+    optional leading "tier: N" line, default tier 3 -- these are real parts, not the
+    tier-1-2 filler the family generator tends toward) plus model.step or model.stl.
+    Zero folders (the common case today: the folder exists with only a README) reports
+    0 imported and exits cleanly -- this is not an error state."""
+    bank = load_bank()
+    bank_keys = {r["key"] for r in bank}
+    suite_keys, suite_slugs = contamination_sets()
+    accepted: list[dict] = []
+    refused: list[dict] = []
+    skipped: list[dict] = []
+    now = _now()
+
+    if not refs_dir.exists():
+        return {"imported": 0, "refused": 0, "skipped": 0, "folders_found": 0}
+
+    folders = sorted(p for p in refs_dir.iterdir() if p.is_dir())
+    for folder in folders:
+        spec_file = folder / "spec.txt"
+        step_file = folder / "model.step"
+        stl_file = folder / "model.stl"
+        if not spec_file.exists() or not (step_file.exists() or stl_file.exists()):
+            skipped.append({"folder": folder.name,
+                            "reason": "missing spec.txt or model.step/model.stl"})
+            continue
+        text = spec_file.read_text().strip()
+        lines = text.splitlines()
+        tier = 3
+        spec_lines = lines
+        if lines and lines[0].strip().lower().startswith("tier:"):
+            try:
+                tier = int(lines[0].split(":", 1)[1].strip())
+            except Exception:
+                pass
+            spec_lines = lines[1:]
+        spec = "\n".join(spec_lines).strip()
+        if not spec:
+            skipped.append({"folder": folder.name, "reason": "empty spec.txt"})
+            continue
+        key = hc._key(spec)
+        reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+        if reason:
+            refused.append({"folder": folder.name, "reason": reason})
+            continue
+        ref_stl = None
+        if not dry_run:
+            ref_stl = _materialize_reference_stl(folder, step_file, stl_file, key)
+        row = {
+            "id": f"owner-reference:{folder.name}",
+            "spec": spec,
+            "tier": tier,
+            "group": "owner-reference",
+            "source": "owner-reference",
+            "key": key,
+            "added": now,
+        }
+        if ref_stl:
+            row["reference_stl"] = ref_stl
+        accepted.append(row)
+        bank_keys.add(key)
+    if accepted and not dry_run:
+        _append_atomic(SPECS_FILE, accepted)
+    return {"imported": len(accepted), "refused": len(refused), "skipped": len(skipped),
+            "folders_found": len(folders)}
+
+
+def stats(path: Path | None = None) -> dict:
+    bank = load_bank(path)
+    total = len(bank)
+    by_tier: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    by_group: dict[str, int] = {}
+    for r in bank:
+        by_tier[str(r.get("tier"))] = by_tier.get(str(r.get("tier")), 0) + 1
+        by_source[r.get("source", "")] = by_source.get(r.get("source", ""), 0) + 1
+        by_group[r.get("group", "")] = by_group.get(r.get("group", ""), 0) + 1
+    tier34 = sum(n for t, n in by_tier.items() if t in ("3", "4"))
+    tier34_share = round(tier34 / total, 4) if total else 0.0
+    return {"total": total, "by_tier": by_tier, "by_source": by_source,
+            "by_group": by_group, "tier34_share": tier34_share}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    it = sub.add_parser("import-teacher")
+    it.add_argument("--dry-run", action="store_true")
+
+    ir = sub.add_parser("import-references")
+    ir.add_argument("--dir", type=Path, default=REFERENCES_ROOT)
+    ir.add_argument("--dry-run", action="store_true")
+
+    ad = sub.add_parser("add")
+    ad.add_argument("file", type=Path)
+    ad.add_argument("--source", required=True)
+    ad.add_argument("--group", default=None)
+    ad.add_argument("--tier", type=int, default=None)
+    ad.add_argument("--dry-run", action="store_true")
+
+    sub.add_parser("stats")
+
+    a = ap.parse_args()
+    if a.cmd == "import-teacher":
+        r = import_teacher(dry_run=a.dry_run)
+        print(json.dumps(r, indent=2))
+    elif a.cmd == "import-references":
+        r = import_references(a.dir, dry_run=a.dry_run)
+        print(json.dumps(r, indent=2))
+    elif a.cmd == "add":
+        raw = json.loads(a.file.read_text())
+        items = raw.get("benchmarks", raw.get("items", [])) if isinstance(raw, dict) else raw
+        r = add_items(items, source=a.source, group_default=a.group,
+                     tier_default=a.tier, dry_run=a.dry_run)
+        print(json.dumps({"accepted": r["accepted"], "refused": len(r["refused"])}, indent=2))
+        for item in r["refused"][:20]:
+            print(f"  refused: {item}", file=sys.stderr)
+    elif a.cmd == "stats":
+        print(json.dumps(stats(), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
