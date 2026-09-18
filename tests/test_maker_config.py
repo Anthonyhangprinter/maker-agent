@@ -272,6 +272,42 @@ def test_lab_config_absent_lab_block_is_not_a_warning(tmp_path, caplog):
     assert caplog.records == []
 
 
+def test_lab_config_returns_deep_copies_never_shared_with_the_defaults(tmp_path):
+    """Fix round 2: a caller mutating a nested value in the dict lab_config() returns
+    (a list append, an in-place key overwrite) must never corrupt the module-level
+    _LAB_DEFAULTS -- this module is imported by the live engine and, per the plan, is
+    called repeatedly from long-lived processes (the harvest unit, the web UI)."""
+    cfg = _reload_with(tmp_path, {})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["temps"].append(999)
+    lc1["harvest"]["unit_minutes"] = 999999
+    lc1["harvest"]["teacher_arms"].append("some-new-arm")
+
+    assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 10
+    assert cfg._LAB_DEFAULTS["harvest"]["teacher_arms"] == ["gemma-4-31b-think",
+                                                            "devstral-small-2"]
+
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert lc2["harvest"]["unit_minutes"] == 10
+    assert lc2 == cfg._LAB_DEFAULTS
+    assert lc2 is not cfg._LAB_DEFAULTS
+    assert lc2["harvest"] is not cfg._LAB_DEFAULTS["harvest"]
+
+
+def test_lab_config_partial_override_also_returns_deep_copies(tmp_path):
+    """The same guarantee holds on the merge path (a real override present), not just
+    the all-defaults fallback path -- both branches of _sanitize_against_defaults
+    deepcopy before returning."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"hours_per_day": 6}}})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["temps"].append(999)
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
+
+
 class _FakeHealthResponse:
     def __enter__(self):
         return self

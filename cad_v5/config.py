@@ -4,6 +4,7 @@ Extracted verbatim from cad_engine.py (v4.3) so behaviour is identical. The CAD 
 (`_HERE`) resolves to the parent package dir so `scripts/`, `b123d/`, and `cad_retrieval` still
 resolve exactly as before.
 """
+import copy
 import os
 import sys
 import json
@@ -319,13 +320,25 @@ def _sanitize_against_defaults(defaults: dict, value, path: str = "lab") -> dict
     the whole `harvest` default with a non-dict, which is just the same bug one call
     deeper. Both cases now fall back to that subtree's default and log one warning
     naming the offending path (e.g. "lab" or "lab.harvest"), never crash, never mix a
-    wrong type into an otherwise-good config."""
+    wrong type into an otherwise-good config.
+
+    Fix round 2: every path returns a `copy.deepcopy` of the relevant defaults subtree,
+    never the module-level `_LAB_DEFAULTS` object (or any of its nested dicts/lists) by
+    reference. The old `dict(defaults)` was a SHALLOW copy: a caller that mutated a
+    nested value in place (e.g. `lab_config()["harvest"]["temps"].append(...)`, an
+    ordinary pattern for a caller composing a response dict) would silently corrupt the
+    process-wide default for the rest of that process's life -- this module is imported
+    by the live engine and, per the plan, will be called repeatedly from long-lived
+    processes (the harvest unit, the web UI), so that corruption would outlive any one
+    caller. Deep-copying `defaults` unconditionally, then overwriting only the keys the
+    override actually names, means the returned dict never shares structure with
+    `_LAB_DEFAULTS` no matter which branch is taken."""
     if not isinstance(value, dict):
         if value is not None:
             log.warning("[v5] cad.json's %s block is not an object (%r); using defaults.",
                         path, value)
-        return dict(defaults)
-    out = dict(defaults)
+        return copy.deepcopy(defaults)
+    out = copy.deepcopy(defaults)
     for k, v in value.items():
         if isinstance(defaults.get(k), dict):
             out[k] = _sanitize_against_defaults(defaults[k], v, f"{path}.{k}")

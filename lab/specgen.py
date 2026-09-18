@@ -21,6 +21,19 @@ undoes exactly whatever `scripts/arms.py use <arm>` at the start of the run chan
 see the module docstring on `main()` for the two circuit breakers and the wall-clock cap
 that keep a bad run from holding the resident down far longer than a supervisor watching
 a "few hours" window would expect.
+
+Supervisor checklist (fix round 2, from an operator's point of view -- what to do to
+stop this run early, and what to check after any hard kill):
+- `kill <pid>` (SIGTERM) and a terminal hangup (SIGHUP) are both caught: they raise
+  SpecgenAborted, which runs the same restore bookend as any other stop.
+- `kill -9 <pid>` (SIGKILL) cannot be caught by any Python process. After one: the
+  resident (qwen38-server) self-heals on its own within some bounded time (the next
+  ordinary CAD build's own eviction/resume, or maker-server's 12 hour RuntimeMaxSec
+  dead-man switch) -- but cad.json's `maker` block and any stray `.pre-arm` marker files
+  do NOT self-heal on their own.
+- After any hard kill, run `ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm`;
+  if either file exists, run `python3 scripts/arms.py restore` before trusting the box is
+  back to normal, even if qwen38-server already looks healthy.
 """
 from __future__ import annotations
 
@@ -30,6 +43,7 @@ import json
 import os
 import random
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -60,9 +74,48 @@ MAX_CONSECUTIVE_NO_PROGRESS = 8
 
 class SpecgenAborted(RuntimeError):
     """Raised by run_total when a circuit breaker (consecutive call failures, a
-    no-progress streak) or the wall-clock cap trips. main() catches this so every abort
-    path still runs the arms.py restore bookend before the process exits non-zero, with
-    the abort reason printed as the last line of the log so a supervisor can grep it."""
+    no-progress streak) or the wall-clock cap trips, and by the SIGTERM/SIGHUP handler
+    below. main() catches this so every abort path still runs the arms.py restore
+    bookend before the process exits non-zero, with the abort reason printed as the
+    last line of the log so a supervisor can grep it."""
+
+
+_CLEANUP_STARTED = False   # set by _mark_cleanup_started(); see _install_signal_handlers
+
+
+def _signal_handler(signum, frame) -> None:
+    """Raise SpecgenAborted so the existing try/finally bookend in main() runs the
+    restore step, mirroring lab/gpu_window.sh's trap-based restore-on-signal pattern
+    (Phase 2 fixed the same class of bug there: a foreground trap that ran the resident
+    restore too early, before the GPU job it was supposed to wait for had actually
+    stopped). Idempotent by design: once cleanup has begun (_mark_cleanup_started() was
+    called), a second SIGTERM/SIGHUP is ignored here rather than raising again --
+    raising a second time WHILE the restore subprocess call is itself blocked would
+    interrupt that call via the same PEP 475 mechanism this handler relies on, which
+    could abandon the restore mid-way and leave things in a worse state than either
+    finishing it or never starting it."""
+    if _CLEANUP_STARTED:
+        return
+    raise SpecgenAborted(f"terminated by signal {signum} ({signal.Signals(signum).name})")
+
+
+def _install_signal_handlers() -> None:
+    """SIGTERM (the default signal `kill <pid>` sends, and the one a detached
+    `setsid nohup ...` process is stopped with) and SIGHUP (a terminal hangup) both
+    otherwise terminate the process immediately with no exception raised and no
+    `finally` executed -- confirmed empirically (Task 2 fix round 1 review), not textbook
+    assumption: Python's default disposition for SIGTERM runs no cleanup at all, unlike
+    SIGINT, which the runtime converts to KeyboardInterrupt by default. Installed at the
+    very start of main(), before the `use` call, so even a signal arriving during the
+    initial arm switch is caught (see main()'s should_restore handling for what that
+    means for the bookend)."""
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGHUP, _signal_handler)
+
+
+def _mark_cleanup_started() -> None:
+    global _CLEANUP_STARTED
+    _CLEANUP_STARTED = True
 
 
 # ---------------------------------------------------------------------------
@@ -420,36 +473,87 @@ def main() -> int:
         ap.error("--once requires --group")
 
     arm = a.arm or _default_arm()
+    _install_signal_handlers()   # before the `use` call: even a signal during the arm
+                                  # switch itself must reach the bookend below.
 
-    if not a.no_relock:
+    if a.no_relock:
+        rc = 0
+        reason: str | None = None
+        try:
+            if a.once:
+                result = run_batch(a.group, a.n, dry_run=a.dry_run)
+                print(json.dumps(result, indent=2))
+            else:
+                result = run_total(a.total, a.target_tier34, a.batch_size,
+                                  max_batches=a.max_batches, max_hours=a.max_hours)
+                print(json.dumps({"batches": result["batches"],
+                                  "final_stats": result["final_stats"],
+                                  "usage_total": result["usage_total"]}, indent=2))
+        except SpecgenAborted as e:
+            rc = 1
+            reason = str(e)
+        except Exception as e:
+            rc = 1
+            reason = f"unexpected error: {e}"
+        if reason:
+            print(f"specgen abort: {reason}", file=sys.stderr)
+        return rc
+
+    rc = 0
+    reason = None
+    should_restore = True   # default: restore whenever anything might have changed
+    keep_maker_prev = os.environ.get("CAD_KEEP_MAKER")
+    try:
         use_p = _run_arms("use", arm)
         if use_p.returncode != 0:
-            print(f"specgen abort: scripts/arms.py use {arm} failed (exit {use_p.returncode})",
-                 file=sys.stderr)
-            return 1
-
-    os.environ.setdefault("CAD_KEEP_MAKER", "1")   # one warm arm across every call in this run
-    rc = 0
-    reason: str | None = None
-    try:
-        if a.once:
-            result = run_batch(a.group, a.n, dry_run=a.dry_run)
-            print(json.dumps(result, indent=2))
+            # An ORDINARY failure return (no signal involved): scripts/arms.py use
+            # raised/exited before doing anything (e.g. the arm's GGUF is missing), so
+            # there is nothing to undo. Calling restore here would incorrectly disable
+            # an unrelated pre-existing maker configuration via cmd_restore's no-marker
+            # fallback -- see fix round 1's report for why this distinction matters.
+            reason = f"scripts/arms.py use {arm} failed (exit {use_p.returncode})"
+            rc = 1
+            should_restore = False
         else:
-            result = run_total(a.total, a.target_tier34, a.batch_size,
-                              max_batches=a.max_batches, max_hours=a.max_hours)
-            print(json.dumps({"batches": result["batches"],
-                              "final_stats": result["final_stats"],
-                              "usage_total": result["usage_total"]}, indent=2))
+            # A signal arriving anywhere AFTER this point raises SpecgenAborted, caught
+            # below, with should_restore staying True: `use`'s own _save_pre_arm() call
+            # is the very first thing cmd_use does (before any slow systemctl/health-wait
+            # call), so by the time control has returned here a pre-arm marker already
+            # exists on disk and a restore is always the correct, safe action.
+            os.environ.setdefault("CAD_KEEP_MAKER", "1")   # one warm arm across this run
+            if a.once:
+                result = run_batch(a.group, a.n, dry_run=a.dry_run)
+                print(json.dumps(result, indent=2))
+            else:
+                result = run_total(a.total, a.target_tier34, a.batch_size,
+                                  max_batches=a.max_batches, max_hours=a.max_hours)
+                print(json.dumps({"batches": result["batches"],
+                                  "final_stats": result["final_stats"],
+                                  "usage_total": result["usage_total"]}, indent=2))
     except SpecgenAborted as e:
+        # Either a circuit breaker/wall-clock abort during generation (use already
+        # succeeded, should_restore is already True), or a SIGTERM/SIGHUP caught while
+        # `use` itself was still running (see the comment above: safe to restore either
+        # way, per the fix round 2 review's own tracing of cmd_use's call order).
         rc = 1
         reason = str(e)
     except Exception as e:
         rc = 1
         reason = f"unexpected error: {e}"
     finally:
-        if not a.no_relock:
+        _mark_cleanup_started()   # a second SIGTERM/SIGHUP from here on is ignored
+        if should_restore:
             _run_arms("restore")
+        # Restore CAD_KEEP_MAKER at the source rather than relying on a test fixture or
+        # the caller's own environment to clean it up (fix round 2, finding 3): main()
+        # is only ever invoked as this module's own dedicated process today, so the env
+        # mutation currently dies with the process regardless -- but the fix belongs
+        # here so a future in-process caller (e.g. a webui handler importing this module
+        # instead of shelling out to it) is never silently affected by our leftover.
+        if keep_maker_prev is None:
+            os.environ.pop("CAD_KEEP_MAKER", None)
+        else:
+            os.environ["CAD_KEEP_MAKER"] = keep_maker_prev
     if reason:
         # Printed AFTER the restore bookend's own output (captured and re-emitted by
         # _run_arms above), so this line is the true last line of the log a supervisor
