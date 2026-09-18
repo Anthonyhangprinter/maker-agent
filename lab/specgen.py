@@ -16,21 +16,33 @@ counted, never retried.
   python3 lab/specgen.py --once --group plate --n 20         # one family, one call (smoke)
   python3 lab/specgen.py --total 2500 --target-tier34 0.45   # full run (long; controller-launched)
 
-Every invocation ends (success or failure) by running `scripts/arms.py restore`, which
-undoes exactly whatever `scripts/arms.py use <arm>` at the start of the run changed --
-see the module docstring on `main()` for the two circuit breakers and the wall-clock cap
-that keep a bad run from holding the resident down far longer than a supervisor watching
-a "few hours" window would expect.
+Every invocation ends (success or failure) by checking whether a `.pre-arm` marker
+exists on disk and, if so, running `scripts/arms.py restore` (which undoes exactly what
+`scripts/arms.py use <arm>` changed); if no marker exists, cad.json is left untouched and
+only the resident is made sure to be up -- see the module docstring on `main()` for why
+the check has to be marker-based, not a flag computed earlier in the run, and see the
+two circuit breakers and the wall-clock cap in `run_total` for what keeps a bad run from
+holding the resident down far longer than a supervisor watching a "few hours" window
+would expect.
 
-Supervisor checklist (fix round 2, from an operator's point of view -- what to do to
-stop this run early, and what to check after any hard kill):
-- `kill <pid>` (SIGTERM) and a terminal hangup (SIGHUP) are both caught: they raise
-  SpecgenAborted, which runs the same restore bookend as any other stop.
-- `kill -9 <pid>` (SIGKILL) cannot be caught by any Python process. After one: the
-  resident (qwen38-server) self-heals on its own within some bounded time (the next
-  ordinary CAD build's own eviction/resume, or maker-server's 12 hour RuntimeMaxSec
-  dead-man switch) -- but cad.json's `maker` block and any stray `.pre-arm` marker files
-  do NOT self-heal on their own.
+Supervisor checklist (fix round 3, from an operator's point of view -- what one SIGTERM
+actually does at each point in the run, and what to check after any hard kill):
+- `kill <pid>` (SIGTERM) or a terminal hangup (SIGHUP) sent WHILE a batch is generating
+  (the overwhelming majority of a run's wall-clock time) stops the run on that single
+  signal: no further batches start, and the same marker-based cleanup below runs before
+  the process exits non-zero with the reason as the last printed line.
+- The same signal sent in the first instant of the run, while `scripts/arms.py use
+  <arm>` is still starting up, is also caught, but what it undoes depends on how far
+  `use` had gotten: if its own `.pre-arm` marker had already been written, cleanup
+  restores exactly as above; if not (a real, measured window of roughly the first
+  100-150ms after the run starts), NOTHING is undone through cad.json at all -- because
+  nothing was ever changed yet -- and cleanup only makes sure qwen38-server is running.
+  Either way, the process still exits promptly and non-zero.
+- `kill -9 <pid>` (SIGKILL) cannot be caught by any Python process; nothing below runs.
+  After one: the resident (qwen38-server) self-heals on its own within some bounded time
+  (the next ordinary CAD build's own eviction/resume, or maker-server's 12 hour
+  RuntimeMaxSec dead-man switch) -- but cad.json's `maker` block and any stray
+  `.pre-arm` marker files do NOT self-heal on their own.
 - After any hard kill, run `ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm`;
   if either file exists, run `python3 scripts/arms.py restore` before trusting the box is
   back to normal, even if qwen38-server already looks healthy.
@@ -258,6 +270,13 @@ def gen_family(group: str, n: int, guidance: str, seeds: list[str],
                          no_think=False, temperature=temperature)
     try:
         items = _parse_json_array(raw)
+    except SpecgenAborted:
+        # Fix round 3, finding 1 audit: _parse_json_array is pure string/JSON parsing
+        # with no I/O, so a signal landing exactly here is unlikely, but Python checks
+        # for pending signals between bytecodes regardless of what is executing -- the
+        # bare `except Exception` below must never be allowed to treat an operator's
+        # signal as "malformed JSON, try the repair prompt instead."
+        raise
     except Exception:
         raw2 = engine._ollama(engine.CODE_MODEL_STRONG, _SYSTEM, prompt + _REPAIR_SUFFIX,
                               no_think=False, temperature=temperature)
@@ -391,6 +410,18 @@ def run_total(total: int, target_tier34: float, batch_size: int = 20,
         try:
             r = run_batch(group, n)
             call_failed = False
+        except SpecgenAborted:
+            # Fix round 3, finding 1 (CRITICAL): SpecgenAborted IS an Exception
+            # subclass, so the generic `except Exception` below used to catch a
+            # signal-triggered abort too, count it as one ordinary call failure, and
+            # keep looping -- meaning a single SIGTERM/SIGHUP landing while a batch was
+            # actually generating (the overwhelming majority of a run's wall-clock
+            # time) did NOT stop the run, contradicting main()'s own docstring. An
+            # operator's signal must never be mistaken for a model-call failure: raise
+            # it straight through so it reaches main()'s try/finally on the FIRST
+            # signal, not only after MAX_CONSECUTIVE_CALL_FAILURES separately-timed
+            # signals land during separate batches.
+            raise
         except Exception as e:
             r = {"group": group, "error": str(e), "accepted": 0, "requested": n}
             call_failed = True
@@ -443,6 +474,40 @@ def _run_arms(*args: str) -> subprocess.CompletedProcess:
     if p.stderr:
         sys.stderr.write(p.stderr if p.stderr.endswith("\n") else p.stderr + "\n")
     return p
+
+
+def _pre_arm_marker_paths() -> tuple[Path, Path]:
+    """The exact (cad.json.pre-arm, maker.env.pre-arm) paths scripts/arms.py itself
+    checks, imported directly from that module rather than re-derived here (fix round
+    3, finding 2): `arms.CAD_JSON`/`arms.ENV_PATH` already honour the CAD_CONFIG_FILE/
+    MAKER_ENV env vars, and `arms._pre_arm_paths()` is the exact function `cmd_use`/
+    `cmd_restore` use, so this can never drift from what the real `arms.py` subprocess
+    (launched by _run_arms, inheriting this same process's environment) would check."""
+    import arms as arms_cli   # scripts/ is already on sys.path (see the top of this file)
+    return arms_cli._pre_arm_paths(arms_cli.CAD_JSON, arms_cli.ENV_PATH)
+
+
+def _pre_arm_marker_exists() -> bool:
+    pre_cad, pre_env = _pre_arm_marker_paths()
+    return pre_cad.exists() or pre_env.exists()
+
+
+def _ensure_resident_up() -> None:
+    """The cad.json-untouched fallback for the launch-window trap (fix round 3, finding
+    2): `cmd_use`'s own order is check-model-path, THEN `_save_pre_arm()`, THEN
+    `apply_arm()` (write cad.json + maker.env), THEN stop qwen38-server/start
+    maker-server. So when no pre-arm marker exists, `use` never got past the very first
+    step -- cad.json/maker.env were never written and the resident was never stopped.
+    No function in scripts/arms.py isolates "just make sure the resident answers" from
+    its own cad.json/maker.env read-modify-write logic, so calling `arms.py restore`
+    (which would hit `cmd_restore`'s no-marker fallback and write maker.enabled: false,
+    the exact bug this fix closes) or `arms.py restore --disable` (same effect, stated
+    explicitly) are both wrong here. This mirrors just the resident-starting systemctl
+    call `cmd_restore` itself makes, directly, touching no config file at all -- an
+    idempotent no-op in the overwhelmingly likely case that qwen38-server was never
+    stopped in the first place, and a real (if best-effort) recovery in the unlikely
+    case that it somehow was."""
+    subprocess.run(["systemctl", "--user", "start", "qwen38-server"], check=False)
 
 
 def main() -> int:
@@ -501,25 +566,13 @@ def main() -> int:
 
     rc = 0
     reason = None
-    should_restore = True   # default: restore whenever anything might have changed
     keep_maker_prev = os.environ.get("CAD_KEEP_MAKER")
     try:
         use_p = _run_arms("use", arm)
         if use_p.returncode != 0:
-            # An ORDINARY failure return (no signal involved): scripts/arms.py use
-            # raised/exited before doing anything (e.g. the arm's GGUF is missing), so
-            # there is nothing to undo. Calling restore here would incorrectly disable
-            # an unrelated pre-existing maker configuration via cmd_restore's no-marker
-            # fallback -- see fix round 1's report for why this distinction matters.
             reason = f"scripts/arms.py use {arm} failed (exit {use_p.returncode})"
             rc = 1
-            should_restore = False
         else:
-            # A signal arriving anywhere AFTER this point raises SpecgenAborted, caught
-            # below, with should_restore staying True: `use`'s own _save_pre_arm() call
-            # is the very first thing cmd_use does (before any slow systemctl/health-wait
-            # call), so by the time control has returned here a pre-arm marker already
-            # exists on disk and a restore is always the correct, safe action.
             os.environ.setdefault("CAD_KEEP_MAKER", "1")   # one warm arm across this run
             if a.once:
                 result = run_batch(a.group, a.n, dry_run=a.dry_run)
@@ -531,10 +584,14 @@ def main() -> int:
                                   "final_stats": result["final_stats"],
                                   "usage_total": result["usage_total"]}, indent=2))
     except SpecgenAborted as e:
-        # Either a circuit breaker/wall-clock abort during generation (use already
-        # succeeded, should_restore is already True), or a SIGTERM/SIGHUP caught while
-        # `use` itself was still running (see the comment above: safe to restore either
-        # way, per the fix round 2 review's own tracing of cmd_use's call order).
+        # Either a circuit breaker/wall-clock abort during generation (`use` already
+        # succeeded), or a SIGTERM/SIGHUP caught anywhere, including mid-`use` or
+        # mid-batch (fix round 3: run_total/gen_family now re-raise SpecgenAborted
+        # immediately instead of letting the generic except below absorb it as an
+        # ordinary call failure). The `finally` block decides what to undo, if
+        # anything, by checking the pre-arm marker on disk -- NOT by trusting any flag
+        # set in this try block, since a signal can interrupt `use` before `use_p` is
+        # even assigned.
         rc = 1
         reason = str(e)
     except Exception as e:
@@ -542,8 +599,27 @@ def main() -> int:
         reason = f"unexpected error: {e}"
     finally:
         _mark_cleanup_started()   # a second SIGTERM/SIGHUP from here on is ignored
-        if should_restore:
+        # Fix round 3, finding 2 (CRITICAL): the marker on disk, not a flag computed
+        # earlier in this function, is the ONLY thing that decides whether a restore is
+        # safe. A signal landing in the roughly 100-150ms window after `_run_arms("use",
+        # arm)` starts but before scripts/arms.py's cmd_use reaches its own
+        # _save_pre_arm() call kills that child (subprocess.run's own except-kill-
+        # reraise behaviour on an interrupted wait) before anything is written to disk
+        # at all -- `use_p` is never assigned in that case, so no flag computed inside
+        # the try above can be trusted. Checking the real marker file instead means: no
+        # marker -> nothing was ever changed (cad.json/maker.env untouched, the
+        # resident was never stopped) -> calling `arms.py restore` would be the bug
+        # this fix closes (it hits cmd_restore's no-marker fallback and writes
+        # maker.enabled: false, disabling a configuration this run never touched);
+        # marker present -> `arms.py restore` is always correct, exactly as before.
+        if _pre_arm_marker_exists():
+            print("specgen cleanup: pre-arm marker found, restoring via scripts/arms.py restore",
+                 file=sys.stderr)
             _run_arms("restore")
+        else:
+            print("specgen cleanup: no pre-arm marker, leaving cad.json untouched; "
+                  "ensuring qwen38-server is up", file=sys.stderr)
+            _ensure_resident_up()
         # Restore CAD_KEEP_MAKER at the source rather than relying on a test fixture or
         # the caller's own environment to clean it up (fix round 2, finding 3): main()
         # is only ever invoked as this module's own dedicated process today, so the env

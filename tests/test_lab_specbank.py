@@ -524,6 +524,91 @@ def test_run_total_default_max_batches_is_200():
     assert specgen.MAX_BATCHES_DEFAULT == 200
 
 
+def test_run_total_reraises_specgen_aborted_immediately_not_as_a_call_failure(monkeypatch):
+    """Fix round 3, finding 1 (CRITICAL): SpecgenAborted IS an Exception subclass, so
+    the generic `except Exception` used to catch it too, count it as one ordinary call
+    failure, and keep looping -- meaning a single SIGTERM/SIGHUP landing mid-batch did
+    NOT stop the run. It must propagate on the very first occurrence."""
+    monkeypatch.setattr(specbank, "contamination_sets", lambda: (set(), set()))
+    calls = {"n": 0}
+
+    def run_batch_signal_then_ok(group, n, dry_run=False):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise specgen.SpecgenAborted("terminated by signal 15 (SIGTERM)")
+        return {"accepted": 1, "refused": [], "group": group, "requested": n,
+                "generated": 1, "seconds": 0.1, "prompt_tokens": 1, "completion_tokens": 1}
+
+    monkeypatch.setattr(specgen, "run_batch", run_batch_signal_then_ok)
+    with pytest.raises(specgen.SpecgenAborted, match="terminated by signal"):
+        specgen.run_total(total=100000, target_tier34=0.0, batch_size=5, max_batches=50)
+    assert calls["n"] == 1   # never reached a second batch after the signal
+
+
+def test_gen_family_reraises_specgen_aborted_from_parse_without_a_repair_retry(monkeypatch):
+    """Fix round 3, finding 1 audit: the JSON-repair retry's bare `except Exception`
+    must not treat a signal-triggered SpecgenAborted raised during parsing as an
+    ordinary parse failure and burn a second model call on the repair prompt."""
+    calls = []
+
+    def fake_ollama(model, system, prompt, **kw):
+        calls.append(prompt)
+        return "irrelevant, _parse_json_array is stubbed below to raise directly"
+
+    monkeypatch.setattr(specgen.engine, "_ollama", fake_ollama)
+    monkeypatch.setattr(specgen, "_parse_json_array",
+                        lambda raw: (_ for _ in ()).throw(
+                            specgen.SpecgenAborted("terminated by signal 15 (SIGTERM)")))
+    with pytest.raises(specgen.SpecgenAborted):
+        specgen.gen_family("plate", 1, "guidance", [])
+    assert len(calls) == 1   # no repair-retry call was made
+
+
+# ---------------------------------------------------------------------------
+# _pre_arm_marker_paths / _pre_arm_marker_exists / _ensure_resident_up
+# (fix round 3, finding 2)
+# ---------------------------------------------------------------------------
+
+def test_pre_arm_marker_paths_delegate_to_the_real_arms_module():
+    """Imported directly from scripts/arms.py, not re-derived, so this can never drift
+    from what the real arms.py subprocess itself checks."""
+    import arms as arms_cli
+    expected = arms_cli._pre_arm_paths(arms_cli.CAD_JSON, arms_cli.ENV_PATH)
+    assert specgen._pre_arm_marker_paths() == expected
+
+
+def test_pre_arm_marker_exists_false_when_neither_file_present(monkeypatch, tmp_path):
+    import arms as arms_cli
+    monkeypatch.setattr(arms_cli, "CAD_JSON", tmp_path / "cad.json")
+    monkeypatch.setattr(arms_cli, "ENV_PATH", tmp_path / "maker.env")
+    assert specgen._pre_arm_marker_exists() is False
+
+
+def test_pre_arm_marker_exists_true_when_cad_json_marker_present(monkeypatch, tmp_path):
+    import arms as arms_cli
+    monkeypatch.setattr(arms_cli, "CAD_JSON", tmp_path / "cad.json")
+    monkeypatch.setattr(arms_cli, "ENV_PATH", tmp_path / "maker.env")
+    (tmp_path / "cad.json.pre-arm").write_text("{}")
+    assert specgen._pre_arm_marker_exists() is True
+
+
+def test_pre_arm_marker_exists_true_when_only_the_maker_env_marker_is_present(monkeypatch, tmp_path):
+    """_save_pre_arm writes both markers back to back, not atomically as a pair -- "at
+    least one" (per the fix instructions) is the correct test, not "both"."""
+    import arms as arms_cli
+    monkeypatch.setattr(arms_cli, "CAD_JSON", tmp_path / "cad.json")
+    monkeypatch.setattr(arms_cli, "ENV_PATH", tmp_path / "maker.env")
+    (tmp_path / "maker.env.pre-arm").write_text('{"existed": false, "content": null}')
+    assert specgen._pre_arm_marker_exists() is True
+
+
+def test_ensure_resident_up_starts_qwen38_server_and_touches_nothing_else(monkeypatch):
+    calls = []
+    monkeypatch.setattr(specgen.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
+    specgen._ensure_resident_up()
+    assert calls == [["systemctl", "--user", "start", "qwen38-server"]]
+
+
 def test_run_total_aborts_after_3_consecutive_call_failures(monkeypatch):
     monkeypatch.setattr(specbank, "contamination_sets", lambda: (set(), set()))
     calls = {"n": 0}
@@ -622,6 +707,16 @@ def test_default_arm_falls_back_when_no_maker_block_is_configured(monkeypatch):
     assert specgen._default_arm() == specgen.DEFAULT_ARM_FALLBACK
 
 
+# NOTE (fix round 3): main()'s finally now gates the arms.py restore call on whether a
+# real .pre-arm marker file exists on disk (see _pre_arm_marker_exists()), not on a flag
+# computed earlier in the function -- a signal can interrupt `use` before any such flag
+# would even be set. These tests stub `_run_arms` entirely (no real arms.py subprocess),
+# so they also stub `_pre_arm_marker_exists`/`_ensure_resident_up` explicitly rather than
+# depending on whatever real marker files do or do not happen to exist on the machine
+# running the suite. The REAL marker-existence behaviour, end to end with a real signal
+# landing at a real, controlled instant, is exercised in
+# tests/test_lab_specgen_signals.py's real-subprocess tests instead.
+
 def test_main_bookend_calls_use_then_restore_and_nothing_else(monkeypatch):
     arms_calls = []
 
@@ -631,6 +726,7 @@ def test_main_bookend_calls_use_then_restore_and_nothing_else(monkeypatch):
 
     monkeypatch.setattr(specgen, "_run_arms", fake_run_arms)
     monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: True)
     monkeypatch.setattr(specgen, "run_batch",
                         lambda group, n, dry_run=False: {
                             "accepted": 1, "refused": [], "group": group, "requested": n,
@@ -651,6 +747,7 @@ def test_main_still_restores_when_the_batch_raises(monkeypatch):
 
     monkeypatch.setattr(specgen, "_run_arms", fake_run_arms)
     monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: True)
 
     def boom(group, n, dry_run=False):
         raise RuntimeError("boom")
@@ -671,6 +768,7 @@ def test_main_still_restores_when_a_circuit_breaker_trips(monkeypatch, capsys):
 
     monkeypatch.setattr(specgen, "_run_arms", fake_run_arms)
     monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: True)
     monkeypatch.setattr(specgen, "run_batch",
                         lambda group, n, dry_run=False: (_ for _ in ()).throw(
                             RuntimeError("connection refused")))
@@ -687,17 +785,29 @@ def test_main_still_restores_when_a_circuit_breaker_trips(monkeypatch, capsys):
 
 
 def test_main_aborts_without_generating_when_arms_use_fails(monkeypatch):
+    ensure_resident_calls = []
+
     def fake_run_arms(*args):
         rc = 1 if args and args[0] == "use" else 0
         return subprocess.CompletedProcess(args, rc, stdout="", stderr="model missing")
 
     monkeypatch.setattr(specgen, "_run_arms", fake_run_arms)
     monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    # An ordinary (non-signal) `use` failure never gets as far as writing a marker
+    # (cmd_use's own model-path check runs before _save_pre_arm), so the real
+    # _pre_arm_marker_exists() would already return False here -- stubbed explicitly so
+    # this test does not depend on the ambient state of any real file on the machine
+    # running the suite, and _ensure_resident_up is stubbed so no real `systemctl`
+    # call happens in a test.
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: False)
+    monkeypatch.setattr(specgen, "_ensure_resident_up",
+                        lambda: ensure_resident_calls.append(1))
     monkeypatch.setattr(specgen, "run_batch",
                         lambda *a, **k: pytest.fail("must not generate when use failed"))
     monkeypatch.setattr(sys, "argv", ["specgen.py", "--once", "--group", "plate"])
     rc = specgen.main()
     assert rc == 1
+    assert ensure_resident_calls == [1]
 
 
 def test_no_relock_flag_skips_the_arms_bookend_entirely(monkeypatch):
