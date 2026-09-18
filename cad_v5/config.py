@@ -70,22 +70,16 @@ def load_config() -> dict:
     return cfg
 
 # ── Models ────────────────────────────────────────────────────────────────────
-# Fast rung = qwen2.5-coder:7b Q4 (user decision 2026-07-17, supported by that day's 2x2
-# A/B, tiers 1-2 same engine same day): 7b-q4 WITH few-shots 13/22 (59%) vs qwen3:8b 11/22
-# (50%); few-shots lift the 7B +23pts (8/22 bare) and lift qwen3:8b ZERO (11/22 either way)
-# — the corpus was distilled from qwen3 builds, so retrieval transfers those idioms into
-# the specialist while teaching the incumbent nothing new. Trade-off accepted: the brief
-# (qwen3:8b) -> coder swap costs a VRAM reload per build (7B suite 2068s vs 8B 1164s).
-# The 2026-07-12 result (old q5 quant, pre-N1/style-only-fewshot engine: 8/22) is superseded.
-# Results: benchmarks/results/ run_20260717_15*/16* (2x2 legs).
-# CAD_CODE_MODEL_FAST env override exists for A/B evals (e.g. the M6' fine-tune vs stock);
-# the constant below stays the shipped default.
-CODE_MODEL_FAST    = os.environ.get("CAD_CODE_MODEL_FAST",
-                                    "qwen2.5-coder:7b-instruct-q4_K_M")
 # Strong rung: the "local:" prefix routes it through the OpenAI-schema branch in
 # cad_engine._ollama(), against the resident :8086, or the maker server when cad.json
 # maker.enabled (the engine is the evictor, so its health probe must see backend truth —
 # the :8085 gpu-proxy would happily queue it).
+# The always-there resident (qwen38-server.service on :8086, behind the gpu-proxy on :8085).
+# Single-sourced here because the web UI's title worker needs the alias too, and the CAD
+# rungs cannot name it once a maker arm is enabled.
+RESIDENT_ALIAS = "qwen3.8-27b"
+RESIDENT_PROXY_URL = "http://127.0.0.1:8085/v1/chat/completions"
+
 def maker_config() -> dict:
     """The optional swappable CAD coder server ("maker" block in cad.json).
 
@@ -98,11 +92,11 @@ def maker_config() -> dict:
     """
     m = load_config().get("cad", {}).get("maker") or {}
     if not bool(m.get("enabled", False)):
-        return {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+        return {"enabled": False, "port": 8086, "alias": RESIDENT_ALIAS, "unit": "qwen38-server"}
     return {
         "enabled": True,
         "port": int(m.get("port", 8088)),
-        "alias": str(m.get("alias", "qwen3.8-27b")),
+        "alias": str(m.get("alias", RESIDENT_ALIAS)),
         "unit": "maker-server",
     }
 
@@ -118,40 +112,55 @@ LOCAL_CODER_HEALTH = f"http://127.0.0.1:{LOCAL_CODER_PORT}/health"
 # _ollama() against whichever strong-rung server is up (resident or maker arm) with
 # thinking off (see _ollama()'s local: branch) — no separate Ollama model to keep alive.
 BRIEF_MODEL        = CODE_MODEL_STRONG
-# Escalation ladder, weakest first; failures climb one rung per trigger. There is no mid rung:
-# the 14B was MEASURED OUT of the auto ladder (2026-07-04, m1_14b_tiers12.json): 3/6 converged
-# at 583-804s/build — slower than the 30B MoE (dense 14B offloads worse than a 3B-active MoE)
-# with worse results than the 7B (5/6 at ~250s), and the model itself was removed 2026-07-16.
-# The right middle rung for weak hardware is the cloud (B4/M3).
-CODE_MODEL_LADDER  = [CODE_MODEL_FAST, CODE_MODEL_STRONG]
-CODE_MODEL_DEFAULT = CODE_MODEL_FAST
+# ── Fast rung: RETIRED 2026-09-19 ─────────────────────────────────────────────
+# The fast rung was qwen2.5-coder:7b-instruct-q4_K_M on Ollama. Ollama is off the box
+# (user rule: no fallback through it), and the rung had already lost its case on merit:
+# Phase 0 measured it at 44% invalid on CADPrompt against Gemma-4-31B's 6%
+# (benchmarks/results/card/phase0/card.md), which is why Phase 1 made fluid mode's
+# default --coder "strong". CODE_MODEL_FAST keeps its NAME so scripts/fluid_gen.py,
+# scripts/gift_sample.py and any pinned benchmark leg still import something real; it
+# now resolves to the strong rung. The ladder is one rung, so nothing escalates and
+# _next_code_model() returns None unless a cloud rung is configured.
+#
+# CAD_CODE_MODEL_FAST survives as an A/B override, but ONLY for a local: alias — an
+# Ollama tag would reach _ollama()'s hard error mid-build instead of failing here.
+_FAST_OVERRIDE = os.environ.get("CAD_CODE_MODEL_FAST", "")
+if _FAST_OVERRIDE and not _FAST_OVERRIDE.startswith(("local:", "cloud/")):
+    raise RuntimeError(
+        f"CAD_CODE_MODEL_FAST={_FAST_OVERRIDE!r} is not a local: model. Ollama was retired "
+        "2026-09-19; the CAD coder rungs are llama.cpp servers. Use "
+        "CAD_CODE_MODEL_FAST=local:<alias> (the alias your maker-server or the resident "
+        "serves), or unset it to use the strong rung."
+    )
+CODE_MODEL_FAST    = _FAST_OVERRIDE or CODE_MODEL_STRONG
+FAST_RUNG_RETIRED  = "fast rung retired 2026-09-19, using the strong rung"
+# One-rung ladder (local). A configured cad.json `cloud` block still appends a paid rung
+# above it at runtime (cad_engine._ladder()), so escalation is not structurally dead.
+CODE_MODEL_LADDER  = [CODE_MODEL_STRONG]
+CODE_MODEL_DEFAULT = CODE_MODEL_STRONG
 # CAD_CRITIC_MODEL env override exists for A/B evals (2026-08-15: gemma4 vs the resident 35B,
 # now that the qwen36-server carries an mmproj) — same pattern as CAD_CODE_MODEL_FAST.
 # "local:<name>" routes the critic through the resident llama.cpp server (images supported).
 # Phase 1 lock-in (2026-09-17): the coder judges its own two-panel render ("self-critic") on the
 # same llama.cpp server. Measured on Gemma-4-31B against the Ollama gemma4:e4b critic, paired on
 # the same 40 public specs: match 40% vs 35% (+2/-0 flips), 22% faster, no VRAM cost, and no
-# Ollama model left in the loop. CAD_CRITIC_MODEL still overrides (e.g. "gemma4:e4b").
+# Ollama model left in the loop. CAD_CRITIC_MODEL still overrides, but only with another
+# local: alias — Ollama came off the box 2026-09-19 and _ollama() rejects bare tags.
 CRITIC_MODEL       = os.environ.get("CAD_CRITIC_MODEL", CODE_MODEL_STRONG)
 # CAD_CRITIC_URL lets the critic run on its own server (e.g. a dedicated vision model
 # on a different port) instead of riding the coder server. Defaults to LOCAL_CODER_URL
 # so an unset env var is a no-op change from the prior single-URL behaviour.
 CRITIC_URL         = os.environ.get("CAD_CRITIC_URL", LOCAL_CODER_URL)
 CRITIC_HEALTH      = CRITIC_URL.replace("/v1/chat/completions", "/health")
-OLLAMA_HOST    = "http://localhost:11434"
-OLLAMA_URL     = OLLAMA_HOST + "/api/generate"
-OLLAMA_TAGS    = OLLAMA_HOST + "/api/tags"
-OLLAMA_TIMEOUT = 300
+# Default per-call LLM timeout (was OLLAMA_TIMEOUT; the Ollama host/URL/tags constants
+# were deleted 2026-09-19 with the Ollama rung itself).
+LLM_TIMEOUT    = 300
 CODE_TIMEOUT   = 600
-# The strong 30B rung is CPU-offloaded (~7min/call measured) and pays a cold model swap when the
-# ladder escalates mid-build; 600s killed a build at exactly +600s while the 30B was still loading
-# (2026-07-11). Budget the swap + one slow generation.
+# The strong rung pays a cold model swap (resident out, maker arm in) on the first call of a
+# build; 600s killed a build at exactly +600s while a 30B was still loading (2026-07-11).
+# Budget the swap + one slow generation. Since 2026-09-19 this is the ONLY local rung, so
+# CODE_TIMEOUT below is only reached by a pinned cad.code_model.
 CODE_TIMEOUT_STRONG = int(os.environ.get("CAD_CODE_TIMEOUT_STRONG", 1200))
-# A model whose weights exceed this (GB, from /api/tags) cannot sit fully in the RX 6600's 8GB
-# VRAM → CPU offload + a ~6min reload whenever the brief/critic evicts it. Such models get
-# CODE_TIMEOUT_STRONG even when pinned by name (2026-07-17: a pinned qwen3.6:35b-a3b got the
-# 600s fast timeout, timed out on all 10 benchmark parts, and produced a 0/31 artifact score).
-VRAM_RESIDENT_GB_MAX = 5.5
 # Env-overridable for critic A/B legs (a 35B critique pays CPU image-encode + a possible
 # server restart; a timeout silently degrades the loop to gate-only, poisoning the leg).
 CRITIC_TIMEOUT = int(os.environ.get("CAD_CRITIC_TIMEOUT", 200))
@@ -260,7 +269,7 @@ def creds() -> tuple[str, str]:
     return ak, sk
 
 def use_brief() -> bool:
-    """Should the qwen3:8b brief shape the coder prompt? Default FALSE (2026-07-30).
+    """Should the generated brief shape the coder prompt? Default FALSE (2026-07-30).
 
     The brief existed to structure a vague request for a small coder, but it is authored by the
     weakest model in the chain, is non-deterministic, and makes prompt-wording experiments

@@ -56,14 +56,17 @@ def expected_for(spec: str) -> dict:
 
 
 def _model_for(coder: str) -> None:
-    if coder == "strong":
-        engine._ACTIVE_CODE_MODEL = engine.CODE_MODEL_STRONG
-    elif coder == "cloud":
+    """Resolve the --coder word to a model string. "fast" is still accepted (saved commands,
+    Satine's fast: prefix, older benchmark legs) but the fast rung was retired with Ollama on
+    2026-09-19, so it lands on the strong rung like everything else."""
+    if coder == "cloud":
         cc = engine.cloud_config()
         engine._ACTIVE_CODE_MODEL = engine.CLOUD_PREFIX + cc.get("model", "claude-sonnet-5")
         engine.reset_cloud_budget(2)
-    else:
-        engine._ACTIVE_CODE_MODEL = engine.CODE_MODEL_FAST
+        return
+    if coder == "fast":
+        print(f"[fluid] {engine.FAST_RUNG_RETIRED}", file=sys.stderr)
+    engine._ACTIVE_CODE_MODEL = engine.CODE_MODEL_STRONG
 
 
 def _materialize(code: str, build_dir: Path, spec: str = "") -> dict:
@@ -319,8 +322,8 @@ def main() -> int:
     try:
         res = cmd_build(a) if a.cmd == "build" else cmd_revise(a)
     finally:
-        # Fluid runs bypass engine.build(), so the default-server resume (the 35B
-        # evicted to make VRAM room for the fast coder) must happen here too.
+        # Fluid runs bypass engine.build(), so the resident resume (evicted for the
+        # maker arm by _ensure_default_server) must happen here too.
         engine._resume_default_server()
     print(json.dumps(res))
     return 0 if res.get("ok") else 1

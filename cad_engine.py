@@ -4,7 +4,7 @@ CAD Agent v4.3 — build123d agentic observe-edit loop + Onshape upload.
 
 Modeled on how the Claude<->Fusion MCP connection operates: the model writes a
 build123d script, the system RUNS it, INSPECTS the geometry, RENDERS a two-panel view
-(isometric + top-down), and a multimodal CRITIC (gemma4:e4b) describes whether it matches
+(isometric + top-down), and a multimodal CRITIC (the coder itself since Phase 1) describes whether it matches
 the spec. That observation is fed back so the coder model EDITS the script and re-observes —
 iterating until it judges the part correct (replies ###DONE###) or the bounds are hit.
 
@@ -86,10 +86,10 @@ from cad_v5.config import (  # noqa: F401
     use_brief as _cfg_use_brief,        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
-    OLLAMA_HOST, OLLAMA_URL, OLLAMA_TAGS, OLLAMA_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
+    LLM_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
     INSPECT_TIMEOUT, TRANSLATE_TIMEOUT, BASE_URL, DONE_SENTINEL,
-    VERSION, CODE_TIMEOUT_STRONG, VRAM_RESIDENT_GB_MAX,
+    VERSION, CODE_TIMEOUT_STRONG, FAST_RUNG_RETIRED,
     LOCAL_CODER_URL, LOCAL_CODER_HEALTH, CRITIC_URL, CRITIC_HEALTH,
     REF_CRITIC_TIMEOUT, REF_IMAGE_MAX_PX, BUILD_LOCK_FILE,
     first_turn_candidates, CANDIDATE_TEMPS, SFTPAIRS_DIR, SFTPAIRS_FILE,
@@ -99,28 +99,13 @@ from cad_v5.diagnose import diagnose  # noqa: E402  (B3 failure taxonomy)
 from cad_v5.config import cloud_config  # noqa: E402  (B4 cloud rung)
 from cad_v5.config import maker_config  # noqa: E402  (Maker 1.0 — swappable CAD coder arm)
 
-_MODEL_SIZE_GB: dict[str, float] = {}
-
-def _model_size_gb(model: str) -> float:
-    """Weights size (GB) from Ollama's tags API, cached; 0.0 when unknown."""
-    if not _MODEL_SIZE_GB:
-        try:
-            with urllib.request.urlopen(OLLAMA_TAGS, timeout=10) as r:
-                for m in json.loads(r.read()).get("models", []):
-                    _MODEL_SIZE_GB[m["name"]] = m.get("size", 0) / 1e9
-        except Exception:
-            pass
-    return _MODEL_SIZE_GB.get(model, 0.0)
-
 def _code_timeout() -> int:
-    """Per-rung codegen timeout. Any coder too big to sit fully in VRAM (not just the named
-    strong rung — a pinned challenger like qwen3.6:35b-a3b too) is CPU-offloaded and pays a
-    ~6min reload whenever the brief/critic evicts it; the 600s fast cap killed every call of
-    the 2026-07-17 strong A/B before first token. Unknown size falls back to the name check."""
-    m = _code_model()
-    if m == CODE_MODEL_STRONG or _model_size_gb(m) > VRAM_RESIDENT_GB_MAX:
-        return CODE_TIMEOUT_STRONG
-    return CODE_TIMEOUT
+    """Per-rung codegen timeout. The strong rung pays a server swap (resident out, maker arm
+    in) on its first call of a build, so it gets the long cap; the 600s default killed every
+    call of the 2026-07-17 strong A/B before first token. Since the fast rung was retired
+    (2026-09-19) only a pinned cad.code_model can land on the short cap. The old
+    Ollama /api/tags weights-size lookup went with it: there is no tags API to ask."""
+    return CODE_TIMEOUT_STRONG if _code_model() == CODE_MODEL_STRONG else CODE_TIMEOUT
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -221,20 +206,20 @@ def _code_model() -> str:
 CLOUD_PREFIX = "cloud/"
 LOCAL_PREFIX = "local:"   # llama.cpp server rung (OpenAI schema, port 8085) — see config.py
 
-# ── Default-server eviction (user rule 2026-08-11; retuned 2026-09-04) ────────
-# The resident server is now qwen3.8-27b fully GPU-resident on the RTX 3090
-# (qwen38-server.service, ~23GB of the 24GB card: weights + 128k q8 KV + mmproj).
-# NOTHING coexists any more — the 35B-era gemma4 exemption is gone; every Ollama
-# load evicts the resident. Paused once per process, resumed at build end
-# (engine.build() finally + fluid_gen main()); the strong rung restarts it on demand
-# after unloading all Ollama guests. resident :8086, or maker-server when cad.json
-# maker.enabled (see cad_v5.config.maker_config). (_QWEN36_UNIT name kept for
-# grep-ability.)
+# ── Default-server eviction (user rule 2026-08-11; retuned 2026-09-04/2026-09-19) ─
+# The resident server is qwen3.8-27b fully GPU-resident on the RTX 3090
+# (qwen38-server.service, ~23GB of the 24GB card: weights + 96k q8 KV + mmproj), so
+# nothing coexists with it. Since Ollama came off the box (2026-09-19) the only
+# eviction left is the resident/maker swap: _ensure_default_server() stops the
+# resident and starts the maker arm when cad.json maker.enabled, and
+# _resume_default_server() puts the resident back at build end (engine.build()
+# finally + fluid_gen main()). The old _pause_default_server_for() /
+# _unload_ollama_guests() pair existed only to make VRAM room for an Ollama guest
+# (the gemma4 critic, the 7B fast rung) and was deleted with them.
+# (_QWEN36_UNIT name kept for grep-ability.)
 _QWEN36_UNIT = "qwen38-server"          # the resident (name kept for grep-ability)
 _MAKER_UNIT  = "maker-server"           # the swappable CAD coder arm (docs/MAKER-1.0-CAMPAIGN.md 4.2)
 _MAKER_STARTED = False
-_OLLAMA_COEXIST_GB_MAX = 0.0
-_PAUSED_DEFAULT_SERVER = False
 
 def _default_server_active() -> bool:
     r = subprocess.run(["systemctl", "--user", "is-active", _QWEN36_UNIT],
@@ -246,64 +231,21 @@ def _maker_server_active() -> bool:
                        capture_output=True, text=True)
     return r.stdout.strip() == "active"
 
-def _pause_default_server_for(model: str) -> None:
-    """Free VRAM for an Ollama guest (e.g. the gemma4 critic) by stopping whichever
-    strong-rung server is currently up — the resident, or maker-server when cad.json
-    maker.enabled (see cad_v5.config.maker_config). _ensure_default_server() brings
-    the right one back on the next strong-rung call."""
-    global _PAUSED_DEFAULT_SERVER
-    if _PAUSED_DEFAULT_SERVER or _model_size_gb(model) <= _OLLAMA_COEXIST_GB_MAX:
-        return
-    if maker_config()["enabled"]:
-        unit, active = _MAKER_UNIT, _maker_server_active
-    else:
-        unit, active = _QWEN36_UNIT, _default_server_active
-    if not active():
-        return
-    log.info("[v5] pausing %s — freeing VRAM for %s", unit, model)
-    subprocess.run(["systemctl", "--user", "stop", unit], capture_output=True)
-    _PAUSED_DEFAULT_SERVER = True
-
 def _resume_default_server() -> None:
     """Idempotent; safe to call from finally blocks even when nothing was paused.
 
     CAD_KEEP_MAKER=1 (with maker.enabled): does nothing — the card runner keeps one
     maker-server arm warm across ~150 builds and restores the resident itself via
     scripts/arms.py restore. Per-build resume would cold-load the arm every time."""
-    global _PAUSED_DEFAULT_SERVER, _MAKER_STARTED
+    global _MAKER_STARTED
     if os.environ.get("CAD_KEEP_MAKER") == "1" and maker_config()["enabled"]:
         return
-    if not (_PAUSED_DEFAULT_SERVER or _MAKER_STARTED):
+    if not _MAKER_STARTED:
         return
     log.info("[v5] resuming %s", _QWEN36_UNIT)
-    # 27B era: guests must be gone before the resident can allocate (~23GB needed).
-    # The launcher also self-guards, but unloading here avoids a crash-loop window.
-    _unload_ollama_guests(0.0)
-    if _MAKER_STARTED:
-        subprocess.run(["systemctl", "--user", "stop", _MAKER_UNIT], capture_output=True)
-        _MAKER_STARTED = False
+    subprocess.run(["systemctl", "--user", "stop", _MAKER_UNIT], capture_output=True)
+    _MAKER_STARTED = False
     subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
-    _PAUSED_DEFAULT_SERVER = False
-
-def _unload_ollama_guests(max_gb: float = _OLLAMA_COEXIST_GB_MAX) -> None:
-    """The reverse of _pause_default_server_for: a VISION call on the resident server needs
-    the card clean (with the mmproj on GPU the server is ~4.4GB; a keepalive'd 7B coder at
-    ~4.7GB beside it would spill both). Unload any running Ollama model too big to coexist
-    via keep_alive:0 — the next codegen call reloads it warm in seconds."""
-    try:
-        with urllib.request.urlopen(OLLAMA_HOST + "/api/ps", timeout=5) as r:
-            running = json.loads(r.read()).get("models", [])
-        for m in running:
-            gb = (m.get("size_vram") or m.get("size") or 0) / 1e9
-            name = m.get("name", "")
-            if name and gb > max_gb:
-                req = urllib.request.Request(
-                    OLLAMA_URL, data=json.dumps({"model": name, "keep_alive": 0}).encode(),
-                    headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(req, timeout=30).read()
-                log.info("[v5] unloaded Ollama guest %s (%.1fGB) for vision call", name, gb)
-    except Exception as e:
-        log.warning("[v5] guest unload failed (vision call may contend for VRAM): %s", e)
 
 def _wait_health(url: str, timeout: int) -> None:
     # monotonic: a wall-clock jump (NTP step, DST) must not cut a model load short or
@@ -326,26 +268,16 @@ def _ensure_default_server(timeout: int = 180) -> None:
     CAD_KEEP_MAKER=1 (with maker.enabled): probe once for an already-warm arm — the
     card runner holds maker-server up across ~150 builds, so a per-build stop/start
     would cold-load the model every time. Falls through to the normal maker path if
-    the probe doesn't answer.
-
-    The server is up, so "paused" is no longer true. Leaving the flag set made
-    _pause_default_server_for() a no-op for the REST of the build — with a local:
-    critic alternating against the 7B coder, the coder would silently spill."""
-    global _PAUSED_DEFAULT_SERVER, _MAKER_STARTED
+    the probe doesn't answer."""
+    global _MAKER_STARTED
     m = maker_config()
     if os.environ.get("CAD_KEEP_MAKER") == "1" and m["enabled"]:
         try:
             with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=3) as r:
                 json.loads(r.read())
-            # Same reason as the flag reset at the bottom of this function: the arm IS up,
-            # so "paused" is false. Returning with the flag still set would make every
-            # later _pause_default_server_for() a no-op and let a gemma4 critic call spill
-            # against a warm 20GB arm.
-            _PAUSED_DEFAULT_SERVER = False
             return
         except Exception:
             pass
-    _unload_ollama_guests(0.0)
     if m["enabled"]:
         subprocess.run(["systemctl", "--user", "stop", _QWEN36_UNIT], capture_output=True)
         subprocess.run(["systemctl", "--user", "start", _MAKER_UNIT], capture_output=True)
@@ -353,7 +285,6 @@ def _ensure_default_server(timeout: int = 180) -> None:
     else:
         subprocess.run(["systemctl", "--user", "start", _QWEN36_UNIT], capture_output=True)
     _wait_health(LOCAL_CODER_HEALTH, timeout)
-    _PAUSED_DEFAULT_SERVER = False
 _CLOUD_CALLS_LEFT = 0   # per-build cost cap, reset by build() from cad.json cloud.max_calls_per_build
 
 # ── Cloud spend ledger ────────────────────────────────────────────────────────
@@ -528,12 +459,19 @@ def _tg_token() -> str:
     return (cfg.get("channels", {}).get("telegram", {})
                .get("accounts", {}).get("cad", {}).get("botToken", ""))
 
-# ── Ollama LLM call (optional images for multimodal) ───────────────────────────
+# ── LLM call (optional images for multimodal) ─────────────────────────────────
 
 def _ollama(model: str, system: str, prompt: str,
-            timeout: int = OLLAMA_TIMEOUT, images: Optional[list[str]] = None,
+            timeout: int = LLM_TIMEOUT, images: Optional[list[str]] = None,
             temperature: Optional[float] = None, fmt=None, no_think: bool = False) -> str:
-    # fmt: "json" or a JSON-schema dict — Ollama enforces the output grammar server-side.
+    """One chat call. The name is historical: Ollama was retired from this agent on
+    2026-09-19 and every model string must now be "local:<alias>" (an llama.cpp server —
+    the maker arm on :8088 or the resident on :8086) or "cloud/<model>" (the paid rung).
+    A bare Ollama tag raises rather than falling back, per the no-Ollama user rule.
+    The name is kept because several modules and scripts import it.
+
+    fmt: "json" or a JSON-schema dict — llama.cpp enforces the output grammar server-side
+    via response_format."""
     if model.startswith(CLOUD_PREFIX):
         # The paid rung rides the same seam every local call uses — nothing upstream
         # knows or cares which provider answered. fmt is ignored (cloud rung = coder only).
@@ -544,8 +482,6 @@ def _ollama(model: str, system: str, prompt: str,
         # output arrives in reasoning_content, which we drop — only content is the answer.
         # Images ride as OpenAI content parts (the server carries the mmproj since
         # 2026-08-15) — that is what lets the critic run on this rung for A/B evals.
-        if images:
-            _unload_ollama_guests()
         _ensure_default_server()
         if images:
             user_content = [{"type": "text", "text": prompt}] + [
@@ -595,40 +531,12 @@ def _ollama(model: str, system: str, prompt: str,
             _USAGE_TOTAL["completion_tokens"] += int(_LAST_USAGE.get("completion_tokens") or 0)
         _USAGE_TOTAL["calls"] += 1
         return (resp["choices"][0]["message"].get("content") or "").strip()
-    _pause_default_server_for(model)
-    options = {"num_ctx": 16384}
-    if temperature is not None:
-        options["temperature"] = temperature
-    payload = {
-        "model":  model,
-        "stream": False,
-        "system": system,
-        "prompt": prompt,
-        "options": options,
-        "think":  False,
-    }
-    if fmt:
-        payload["format"] = fmt   # e.g. "json" — constrains decoding to valid JSON
-    if images:
-        payload["images"] = images
-    data = json.dumps(payload).encode()
-    req  = urllib.request.Request(
-        OLLAMA_URL, data=data, headers={"Content-Type": "application/json"}
+    raise RuntimeError(
+        f"Ollama is retired; model tags must be local:<alias> (got {model!r}). "
+        "The CAD coder, brief/utility and critic rungs all run on llama.cpp "
+        "(maker-server :8088 or the resident qwen38-server :8086); see "
+        "cad_v5/config.py and ~/.openclaw/cad.json's maker block."
     )
-    # Retry once on a transient connection blip (e.g. Ollama briefly busy swapping a model),
-    # but never on a timeout — a slow model should not be hit twice.
-    import socket
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                resp = json.loads(r.read())
-            return resp["response"].strip()
-        except urllib.error.URLError as e:
-            if attempt == 0 and not isinstance(e.reason, socket.timeout):
-                log.warning("[v5] Ollama connection issue (%s) — retrying once", e)
-                time.sleep(3)
-                continue
-            raise
 
 # ── GPU build lock — one build at a time across all frontends ─────────────────
 
@@ -670,8 +578,8 @@ def _acquire_build_lock(spec: str):
 
 def _prep_image_b64(path: Path) -> str:
     """Reference photo → base64, downscaled via Pillow when available (EXIF-upright,
-    ≤REF_IMAGE_MAX_PX long edge, RGB JPEG q85 — gemma's vision encoder runs on the CPU, so
-    pixel count is wall time). PIL missing/failing degrades to the raw bytes."""
+    ≤REF_IMAGE_MAX_PX long edge, RGB JPEG q85 — pixel count is prefill wall time in the
+    vision encoder). PIL missing/failing degrades to the raw bytes."""
     path = Path(path)
     try:
         import io
@@ -735,7 +643,11 @@ _IMAGE_ANALYSIS_SCHEMA = {
 }
 
 def analyze_reference_image(image_path: str) -> dict:
-    """Vision pre-pass: gemma4:e4b describes the reference photo into a structured dict.
+    """Vision pre-pass: the strong rung (CRITIC_MODEL, which defaults to CODE_MODEL_STRONG —
+    the Gemma-4-31B maker arm or the resident, both carrying an mmproj) describes the
+    reference photo into a structured dict. Rides the local: OpenAI-schema branch of
+    _ollama() with the photo as an image content part and thinking off; the old Ollama
+    gemma4:e4b pre-pass was retired 2026-09-19 with the rest of Ollama.
     Cached at <image>.analysis.json keyed on (mtime, size) — one vision call per photo, ever,
     across refine turns and the cli --ask path. Any failure returns {} and the build proceeds
     text-only (graceful, like the critic)."""
@@ -754,7 +666,7 @@ def analyze_reference_image(image_path: str) -> dict:
         raw = _ollama(CRITIC_MODEL, _IMAGE_ANALYSIS_SYSTEM,
                       "Analyze this reference image of a part to be modeled:",
                       timeout=REF_CRITIC_TIMEOUT, images=[_prep_image_b64(p)],
-                      temperature=0.1, fmt=_IMAGE_ANALYSIS_SCHEMA)
+                      temperature=0.1, fmt=_IMAGE_ANALYSIS_SCHEMA, no_think=True)
         analysis = _extract_json(raw) or {}
     except Exception as e:
         log.warning("[v5] reference image analysis failed (%s) — building from text only.", e)
@@ -816,73 +728,46 @@ def spec_from_image(analysis: dict) -> str:
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
-def _installed_ollama_models() -> set:
-    """Ollama's /api/tags model list. Raises if Ollama itself is unreachable, UNLESS
-    every model this build needs is already off Ollama (local: or cloud/ rung) — in
-    which case Ollama being down is expected (it's being retired) and we log a warning
-    and carry on with an empty set instead of failing a build that never touches it."""
-    try:
-        with urllib.request.urlopen(OLLAMA_TAGS, timeout=10) as r:
-            tags = json.loads(r.read())
-    except Exception as e:
-        needed = (BRIEF_MODEL, _code_model(), CRITIC_MODEL)
-        if all(m.startswith(LOCAL_PREFIX) or m.startswith(CLOUD_PREFIX) for m in needed):
-            log.warning("[v5] Ollama not reachable at %s (%s), but all required models "
-                        "(%s) are local:/cloud/, continuing without it.",
-                        OLLAMA_HOST, e, ", ".join(needed))
-            return set()
-        raise RuntimeError(
-            f"Ollama not reachable at {OLLAMA_HOST} ({e}). Is `ollama serve` running?"
-        )
-    return {m.get("name", "") for m in tags.get("models", [])}
-
 def _preflight_models(have: Optional[set] = None) -> None:
-    """Fail fast if a required model is missing from Ollama. Models riding the local:
-    or cloud/ rungs (BRIEF_MODEL and CODE_MODEL_STRONG, since Ollama is being retired)
-    are skipped here — they're covered by their own server health checks instead."""
-    if have is None:
-        have = _installed_ollama_models()
-    missing = [m for m in (BRIEF_MODEL, _code_model())
-               if m not in have
-               and not m.startswith(CLOUD_PREFIX) and not m.startswith(LOCAL_PREFIX)]
-    if missing:
-        raise RuntimeError(
-            "Missing required Ollama model(s): " + ", ".join(missing) +
-            ". Pull with: " + "; ".join(f"ollama pull {m}" for m in missing)
-        )
+    """Kept as a named seam (scripts and tests call it) but there is nothing left to check
+    against an installed-model list: since 2026-09-19 every rung is a server, not a pulled
+    tag, so a missing model shows up as an unhealthy server in preflight() below. `have`
+    is accepted and ignored."""
+    return None
 
 def preflight() -> None:
-    """Fail fast with a clear message if Ollama or the required models are missing.
-    The critic model is optional — its absence only disables visual critique."""
-    have = _installed_ollama_models()
-    _preflight_models(have)
-    if CRITIC_MODEL.startswith(LOCAL_PREFIX):
-        if CRITIC_URL != LOCAL_CODER_URL:
-            # Critic on its own server (not riding the coder) — its health is not
-            # covered by the strong-rung check below, so probe it directly and fail
-            # fast rather than discover it mid-build.
-            try:
-                with urllib.request.urlopen(CRITIC_HEALTH, timeout=3) as r:
-                    json.loads(r.read())
-            except Exception as e:
-                raise RuntimeError(f"critic server not healthy at {CRITIC_HEALTH} ({e})")
-        # else: covered by the strong-rung health check below (same server).
-    elif CRITIC_MODEL not in have:
-        log.warning("[v5] Critic model %s not installed — visual critique disabled "
-                    "(loop falls back to numeric geometry state).", CRITIC_MODEL)
-    strong = CODE_MODEL_STRONG
-    if strong.startswith(LOCAL_PREFIX):
-        # The strong rung lives on the llama.cpp server, not Ollama — warn early if it's
-        # down so an escalation mid-build doesn't fail as a surprise. Advisory only: the
-        # fast rung still works without it.
+    """Fail fast if the server behind the chosen rung cannot answer.
+
+    Ollama's reachability + /api/tags model check was deleted 2026-09-19 with the Ollama
+    rung itself: there is no tags API left to ask, and a build that cannot reach its
+    llama.cpp server is caught here or by _ensure_default_server() starting it.
+    The critic is optional — its absence only disables visual critique."""
+    for m in (BRIEF_MODEL, _code_model(), CRITIC_MODEL):
+        if not (m.startswith(LOCAL_PREFIX) or m.startswith(CLOUD_PREFIX)):
+            raise RuntimeError(
+                f"model {m!r} is neither local: nor cloud/. Ollama was retired 2026-09-19; "
+                "set the rung to a local:<alias> served by maker-server/qwen38-server "
+                "(see ~/.openclaw/cad.json maker block) or configure the cloud rung."
+            )
+    if CRITIC_MODEL.startswith(LOCAL_PREFIX) and CRITIC_URL != LOCAL_CODER_URL:
+        # Critic on its own server (not riding the coder) — its health is not covered by
+        # the strong-rung check below, so probe it directly and fail fast rather than
+        # discover it mid-build.
+        try:
+            with urllib.request.urlopen(CRITIC_HEALTH, timeout=3) as r:
+                json.loads(r.read())
+        except Exception as e:
+            raise RuntimeError(f"critic server not healthy at {CRITIC_HEALTH} ({e})")
+    if CODE_MODEL_STRONG.startswith(LOCAL_PREFIX):
+        # Advisory: _ensure_default_server() starts the right unit on the first call, so a
+        # cold server is normal here. Warn only so a genuinely broken unit is visible early.
         try:
             with urllib.request.urlopen(LOCAL_CODER_HEALTH, timeout=5) as r:
                 json.loads(r.read())
         except Exception:
-            log.warning("[v5] Strong rung server not reachable at %s — escalation to %s "
-                        "will fail until qwen36-server is started "
-                        "(systemctl --user start qwen36-server).",
-                        LOCAL_CODER_HEALTH, strong)
+            log.info("[v5] Strong rung server not up yet at %s — the first %s call will "
+                     "start it (%s).", LOCAL_CODER_HEALTH, CODE_MODEL_STRONG,
+                     maker_config()["unit"])
 
 # ── Onshape REST ──────────────────────────────────────────────────────────────
 
@@ -1017,7 +902,7 @@ Use a helper ONLY when the entire requested object is that one component. For AN
 bracket, enclosure, plate, box, or part that merely CONTAINS holes/gears/threads as features
 (not IS one), leave "helper": "" and let the modeller build it."""
 
-# JSON schemas for Ollama's grammar-constrained decoding (`format`). Enforcing the shape
+# JSON schemas for llama.cpp's grammar-constrained decoding (`response_format`). Enforcing the shape
 # server-side frees a small model from spending capacity on formatting — it can only emit
 # valid JSON matching the schema. Content quality is still the model's job.
 _BRIEF_SCHEMA = {
@@ -1073,13 +958,13 @@ def build_brief(spec: str) -> dict:
     brief = None
     try:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA, no_think=True)
+                      timeout=LLM_TIMEOUT, temperature=0.2, fmt=_BRIEF_SCHEMA, no_think=True)
         brief = _extract_json(raw)
     except Exception as e:
         log.warning("[v5] Schema-constrained brief failed (%s) — falling back to free-form.", e)
     if brief is None:
         raw = _ollama(BRIEF_MODEL, _BRIEF_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, no_think=True)
+                      timeout=LLM_TIMEOUT, temperature=0.2, no_think=True)
         brief = _extract_json(raw)
     if brief is None:
         # Silent degradation here previously produced an unguided, feature-ungated build.
@@ -1130,26 +1015,16 @@ get wrong. When unsure, prefer FAST (the agent escalates automatically if the fa
 Reply with ONLY JSON: {"hard": true|false, "reason": "<short>"}"""
 
 def spec_needs_strong_coder(spec: str, brief: dict) -> bool:
-    """LLM triage (not keyword rules) of whether a spec warrants the strong coder up front.
-    Domain-helper parts bypass codegen entirely, so they never need it."""
-    if (brief.get("helper") or "").strip():
-        return False
-    try:
-        prompt = (f"Spec: {spec}\nFeatures: {brief.get('features', [])}\n"
-                  f"Dimensions: {brief.get('dimensions', {})}\n\nDecide:")
-        # Triage on the strong local model (user call 2026-08-11): it runs BEFORE any
-        # coder is loaded, so the resident server is still up — no VRAM contention —
-        # and the model deciding "is this too hard for the 7B?" is the one that would
-        # inherit the job. qwen3:8b is out of the pre-build path entirely.
-        raw = _ollama(CODE_MODEL_STRONG, _COMPLEXITY_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_TRIAGE_SCHEMA)
-        verdict = _extract_json(raw) or {}
-        hard = bool(verdict.get("hard"))
-        log.info("[v5] Complexity triage: hard=%s — %s", hard, str(verdict.get("reason", ""))[:140])
-        return hard
-    except Exception as e:
-        log.warning("[v5] Complexity triage failed (%s) — staying on fast coder.", e)
-        return False
+    """Always True since 2026-09-19, without calling any model.
+
+    This was an LLM triage of "is this spec too hard for the 7B fast rung?" — a real
+    question while there were two local rungs. The fast rung was retired with Ollama, so
+    the only local coder IS the strong one and the triage call could only ever spend a
+    schema-constrained round trip (~10s measured on the 35B) to reach a foregone
+    conclusion. Kept as a named seam because the engine, the benchmarks and the tests all
+    reference it; _COMPLEXITY_SYSTEM/_TRIAGE_SCHEMA are kept beside it for the day a
+    second local rung earns its place back."""
+    return True
 
 # ── N2: ambiguity gate — ask, don't guess ──────────────────────────────────────
 
@@ -1185,7 +1060,7 @@ def triage_ambiguity(spec: str) -> list[str]:
         # Same pre-codegen window as complexity triage — the strong local model reads
         # the spec while the server is still resident (see spec_needs_strong_coder).
         raw = _ollama(CODE_MODEL_STRONG, _AMBIGUITY_SYSTEM, f"Spec: {spec}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.0, fmt=_AMBIGUITY_SCHEMA)
+                      timeout=LLM_TIMEOUT, temperature=0.0, fmt=_AMBIGUITY_SCHEMA)
         verdict = _extract_json(raw) or {}
         if verdict.get("buildable", True):
             return []
@@ -1233,7 +1108,7 @@ def expand_spec(spec: str, questions: list[str]) -> Optional[dict]:
         prompt = ("Request: " + spec + "\nOpen questions:\n"
                   + "\n".join(f"- {q}" for q in questions))
         raw = _ollama(CODE_MODEL_STRONG, _EXPAND_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_EXPAND_SCHEMA)
+                      timeout=LLM_TIMEOUT, temperature=0.2, fmt=_EXPAND_SCHEMA)
         out = _extract_json(raw) or {}
         expanded = (out.get("expanded_spec") or "").strip()
         if not expanded:
@@ -1355,7 +1230,7 @@ def patch_brief(brief: dict, feedback: str) -> tuple[Optional[dict], list[str]]:
         prompt = (f"Current contract:\n{json.dumps(contract, indent=2)}\n\n"
                   f"User feedback: {feedback}\n\nPatch:")
         raw = _ollama(BRIEF_MODEL, _PATCH_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.1, fmt=_PATCH_SCHEMA, no_think=True)
+                      timeout=LLM_TIMEOUT, temperature=0.1, fmt=_PATCH_SCHEMA, no_think=True)
         verdict = _extract_json(raw) or {}
         changes         = verdict.get("changes") or []
         features_add    = verdict.get("features_add") or []
@@ -1383,7 +1258,7 @@ def distill_lesson(spec: str, problem: str, final_code: str) -> Optional[str]:
         prompt = (f"Spec: {spec}\n\nWhat went wrong first:\n{problem}\n\n"
                   f"Final working code:\n{final_code[:1500]}\n\nThe one reusable lesson:")
         raw = _ollama(BRIEF_MODEL, _LESSON_SYSTEM, prompt,
-                      timeout=OLLAMA_TIMEOUT, temperature=0.1, no_think=True).strip().strip('"')
+                      timeout=LLM_TIMEOUT, temperature=0.1, no_think=True).strip().strip('"')
         if not raw or raw.upper().startswith("NONE") or len(raw) < 15:
             return None
         return raw.splitlines()[0].strip()[:240]
@@ -2709,7 +2584,7 @@ def verify_questions(spec: str, brief: dict) -> list[str]:
     try:
         raw = _ollama(BRIEF_MODEL, _QUESTIONS_SYSTEM,
                       f"Part request: {spec}\nFeatures: {brief.get('features', [])}",
-                      timeout=OLLAMA_TIMEOUT, temperature=0.2, fmt=_QUESTIONS_SCHEMA,
+                      timeout=LLM_TIMEOUT, temperature=0.2, fmt=_QUESTIONS_SCHEMA,
                       no_think=True)
         qs = (_extract_json(raw) or {}).get("questions") or []
         qs = [q.strip() for q in qs if isinstance(q, str) and q.strip()][:6]
@@ -2936,7 +2811,7 @@ def _describe_document(did: str, wid: str, eid: str) -> str:
               "what it appears to be, its key features, and approximate size. Be concise.")
     try:
         return _ollama(BRIEF_MODEL, system, f"Describe this Onshape model:\n\n{doc_summary}",
-                       timeout=OLLAMA_TIMEOUT, no_think=True)
+                       timeout=LLM_TIMEOUT, no_think=True)
     except Exception:
         return doc_summary
 
@@ -3061,7 +2936,7 @@ def build(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
     benchmarking / when no Onshape creds are configured) — result carries render_local, url="".
     brief_override: N3 — a pre-patched brief contract (from patch_brief) to use verbatim instead
     of calling build_brief() again, so a refine turn changes only what the user asked.
-    image: optional path to a reference photo/sketch — a gemma4:e4b pre-pass augments the brief
+    image: optional path to a reference photo/sketch — a local: vision pre-pass augments the brief
     with its structured analysis (proportions, never invented mm) and the critic judges every
     turn's render against it as a second image. Text-only behaviour is unchanged when None.
     With an image the spec may be EMPTY: the vision analysis becomes the spec (image-only
@@ -3148,20 +3023,23 @@ def _build_impl(spec: str, chat_id: Optional[str] = None, coder: str = "auto",
         log.info("[v5] Code model: %s (manual --coder cloud, budget %d calls)",
                  _ACTIVE_CODE_MODEL, _CLOUD_CALLS_LEFT)
     elif coder in ("fast", "strong"):
-        _ACTIVE_CODE_MODEL = {"fast": CODE_MODEL_FAST,
-                              "strong": CODE_MODEL_STRONG}[coder]
+        # --coder fast (and the Satine "fast:" prefix) still parse — they just resolve to
+        # the same rung now. Accepting them keeps every saved command, benchmark leg and
+        # phone shortcut working instead of erroring on a flag that used to be valid.
+        if coder == "fast":
+            log.info("[v5] %s", FAST_RUNG_RETIRED)
+        _ACTIVE_CODE_MODEL = CODE_MODEL_STRONG
         log.info("[v5] Code model: %s (manual --coder %s)", _ACTIVE_CODE_MODEL, coder)
     elif pinned:
         _ACTIVE_CODE_MODEL = pinned
         log.info("[v5] Code model: %s (pinned via cad.code_model)", _ACTIVE_CODE_MODEL)
     else:
-        # Hard specs skip the first rung and start one step up the ladder; whatever the
-        # ladder's top is stays escalation-only.
-        _ACTIVE_CODE_MODEL = (CODE_MODEL_LADDER[1] if spec_needs_strong_coder(spec, brief)
-                              and len(CODE_MODEL_LADDER) > 1 else CODE_MODEL_FAST)
+        # One local rung since 2026-09-19, so "auto" starts (and stays) on it. auto_escalate
+        # remains on because a configured cad.json `cloud` block still appends a paid rung
+        # above it in _ladder().
+        _ACTIVE_CODE_MODEL = CODE_MODEL_LADDER[0]
         auto_escalate = True
-        log.info("[v5] Code model: %s (auto%s)", _ACTIVE_CODE_MODEL,
-                 ", may escalate" if auto_escalate else "")
+        log.info("[v5] Code model: %s (auto, %s)", _ACTIVE_CODE_MODEL, FAST_RUNG_RETIRED)
 
     try:
         code = generate_code(brief, spec)
@@ -3935,7 +3813,7 @@ def merge_spec(original: str, feedback: str, history: Optional[list] = None) -> 
     system = ("You are a CAD specification editor. Merge the feedback into the original spec to "
               "produce a revised spec. Return ONLY the new spec as a single sentence — no explanation.")
     prompt = f"Original: {original}\nFeedback: {feedback}{history_str}\n\nRevised spec:"
-    revised = _ollama(BRIEF_MODEL, system, prompt, timeout=OLLAMA_TIMEOUT, no_think=True).strip()
+    revised = _ollama(BRIEF_MODEL, system, prompt, timeout=LLM_TIMEOUT, no_think=True).strip()
     if not revised or len(revised) < 5:
         revised = f"{original}, {feedback}"
     return revised
