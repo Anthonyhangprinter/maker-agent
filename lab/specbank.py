@@ -31,6 +31,7 @@ import fcntl
 import json
 import shutil
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -84,7 +85,14 @@ def load_bank(path: Path | None = None) -> list[dict]:
 def _append_atomic(path: Path, rows: list[dict]) -> None:
     """Append `rows` to a JSONL file under an exclusive flock -- concurrent writers
     (this module and, later, lab/harvest.py) never interleave partial lines, and a
-    crash mid-write loses at most the in-flight append, never corrupts earlier rows."""
+    crash mid-write loses at most the in-flight append, never corrupts earlier rows.
+
+    Used by callers that already hold their own read-decide-append lock (see
+    _locked_bank below) and just need a plain flocked append elsewhere (e.g. a future
+    caller writing to a different JSONL file); add_items/import_teacher/
+    import_references no longer call this for SPECS_FILE itself -- they write through
+    the file handle _locked_bank yields, inside the SAME lock the decision was made
+    under."""
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,6 +104,40 @@ def _append_atomic(path: Path, rows: list[dict]) -> None:
             f.flush()
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _locked_bank():
+    """Open lab/state/specs.jsonl for read-then-append under ONE exclusive flock that
+    spans the whole read-decide-append window (fix round 1, finding 6): without this,
+    add_items/import_teacher/import_references each read the whole bank once via
+    load_bank(), decide what is a duplicate from that snapshot, and only locked the file
+    for the final write -- so two concurrent callers (a human running `specbank.py
+    import-references` while specgen.py's multi-hour run is also mid-add_items) could
+    both read the bank before either wrote, both decide the same new spec is not yet a
+    duplicate, and both append it.
+
+    Yields (file handle positioned at EOF, ready to append; current bank rows as a list
+    of dicts read fresh under this lock). Callers must build their bank_keys set from the
+    yielded rows, not a separate load_bank() call, and write new rows straight to the
+    yielded handle -- never open SPECS_FILE again inside the `with` block, which would
+    deadlock against this process's own lock."""
+    SPECS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    pre_existed = SPECS_FILE.exists()
+    with open(SPECS_FILE, "a+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            rows = [json.loads(line) for line in f.read().splitlines() if line.strip()]
+            f.seek(0, 2)   # back to EOF -- writes below must never overwrite what we just read
+            yield f, rows
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+    # Opening in "a+" mode creates the file even when nothing is ever written (a dry
+    # run, or a batch where every item was refused) -- undo that side effect so a
+    # bank that did not exist before this call still does not exist after it.
+    if not pre_existed and SPECS_FILE.exists() and SPECS_FILE.stat().st_size == 0:
+        SPECS_FILE.unlink()
 
 
 def contamination_sets():
@@ -124,40 +166,47 @@ def add_items(items: list[dict], source: str, group_default: str | None = None,
               tier_default: int | None = None, dry_run: bool = False) -> dict:
     """Admit a list of {"spec", "tier"?, "group"?, "id"?} dicts (specgen's own output
     shape, or a hand-authored JSON file via the `add` CLI) into the bank. Returns
-    {"accepted": int, "refused": [{"spec", "reason"}, ...]}."""
-    bank = load_bank()
-    bank_keys = {r["key"] for r in bank}
-    suite_keys, suite_slugs = contamination_sets()
-    accepted: list[dict] = []
-    refused: list[dict] = []
-    now = _now()
-    for it in items:
-        spec = str(it.get("spec", "")).strip()
-        if not spec:
-            refused.append({"spec": spec, "reason": "empty-spec"})
-            continue
-        key = hc._key(spec)
-        reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
-        if reason:
-            refused.append({"spec": spec, "reason": reason})
-            continue
-        tier = int(it.get("tier") or tier_default or 2)
-        group = it.get("group") or group_default or "unspecified"
-        row = {
-            "id": it.get("id") or f"g:{source}:{key[:16]}",
-            "spec": spec,
-            "tier": tier,
-            "group": group,
-            "source": source,
-            "key": key,
-            "added": now,
-        }
-        if it.get("reference_stl"):
-            row["reference_stl"] = it["reference_stl"]
-        accepted.append(row)
-        bank_keys.add(key)   # dedup within this batch too, not just against the on-disk bank
-    if accepted and not dry_run:
-        _append_atomic(SPECS_FILE, accepted)
+    {"accepted": int, "refused": [{"spec", "reason"}, ...]}.
+
+    The whole read-decide-append window runs under _locked_bank's single flock (fix
+    round 1, finding 6), including for a dry run -- a dry run never writes, but reading
+    a consistent bank snapshot under the same lock a real run would use keeps its report
+    honest against a concurrent writer."""
+    with _locked_bank() as (f, bank):
+        bank_keys = {r["key"] for r in bank}
+        suite_keys, suite_slugs = contamination_sets()
+        accepted: list[dict] = []
+        refused: list[dict] = []
+        now = _now()
+        for it in items:
+            spec = str(it.get("spec", "")).strip()
+            if not spec:
+                refused.append({"spec": spec, "reason": "empty-spec"})
+                continue
+            key = hc._key(spec)
+            reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+            if reason:
+                refused.append({"spec": spec, "reason": reason})
+                continue
+            tier = int(it.get("tier") or tier_default or 2)
+            group = it.get("group") or group_default or "unspecified"
+            row = {
+                "id": it.get("id") or f"g:{source}:{key[:16]}",
+                "spec": spec,
+                "tier": tier,
+                "group": group,
+                "source": source,
+                "key": key,
+                "added": now,
+            }
+            if it.get("reference_stl"):
+                row["reference_stl"] = it["reference_stl"]
+            accepted.append(row)
+            bank_keys.add(key)   # dedup within this batch too, not just against the disk bank
+        if accepted and not dry_run:
+            for row in accepted:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
     return {"accepted": len(accepted), "refused": refused}
 
 
@@ -165,50 +214,53 @@ def import_teacher(dry_run: bool = False) -> dict:
     """Read the five benchmarks/teacher-*/specs.json files, tag each admitted row
     `id = "t:<suite>:<orig id>"`, `source = "teacher-suite"`, and append. Per-suite and
     total counts are returned so a stale/incomplete teacher corpus is visible, not
-    silently short."""
-    bank = load_bank()
-    bank_keys = {r["key"] for r in bank}
-    suite_keys, suite_slugs = contamination_sets()
-    accepted: list[dict] = []
-    refused: list[tuple[str, str, str]] = []
-    per_suite: dict[str, dict] = {}
-    now = _now()
-    for suite, path in TEACHER_FILES:
-        if not path.exists():
-            per_suite[suite] = {"found": 0, "accepted": 0, "refused": 0}
-            continue
-        items = _load_items(path)
-        suite_accepted = 0
-        suite_refused = 0
-        for it in items:
-            spec = str(it.get("spec", "")).strip()
-            orig_id = str(it.get("id", ""))
-            if not spec:
-                refused.append((suite, orig_id, "empty-spec"))
-                suite_refused += 1
+    silently short. Whole read-decide-append window under _locked_bank's single flock
+    (fix round 1, finding 6), same as add_items."""
+    with _locked_bank() as (f, bank):
+        bank_keys = {r["key"] for r in bank}
+        suite_keys, suite_slugs = contamination_sets()
+        accepted: list[dict] = []
+        refused: list[tuple[str, str, str]] = []
+        per_suite: dict[str, dict] = {}
+        now = _now()
+        for suite, path in TEACHER_FILES:
+            if not path.exists():
+                per_suite[suite] = {"found": 0, "accepted": 0, "refused": 0}
                 continue
-            key = hc._key(spec)
-            reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
-            if reason:
-                refused.append((suite, orig_id, reason))
-                suite_refused += 1
-                continue
-            row = {
-                "id": f"t:{suite}:{orig_id}",
-                "spec": spec,
-                "tier": int(it.get("tier") or 2),
-                "group": it.get("group", ""),
-                "source": "teacher-suite",
-                "key": key,
-                "added": now,
-            }
-            accepted.append(row)
-            bank_keys.add(key)
-            suite_accepted += 1
-        per_suite[suite] = {"found": len(items), "accepted": suite_accepted,
-                            "refused": suite_refused}
-    if accepted and not dry_run:
-        _append_atomic(SPECS_FILE, accepted)
+            items = _load_items(path)
+            suite_accepted = 0
+            suite_refused = 0
+            for it in items:
+                spec = str(it.get("spec", "")).strip()
+                orig_id = str(it.get("id", ""))
+                if not spec:
+                    refused.append((suite, orig_id, "empty-spec"))
+                    suite_refused += 1
+                    continue
+                key = hc._key(spec)
+                reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+                if reason:
+                    refused.append((suite, orig_id, reason))
+                    suite_refused += 1
+                    continue
+                row = {
+                    "id": f"t:{suite}:{orig_id}",
+                    "spec": spec,
+                    "tier": int(it.get("tier") or 2),
+                    "group": it.get("group", ""),
+                    "source": "teacher-suite",
+                    "key": key,
+                    "added": now,
+                }
+                accepted.append(row)
+                bank_keys.add(key)
+                suite_accepted += 1
+            per_suite[suite] = {"found": len(items), "accepted": suite_accepted,
+                                "refused": suite_refused}
+        if accepted and not dry_run:
+            for row in accepted:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
     return {
         "per_suite": per_suite,
         "accepted": len(accepted),
@@ -248,64 +300,72 @@ def import_references(refs_dir: Path = REFERENCES_ROOT, dry_run: bool = False) -
     optional leading "tier: N" line, default tier 3 -- these are real parts, not the
     tier-1-2 filler the family generator tends toward) plus model.step or model.stl.
     Zero folders (the common case today: the folder exists with only a README) reports
-    0 imported and exits cleanly -- this is not an error state."""
-    bank = load_bank()
-    bank_keys = {r["key"] for r in bank}
-    suite_keys, suite_slugs = contamination_sets()
-    accepted: list[dict] = []
-    refused: list[dict] = []
-    skipped: list[dict] = []
-    now = _now()
+    0 imported and exits cleanly -- this is not an error state, and this early return is
+    BEFORE _locked_bank is ever opened, so the common no-op path never touches the lock.
 
+    Whole read-decide-append window (once folders are found) under _locked_bank's
+    single flock (fix round 1, finding 6), same as add_items/import_teacher. This
+    includes the (possibly slow, build123d-heavy) STEP->STL materialisation for an
+    accepted row -- acceptable here since import-references is a rare, manual, one
+    -folder-at-a-time operation, not the automated hot path specgen.py runs in a loop."""
     if not refs_dir.exists():
         return {"imported": 0, "refused": 0, "skipped": 0, "folders_found": 0}
 
     folders = sorted(p for p in refs_dir.iterdir() if p.is_dir())
-    for folder in folders:
-        spec_file = folder / "spec.txt"
-        step_file = folder / "model.step"
-        stl_file = folder / "model.stl"
-        if not spec_file.exists() or not (step_file.exists() or stl_file.exists()):
-            skipped.append({"folder": folder.name,
-                            "reason": "missing spec.txt or model.step/model.stl"})
-            continue
-        text = spec_file.read_text().strip()
-        lines = text.splitlines()
-        tier = 3
-        spec_lines = lines
-        if lines and lines[0].strip().lower().startswith("tier:"):
-            try:
-                tier = int(lines[0].split(":", 1)[1].strip())
-            except Exception:
-                pass
-            spec_lines = lines[1:]
-        spec = "\n".join(spec_lines).strip()
-        if not spec:
-            skipped.append({"folder": folder.name, "reason": "empty spec.txt"})
-            continue
-        key = hc._key(spec)
-        reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
-        if reason:
-            refused.append({"folder": folder.name, "reason": reason})
-            continue
-        ref_stl = None
-        if not dry_run:
-            ref_stl = _materialize_reference_stl(folder, step_file, stl_file, key)
-        row = {
-            "id": f"owner-reference:{folder.name}",
-            "spec": spec,
-            "tier": tier,
-            "group": "owner-reference",
-            "source": "owner-reference",
-            "key": key,
-            "added": now,
-        }
-        if ref_stl:
-            row["reference_stl"] = ref_stl
-        accepted.append(row)
-        bank_keys.add(key)
-    if accepted and not dry_run:
-        _append_atomic(SPECS_FILE, accepted)
+    with _locked_bank() as (f, bank):
+        bank_keys = {r["key"] for r in bank}
+        suite_keys, suite_slugs = contamination_sets()
+        accepted: list[dict] = []
+        refused: list[dict] = []
+        skipped: list[dict] = []
+        now = _now()
+        for folder in folders:
+            spec_file = folder / "spec.txt"
+            step_file = folder / "model.step"
+            stl_file = folder / "model.stl"
+            if not spec_file.exists() or not (step_file.exists() or stl_file.exists()):
+                skipped.append({"folder": folder.name,
+                                "reason": "missing spec.txt or model.step/model.stl"})
+                continue
+            text = spec_file.read_text().strip()
+            lines = text.splitlines()
+            tier = 3
+            spec_lines = lines
+            if lines and lines[0].strip().lower().startswith("tier:"):
+                try:
+                    tier = int(lines[0].split(":", 1)[1].strip())
+                except Exception:
+                    pass
+                spec_lines = lines[1:]
+            spec = "\n".join(spec_lines).strip()
+            if not spec:
+                skipped.append({"folder": folder.name, "reason": "empty spec.txt"})
+                continue
+            key = hc._key(spec)
+            reason = refusal_reason(key, spec, suite_keys, suite_slugs, bank_keys)
+            if reason:
+                refused.append({"folder": folder.name, "reason": reason})
+                continue
+            ref_stl = None
+            if not dry_run:
+                ref_stl = _materialize_reference_stl(folder, step_file, stl_file, key)
+            row = {
+                "id": f"owner-reference:{folder.name}",
+                "spec": spec,
+                "tier": tier,
+                "group": "owner-reference",
+                "source": "owner-reference",
+                "key": key,
+                "added": now,
+            }
+            if ref_stl:
+                row["reference_stl"] = ref_stl
+            accepted.append(row)
+            bank_keys.add(key)
+        if accepted and not dry_run:
+            for row in accepted:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
     return {"imported": len(accepted), "refused": len(refused), "skipped": len(skipped),
             "folders_found": len(folders)}
 

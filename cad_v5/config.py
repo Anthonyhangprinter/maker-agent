@@ -307,32 +307,46 @@ _LAB_DEFAULTS = {
 }
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursive dict merge: `override` wins key-by-key, but a nested dict merges into
-    the corresponding default dict instead of replacing it outright — a cad.json lab
-    block that only sets `{"harvest": {"hours_per_day": 6}}` must still get every other
-    harvest default, not lose them."""
-    out = dict(base)
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deep_merge(out[k], v)
+def _sanitize_against_defaults(defaults: dict, value, path: str = "lab") -> dict:
+    """Recursively coerce `value` into the shape of `defaults`, so a malformed cad.json
+    `lab` block degrades to safe defaults piece by piece instead of raising or silently
+    handing a caller the wrong type deeper in the call stack (Task 3's harvest.py reads
+    lab_config()["harvest"] as a dict on every unit).
+
+    Fix round 1: `{"lab": "x"}`, `{"lab": ["x"]}` and `{"lab": 5}` used to reach
+    `_deep_merge`'s unconditional `override.items()` and raise AttributeError; a
+    malformed NESTED value (`{"lab": {"harvest": "oops"}}`) used to silently overwrite
+    the whole `harvest` default with a non-dict, which is just the same bug one call
+    deeper. Both cases now fall back to that subtree's default and log one warning
+    naming the offending path (e.g. "lab" or "lab.harvest"), never crash, never mix a
+    wrong type into an otherwise-good config."""
+    if not isinstance(value, dict):
+        if value is not None:
+            log.warning("[v5] cad.json's %s block is not an object (%r); using defaults.",
+                        path, value)
+        return dict(defaults)
+    out = dict(defaults)
+    for k, v in value.items():
+        if isinstance(defaults.get(k), dict):
+            out[k] = _sanitize_against_defaults(defaults[k], v, f"{path}.{k}")
         else:
             out[k] = v
     return out
 
 
 def lab_config() -> dict:
-    """cad.json `lab` block (Phase 3 "data engine" — the harvest unit that samples the
-    maker arm's own verified builds into training pairs), deep-merged over the defaults
-    below so a partial override keeps every default it doesn't name:
+    """cad.json `lab` block (Phase 3 "data engine", the harvest unit that samples the
+    maker arm's own verified builds into training pairs), sanitized against the defaults
+    below so a partial or malformed override keeps every default it doesn't name (and
+    never crashes or leaks a wrong type on a malformed one):
       {"harvest": {"night_start", "night_end", "day_allowed", "hours_per_day",
                     "unit_minutes", "candidates", "temps", "max_pairs_per_spec",
                     "teacher_arms"}}
-    Same file/pattern as maker_config()/cloud_config()/print_config() above — never put
+    Same file/pattern as maker_config()/cloud_config()/print_config() above: never put
     this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
     Global Constraints for where these defaults come from."""
-    user = load_config().get("cad", {}).get("lab") or {}
-    return _deep_merge(_LAB_DEFAULTS, user)
+    user = load_config().get("cad", {}).get("lab")
+    return _sanitize_against_defaults(_LAB_DEFAULTS, user)
 
 
 def tg_token() -> str:

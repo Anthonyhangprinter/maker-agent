@@ -1,4 +1,4 @@
-import importlib, json, os, sys
+import importlib, json, logging, os, sys
 
 import pytest
 from pathlib import Path
@@ -227,6 +227,49 @@ def test_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
 
     cad_engine._ollama("local:qwen3.8-27b", "sys", "user", no_think=True)
     assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+# ── lab_config() (Phase 3 Task 2, fix round 1: malformed-block tolerance) ──────
+
+def test_lab_config_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.lab_config() == cfg._LAB_DEFAULTS
+    assert cfg.lab_config() is not cfg._LAB_DEFAULTS   # never hand back the live default dict
+
+
+def test_lab_config_partial_override_keeps_other_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"hours_per_day": 6}}})
+    lc = cfg.lab_config()
+    assert lc["harvest"]["hours_per_day"] == 6
+    assert lc["harvest"]["unit_minutes"] == 10   # untouched default survives
+    assert lc["harvest"]["teacher_arms"] == cfg._LAB_DEFAULTS["harvest"]["teacher_arms"]
+
+
+@pytest.mark.parametrize("bad_value", ["a string", ["a", "list"], 5])
+def test_lab_config_malformed_top_level_falls_back_and_warns(tmp_path, bad_value, caplog):
+    cfg = _reload_with(tmp_path, {"lab": bad_value})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        lc = cfg.lab_config()
+    assert lc == cfg._LAB_DEFAULTS
+    assert any("lab" in r.message and "not an object" in r.message for r in caplog.records)
+
+
+def test_lab_config_malformed_nested_block_falls_back_and_warns(tmp_path, caplog):
+    """A malformed harvest sub-block ({"lab": {"harvest": "oops"}}) must fall back to
+    just the harvest defaults, not silently store a non-dict one level deep."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": "oops"}})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        lc = cfg.lab_config()
+    assert lc["harvest"] == cfg._LAB_DEFAULTS["harvest"]
+    assert any("lab.harvest" in r.message and "not an object" in r.message
+              for r in caplog.records)
+
+
+def test_lab_config_absent_lab_block_is_not_a_warning(tmp_path, caplog):
+    cfg = _reload_with(tmp_path, {})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        cfg.lab_config()
+    assert caplog.records == []
 
 
 class _FakeHealthResponse:
