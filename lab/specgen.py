@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""lab/specgen.py -- local spec generation on the maker arm (Phase 3 Task 2).
+r"""lab/specgen.py -- local spec generation on the maker arm (Phase 3 Task 2).
+
+(Raw docstring: the launch line below carries real backslash continuations, which a
+plain docstring would swallow as string line continuations and print as one long line.)
 
 Writes new CAD part specs by prompting the strong-rung coder (engine.CODE_MODEL_STRONG,
 the maker arm on :8088 when cad.json's maker.enabled, else the resident on :8086) with the
@@ -13,8 +16,15 @@ contamination refusal (exact card-suite key + per-suite-unique-slug) and in-bank
 duplicate check that import-teacher uses -- a spec that collides is silently dropped,
 counted, never retried.
 
-  python3 lab/specgen.py --once --group plate --n 20         # one family, one call (smoke)
-  python3 lab/specgen.py --total 2500 --target-tier34 0.45   # full run (long; controller-launched)
+This job runs ONLY inside lab/gpu_window.sh, which is this campaign's one reviewed GPU
+arbitration mechanism: it takes the machine-wide CAD build lock, evicts both servers,
+exports CAD_GPU_WINDOW=1 for its child and restores the box on its own exit. main()
+refuses to start without that marker (--i-know-the-gpu-is-free is the manual override,
+same name and meaning as lab/ship.py's), because an unarbitrated `scripts/arms.py use`
+restarts maker-server on this run's chosen arm no matter who was already using the GPU.
+
+  lab/gpu_window.sh python3 lab/specgen.py --once --group plate --n 20   # smoke, one call
+  lab/gpu_window.sh python3 lab/specgen.py --total 2500 --target-tier34 0.45   # full run
 
 Every invocation ends (success or failure) by checking whether a `.pre-arm` marker
 exists on disk and, if so, running `scripts/arms.py restore` (which undoes exactly what
@@ -25,27 +35,54 @@ two circuit breakers and the wall-clock cap in `run_total` for what keeps a bad 
 holding the resident down far longer than a supervisor watching a "few hours" window
 would expect.
 
-Supervisor checklist (fix round 3, from an operator's point of view -- what one SIGTERM
-actually does at each point in the run, and what to check after any hard kill):
-- `kill <pid>` (SIGTERM) or a terminal hangup (SIGHUP) sent WHILE a batch is generating
-  (the overwhelming majority of a run's wall-clock time) stops the run on that single
-  signal: no further batches start, and the same marker-based cleanup below runs before
-  the process exits non-zero with the reason as the last printed line.
-- The same signal sent in the first instant of the run, while `scripts/arms.py use
-  <arm>` is still starting up, is also caught, but what it undoes depends on how far
-  `use` had gotten: if its own `.pre-arm` marker had already been written, cleanup
-  restores exactly as above; if not (a real, measured window of roughly the first
-  100-150ms after the run starts), NOTHING is undone through cad.json at all -- because
-  nothing was ever changed yet -- and cleanup only makes sure qwen38-server is running.
-  Either way, the process still exits promptly and non-zero.
-- `kill -9 <pid>` (SIGKILL) cannot be caught by any Python process; nothing below runs.
-  After one: the resident (qwen38-server) self-heals on its own within some bounded time
-  (the next ordinary CAD build's own eviction/resume, or maker-server's 12 hour
-  RuntimeMaxSec dead-man switch) -- but cad.json's `maker` block and any stray
-  `.pre-arm` marker files do NOT self-heal on their own.
-- After any hard kill, run `ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm`;
-  if either file exists, run `python3 scripts/arms.py restore` before trusting the box is
-  back to normal, even if qwen38-server already looks healthy.
+Supervisor checklist (fix round 4, from an operator's point of view -- how to launch it,
+what it does to everything else on the box while it runs, how to stop it, and what to
+check afterwards):
+- LAUNCH, the only supported shape, from a script file (not pasted into a shell, so the
+  quoting and the redirection are what you think they are):
+
+      setsid nohup lab/gpu_window.sh python3 lab/specgen.py \
+          --total 2500 --target-tier34 0.45 \
+          > ~/lab-scratch/specgen-$(date +%Y%m%d-%H%M).log 2>&1 &
+
+  A FRESH log file every launch (an overwritten log cost two Phase 2 smoke runs their
+  evidence). `setsid` detaches it from the terminal so a hangup cannot reach it.
+- WHILE IT RUNS the GPU window holds `~/.openclaw/cad-build.lock` for the whole run, so
+  every CAD build, benchmark card and lab job on the box QUEUES behind it (a CAD frontend
+  prints "waiting for GPU" and waits, up to its own timeout; gpu_window.sh itself queues
+  up to an hour and then exits 3). That is the point -- nothing can steal the arm
+  mid-run, and this run cannot steal anyone else's -- but it means the box is committed
+  for hours: run it at night.
+- BOUNDS: `--max-hours` (default 4) is checked between batches inside specgen, and
+  `GPU_WINDOW_MAX_SEC` (default 36000, i.e. 10h) is the window's own dead-man cap, which
+  TERMs the job and KILLs it 60s later. The two circuit breakers in `run_total` (3
+  consecutive call failures, 8 consecutive zero-accept batches) stop a sick run sooner.
+- TO STOP IT: send ONE SIGTERM to the gpu_window.sh process (`kill <pid>`, no -9). The
+  window TERMs specgen first, specgen stops on that single signal (no further batches
+  start), runs its marker-based cleanup, and only then does the window restore the box.
+  A second SIGTERM during the cleanup is deliberately ignored, so it will not interrupt
+  a restore already in progress.
+- NEVER `kill -9`. SIGKILL on the window cannot be trapped by any shell: the window's
+  restore never runs and the build lock stays held by the orphaned child (whose PID is in
+  `cat ~/.openclaw/cad-build.lock` precisely for this case). SIGKILL on specgen itself
+  cannot be caught by any Python process either: its restore bookend never runs, so
+  cad.json's `maker` block, `maker.env` and any `.pre-arm` marker files stay as the run
+  left them -- none of those self-heal, even though the resident eventually does (the
+  next CAD build's own eviction/resume, or maker-server's 12h RuntimeMaxSec).
+- RECOVERY CHECK after any hard kill, and worth 5 seconds after any abnormal exit:
+
+      ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm
+      python3 scripts/arms.py restore    # only if either file exists
+
+  Run it even when qwen38-server already looks healthy: a healthy resident says nothing
+  about whether cad.json still points at the run's arm.
+- A signal arriving in the first instant of the run, while `scripts/arms.py use <arm>` is
+  still starting up, is caught like any other, but what it undoes depends on how far
+  `use` had gotten: marker already written, cleanup restores as above; marker not yet
+  written (a measured window of roughly the first 100-150ms), nothing is undone through
+  cad.json because nothing was changed yet, and cleanup only makes sure the resident is
+  up -- unless maker-server is active, which then means it belongs to some other job and
+  is left strictly alone. Either way the process exits promptly and non-zero.
 """
 from __future__ import annotations
 
@@ -67,10 +104,27 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "scripts"))
 
 import cad_engine as engine  # noqa: E402
+from lab import ship  # noqa: E402  (import-safe: stdlib only, no work at import time)
 from lab import specbank  # noqa: E402
 
 ARMS_PY = HERE / "scripts" / "arms.py"
 SPECGEN_LOG = HERE / "lab" / "state" / "specgen_log.jsonl"
+MAKER_UNIT = "maker-server"
+
+# The refusal message for a launch outside lab/gpu_window.sh. The check itself is
+# ship.require_gpu_window(): one implementation of the rule (CAD_GPU_WINDOW=1 or the
+# explicit override flag, else SystemExit) shared by every GPU-heavy lab entry point, with
+# each one naming its own launch line here (fix round 4).
+GPU_WINDOW_HINT = (
+    "specgen takes the whole GPU for hours: it switches the maker arm with scripts/arms.py "
+    "and then talks to it, so it must run inside a GPU window: "
+    "`lab/gpu_window.sh python3 lab/specgen.py --total 2500 --target-tier34 0.45` (that "
+    "holds ~/.openclaw/cad-build.lock for the whole run, evicts the resident and the maker "
+    f"arm first, and exports {ship.GPU_WINDOW_ENV}=1). Without the lock this run would take "
+    "the GPU out from under any CAD build, benchmark card or lab job already using it. Pass "
+    "--i-know-the-gpu-is-free only when the GPU is already free by hand and nothing else on "
+    "the box is going to touch maker-server."
+)
 
 # Fallback only: used as the --arm default when cad.json has no maker block configured
 # yet (a fresh box). Any box that has ever run a CAD build or a card already has a real
@@ -492,6 +546,21 @@ def _pre_arm_marker_exists() -> bool:
     return pre_cad.exists() or pre_env.exists()
 
 
+def _maker_unit_active() -> bool:
+    """True when maker-server is running right now, via scripts/arms.py's own `unit_active`
+    (imported the same way `_pre_arm_marker_paths` imports its path helpers, so there is one
+    definition of "active" in the campaign and it can never drift from what arms.py itself
+    would decide). `unit_active` never raises. An import failure here is read as "not
+    active", which is the pre-fix-round-4 behaviour: this helper only ever guards an extra
+    refusal, and failing to import arms.py at all is a much louder problem than a resident
+    that was started when it did not need to be."""
+    try:
+        import arms as arms_cli   # scripts/ is already on sys.path (see the top of this file)
+    except Exception:
+        return False
+    return arms_cli.unit_active(MAKER_UNIT)
+
+
 def _ensure_resident_up() -> None:
     """The cad.json-untouched fallback for the launch-window trap (fix round 3, finding
     2): `cmd_use`'s own order is check-model-path, THEN `_save_pre_arm()`, THEN
@@ -506,7 +575,21 @@ def _ensure_resident_up() -> None:
     call `cmd_restore` itself makes, directly, touching no config file at all -- an
     idempotent no-op in the overwhelmingly likely case that qwen38-server was never
     stopped in the first place, and a real (if best-effort) recovery in the unlikely
-    case that it somehow was."""
+    case that it somehow was.
+
+    With ONE exception (fix round 4, re-review 3 item 3b): if maker-server is active and
+    this run wrote no pre-arm marker, that maker is provably not this run's doing, so it
+    belongs to something else -- a CAD build, a benchmark card, another lab job. Starting
+    qwen38-server would stop it (maker-server.service declares
+    Conflicts=qwen38-server.service, and systemd's documented behaviour is that starting
+    either side stops the other), i.e. the cleanup path of a run that changed nothing would
+    kill someone else's in-flight GPU work. Leave it alone and say so. Inside a GPU window
+    this is belt and braces, since the window took the build lock, evicted both servers
+    before this process started, and restores on its own exit either way."""
+    if _maker_unit_active():
+        print("specgen cleanup: maker-server is active and this run wrote no pre-arm marker: "
+              "not ours, leaving it alone", file=sys.stderr)
+        return
     subprocess.run(["systemctl", "--user", "start", "qwen38-server"], check=False)
 
 
@@ -530,12 +613,23 @@ def main() -> int:
     ap.add_argument("--no-relock", action="store_true",
                     help="skip the arms.py use/restore bookend entirely (debugging only "
                          "-- never pass this on a real run)")
+    ap.add_argument("--i-know-the-gpu-is-free", action="store_true",
+                    help="run outside a GPU window (only when the GPU was freed by hand)")
     a = ap.parse_args()
 
     if not a.once and not a.total:
         ap.error("pass --once --group NAME (smoke) or --total N (full run)")
     if a.once and not a.group:
         ap.error("--once requires --group")
+
+    # Before ANYTHING that touches a model or a service: no arm switch, no signal handlers,
+    # no cad.json read, no model call (fix round 4, re-review 3 item 3c). Every mode goes
+    # through this gate, --once and --no-relock included: --once still makes a real model
+    # call on the arm, and --no-relock still lets cad_engine's own _ensure_default_server
+    # start and stop servers underneath the call. The GPU window is what holds the CAD build
+    # lock, so without it this run has no arbitration with CAD builds, cards or other lab
+    # jobs at all, whatever its mode.
+    ship.require_gpu_window(a, GPU_WINDOW_HINT)
 
     arm = a.arm or _default_arm()
     _install_signal_handlers()   # before the `use` call: even a signal during the arm

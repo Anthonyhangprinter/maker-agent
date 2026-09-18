@@ -16,6 +16,7 @@ here are offline (no network, no GPU, no services) and the whole file completes 
 under 15 seconds.
 """
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -23,6 +24,17 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
+
+
+def _child_env() -> dict:
+    """Every child here stands in for a specgen process launched the only supported way,
+    i.e. under lab/gpu_window.sh, which exports CAD_GPU_WINDOW=1 for its child after taking
+    the CAD build lock and evicting both servers. Without it main() refuses outright (fix
+    round 4) and these signal tests would be testing the refusal, not the signal path."""
+    env = dict(os.environ)
+    env["CAD_GPU_WINDOW"] = "1"
+    return env
+
 
 # A tiny standalone script: installs the real handler from lab/specgen.py, then mimics
 # main()'s try/finally shape (a long sleep standing in for run_batch/run_total, a
@@ -55,7 +67,8 @@ sys.exit(rc)
 
 def _spawn(marker_path: Path, cleanup_delay: float = 0.0) -> subprocess.Popen:
     code = _HELPER.format(repo=str(HERE))
-    return subprocess.Popen([sys.executable, "-c", code, str(marker_path), str(cleanup_delay)])
+    return subprocess.Popen([sys.executable, "-c", code, str(marker_path), str(cleanup_delay)],
+                            env=_child_env())
 
 
 def _wait_and_cleanup(proc: subprocess.Popen, timeout: float = 4.0) -> int:
@@ -207,7 +220,7 @@ sys.exit(rc)
 def _spawn_main(call_log: Path, cad_json: Path, env_path: Path, scenario: str) -> subprocess.Popen:
     code = _MAIN_HELPER.format(repo=str(HERE), cad_json=str(cad_json), env_path=str(env_path))
     return subprocess.Popen([sys.executable, "-c", code, str(call_log), scenario],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=_child_env())
 
 
 def _read_tags(call_log: Path) -> list:

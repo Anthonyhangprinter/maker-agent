@@ -1104,21 +1104,30 @@ def in_gpu_window(env: dict | None = None) -> bool:
     return env.get(GPU_WINDOW_ENV) == "1"
 
 
-def require_gpu_window(args: argparse.Namespace) -> None:
+VERIFY_GPU_WINDOW_HINT = (
+    "verify starts a llama-server on the whole GPU, so it must run inside a GPU window: "
+    "`lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify --gguf <path>` (that "
+    "holds ~/.openclaw/cad-build.lock, evicts the resident and the maker arm, and exports "
+    f"{GPU_WINDOW_ENV}=1). Pass --i-know-the-gpu-is-free only when the GPU is already "
+    "free by hand."
+)
+
+
+def require_gpu_window(args: argparse.Namespace, hint: str = VERIFY_GPU_WINDOW_HINT) -> None:
     """Refuse (SystemExit) to start a GPU server outside a GPU window (fix round 3, finding
     5). verify loads an 18.7GB GGUF at -ngl 99: run bare while the 23GB resident is up on a
     24GB card, it fights the resident for VRAM and takes no build lock, so a CAD frontend can
     start a build on top of it. --i-know-the-gpu-is-free is the manual escape hatch for a
-    human who has already evicted everything by hand."""
+    human who has already evicted everything by hand.
+
+    `hint` is the message the refusal carries, so another GPU-heavy lab entry point can reuse
+    this ONE implementation of the rule (the env marker, the override flag, the SystemExit)
+    and still name its own launch line: lab/specgen.py calls it with its own hint rather than
+    reimplementing the check (Task 2 fix round 4). The default is verify's own message, so
+    ship.py's own callers and tests are unaffected."""
     if getattr(args, "i_know_the_gpu_is_free", False) or in_gpu_window():
         return
-    raise SystemExit(
-        "verify starts a llama-server on the whole GPU, so it must run inside a GPU window: "
-        "`lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify --gguf <path>` (that "
-        "holds ~/.openclaw/cad-build.lock, evicts the resident and the maker arm, and exports "
-        f"{GPU_WINDOW_ENV}=1). Pass --i-know-the-gpu-is-free only when the GPU is already "
-        "free by hand."
-    )
+    raise SystemExit(hint)
 
 
 def _stop_server(proc: subprocess.Popen) -> None:

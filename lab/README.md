@@ -226,3 +226,51 @@ Notes that matter:
   62GB file.
 - **`register` refuses without a passing `~/lab-scratch/verify.ok`** (`--force` overrides), the
   same gate `clean` has always had.
+
+## Spec generation (Phase 3, `lab/specgen.py`)
+
+`lab/specgen.py` writes new CAD part specs by prompting the maker arm, family by family, until
+the spec bank has enough rows at enough tier 3-4 share. It is a one-time, multi-hour,
+unattended job, and like `ship.py verify` it **refuses to run outside a GPU window**: it
+switches the maker arm with `scripts/arms.py use <arm>` and then talks to it, so without the
+window's build lock it would take the GPU out from under any CAD build, benchmark card or lab
+job already running. `--i-know-the-gpu-is-free` is the manual override, same name and meaning
+as `verify`'s.
+
+The only supported launch, from a script file (not pasted into a shell), with a fresh log every
+time:
+
+```bash
+setsid nohup lab/gpu_window.sh python3 lab/specgen.py \
+    --total 2500 --target-tier34 0.45 \
+    > ~/lab-scratch/specgen-$(date +%Y%m%d-%H%M).log 2>&1 &
+```
+
+The smoke shape is the same wrapper with one batch:
+
+```bash
+lab/gpu_window.sh python3 lab/specgen.py --once --group plate --n 20
+```
+
+- **While it runs, every CAD build on the box waits on the build lock** ("waiting for GPU"), so
+  run it at night. The window holds `~/.openclaw/cad-build.lock` for the whole run.
+- **Bounds:** `--max-hours` (default 4) is checked between batches; `GPU_WINDOW_MAX_SEC`
+  (default 10h) is the window's own dead-man cap. `run_total`'s circuit breakers (3 consecutive
+  failed model calls, 8 consecutive zero-accept batches) stop a sick run sooner.
+- **To stop it, send ONE SIGTERM to the `gpu_window.sh` process** (`kill <pid>`, never `-9`).
+  The window TERMs specgen first; specgen stops on that one signal, runs its `arms.py restore`
+  bookend, and only then does the window restore the box. A second SIGTERM during that cleanup
+  is ignored on purpose.
+- **Recovery check after any hard kill:**
+
+  ```bash
+  ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm
+  python3 scripts/arms.py restore    # only if either file exists
+  ```
+
+  A healthy-looking `qwen38-server` says nothing about whether `cad.json` still points at the
+  run's arm, so run the check even then.
+- **The double restore is harmless.** specgen's own bookend restores the pre-run `maker` block
+  and starts the resident; the window's EXIT trap then does its own restore, which (when
+  `maker-server` was inactive at entry, the normal case) is a no-op stop of an already-stopped
+  maker plus a start of an already-running resident.

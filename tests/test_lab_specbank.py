@@ -604,9 +604,28 @@ def test_pre_arm_marker_exists_true_when_only_the_maker_env_marker_is_present(mo
 
 def test_ensure_resident_up_starts_qwen38_server_and_touches_nothing_else(monkeypatch):
     calls = []
+    # _maker_unit_active is stubbed, not left real: the real one shells out to
+    # `systemctl --user is-active maker-server`, and no test may reach a real systemctl.
+    monkeypatch.setattr(specgen, "_maker_unit_active", lambda: False)
     monkeypatch.setattr(specgen.subprocess, "run", lambda argv, **kw: calls.append(list(argv)))
     specgen._ensure_resident_up()
     assert calls == [["systemctl", "--user", "start", "qwen38-server"]]
+
+
+def test_ensure_resident_up_leaves_a_foreign_maker_alone(monkeypatch, capsys):
+    """Fix round 4, re-review 3 item 3b: maker-server active + no pre-arm marker from this
+    run means that maker belongs to some other job (a CAD build, a card, another lab job).
+    Starting qwen38-server would stop it, because maker-server.service declares
+    Conflicts=qwen38-server.service and starting either side stops the other. So the
+    no-marker cleanup branch must do nothing at all here."""
+    monkeypatch.setattr(specgen, "_maker_unit_active", lambda: True)
+    monkeypatch.setattr(specgen.subprocess, "run",
+                        lambda *a, **k: pytest.fail("must not touch any service when the "
+                                                    "active maker is not ours"))
+    specgen._ensure_resident_up()
+    err = capsys.readouterr().err
+    assert "maker-server is active" in err
+    assert "leaving it alone" in err
 
 
 def test_run_total_aborts_after_3_consecutive_call_failures(monkeypatch):
@@ -718,6 +737,9 @@ def test_default_arm_falls_back_when_no_maker_block_is_configured(monkeypatch):
 # tests/test_lab_specgen_signals.py's real-subprocess tests instead.
 
 def test_main_bookend_calls_use_then_restore_and_nothing_else(monkeypatch):
+    # Every main() test below runs "inside a GPU window": main() refuses outright without
+    # CAD_GPU_WINDOW=1 (fix round 4), which is itself tested separately further down.
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
     arms_calls = []
 
     def fake_run_arms(*args):
@@ -739,6 +761,7 @@ def test_main_bookend_calls_use_then_restore_and_nothing_else(monkeypatch):
 
 
 def test_main_still_restores_when_the_batch_raises(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
     arms_calls = []
 
     def fake_run_arms(*args):
@@ -760,6 +783,7 @@ def test_main_still_restores_when_the_batch_raises(monkeypatch):
 
 
 def test_main_still_restores_when_a_circuit_breaker_trips(monkeypatch, capsys):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
     arms_calls = []
 
     def fake_run_arms(*args):
@@ -785,6 +809,7 @@ def test_main_still_restores_when_a_circuit_breaker_trips(monkeypatch, capsys):
 
 
 def test_main_aborts_without_generating_when_arms_use_fails(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
     ensure_resident_calls = []
 
     def fake_run_arms(*args):
@@ -811,6 +836,7 @@ def test_main_aborts_without_generating_when_arms_use_fails(monkeypatch):
 
 
 def test_no_relock_flag_skips_the_arms_bookend_entirely(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
     monkeypatch.setattr(specgen, "_run_arms",
                         lambda *a: pytest.fail("must not call arms.py under --no-relock"))
     monkeypatch.setattr(specbank, "contamination_sets", lambda: (set(), set()))
@@ -822,3 +848,105 @@ def test_no_relock_flag_skips_the_arms_bookend_entirely(monkeypatch):
                         ["specgen.py", "--once", "--group", "plate", "--no-relock"])
     rc = specgen.main()
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Fix round 4: specgen runs only inside lab/gpu_window.sh. The window is what holds
+# ~/.openclaw/cad-build.lock and evicts both servers; without it, `scripts/arms.py use`
+# restarts maker-server on this run's arm no matter who was already using the GPU. The
+# check is lab/ship.py's require_gpu_window (one implementation of the rule, called here
+# with specgen's own message), and it must run before ANYTHING else in main().
+# ---------------------------------------------------------------------------
+
+def _explode(*a, **k):   # pragma: no cover - only ever called on a regression
+    raise AssertionError("main() did work before the GPU-window gate refused")
+
+
+def test_main_refuses_outside_a_gpu_window_before_doing_anything(monkeypatch, tmp_path):
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    monkeypatch.setattr(specgen, "_run_arms", _explode)
+    monkeypatch.setattr(specgen, "_default_arm", _explode)
+    monkeypatch.setattr(specgen, "_install_signal_handlers", _explode)
+    monkeypatch.setattr(specgen, "run_batch", _explode)
+    monkeypatch.setattr(specgen, "run_total", _explode)
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", _explode)
+    monkeypatch.setattr(specgen, "_ensure_resident_up", _explode)
+    monkeypatch.setattr(specgen.subprocess, "run", _explode)
+    cad_json = tmp_path / "cad.json"
+    placeholder = '{"maker": {"enabled": true, "arm": "gemma-4-31b"}}'
+    cad_json.write_text(placeholder)
+    monkeypatch.setenv("CAD_CONFIG_FILE", str(cad_json))
+    monkeypatch.setattr(sys, "argv", ["specgen.py", "--total", "2500"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        specgen.main()
+
+    message = str(excinfo.value)
+    assert "gpu_window.sh" in message
+    assert "lab/specgen.py" in message
+    assert "--i-know-the-gpu-is-free" in message
+    # SystemExit(<a string>) exits non-zero (Python prints the message and exits 1).
+    assert excinfo.value.code != 0
+    assert cad_json.read_text() == placeholder
+
+
+def test_main_runs_inside_a_gpu_window(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
+    arms_calls = []
+    monkeypatch.setattr(specgen, "_run_arms",
+                        lambda *args: arms_calls.append(args) or
+                        subprocess.CompletedProcess(args, 0, stdout="", stderr=""))
+    monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: True)
+    monkeypatch.setattr(specgen, "run_batch",
+                        lambda group, n, dry_run=False: {
+                            "accepted": 1, "refused": [], "group": group, "requested": n,
+                            "generated": 1, "seconds": 0.1, "prompt_tokens": 5,
+                            "completion_tokens": 5})
+    monkeypatch.setattr(sys, "argv", ["specgen.py", "--once", "--group", "plate", "--n", "1"])
+    rc = specgen.main()
+    assert rc == 0
+    assert arms_calls == [("use", "gemma-4-31b"), ("restore",)]
+
+
+def test_main_runs_outside_a_window_with_the_explicit_manual_override(monkeypatch):
+    """--i-know-the-gpu-is-free, same name and semantics as lab/ship.py verify's: the
+    human says the GPU is already free by hand."""
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    arms_calls = []
+    monkeypatch.setattr(specgen, "_run_arms",
+                        lambda *args: arms_calls.append(args) or
+                        subprocess.CompletedProcess(args, 0, stdout="", stderr=""))
+    monkeypatch.setattr(specgen, "_default_arm", lambda: "gemma-4-31b")
+    monkeypatch.setattr(specgen, "_pre_arm_marker_exists", lambda: True)
+    monkeypatch.setattr(specgen, "run_batch",
+                        lambda group, n, dry_run=False: {
+                            "accepted": 1, "refused": [], "group": group, "requested": n,
+                            "generated": 1, "seconds": 0.1, "prompt_tokens": 5,
+                            "completion_tokens": 5})
+    monkeypatch.setattr(sys, "argv", ["specgen.py", "--once", "--group", "plate", "--n", "1",
+                                      "--i-know-the-gpu-is-free"])
+    rc = specgen.main()
+    assert rc == 0
+    assert arms_calls == [("use", "gemma-4-31b"), ("restore",)]
+
+
+def test_once_smoke_mode_is_gated_the_same_way(monkeypatch):
+    """--once still makes a real model call on the arm, so it follows the same rule."""
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    monkeypatch.setattr(specgen, "_run_arms", _explode)
+    monkeypatch.setattr(specgen, "run_batch", _explode)
+    monkeypatch.setattr(sys, "argv", ["specgen.py", "--once", "--group", "plate"])
+    with pytest.raises(SystemExit, match="gpu_window.sh"):
+        specgen.main()
+
+
+def test_no_relock_mode_is_gated_the_same_way(monkeypatch):
+    """--no-relock skips the arms bookend but not the model call, and cad_engine's own
+    _ensure_default_server can still start and stop servers underneath it."""
+    monkeypatch.delenv("CAD_GPU_WINDOW", raising=False)
+    monkeypatch.setattr(specgen, "run_batch", _explode)
+    monkeypatch.setattr(sys, "argv",
+                        ["specgen.py", "--once", "--group", "plate", "--no-relock"])
+    with pytest.raises(SystemExit, match="gpu_window.sh"):
+        specgen.main()
