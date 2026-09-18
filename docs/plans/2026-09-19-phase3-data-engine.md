@@ -22,6 +22,16 @@
 
 ---
 
+## Decisions of 2026-09-19 (owner direction plus measurements, these override the task text where they differ)
+
+- **Thinking is a per-request switch.** Measured on the maker arm launched with `enable_thinking:false`: a request carrying `chat_template_kwargs: {"enable_thinking": true}` produced 1,864 tokens with 4,439 characters of reasoning in 67 s, against 127 tokens and none in 5 s without it. No relaunch, no second arm, no extra VRAM. The engine today can only send `false` (`no_think=True`); nothing sends `true`.
+- **Task 1b (new, before Task 3):** `cad_engine._ollama` gains a think-ON request path (`think=True` sends `enable_thinking: true`), and the coder ladder becomes two rungs on one loaded model: `[strong, strong+think]`, so a failed fast attempt escalates to the same model thinking. The ladder has had ONE rung since the 7B fast rung was retired (no escalation exists). The Phase 1 `gemma-4-31b-think` arm (a separate server launch) becomes redundant and is removed from `benchmarks/arms.json`. Files: `cad_engine.py`, `cad_v5/config.py`, `scripts/fluid_gen.py`, tests.
+- **Teachers.** A model weaker than the student is not a teacher: Devstral (Phase 0: 15% invalid, 22 matches, against Gemma 6% and 39) is dropped from the ladder. Gate verification makes a weak teacher safe, not useful.
+- **Claude.** Tested 2026-09-19 through the Claude Code subscription on 20 identical prompts (`benchmarks/results/card/claude-sub-2026-09-19/RESULT.md`, branch `claude-sub-compare`): after one repair Gemma builds 19 of 20 with 3 exact matches; Sonnet, Opus and Fable build 19 to 20 with 6. No reliability gap, a thin (3 spec) match lead, and the three Claude models tie. The harvest loop stays local. One frozen, small Sonnet batch may be made in an owner-opened session, only for reference-backed specs where the match band proves the pair, recorded as `lab/state/teacher_batch_claude_<date>.jsonl` with provenance; never from the timer. Cost was about 10k to 14k subscription tokens per spec.
+- **Owner references** arrive within the week (`~/CAD/references/`); they are the highest-value input because they let the strict match rule run.
+- **Disk.** All models are back on their original SSDs at the owner's direction; the NVMe has about 26 GB free. Phase 4 round outputs (each GGUF is 18.7 GB) go to the root SSD, not the NVMe: pass `ship.py` output paths under `~/lab-scratch/rounds/` and register arms with an absolute path or a second store root.
+- **Process rules learned tonight.** Launch nothing unattended that stops the resident model until a reviewer has returned an explicit GO on its abort paths (SIGTERM included); a tool that builds and scores in one process must decode child output as UTF-8 explicitly (the locale gets reset to C mid-run); restore config with `arms.py restore` and verify `cad.json` and `maker.env` by md5 before and after every GPU window.
+
 ## File map
 
 | File | Responsibility |
