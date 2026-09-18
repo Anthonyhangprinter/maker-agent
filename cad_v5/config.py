@@ -167,7 +167,9 @@ CODE_MODEL_THINK   = CODE_MODEL_STRONG + THINK_SUFFIX
 # the reasoning_content PLUS the code that follows it. _ollama() only sets this on a think
 # call (no_think / plain calls are unaffected, same as before this rung existed).
 CODE_MAX_TOKENS_THINK = int(os.environ.get("CAD_THINK_MAX_TOKENS", 12000))
-ARMS_FILE = _HERE / "benchmarks" / "arms.json"   # card arms, used only to check thinking support
+# Card arms, used only to check thinking support. Env-overridable like CAD_CONFIG_FILE so a
+# test can put a broken file in place BEFORE import (the ladder is decided at import time).
+ARMS_FILE = Path(os.environ.get("CAD_ARMS_FILE", str(_HERE / "benchmarks" / "arms.json")))
 
 def think_rung_available() -> bool:
     """Whether CODE_MODEL_THINK (the "+think" suffix) actually changes anything on the
@@ -182,9 +184,10 @@ def think_rung_available() -> bool:
       extra_args), so a per-request `enable_thinking: true` genuinely flips them from off
       to on -- this is the case the Task 1b live probe measured (67s / 1,864 completion
       tokens with reasoning vs 5s / 127 tokens without, on gemma-4-31b).
-    - the resident qwen3.8-27b (maker.enabled=false) thinks by default and uses a
-      DIFFERENT lever, chat_template_kwargs.reasoning_effort, not enable_thinking (see
-      CLAUDE.md's architecture notes: "enable_thinking is gone" for this model line).
+    - the resident qwen3.8-27b (maker.enabled=false) thinks by default; its depth lever
+      is chat_template_kwargs.reasoning_effort. (CLAUDE.md said "enable_thinking is gone"
+      for this model line; the measurement below shows enable_thinking:false still turns
+      thinking OFF on this server, so that note is wrong and only the ON direction is moot.)
       Measured directly on the resident the same day: no kwarg = 37 completion tokens
       with reasoning; {"enable_thinking": false} = 2 tokens, no reasoning (no_think=True
       still works there, utility calls are fine); {"enable_thinking": true} = 37 tokens,
@@ -200,21 +203,33 @@ def think_rung_available() -> bool:
     the live engine, so a missing or broken file must degrade quietly, never crash import
     or a build.
     """
-    m = _MAKER
-    if not m.get("enabled"):
-        return False
+    # The WHOLE body is guarded, not just the JSON parse: CODE_MODEL_LADDER calls this at
+    # import time, so any exception here would break `import cad_v5.config` and with it
+    # every entry point (CLI, web UI, Satine, benchmarks). Fix round 2 (2026-09-19): a
+    # review reproduced uncaught AttributeErrors on arms.json files that are VALID JSON of
+    # the WRONG SHAPE ({"arms": "str"}, {"arms": {...}}, {"arms": ["x"]}, extra_args: 123).
+    # The isinstance checks keep the normal path from leaning on the except.
     try:
-        arms = json.loads(ARMS_FILE.read_text()).get("arms", [])
-    except Exception:
-        return False
-    arm_name = m.get("arm")
-    for arm in arms:
-        if arm.get("name") == arm_name:
+        m = _MAKER
+        if not isinstance(m, dict) or not m.get("enabled"):
+            return False
+        doc = json.loads(ARMS_FILE.read_text())
+        arms = doc.get("arms") if isinstance(doc, dict) else None
+        if not isinstance(arms, list):
+            return False
+        arm_name = m.get("arm")
+        for arm in arms:
+            if not isinstance(arm, dict) or arm.get("name") != arm_name:
+                continue
+            extra = arm.get("extra_args")
+            if not isinstance(extra, str):
+                return False
             # Whitespace-tolerant: extra_args is a shell-quoted string, not JSON, so
             # "enable_thinking": false vs "enable_thinking":false are both valid.
-            flat = "".join((arm.get("extra_args") or "").split())
-            return '"enable_thinking":false' in flat
-    return False
+            return '"enable_thinking":false' in "".join(extra.split())
+        return False
+    except Exception:
+        return False
 
 # Two-rung ladder (local) ONLY where the second rung is a genuinely different request
 # (think_rung_available() above); otherwise the ladder stays one rung, exactly as before

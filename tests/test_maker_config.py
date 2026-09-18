@@ -646,3 +646,65 @@ def test_vision_prepass_rides_the_local_rung_with_an_image_part(tmp_path, monkey
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
                         lambda *a, **k: pytest.fail("cached analysis must not re-call"))
     assert cad_engine.analyze_reference_image(str(photo)) == analysis
+
+
+# ── Fix round 2: valid JSON of the WRONG SHAPE must degrade, never raise ─────────
+# A review reproduced uncaught AttributeErrors here. The ladder is computed at import
+# time, so an exception would break `import cad_v5.config` for every entry point.
+_WRONG_SHAPES = [
+    ("arms is a string",            {"arms": "a-string"}),
+    ("arms is a dict",              {"arms": {"foo": "bar"}}),
+    ("arms holds a non-dict",       {"arms": ["not-a-dict"]}),
+    ("extra_args is a number",      {"arms": [{"name": "gemma-4-31b", "extra_args": 12345}]}),
+    ("extra_args is a list",        {"arms": [{"name": "gemma-4-31b", "extra_args": ["x"]}]}),
+    ("top level is a list",         [1, 2, 3]),
+    ("top level is null",           None),
+    ("arms key missing",            {"critics": []}),
+    ("arm name is not a string",    {"arms": [{"name": 7, "extra_args": ""}]}),
+]
+
+
+@pytest.mark.parametrize("label,doc", _WRONG_SHAPES, ids=[w[0] for w in _WRONG_SHAPES])
+def test_think_rung_available_never_raises_on_wrong_shaped_arms_json(tmp_path, monkeypatch, label, doc):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    bad = tmp_path / "arms.json"
+    bad.write_text(json.dumps(doc))
+    monkeypatch.setattr(cfg, "ARMS_FILE", bad)
+    assert cfg.think_rung_available() is False
+
+
+@pytest.mark.parametrize("label,doc", _WRONG_SHAPES, ids=[w[0] for w in _WRONG_SHAPES])
+def test_import_survives_a_wrong_shaped_arms_json(tmp_path, label, doc):
+    """The real failure mode: the bad file is there BEFORE import. A fresh interpreter must
+    import cad_v5.config cleanly and fall back to a one-rung ladder."""
+    import subprocess, sys
+    cad = tmp_path / "cad.json"
+    cad.write_text(json.dumps({"maker": {"enabled": True, "port": 8088,
+                                         "alias": "gemma-4-31b", "arm": "gemma-4-31b"}}))
+    bad = tmp_path / "arms.json"
+    bad.write_text(json.dumps(doc))
+    env = {**os.environ, "CAD_CONFIG_FILE": str(cad), "CAD_ARMS_FILE": str(bad)}
+    repo = str(Path(__file__).resolve().parents[1])
+    r = subprocess.run([sys.executable, "-c",
+                        "import cad_v5.config as c; print(len(c.CODE_MODEL_LADDER), c.think_rung_available())"],
+                       cwd=repo, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert r.stdout.strip() == "1 False"
+
+
+def test_import_with_the_real_shape_still_gives_two_rungs(tmp_path):
+    import subprocess, sys
+    cad = tmp_path / "cad.json"
+    cad.write_text(json.dumps({"maker": {"enabled": True, "port": 8088,
+                                         "alias": "gemma-4-31b", "arm": "gemma-4-31b"}}))
+    good = tmp_path / "arms.json"
+    good.write_text(json.dumps({"arms": [{"name": "gemma-4-31b",
+                                          "extra_args": '--chat-template-kwargs {"enable_thinking": false}'}]}))
+    env = {**os.environ, "CAD_CONFIG_FILE": str(cad), "CAD_ARMS_FILE": str(good)}
+    repo = str(Path(__file__).resolve().parents[1])
+    r = subprocess.run([sys.executable, "-c",
+                        "import cad_v5.config as c; print(len(c.CODE_MODEL_LADDER), c.think_rung_available())"],
+                       cwd=repo, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert r.stdout.strip() == "2 True"
