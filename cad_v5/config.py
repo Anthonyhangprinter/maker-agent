@@ -277,7 +277,10 @@ REF_IMAGE_MAX_PX   = 1024   # downscale reference photos to this long edge befor
 
 # One build at a time across ALL frontends (CLI / Satine / web) — the RX 6600 fits one model.
 # engine.build() takes an fcntl.flock on this file; flock self-releases on process death.
-BUILD_LOCK_FILE = _OPENCLAW / "cad-build.lock"
+# Env-overridable (Task 3 fix H4, 2026-09-19) so lab/harvest.py's cheap `--check-gate`
+# lock-free probe, and its tests, never touch the real lock file. Same pattern as
+# CAD_CONFIG_FILE/MAKER_ENV/CAD_ARMS_FILE above.
+BUILD_LOCK_FILE = Path(os.environ.get("CAD_BUILD_LOCK_FILE", str(_OPENCLAW / "cad-build.lock")))
 
 # ── GIFT-style sampling + SFT-pair harvest (2026-07-19, arXiv 2603.27448) ─────
 # Best-of-N first-turn sampling: draw N initial candidates at varied temperatures and let the
@@ -437,6 +440,12 @@ _LAB_DEFAULTS = {
         # (15% invalid / 22 matches vs Gemma-4-31B's 6% / 39 on CADPrompt), and the
         # Decisions section rules a weaker model out as a teacher regardless of gating.
         "teacher_passes": ["think"],
+        # Task 3 fix L9 (2026-09-19): retention cap for lab/state/builds/, mtime-based
+        # (never the newest), same discipline as cad_engine's own KEEP_BUILDS fix. A
+        # pruned build dir may belong to an already-recorded pair -- fair game, since the
+        # pair row holds the code itself; the build dir is only supplementary render/
+        # mesh evidence.
+        "keep_builds": 500,
     }
 }
 
