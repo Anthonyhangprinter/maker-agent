@@ -10,6 +10,10 @@ dependency on which system services happen to be up.
 (benchmarks/lang-ab/.venv-cq, built by setup_cq_env.sh) and are skipped with a clear
 reason when it is absent -- everything else needs only the system build123d/OCP install
 this repo already depends on.
+
+The `--model resident` tests (TestResidentCaller, TestResidentMain) are offline the same
+way: `urllib.request.urlopen` is monkeypatched to a fake, so ResidentCaller never opens a
+real socket to :8085/:8086 either.
 """
 from __future__ import annotations
 
@@ -522,3 +526,310 @@ class TestDryIntegration:
         assert (out_dir / "meta.json").exists()
         report_json = json.loads((out_dir / "report.json").read_text())
         assert set(report_json["summary"]) == set(arms)
+
+
+# ---------------------------------------------------------------------------
+# --model resident: ResidentCaller request shape, error handling, abort-after-5
+# ---------------------------------------------------------------------------
+
+class _FakeHTTPResponse:
+    """A urlopen(...) context-manager stand-in carrying a JSON body, nothing more."""
+
+    def __init__(self, body: dict):
+        self._body = json.dumps(body).encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class TestResidentCaller:
+    def test_builds_expected_request_and_parses_usage(self, monkeypatch):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["url"] = req.full_url
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            captured["timeout"] = timeout
+            return _FakeHTTPResponse({
+                "choices": [{"message": {"content": "  result = 1  "}}],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 3},
+            })
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        caller = lang_ab.ResidentCaller()
+        out = caller("SYSTEM PROMPT", "USER PROMPT", 0.2)
+
+        assert out == "result = 1"
+        assert captured["url"] == lang_ab.cad_config.RESIDENT_PROXY_URL
+        assert captured["body"]["model"] == lang_ab.cad_config.RESIDENT_ALIAS
+        assert captured["body"]["messages"] == [
+            {"role": "system", "content": "SYSTEM PROMPT"},
+            {"role": "user", "content": "USER PROMPT"},
+        ]
+        assert captured["body"]["temperature"] == 0.2
+        assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+        assert "max_tokens" not in captured["body"]  # unset unless explicitly requested
+        assert captured["timeout"] == lang_ab.RESIDENT_TIMEOUT
+        assert lang_ab.engine._LAST_USAGE == {"prompt_tokens": 11, "completion_tokens": 3}
+        assert caller.consecutive_failures == 0
+
+    def test_max_tokens_passed_through_only_when_given(self, monkeypatch):
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            return _FakeHTTPResponse({"choices": [{"message": {"content": "ok"}}], "usage": {}})
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        lang_ab.ResidentCaller()("SYS", "USER", 0.2, max_tokens=20)
+        assert captured["body"]["max_tokens"] == 20
+
+    def test_http_error_is_a_runtimeerror_and_counts_as_one_failure(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):
+            raise RuntimeError("HTTP Error 500: Internal Server Error")
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        caller = lang_ab.ResidentCaller()
+        with pytest.raises(RuntimeError):
+            caller("SYS", "USER", 0.2)
+        assert caller.consecutive_failures == 1
+        with pytest.raises(RuntimeError):
+            caller("SYS", "USER", 0.2)
+        assert caller.consecutive_failures == 2
+
+    def test_connection_error_counts_the_same_as_an_http_error(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):
+            raise ConnectionRefusedError("connection refused")
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        caller = lang_ab.ResidentCaller()
+        with pytest.raises(RuntimeError):
+            caller("SYS", "USER", 0.2)
+        assert caller.consecutive_failures == 1
+
+    def test_aborts_after_five_consecutive_failures(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):
+            raise ConnectionRefusedError("connection refused")
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        caller = lang_ab.ResidentCaller()
+        for _ in range(lang_ab.RESIDENT_MAX_CONSECUTIVE_FAILURES - 1):
+            with pytest.raises(RuntimeError):
+                caller("SYS", "USER", 0.2)
+        with pytest.raises(lang_ab.ResidentCallAbort):
+            caller("SYS", "USER", 0.2)
+
+    def test_success_resets_the_consecutive_failure_count(self, monkeypatch):
+        state = {"fail": True}
+
+        def fake_urlopen(req, timeout=None):
+            if state["fail"]:
+                raise ConnectionRefusedError("connection refused")
+            return _FakeHTTPResponse({"choices": [{"message": {"content": "ok"}}], "usage": {}})
+
+        monkeypatch.setattr(lang_ab.urllib.request, "urlopen", fake_urlopen)
+        caller = lang_ab.ResidentCaller()
+        for _ in range(lang_ab.RESIDENT_MAX_CONSECUTIVE_FAILURES - 1):
+            with pytest.raises(RuntimeError):
+                caller("SYS", "USER", 0.2)
+        state["fail"] = False
+        caller("SYS", "USER", 0.2)
+        assert caller.consecutive_failures == 0
+        state["fail"] = True
+        # a fresh run of failures still takes the full count to abort -- the earlier
+        # near-miss did not carry over across the reset
+        for _ in range(lang_ab.RESIDENT_MAX_CONSECUTIVE_FAILURES - 1):
+            with pytest.raises(RuntimeError):
+                caller("SYS", "USER", 0.2)
+        with pytest.raises(lang_ab.ResidentCallAbort):
+            caller("SYS", "USER", 0.2)
+
+
+# ---------------------------------------------------------------------------
+# --model resident: run_one/run_harness plumbing (model field, abort propagation,
+# old-Namespace-without-`model` back-compat)
+# ---------------------------------------------------------------------------
+
+class TestResidentHarnessPlumbing:
+    def test_call_failure_is_recorded_and_the_run_continues(self, fixture_suite_root, tmp_path, monkeypatch):
+        import argparse
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+
+        def flaky(system, user, temperature=0.2):
+            raise RuntimeError("resident call failed (boom)")
+
+        args = argparse.Namespace(
+            arms="b123d", specs=2, seed=1, suite_root=str(fixture_suite_root),
+            run_id="flaky-test", arm=None, i_know_the_gpu_is_free=True, model="maker",
+        )
+        out_dir = lang_ab.run_harness(args, call_model_fn=flaky)
+        rows = [json.loads(l) for l in (out_dir / "rows.jsonl").read_text().splitlines()]
+        assert len(rows) == 2
+        assert all(r["error_class"] == "other" and not r["ok"] for r in rows)
+
+    def test_resident_abort_stops_run_harness_immediately(self, fixture_suite_root, tmp_path, monkeypatch):
+        import argparse
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        calls = {"n": 0}
+
+        def always_aborts(system, user, temperature=0.2):
+            calls["n"] += 1
+            raise lang_ab.ResidentCallAbort("simulated: 5 consecutive resident-call failures")
+
+        args = argparse.Namespace(
+            arms="b123d", specs=10, seed=1, suite_root=str(fixture_suite_root),
+            run_id="abort-test", arm=None, i_know_the_gpu_is_free=True, model="resident",
+        )
+        with pytest.raises(lang_ab.ResidentCallAbort):
+            lang_ab.run_harness(args, call_model_fn=always_aborts)
+        assert calls["n"] == 1  # aborts on the first row, never grinds through the rest
+        assert (tmp_path / "results" / "abort-test" / "meta.json").exists()  # finally still ran
+
+    def test_rows_carry_the_model_field(self, fixture_suite_root, tmp_path, monkeypatch):
+        import argparse
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+
+        args = argparse.Namespace(
+            arms="b123d", specs=1, seed=1, suite_root=str(fixture_suite_root),
+            run_id="model-field-maker", arm=None, i_know_the_gpu_is_free=True, model="maker",
+        )
+        out_dir = lang_ab.run_harness(args, call_model_fn=fake_call_model_factory())
+        rows = [json.loads(l) for l in (out_dir / "rows.jsonl").read_text().splitlines()]
+        assert rows[0]["model"] == lang_ab.cad_config.maker_config()["alias"]
+
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results2")
+        args2 = argparse.Namespace(
+            arms="b123d", specs=1, seed=1, suite_root=str(fixture_suite_root),
+            run_id="model-field-resident", arm=None, i_know_the_gpu_is_free=True, model="resident",
+        )
+        out_dir2 = lang_ab.run_harness(args2, call_model_fn=fake_call_model_factory())
+        rows2 = [json.loads(l) for l in (out_dir2 / "rows.jsonl").read_text().splitlines()]
+        assert rows2[0]["model"] == "qwen3.8-27b"
+
+    def test_default_model_choice_matches_the_old_namespace_shape(self, fixture_suite_root, tmp_path, monkeypatch):
+        """A hand-built argparse.Namespace with no `model` attribute at all (every test in
+        this file predating --model) must still run the maker path -- the
+        getattr(args, "model", "maker") contract run_harness relies on."""
+        import argparse
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        args = argparse.Namespace(
+            arms="b123d", specs=1, seed=1, suite_root=str(fixture_suite_root),
+            run_id="no-model-attr", arm=None, i_know_the_gpu_is_free=True,
+        )
+        assert not hasattr(args, "model")
+        out_dir = lang_ab.run_harness(args, call_model_fn=fake_call_model_factory())
+        rows = [json.loads(l) for l in (out_dir / "rows.jsonl").read_text().splitlines()]
+        assert rows[0]["model"] == lang_ab.cad_config.maker_config()["alias"]
+
+
+# ---------------------------------------------------------------------------
+# --model resident: main() never touches the GPU window / arm_window
+# ---------------------------------------------------------------------------
+
+class TestResidentMain:
+    def _patch_gpu_window_guards_to_raise(self, monkeypatch):
+        def _boom(*a, **k):
+            raise AssertionError("--model resident must never call this")
+        monkeypatch.setattr(lang_ab.ship, "require_gpu_window", _boom)
+        monkeypatch.setattr(lang_ab, "arm_window", _boom)
+
+    def test_resident_main_never_touches_gpu_window_and_succeeds(
+        self, fixture_suite_root, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        self._patch_gpu_window_guards_to_raise(monkeypatch)
+        monkeypatch.setattr(lang_ab, "_resident_health_ok", lambda timeout=5: True)
+        fake = fake_call_model_factory()
+        monkeypatch.setattr(lang_ab, "ResidentCaller", lambda: fake)
+        monkeypatch.setattr(sys, "argv", [
+            "lang_ab.py", "--model", "resident", "--specs", "1", "--seed", "1",
+            "--suite-root", str(fixture_suite_root), "--run-id", "main-resident-ok",
+            "--arms", "b123d",
+        ])
+
+        rc = lang_ab.main()
+
+        assert rc == 0
+        assert len(fake.calls) == 1
+
+    def test_resident_main_exits_2_when_unhealthy(self, fixture_suite_root, tmp_path, monkeypatch):
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        self._patch_gpu_window_guards_to_raise(monkeypatch)
+        monkeypatch.setattr(lang_ab, "_resident_health_ok", lambda timeout=5: False)
+        monkeypatch.setattr(sys, "argv", [
+            "lang_ab.py", "--model", "resident", "--specs", "1", "--seed", "1",
+            "--suite-root", str(fixture_suite_root), "--run-id", "main-resident-unhealthy",
+            "--arms", "b123d",
+        ])
+
+        rc = lang_ab.main()
+
+        assert rc == 2
+
+    def test_resident_main_exits_3_on_abort(self, fixture_suite_root, tmp_path, monkeypatch):
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        self._patch_gpu_window_guards_to_raise(monkeypatch)
+        monkeypatch.setattr(lang_ab, "_resident_health_ok", lambda timeout=5: True)
+
+        def boom(system, user, temperature=0.2):
+            raise lang_ab.ResidentCallAbort("simulated abort")
+
+        monkeypatch.setattr(lang_ab, "ResidentCaller", lambda: boom)
+        monkeypatch.setattr(sys, "argv", [
+            "lang_ab.py", "--model", "resident", "--specs", "1", "--seed", "1",
+            "--suite-root", str(fixture_suite_root), "--run-id", "main-resident-abort",
+            "--arms", "b123d",
+        ])
+
+        rc = lang_ab.main()
+
+        assert rc == 3
+
+
+# ---------------------------------------------------------------------------
+# report.py: the model header (read from rows, defaults for old rows without it)
+# ---------------------------------------------------------------------------
+
+class TestReportModelLabel:
+    """report.py itself is untouched (out of scope for this change) -- lang_ab.py stamps the
+    model label into the REPORT.md/report.json files report.write_report() already wrote,
+    right after it writes them. See _stamp_model_into_report's docstring."""
+
+    def test_model_label_from_rows_reads_the_field(self, tmp_path):
+        rows_path = tmp_path / "rows.jsonl"
+        rows_path.write_text(
+            json.dumps({"arm": "b123d", "model": "qwen3.8-27b"}) + "\n"
+            + json.dumps({"arm": "cadquery", "model": "qwen3.8-27b"}) + "\n",
+            encoding="utf-8",
+        )
+        assert lang_ab._model_label_from_rows(rows_path) == "qwen3.8-27b"
+
+    def test_model_label_from_rows_defaults_for_old_rows(self, tmp_path):
+        rows_path = tmp_path / "rows.jsonl"
+        rows_path.write_text(json.dumps({"arm": "b123d"}) + "\n", encoding="utf-8")  # no "model" key
+        assert lang_ab._model_label_from_rows(rows_path) == lang_ab.DEFAULT_MODEL_LABEL == "gemma-4-31b"
+
+    def test_model_label_from_rows_defaults_when_file_missing(self, tmp_path):
+        assert lang_ab._model_label_from_rows(tmp_path / "no-such-rows.jsonl") == "gemma-4-31b"
+
+    def test_run_harness_stamps_model_into_report_md_and_json(
+        self, fixture_suite_root, tmp_path, monkeypatch,
+    ):
+        import argparse
+        monkeypatch.setattr(lang_ab, "RESULTS_DIR", tmp_path / "results")
+        args = argparse.Namespace(
+            arms="b123d", specs=1, seed=1, suite_root=str(fixture_suite_root),
+            run_id="model-header-test", arm=None, i_know_the_gpu_is_free=True, model="resident",
+        )
+        out_dir = lang_ab.run_harness(args, call_model_fn=fake_call_model_factory())
+
+        md = (out_dir / "REPORT.md").read_text(encoding="utf-8")
+        assert "Model: qwen3.8-27b" in md
+        report_json = json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
+        assert report_json["model"] == "qwen3.8-27b"

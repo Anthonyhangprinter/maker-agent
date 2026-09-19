@@ -1,7 +1,9 @@
 # lang-ab: which CAD language does the local model write best
 
-A small A/B harness. Same spec pool, same model (whichever arm the GPU window has already
-loaded, currently `gemma-4-31b` per `~/.openclaw/cad.json`'s `maker` block), four arms:
+A small A/B harness. Same spec pool, same model, four arms: `--model maker` (default) uses
+whichever arm the GPU window has already loaded (currently `gemma-4-31b` per
+`~/.openclaw/cad.json`'s `maker` block); `--model resident` uses the always-on Qwen3.8-27b
+behind the :8085 gpu-proxy instead (see `--model resident` below).
 
 - `b123d` -- the production path: `cad_engine.generate_code_raw`'s exact system prompt and
   retrieval few-shots, ON.
@@ -38,16 +40,35 @@ That means:
 
 ## Running it
 
-The harness needs a real model call per (arm, spec), so it must run inside a GPU window --
-it refuses otherwise (`lab.ship.require_gpu_window`). It does not switch arms or evict
-services itself: `lab._armwindow.arm_window()` (the same context manager
-`lab/harvest.py`/`lab/specgen.py` use) does that, so the controller only needs to launch it
-inside `lab/gpu_window.sh`:
+The default `--model maker` leg needs a real model call per (arm, spec) against whichever
+arm the GPU window has loaded, so it must run inside a GPU window -- it refuses otherwise
+(`lab.ship.require_gpu_window`). It does not switch arms or evict services itself:
+`lab._armwindow.arm_window()` (the same context manager `lab/harvest.py`/`lab/specgen.py`
+use) does that, so the controller only needs to launch it inside `lab/gpu_window.sh`:
 
 ```
 PYTHONUTF8=1 lab/gpu_window.sh python3 benchmarks/lang-ab/lang_ab.py \
     --arms b123d,b123d-nofs,cadquery,openscad --specs 40 --run-id 2026-09-19-langab
 ```
+
+### `--model resident`
+
+The same experiment against the RESIDENT model (Qwen3.8-27b), which is already up all day
+behind the :8085 gpu-proxy independent of any maker arm. This leg is a plain chat client: no
+GPU window, no `arm_window`, no service started or stopped anywhere. It checks
+`GET http://127.0.0.1:8086/health` (the resident's own port) before the first call and exits
+2 if that fails. A non-200 or connection error on an individual call is recorded as that
+attempt's error and the run continues; 5 consecutive call failures abort the run (exit 3) --
+the resident may have been taken down by another job.
+
+```
+PYTHONUTF8=1 python3 benchmarks/lang-ab/lang_ab.py --model resident \
+    --arms b123d,b123d-nofs,cadquery,openscad --specs 40 --run-id 2026-09-19-langab-resident
+```
+
+Every row carries which model produced it (`gemma-4-31b` for `--model maker`'s default
+config, `qwen3.8-27b` for `--model resident`); `REPORT.md`'s header and `report.json`'s
+top-level `model` key both read it back from the rows, not from `meta.json`.
 
 Before the first real run, build the isolated CadQuery venv once (network required):
 
@@ -70,7 +91,9 @@ Flags:
 - `--suite-root DIR` point at a different `benchmarks/` root (used by the test suite's
   fixture suites; not needed for a real run).
 - `--arm NAME` the maker arm name to load via `arm_window` (default: whatever
-  `~/.openclaw/cad.json`'s `maker` block already names).
+  `~/.openclaw/cad.json`'s `maker` block already names). Ignored under `--model resident`.
+- `--model maker|resident` which model answers every call (default `maker`, unchanged
+  behaviour). See `--model resident` above.
 
 Output: `benchmarks/lang-ab/results/<run-id>/rows.jsonl` (one JSON row per attempt),
 `meta.json`, `REPORT.md`, and `report.json`. Per-build artifacts (generated code, the

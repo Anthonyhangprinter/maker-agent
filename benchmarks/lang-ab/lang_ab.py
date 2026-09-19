@@ -50,6 +50,7 @@ import subprocess
 import sys
 import time
 import traceback
+import urllib.request
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -98,6 +99,14 @@ GPU_WINDOW_HINT = (
     f"evicts the resident and the maker arm first, and exports {ship.GPU_WINDOW_ENV}=1). "
     "Pass --i-know-the-gpu-is-free only when the GPU is already free by hand."
 )
+
+# --model resident (2026-09-19): the owner also wants this same experiment run against the
+# RESIDENT model (Qwen3.8-27b), which is up all day behind the :8085 gpu-proxy independent of
+# any maker arm. This leg is a plain chat client, not a benchmark-card runner: it never calls
+# arm_window/require_gpu_window, never starts or stops qwen38-server/maker-server, and posts
+# straight to RESIDENT_URL. See ResidentCaller below and main()'s --model branch. Every arm's
+# codegen still goes through the ONE call_model_fn seam described above -- only WHICH callable
+# main() hands to run_harness changes.
 
 # ---------------------------------------------------------------------------
 # The CadQuery system prompt (no few-shots; concise; same contract as build123d's).
@@ -220,6 +229,110 @@ def call_model(system: str, user: str, temperature: float = CODEGEN_TEMPERATURE)
 
 
 CallModelFn = Callable[[str, str, float], str]
+
+
+# ---------------------------------------------------------------------------
+# --model resident: a plain chat client against the always-on resident, no service control.
+# ---------------------------------------------------------------------------
+
+RESIDENT_URL = cad_config.RESIDENT_PROXY_URL           # :8085 gpu-proxy, OpenAI chat completions
+RESIDENT_MODEL_ALIAS = cad_config.RESIDENT_ALIAS       # "qwen3.8-27b"
+# The resident's OWN port, always 8086 regardless of cad.json's maker block -- unlike
+# cad_config.LOCAL_CODER_HEALTH, which follows maker.enabled and would point at :8088 while a
+# maker arm is loaded. This leg cares whether the RESIDENT answers, not whichever server the
+# maker/default rung currently targets.
+RESIDENT_HEALTH_URL = "http://127.0.0.1:8086/health"
+RESIDENT_TIMEOUT = 600
+RESIDENT_MAX_CONSECUTIVE_FAILURES = 5
+
+
+class ResidentCallAbort(RuntimeError):
+    """Raised by ResidentCaller once RESIDENT_MAX_CONSECUTIVE_FAILURES calls in a row have
+    failed. A distinct type on purpose: run_one's broad `except Exception` around a single
+    codegen call (which classifies ONE failed attempt as that row's error and lets the harness
+    move on to the next spec) re-raises this one instead of swallowing it -- a resident that
+    keeps failing is very likely down or held by another job, and grinding through the rest of
+    the spec list one timeout at a time would just burn wall time for no data."""
+
+
+class ResidentCaller:
+    """A call_model_fn implementation for --model resident: posts directly to RESIDENT_URL
+    (the :8085 gpu-proxy in front of the always-on qwen38-server), thinking off, no arm
+    switch, no systemctl call, no lab._armwindow involvement at all -- the resident is simply
+    used like any other OpenAI-compatible chat client for the duration of the run.
+
+    Returns the raw reply text, same as call_model()'s default (maker) implementation, and
+    sets cad_engine._LAST_USAGE from the response's `usage` object so run_one's existing
+    tokens_in/tokens_out bookkeeping (which reads that global right after the call) works
+    identically for both legs -- one row shape, whichever model answered it.
+
+    Tracks consecutive HTTP failures across calls (state lives on the instance, one instance
+    per run) so a resident that goes down mid-run raises ResidentCallAbort on the
+    RESIDENT_MAX_CONSECUTIVE_FAILURES'th failure in a row instead of silently degrading into
+    an all-errors run. A single failure (HTTP error, connection refused, malformed JSON) is a
+    plain RuntimeError -- run_one records it as that attempt's error and moves on, per the
+    task's continue-on-error contract."""
+
+    def __init__(self) -> None:
+        self.consecutive_failures = 0
+
+    def __call__(self, system: str, user: str, temperature: float = CODEGEN_TEMPERATURE,
+                 max_tokens: Optional[int] = None) -> str:
+        body = {
+            "model": RESIDENT_MODEL_ALIAS,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+            "temperature": temperature,
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        req = urllib.request.Request(
+            RESIDENT_URL, data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"}, method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=RESIDENT_TIMEOUT) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            self.consecutive_failures += 1
+            if self.consecutive_failures >= RESIDENT_MAX_CONSECUTIVE_FAILURES:
+                raise ResidentCallAbort(
+                    f"{RESIDENT_MAX_CONSECUTIVE_FAILURES} consecutive resident-call failures "
+                    f"against {RESIDENT_URL} -- the resident may be down or taken by another "
+                    f"job. Last error: {e}"
+                ) from e
+            raise RuntimeError(f"resident call failed ({e})") from e
+        self.consecutive_failures = 0
+        usage = resp.get("usage")
+        engine._LAST_USAGE = usage if isinstance(usage, dict) else None
+        choices = resp.get("choices") or [{}]
+        return (choices[0].get("message", {}).get("content") or "").strip()
+
+
+def _resident_health_ok(timeout: int = 5) -> bool:
+    """GET RESIDENT_HEALTH_URL and return True on any reply that parses as JSON. Checked
+    once, before the first call, so an already-down resident fails fast with a clear message
+    instead of burning RESIDENT_MAX_CONSECUTIVE_FAILURES timeouts to discover the same thing."""
+    try:
+        with urllib.request.urlopen(RESIDENT_HEALTH_URL, timeout=timeout) as r:
+            json.loads(r.read().decode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+
+def _neutralize_service_helpers_for_resident() -> None:
+    """Belt-and-suspenders for --model resident. Reading cad_retrieval.py and
+    inject_retrieval_notes() confirms the b123d/b123d-nofs arms' retrieval path (the only
+    engine-import-dependent codepath either arm's codegen touches) calls only the CPU
+    embed-server on :8089 -- nothing on it reaches _ensure_default_server or a model call. This
+    still patches the service-eviction helper(s) to no-ops under --model resident so a future
+    change to that path can never make this leg start or stop qwen38-server/maker-server; the
+    resident leg is a plain chat client, full stop."""
+    engine._ensure_default_server = lambda *a, **k: None
+    if hasattr(engine, "_pause_default_server_for"):
+        engine._pause_default_server_for = lambda *a, **k: None
 
 
 # ---------------------------------------------------------------------------
@@ -393,11 +506,13 @@ def _build_for_arm(arm: str, code: str, work_dir: Path):
 # ---------------------------------------------------------------------------
 
 def run_one(run_id: str, arm: str, suite: str, spec: dict, crit: Optional[dict],
-            suite_dir: Path, out_dir: Path, call_model_fn: CallModelFn) -> dict:
+            suite_dir: Path, out_dir: Path, call_model_fn: CallModelFn,
+            model_label: str = "gemma-4-31b") -> dict:
     spec_id, tier, spec_text = spec["id"], spec.get("tier", 0), spec["spec"]
     work_dir = out_dir / "builds" / arm / spec_id
     row = {
         "run_id": run_id, "arm": arm, "spec_id": spec_id, "suite": suite, "tier": tier,
+        "model": model_label,
         "ok": False, "error_class": "none", "traceback_tail": "", "band": None,
         "chamfer_mm": None, "facts": {}, "tokens_in": None, "tokens_out": None,
         "seconds_codegen": None, "seconds_build": None, "code": "",
@@ -406,6 +521,12 @@ def run_one(run_id: str, arm: str, suite: str, spec: dict, crit: Optional[dict],
     t0 = time.time()
     try:
         code, _raw = _codegen_for_arm(arm, spec_text, call_model_fn)
+    except ResidentCallAbort:
+        # A single call failure is this row's error and the run continues (below); five
+        # in a row is an operational signal (the resident is down / taken by another job)
+        # that must reach run_harness/main rather than be recorded as just another failed
+        # spec, so it is re-raised past this row entirely -- see ResidentCallAbort's docstring.
+        raise
     except Exception:
         row["seconds_codegen"] = round(time.time() - t0, 2)
         row["error_class"] = "other"
@@ -462,10 +583,76 @@ def run_one(run_id: str, arm: str, suite: str, spec: dict, crit: Optional[dict],
 
 
 # ---------------------------------------------------------------------------
+# Model label in the report. report.py is out of scope for this change (it does not know
+# about the per-row "model" field), so this stamps the label into the files IT writes right
+# after write_report() runs, instead of teaching report.py about the field itself.
+# ---------------------------------------------------------------------------
+
+DEFAULT_MODEL_LABEL = "gemma-4-31b"
+
+
+def _model_label_from_rows(rows_path: Path) -> str:
+    """The model rows_path's rows were generated against, read from each row's own "model"
+    field. An old rows.jsonl written before that field existed only ever came from the maker
+    arm, "gemma-4-31b" for the whole time this harness has existed -- that is the fallback."""
+    if not rows_path.exists():
+        return DEFAULT_MODEL_LABEL
+    for line in rows_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        m = json.loads(line).get("model")
+        if m:
+            return m
+    return DEFAULT_MODEL_LABEL
+
+
+def _stamp_model_into_report(out_dir: Path, rows_path: Path) -> None:
+    """Add a "Model: <label>" line to REPORT.md's header and a top-level "model" key to
+    report.json, both already written by report.write_report(). Safe to call on the
+    empty-rows report write_report itself already tolerates (no REPORT.md/report.json yet
+    is a no-op here, not an error)."""
+    model = _model_label_from_rows(rows_path)
+    report_md = out_dir / "REPORT.md"
+    if report_md.exists():
+        lines = report_md.read_text(encoding="utf-8").splitlines()
+        insert_at = len(lines)
+        for i, line in enumerate(lines):
+            if line.startswith("Specs:"):
+                insert_at = i + 1
+                break
+        else:
+            for i, line in enumerate(lines):
+                if line.startswith("# lang-ab report"):
+                    insert_at = i + 1
+                    break
+        lines.insert(insert_at, f"Model: {model}")
+        report_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    report_json_path = out_dir / "report.json"
+    if report_json_path.exists():
+        data = json.loads(report_json_path.read_text(encoding="utf-8"))
+        data["model"] = model
+        report_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
 # The harness proper (no GPU-window / arm-switching here -- see module docstring).
 # ---------------------------------------------------------------------------
 
-def run_harness(args: argparse.Namespace, call_model_fn: CallModelFn = call_model) -> Path:
+def run_harness(args: argparse.Namespace, call_model_fn: Optional[CallModelFn] = None) -> Path:
+    # --model resident (default "maker", byte-for-byte the old behaviour): getattr so a
+    # hand-built argparse.Namespace from a test written before this flag existed (no `model`
+    # attribute at all) still runs the maker path exactly as before.
+    model_choice = getattr(args, "model", "maker")
+    if model_choice not in ("maker", "resident"):
+        raise SystemExit(f"lang_ab: --model must be 'maker' or 'resident' (got {model_choice!r})")
+    if model_choice == "resident":
+        _neutralize_service_helpers_for_resident()
+        model_label = RESIDENT_MODEL_ALIAS
+    else:
+        model_label = cad_config.maker_config()["alias"]
+    if call_model_fn is None:
+        call_model_fn = ResidentCaller() if model_choice == "resident" else call_model
+
     suite_root = Path(args.suite_root) if args.suite_root else BENCH
     suites: dict[str, list[dict]] = {}
     accs: dict[str, dict] = {}
@@ -513,7 +700,8 @@ def run_harness(args: argparse.Namespace, call_model_fn: CallModelFn = call_mode
                 suite = spec["suite"]
                 crit = accs.get(suite, {}).get(spec["id"])
                 suite_dir = suite_root / suite
-                row = run_one(run_id, arm, suite, spec, crit, suite_dir, out_dir, call_model_fn)
+                row = run_one(run_id, arm, suite, spec, crit, suite_dir, out_dir, call_model_fn,
+                              model_label)
                 rows.append(row)
                 with rows_path.open("a", encoding="utf-8") as f:
                     f.write(json.dumps(row) + "\n")
@@ -522,6 +710,7 @@ def run_harness(args: argparse.Namespace, call_model_fn: CallModelFn = call_mode
     finally:
         try:
             report.write_report(out_dir)
+            _stamp_model_into_report(out_dir, rows_path)
         except Exception as e:
             print(f"lang_ab: report generation failed ({e}); rows.jsonl is still complete", file=sys.stderr)
 
@@ -549,16 +738,37 @@ def build_arg_parser() -> argparse.ArgumentParser:
                           "lab._armwindow.arm_window, never applied by hand")
     ap.add_argument("--i-know-the-gpu-is-free", action="store_true",
                      help="run outside a GPU window (only when the GPU was freed by hand)")
+    ap.add_argument("--model", choices=("maker", "resident"), default="maker",
+                     help="which model answers every call: 'maker' (default, unchanged "
+                          "behaviour -- whichever local: model the GPU window/arm_window "
+                          "brought up) or 'resident' (the always-on Qwen3.8-27b behind the "
+                          "gpu-proxy at :8085, no GPU window, no arm switch, no service "
+                          "control at all)")
     return ap
 
 
 def main() -> int:
     args = build_arg_parser().parse_args()
-    # Before ANYTHING that touches a model or a service: no arm switch, no signal handlers,
-    # no cad.json read, no model call. Same ordering rule as lab/harvest.py's main().
-    ship.require_gpu_window(args, GPU_WINDOW_HINT)
-    with arm_window(args.arm):
-        out_dir = run_harness(args)
+    if args.model == "resident":
+        # The resident is up all day already: no GPU window, no arm switch, no systemctl
+        # call anywhere in this branch. Just check it's actually answering before spending
+        # the first spec on it.
+        if not _resident_health_ok():
+            print(f"lang_ab: resident not healthy at {RESIDENT_HEALTH_URL} -- aborting",
+                  file=sys.stderr)
+            return 2
+        try:
+            out_dir = run_harness(args)
+        except ResidentCallAbort as e:
+            print(f"lang_ab: {e}", file=sys.stderr)
+            return 3
+    else:
+        # Before ANYTHING that touches a model or a service: no arm switch, no signal
+        # handlers, no cad.json read, no model call. Same ordering rule as
+        # lab/harvest.py's main().
+        ship.require_gpu_window(args, GPU_WINDOW_HINT)
+        with arm_window(args.arm):
+            out_dir = run_harness(args)
     print(f"lang_ab: wrote {out_dir / 'rows.jsonl'} and {out_dir / 'REPORT.md'}")
     return 0
 
