@@ -2182,3 +2182,261 @@ sys.exit(harvest.main())
                           timeout=10.0)
     assert proc.returncode in (0, 3)
     assert not (state_dir / "ledger.jsonl").exists()
+
+
+# ---------------------------------------------------------------------------
+# Real-subprocess proof of the agreement layer end to end (fix round 2, Section E):
+# drives the ACTUAL lab.harvest.main() across several invocations sharing one on-disk
+# state dir, with ONLY the model call (cad_engine._ollama), materialize
+# (fluid_gen._materialize) and the arm switch (lab._armwindow._run_arms/
+# _ensure_resident_up) patched inside the spawned subprocess -- harvest._regate is also
+# patched, to a SCRIPTED facts sequence, since driving real build123d geometry to
+# produce two specific agreeing-or-disagreeing signatures on demand is not practical
+# here; _regate is the exact seam this module's own test suite already treats as safe
+# to fake for orchestration-focused coverage (see _patch_regate_passthrough above).
+# ---------------------------------------------------------------------------
+
+_AGREEMENT_SUBPROCESS_HELPER = """
+import json, sys
+sys.path.insert(0, {repo!r})
+import os
+os.environ["CAD_CONFIG_FILE"] = {cad_json!r}
+os.environ["MAKER_ENV"] = {env_path!r}
+os.environ["CAD_GPU_WINDOW"] = "1"
+from pathlib import Path
+from lab import harvest
+from lab import _armwindow as aw
+from lab import specbank
+import cad_engine as engine
+import fluid_gen
+import arms as arms_cli
+
+script_file = sys.argv[1]
+spec_id = sys.argv[2]
+
+state = Path({state_dir!r})
+harvest.STATE_DIR = state
+harvest.LEDGER_FILE = state / "ledger.jsonl"
+harvest.PAIRS_FILE = state / "pairs.jsonl"
+harvest.REVIEW_FILE = state / "review.jsonl"
+harvest.CANDIDATES_FILE = state / "candidates.jsonl"
+harvest.PROGRESS_FILE = state / "progress.json"
+harvest.STATUS_FILE = state / "status.json"
+harvest.PAUSED_FILE = state / "paused"
+harvest.BUILDS_DIR = state / "builds"
+harvest.SYSTEMS_DIR = state / "systems"
+specbank.SPECS_FILE = Path({specs_file!r})
+
+pre_cad, pre_env = arms_cli._pre_arm_paths(arms_cli.CAD_JSON, arms_cli.ENV_PATH)
+
+def fake_run_arms(*args):
+    if args[0] == "use":
+        pre_cad.write_text("{{}}")
+    class R:
+        returncode = 0
+    return R()
+
+aw._run_arms = fake_run_arms
+aw._ensure_resident_up = lambda: None
+
+script = json.loads(Path(script_file).read_text())
+calls = {{"n": 0}}
+
+def fake_ollama(model, system, prompt, *a, **kw):
+    i = calls["n"]
+    calls["n"] += 1
+    return script["codes"][i]
+
+engine._ollama = fake_ollama
+
+def fake_materialize(code, build_dir, spec):
+    return {{"error": None}}
+
+fluid_gen._materialize = fake_materialize
+
+facts_iter = iter(script["facts"])
+
+def fake_regate(m_fluid, build_dir, spec):
+    facts = next(facts_iter)
+    return {{"error": None, "facts": facts, "gate_hard": [], "gate_spec": [],
+             "gate_adv": [], "unscored_reason": None}}
+
+harvest._regate = fake_regate
+
+sys.argv = ["harvest.py", "--once", "--spec-id", spec_id, "--arm", "test-arm"]
+rc = harvest.main()
+print("RC", rc)
+sys.exit(rc)
+"""
+
+
+def _write_agreement_cad_json(path: Path, candidates: int, temps: list, max_pairs: int) -> None:
+    harvest_block = {
+        "candidates": candidates, "temps": temps,
+        "candidates_tier34": candidates, "temps_tier34": temps,
+        "max_pairs_per_spec": max_pairs, "teacher_passes": [],
+        "agreement": {"volume_tol_pct": 0.05, "bbox_tol_mm": 0.05,
+                     "bore_round_mm": 0.01},
+        "strict": {"envelope_tol_mm": 0.2},
+    }
+    path.write_text(json.dumps({"cad": {"lab": {"harvest": harvest_block}}}))
+
+
+def _write_agreement_bank(specs_file: Path) -> None:
+    # No envelope/through-hole phrasing in any of these specs: the strict checks
+    # (Section B) must stay out of this test's way entirely, which is exercised
+    # separately above (test_strict_*).
+    rows = [
+        {"id": "agree", "spec": "a simple test widget for the agreement suite",
+         "tier": 1, "group": "test", "source": "unit-test", "key": "k-agree",
+         "added": "2026-09-19T00:00:00Z"},
+        {"id": "alone", "spec": "a lone test widget for the agreement suite",
+         "tier": 1, "group": "test", "source": "unit-test", "key": "k-alone",
+         "added": "2026-09-19T00:00:00Z"},
+        {"id": "split", "spec": "a disputed test widget for the agreement suite",
+         "tier": 1, "group": "test", "source": "unit-test", "key": "k-split",
+         "added": "2026-09-19T00:00:00Z"},
+    ]
+    specs_file.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+
+_FACTS_SIMPLE = {"solids": 1, "faces": 6, "cyl_faces": 0, "cone_faces": 0,
+                 "volume": 1000.0, "bbox": [10.0, 10.0, 10.0], "bores": [],
+                 "through_holes": 0, "blind_holes": 0}
+_FACTS_DIFFERENT = {"solids": 1, "faces": 10, "cyl_faces": 2, "cone_faces": 0,
+                    "volume": 5000.0, "bbox": [30.0, 20.0, 15.0], "bores": [8.0],
+                    "through_holes": 1, "blind_holes": 0}
+
+
+def _run_agreement_subprocess(repo: Path, cad_json: Path, env_path: Path,
+                              state_dir: Path, specs_file: Path, script_file: Path,
+                              spec_id: str) -> subprocess.CompletedProcess:
+    code = _AGREEMENT_SUBPROCESS_HELPER.format(
+        repo=str(repo), cad_json=str(cad_json), env_path=str(env_path),
+        state_dir=str(state_dir), specs_file=str(specs_file))
+    return subprocess.run([sys.executable, "-c", code, str(script_file), spec_id],
+                          capture_output=True, env=_child_env(), timeout=60.0)
+
+
+def _pairs_for(state_dir: Path, spec_id: str) -> list:
+    path = state_dir / "pairs.jsonl"
+    if not path.exists():
+        return []
+    rows = [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+    return [r for r in rows if r.get("spec_id") == spec_id]
+
+
+def _candidates_for(state_dir: Path, spec_id: str) -> list:
+    path = state_dir / "candidates.jsonl"
+    if not path.exists():
+        return []
+    rows = [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+    return [r for r in rows if r.get("spec_id") == spec_id]
+
+
+def _ledger_for(state_dir: Path, spec_id: str) -> list:
+    path = state_dir / "ledger.jsonl"
+    if not path.exists():
+        return []
+    rows = [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+    return [r for r in rows if r.get("spec_id") == spec_id]
+
+
+def test_agreement_end_to_end_real_subprocess(tmp_path):
+    """Task 3 fix round 2, Section E, the required real-subprocess proof, driving the
+    ACTUAL lab.harvest.main() across several invocations of a shared on-disk state:
+      - two agreeing distinct codes in ONE unit -> 2 good pairs
+      - one gate-clean candidate alone -> 0 pairs, 1 candidates.jsonl row
+      - a later unit's agreeing sample -> BOTH promoted, no duplicates on a third run
+      - a split (disagreeing signatures) -> nothing confirmed
+    """
+    repo = HERE
+    state_dir = tmp_path / "state"
+    specs_file = tmp_path / "specs.jsonl"
+    env_path = tmp_path / "maker.env"
+    _write_agreement_bank(specs_file)
+
+    # -- 1. "agree": two distinct codes, identical signature, in one unit --------------
+    cad_multi = tmp_path / "cad_multi.json"
+    _write_agreement_cad_json(cad_multi, candidates=2, temps=[0.2, 0.5], max_pairs=2)
+    script_agree = tmp_path / "script_agree.json"
+    script_agree.write_text(json.dumps({
+        "codes": ["from build123d import *\nresult = Box(10, 10, 10)\n",
+                 "from build123d import *\nbox_ = Box(10, 10, 10)\nresult = box_\n"],
+        "facts": [dict(_FACTS_SIMPLE), dict(_FACTS_SIMPLE)],
+    }))
+    proc = _run_agreement_subprocess(repo, cad_multi, env_path, state_dir, specs_file,
+                                     script_agree, "agree")
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    agree_pairs = _pairs_for(state_dir, "agree")
+    assert len(agree_pairs) == 2
+    assert all(p["kind"] == "good" and p["confirmed_by"] == "agreement"
+              for p in agree_pairs)
+    assert len({p["code"] for p in agree_pairs}) == 2   # both distinct codes kept
+    agree_ledger = _ledger_for(state_dir, "agree")
+    assert all(r["agreement"] == "agreement" for r in agree_ledger if r.get("ok"))
+
+    # -- 2. "alone": one gate-clean candidate, no partner yet ---------------------------
+    cad_single = tmp_path / "cad_single.json"
+    _write_agreement_cad_json(cad_single, candidates=1, temps=[0.2], max_pairs=2)
+    script_alone_1 = tmp_path / "script_alone_1.json"
+    script_alone_1.write_text(json.dumps({
+        "codes": ["from build123d import *\nresult = Box(20, 20, 20)\n"],
+        "facts": [dict(_FACTS_SIMPLE)],
+    }))
+    proc = _run_agreement_subprocess(repo, cad_single, env_path, state_dir, specs_file,
+                                     script_alone_1, "alone")
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    assert _pairs_for(state_dir, "alone") == []
+    alone_candidates = _candidates_for(state_dir, "alone")
+    assert len(alone_candidates) == 1
+    assert alone_candidates[0]["agreement"] == "unconfirmed"
+    assert alone_candidates[0]["status"] != "promoted"
+    alone_ledger_1 = _ledger_for(state_dir, "alone")
+    assert any(r["agreement"] == "unconfirmed" for r in alone_ledger_1)
+
+    # -- 3. next unit's agreeing sample for "alone" -> BOTH promoted --------------------
+    script_alone_2 = tmp_path / "script_alone_2.json"
+    script_alone_2.write_text(json.dumps({
+        "codes": ["from build123d import *\ncube = Box(20, 20, 20)\nresult = cube\n"],
+        "facts": [dict(_FACTS_SIMPLE)],
+    }))
+    proc = _run_agreement_subprocess(repo, cad_single, env_path, state_dir, specs_file,
+                                     script_alone_2, "alone")
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    alone_pairs = _pairs_for(state_dir, "alone")
+    assert len(alone_pairs) == 2
+    assert all(p["confirmed_by"] == "agreement" for p in alone_pairs)
+    assert len({p["code"] for p in alone_pairs}) == 2
+    # the first candidate's original row is superseded by a "promoted" marker row --
+    # CandidateIndex folds by id, last write wins.
+    alone_candidates_after = _candidates_for(state_dir, "alone")
+    by_id = {}
+    for r in alone_candidates_after:
+        by_id[r["id"]] = r
+    assert any(r.get("status") == "promoted" for r in by_id.values())
+
+    # -- 4. a third run must never duplicate the pair (max_pairs_per_spec already met) -
+    script_alone_3 = tmp_path / "script_alone_3.json"
+    script_alone_3.write_text(json.dumps({"codes": [], "facts": []}))
+    proc = _run_agreement_subprocess(repo, cad_single, env_path, state_dir, specs_file,
+                                     script_alone_3, "alone")
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    assert len(_pairs_for(state_dir, "alone")) == 2   # unchanged, no duplicates
+
+    # -- 5. "split": two gate-clean candidates that disagree -> nothing confirmed ------
+    script_split = tmp_path / "script_split.json"
+    script_split.write_text(json.dumps({
+        "codes": ["from build123d import *\nresult = Box(10, 10, 10)\n",
+                 "from build123d import *\nresult = Cylinder(radius=15, height=20)\n"],
+        "facts": [dict(_FACTS_SIMPLE), dict(_FACTS_DIFFERENT)],
+    }))
+    proc = _run_agreement_subprocess(repo, cad_multi, env_path, state_dir, specs_file,
+                                     script_split, "split")
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    assert _pairs_for(state_dir, "split") == []
+    split_candidates = _candidates_for(state_dir, "split")
+    assert len(split_candidates) == 2
+    assert all(r["agreement"] == "split" for r in split_candidates)
+    split_ledger = _ledger_for(state_dir, "split")
+    assert all(r["agreement"] == "split" for r in split_ledger if r.get("ok"))
