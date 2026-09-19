@@ -65,6 +65,26 @@ class SpecgenAborted(RuntimeError):
 
 _CLEANUP_STARTED = False   # set by _mark_cleanup_started(); see _install_signal_handlers
 
+# Fix round 1 (2026-09-19, Task 3 review H3): set unconditionally by _signal_handler,
+# independent of _CLEANUP_STARTED and of whether the SpecgenAborted it also raises ever
+# reaches the caller. lab/harvest.py's candidate execution goes through
+# scripts/fluid_gen.py's _materialize(), which is frozen (this branch may not edit it)
+# and wraps run_step/render/inspect in bare `except Exception: pass` blocks -- a signal
+# landing during any of those is swallowed there, so the exception alone is not a
+# reliable abort signal for a caller sitting on the other side of that call. This flag
+# is: checked via abort_requested() immediately after any such call returns, so the
+# caller can raise its own fresh SpecgenAborted from a point _materialize's swallowing
+# cannot reach.
+_ABORT_REQUESTED = False
+
+
+def abort_requested() -> bool:
+    """True once a SIGTERM/SIGHUP has been received by this process, even if the
+    SpecgenAborted it also raised was caught and discarded by code this module does not
+    control. Never reset -- once a signal has landed, every subsequent check must keep
+    seeing it; there is exactly one abort per process lifetime."""
+    return _ABORT_REQUESTED
+
 
 def _signal_handler(signum, frame) -> None:
     """Raise SpecgenAborted so the caller's own try/finally (here: arm_window()'s) runs
@@ -74,7 +94,11 @@ def _signal_handler(signum, frame) -> None:
     time WHILE the restore subprocess call is itself blocked would interrupt that call via
     the same PEP 475 mechanism this handler relies on, which could abandon the restore
     mid-way and leave things in a worse state than either finishing it or never starting
-    it."""
+    it. The module-level abort flag above is set FIRST, unconditionally, before that
+    idempotency check -- a caller relying on abort_requested() (see its own docstring)
+    must see the signal regardless of how many times this handler has already fired."""
+    global _ABORT_REQUESTED
+    _ABORT_REQUESTED = True
     if _CLEANUP_STARTED:
         return
     raise SpecgenAborted(f"terminated by signal {signum} ({signal.Signals(signum).name})")
