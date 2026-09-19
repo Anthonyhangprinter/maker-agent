@@ -201,9 +201,12 @@ def test_stats_tier_and_source_maths(monkeypatch):
 
 
 def test_stats_on_empty_bank_does_not_divide_by_zero():
+    # with_reference added by import-teacher-refs (lab/teacher_refs.py, 2026-09-19):
+    # by_tier/by_reference_source over rows carrying reference_stl, empty on an empty bank.
     st = specbank.stats()
     assert st == {"total": 0, "by_tier": {}, "by_source": {}, "by_group": {},
-                  "tier34_share": 0.0}
+                  "tier34_share": 0.0,
+                  "with_reference": {"by_tier": {}, "by_reference_source": {}}}
 
 
 # ---------------------------------------------------------------------------

@@ -16,19 +16,25 @@ stop for the whole batch.
 
   python3 lab/specbank.py import-teacher [--dry-run]
   python3 lab/specbank.py import-references [--dir ~/CAD/references] [--dry-run]
+  python3 lab/specbank.py import-teacher-refs [--dry-run] [--workers 3] [--limit N]
   python3 lab/specbank.py add specs.json --source specgen [--group plate] [--tier 2]
   python3 lab/specbank.py stats
 
-Row shape: {id, spec, tier, group, source, key, added} (+ reference_stl for
-owner-reference rows). Rows are appended to lab/state/specs.jsonl under an exclusive
-flock so concurrent writers (specgen batches now, the harvest unit later) never
-interleave partial lines; the file is never rewritten wholesale.
+Row shape: {id, spec, tier, group, source, key, added} (+ reference_stl/reference_source/
+reference_facts/reference_added for a row with reference geometry -- an owner-reference row,
+or a teacher-suite row promoted by `import-teacher-refs`, see lab/teacher_refs.py). New rows
+are appended to lab/state/specs.jsonl under an exclusive flock so concurrent writers
+(specgen batches now, the harvest unit later) never interleave partial lines; that append
+path never rewrites the file wholesale. `apply_reference_updates` (used by
+`import-teacher-refs` to attach reference geometry to EXISTING rows) is the one exception --
+see its own docstring for why it still never renames the file even though it rewrites it.
 """
 from __future__ import annotations
 
 import argparse
 import fcntl
 import json
+import os
 import shutil
 import sys
 from contextlib import contextmanager
@@ -370,20 +376,110 @@ def import_references(refs_dir: Path = REFERENCES_ROOT, dry_run: bool = False) -
             "folders_found": len(folders)}
 
 
+def apply_reference_updates(updates: dict[str, dict]) -> dict:
+    """Merge `updates` (bank `key` -> extra fields, e.g. reference_stl/reference_source/
+    reference_facts/reference_added) into the matching bank rows. Used by
+    lab/teacher_refs.py's import-teacher-refs to promote admitted teacher-suite geometry,
+    and written to be safe for any future caller with the same shape of update.
+
+    Crash-safe and lock-safe against a concurrent appender (add_items/import_teacher/
+    import_references, all of which flock this SAME file via _locked_bank): this function
+    takes that identical flock directly (open SPECS_FILE "r+", LOCK_EX) and holds it for
+    the whole read-decide-rewrite window, exactly like _locked_bank's own contract.
+
+    It deliberately does NOT reuse _locked_bank's own parsed `rows` as the thing it writes
+    back, and it deliberately does NOT write via a temp file + os.replace:
+
+    - Byte-identity (every row this function does not touch must reappear unchanged):
+      json.dumps(json.loads(line)) is not guaranteed to reproduce the exact original bytes
+      (key order, float formatting, unicode escaping all vary), so untouched rows are kept
+      as their ORIGINAL raw line, verbatim -- only rows named in `updates` are re-serialised.
+
+    - No rename: a temp-file + os.replace swap would give SPECS_FILE a NEW inode while this
+      process still holds the flock on the OLD one. A concurrent appender (add_items) that
+      had already called open(SPECS_FILE, "a+") and is blocked in flock() at that exact
+      moment holds an fd to the OLD inode; once this function unlocks, that appender's
+      flock() call returns and it writes its new row into the now-orphaned, path-unreachable
+      inode -- a write that succeeds and is still lost forever, because nothing reachable by
+      path points at that inode any more. Writing the fully-assembled new content into the
+      SAME already-locked fd (truncate + write, no path change) makes that failure mode
+      structurally impossible: whichever process gets the lock next always opens the one,
+      current, live inode this path has ever pointed to.
+
+    Owner references always winning, and idempotency, both fall out of one rule: a row that
+    already carries `reference_stl` (an owner import, or a previous run of this function) is
+    left completely alone and reported under `skipped_already_has_reference`, never
+    overwritten.
+
+    Returns {"applied": [key, ...], "skipped_already_has_reference": [key, ...],
+    "not_found": [key, ...]} -- `not_found` is any update key with no matching bank row
+    (reported, never silently swallowed)."""
+    empty = {"applied": [], "skipped_already_has_reference": [], "not_found": []}
+    if not updates:
+        return empty
+    if not SPECS_FILE.exists():
+        return {**empty, "not_found": sorted(updates.keys())}
+
+    applied: list[str] = []
+    skipped: list[str] = []
+    seen_keys: set[str] = set()
+    with open(SPECS_FILE, "r+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            raw_lines = [ln for ln in f.read().split("\n") if ln.strip()]
+            out_lines: list[str] = []
+            for raw_line in raw_lines:
+                row = json.loads(raw_line)
+                key = row.get("key")
+                seen_keys.add(key)
+                extra = updates.get(key)
+                if extra is None:
+                    out_lines.append(raw_line)
+                    continue
+                if row.get("reference_stl"):
+                    skipped.append(key)
+                    out_lines.append(raw_line)
+                    continue
+                row.update(extra)
+                out_lines.append(json.dumps(row))
+                applied.append(key)
+            new_content = "".join(line + "\n" for line in out_lines)
+            f.seek(0)
+            f.truncate()
+            f.write(new_content)
+            f.flush()
+            os.fsync(f.fileno())
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+    not_found = sorted(k for k in updates if k not in seen_keys)
+    return {"applied": applied, "skipped_already_has_reference": skipped,
+            "not_found": not_found}
+
+
 def stats(path: Path | None = None) -> dict:
     bank = load_bank(path)
     total = len(bank)
     by_tier: dict[str, int] = {}
     by_source: dict[str, int] = {}
     by_group: dict[str, int] = {}
+    with_ref_by_tier: dict[str, int] = {}
+    with_ref_by_source: dict[str, int] = {}
     for r in bank:
         by_tier[str(r.get("tier"))] = by_tier.get(str(r.get("tier")), 0) + 1
         by_source[r.get("source", "")] = by_source.get(r.get("source", ""), 0) + 1
         by_group[r.get("group", "")] = by_group.get(r.get("group", ""), 0) + 1
+        if r.get("reference_stl"):
+            tier_k = str(r.get("tier"))
+            with_ref_by_tier[tier_k] = with_ref_by_tier.get(tier_k, 0) + 1
+            src_k = r.get("reference_source") or r.get("source", "")
+            with_ref_by_source[src_k] = with_ref_by_source.get(src_k, 0) + 1
     tier34 = sum(n for t, n in by_tier.items() if t in ("3", "4"))
     tier34_share = round(tier34 / total, 4) if total else 0.0
     return {"total": total, "by_tier": by_tier, "by_source": by_source,
-            "by_group": by_group, "tier34_share": tier34_share}
+            "by_group": by_group, "tier34_share": tier34_share,
+            "with_reference": {"by_tier": with_ref_by_tier,
+                               "by_reference_source": with_ref_by_source}}
 
 
 def main() -> int:
@@ -405,6 +501,13 @@ def main() -> int:
     ad.add_argument("--tier", type=int, default=None)
     ad.add_argument("--dry-run", action="store_true")
 
+    itr = sub.add_parser("import-teacher-refs")
+    itr.add_argument("--dry-run", action="store_true")
+    itr.add_argument("--workers", type=int, default=3)
+    itr.add_argument("--limit", type=int, default=None)
+    itr.add_argument("--pairs", type=Path, default=None)
+    itr.add_argument("--decisions", type=Path, default=None)
+
     sub.add_parser("stats")
 
     a = ap.parse_args()
@@ -413,6 +516,17 @@ def main() -> int:
         print(json.dumps(r, indent=2))
     elif a.cmd == "import-references":
         r = import_references(a.dir, dry_run=a.dry_run)
+        print(json.dumps(r, indent=2))
+    elif a.cmd == "import-teacher-refs":
+        # Lazy import: a plain bank/stats/import-teacher run never needs build123d or
+        # cad_engine on the path, same reasoning as _materialize_reference_stl's own
+        # lazy `import geom_bands` above.
+        from lab import teacher_refs  # noqa: PLC0415
+        pairs = a.pairs or teacher_refs.DEFAULT_PAIRS_FILE
+        decisions = a.decisions or teacher_refs.DEFAULT_DECISIONS_FILE
+        r = teacher_refs.import_teacher_refs(pairs_path=pairs, decisions_path=decisions,
+                                             dry_run=a.dry_run, workers=a.workers,
+                                             limit=a.limit)
         print(json.dumps(r, indent=2))
     elif a.cmd == "add":
         raw = json.loads(a.file.read_text())
