@@ -461,7 +461,8 @@ def test_lab_config_partial_override_keeps_other_defaults(tmp_path):
     cfg = _reload_with(tmp_path, {"lab": {"harvest": {"hours_per_day": 6}}})
     lc = cfg.lab_config()
     assert lc["harvest"]["hours_per_day"] == 6
-    assert lc["harvest"]["unit_minutes"] == 10   # untouched default survives
+    assert lc["harvest"]["unit_minutes"] == 25   # untouched default survives (Task 3 ruling: 25)
+    assert lc["harvest"]["day_allowed"] is False   # untouched default survives (Task 3 ruling)
     assert lc["harvest"]["teacher_passes"] == cfg._LAB_DEFAULTS["harvest"]["teacher_passes"]
 
 
@@ -504,12 +505,12 @@ def test_lab_config_returns_deep_copies_never_shared_with_the_defaults(tmp_path)
     lc1["harvest"]["teacher_passes"].append("some-new-pass")
 
     assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
-    assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 10
+    assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 25
     assert cfg._LAB_DEFAULTS["harvest"]["teacher_passes"] == ["think"]
 
     lc2 = cfg.lab_config()
     assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
-    assert lc2["harvest"]["unit_minutes"] == 10
+    assert lc2["harvest"]["unit_minutes"] == 25
     assert lc2 == cfg._LAB_DEFAULTS
     assert lc2 is not cfg._LAB_DEFAULTS
     assert lc2["harvest"] is not cfg._LAB_DEFAULTS["harvest"]
