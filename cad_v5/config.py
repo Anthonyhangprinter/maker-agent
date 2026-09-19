@@ -485,8 +485,56 @@ _LAB_DEFAULTS = {
         # pair row holds the code itself; the build dir is only supplementary render/
         # mesh evidence.
         "keep_builds": 500,
+        # Task 3c (2026-09-19, fix round for the first real unit's zero-pair result):
+        # a round only samples this many candidates before checking whether ANY of them
+        # was gate-clean; if none was, the round stops there rather than burning the
+        # rest of the tier's candidate budget on a spec the model is currently unable to
+        # build at all (see lab/harvest.py's own module docstring and sample_spec()).
+        "probe_candidates": 2,
+        # Task 3c: OFF by default -- the first real unit spent a repair codegen call
+        # (plus a rebuild) on every crash, and a salvage candidate can neither confirm
+        # nor be confirmed (fix round 3, H1), so with salvage on every one of those
+        # calls was pure cost. Set true to restore the old always-salvage behaviour.
+        "salvage": False,
+        # Task 3c: a weighted round-robin over tiers, replacing "tier 3-4 first while
+        # the pairs' tier34 share is under 0.40" (with zero pairs that condition never
+        # stops being true, so the scheduler started on the hardest, mostly model-
+        # written specs every single round). Tier 2 and 3 carry the most weight; tier 3
+        # (the "hard but not extreme" band) still gets the most GPU time, but no longer
+        # monopolises the front of the queue the way "tier 3-4 always first" did.
+        "tier_weights": {"1": 1, "2": 3, "3": 4, "4": 1},
+        # Task 3c: combined with the unit's own calendar date to seed the deterministic
+        # shuffle _order_specs() uses to break ties within one scheduling group -- see
+        # that function's own docstring. Two units on the same calendar day reproduce
+        # the same order (useful for a smoke re-run); the next day's units do not repeat
+        # it verbatim.
+        "seed": 1,
     }
 }
+
+
+def _valid_tier_weights(tw) -> bool:
+    """True when `tw` is a non-empty dict of tier -> a non-negative number with a
+    strictly positive sum (Task 3c: "tier_weights as a list/string/negative/zero-sum
+    must fall back to the default"). A list or a string is already caught upstream by
+    `_sanitize_against_defaults`'s own "not a dict" fallback (tier_weights' own default
+    is a dict, so a non-dict override there is replaced before this function ever sees
+    it) -- this function exists for the narrower case that passes that generic check
+    (a real dict of numbers) but is still unusable: every weight zero/negative, or the
+    whole thing summing to zero, which would either stall the scheduler or divide by
+    zero inside _tier_weight()'s own callers."""
+    if not isinstance(tw, dict) or not tw:
+        return False
+    total = 0.0
+    for v in tw.values():
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return False
+        if v < 0:
+            return False
+        total += v
+    return total > 0
 
 
 def _sanitize_against_defaults(defaults: dict, value, path: str = "lab") -> dict:
@@ -536,12 +584,27 @@ def lab_config() -> dict:
       {"harvest": {"night_start", "night_end", "day_allowed", "hours_per_day",
                     "unit_minutes", "candidates", "temps", "candidates_tier34",
                     "temps_tier34", "max_pairs_per_spec", "attempt_caps",
-                    "agreement", "strict", "teacher_passes", "keep_builds"}}
+                    "agreement", "strict", "teacher_passes", "keep_builds",
+                    "probe_candidates", "salvage", "tier_weights", "seed"}}
     Same file/pattern as maker_config()/cloud_config()/print_config() above: never put
     this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
-    Global Constraints for where these defaults come from."""
+    Global Constraints for where these defaults come from.
+
+    `tier_weights` gets one extra pass beyond the generic dict-shape sanitizing above
+    (Task 3c): a list or a string there already falls back to the default via the
+    generic "not a dict" branch, but a real dict of negative or all-zero weights would
+    pass that check and still be unusable, so `_valid_tier_weights` is checked
+    explicitly and the whole sub-value (never a partial merge of it) falls back to
+    `_LAB_DEFAULTS`'s own tier_weights, deep-copied, on any failure -- this function
+    never raises regardless of what cad.json holds."""
     user = load_config().get("cad", {}).get("lab")
-    return _sanitize_against_defaults(_LAB_DEFAULTS, user)
+    out = _sanitize_against_defaults(_LAB_DEFAULTS, user)
+    tw = out.get("harvest", {}).get("tier_weights")
+    if not _valid_tier_weights(tw):
+        log.warning("[v5] cad.json's lab.harvest.tier_weights is invalid (%r); using "
+                    "defaults.", tw)
+        out["harvest"]["tier_weights"] = copy.deepcopy(_LAB_DEFAULTS["harvest"]["tier_weights"])
+    return out
 
 
 def tg_token() -> str:

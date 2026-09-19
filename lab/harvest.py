@@ -95,11 +95,9 @@ cheap gates below could run, so a daytime tick paid a full resident bounce just 
 discover it should skip. `--check-gate` runs the exact same `_unit_gate()` function
 `--unit` re-checks once inside the window, PLUS a non-blocking probe of the CAD build
 lock (`flock -n`, open-and-release, never waits -- unlike `lab/gpu_window.sh`'s own
-`flock`, which on THIS branch's checked-out `lab/gpu_window.sh` (frozen for this fix
-round -- not edited here) still waits up to one hour (`flock -w 3600`, exit 3) before
-giving up; a sibling, not-yet-merged branch (`maker-1.0/phase3-3a`) changes that wait to
-a `GPU_WINDOW_LOCK_WAIT_SEC`-controlled duration (120s from the unit script) with exit
-75 on a still-busy lock -- re-check this note once that branch merges here. Either way
+`flock`, which now (Task 3a, merged onto this branch 2026-09-19) waits up to
+`GPU_WINDOW_LOCK_WAIT_SEC` seconds (default 3600; `lab/harvest_unit.sh` sets 120 for the
+timer's own tick) before giving up, exiting 75 (EX_TEMPFAIL) on a still-busy lock.
 `lab/gpu_window.sh` stays the real arbiter; this probe is only a cheap "worth trying"
 signal), and exits 0 (go) or 3 (skip, reason on stderr).
 `lab/harvest_unit.sh` runs it first and only enters the GPU window on a 0.
@@ -129,6 +127,7 @@ import io
 import json
 import math
 import os
+import random
 import re
 import shutil
 import socket
@@ -789,14 +788,13 @@ def _gpu_proxy_waiting(timeout: float = 2.0) -> int:
 def _build_lock_free() -> bool:
     """Non-blocking probe (Task 3 fix H4): true when the CAD build lock (BUILD_LOCK_FILE,
     env-overridable so tests never touch the real lock) is currently uncontended. This is
-    instant and NEVER waits, unlike lab/gpu_window.sh's own flock -- on this checked-out
-    `lab/gpu_window.sh` (frozen for this fix round; see the module docstring's own note
-    on the pending `maker-1.0/phase3-3a` change to its wait duration/exit code) that is
-    still `flock -w 3600` (up to one hour, exit 3) -- it exists purely so --check-gate
-    can decide "worth trying" a real GPU window without paying for one. It is not a
-    second locking scheme: nothing here ever holds the lock past the probe itself, and
-    `--unit` inside a real window never calls this (by the time it runs, gpu_window.sh
-    already holds the lock as this process's own ancestor)."""
+    instant and NEVER waits, unlike lab/gpu_window.sh's own flock -- see the module
+    docstring's own note on that wait (GPU_WINDOW_LOCK_WAIT_SEC, default 3600, exit 75 on
+    a still-busy lock) -- it exists purely so --check-gate can decide "worth trying" a
+    real GPU window without paying for one. It is not a second locking scheme: nothing
+    here ever holds the lock past the probe itself, and `--unit` inside a real window
+    never calls this (by the time it runs, gpu_window.sh already holds the lock as this
+    process's own ancestor)."""
     try:
         BUILD_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(BUILD_LOCK_FILE, "a+") as f:
@@ -936,22 +934,135 @@ def _exhausted_specs(bank: list[dict], progress: dict, cfg: dict) -> list[dict]:
     return out
 
 
-def _order_specs(pool: list[dict], progress: dict, prefer_tier34: bool) -> list[dict]:
-    """Tier 3-4 first while the pairs' tier34 share is under 0.40, else round-robin.
-    "Round robin" is implemented as sort-by-(attempts-so-far, id): a spec sampled this unit
-    gains an attempt, which pushes it later in every future ordering, so repeated calls
-    across units spread attempts evenly without needing a separate pointer/cursor file."""
-    def attempts(row: dict) -> int:
-        e = progress.get(row["id"], {})
-        return e.get("student_attempts", 0) + e.get("teacher_attempts", 0)
+_DEFAULT_TIER_WEIGHTS = {"1": 1, "2": 3, "3": 4, "4": 1}
 
-    if prefer_tier34:
-        hi = sorted((r for r in pool if str(r.get("tier")) in _TIER34),
-                   key=lambda r: (attempts(r), r["id"]))
-        lo = sorted((r for r in pool if str(r.get("tier")) not in _TIER34),
-                   key=lambda r: (attempts(r), r["id"]))
-        return hi + lo
-    return sorted(pool, key=lambda r: (attempts(r), r["id"]))
+
+def _live_candidate_spec_ids() -> set:
+    """spec_ids with at least one CANDIDATES_FILE row that is not yet terminal (not
+    "promoted" or "rejected_at_promotion") -- Task 3c's "cheapest to confirm" scheduling
+    signal: a live unconfirmed candidate is already sitting on disk waiting for an
+    agreeing partner, so sampling that spec again might confirm it outright rather than
+    needing agreement from scratch. Same fold-by-id-keep-last discipline as
+    CandidateIndex (an append-only log; a later status row supersedes the original)."""
+    by_id: dict = {}
+    for r in _read_jsonl(CANDIDATES_FILE):
+        rid = r.get("id")
+        if rid:
+            by_id[rid] = r
+    return {r.get("spec_id") for r in by_id.values()
+           if r.get("status") not in ("promoted", "rejected_at_promotion")}
+
+
+def _tier_weight(tier_weights: dict, tier: str) -> float:
+    try:
+        w = float((tier_weights or {}).get(tier, 0))
+    except (TypeError, ValueError):
+        w = 0.0
+    return w if w > 0 else 0.0
+
+
+def _intra_tier_key(row: dict, progress: dict, carried_ids: set) -> tuple:
+    """(source_bucket, status_bucket): the sort key that decides where a spec falls
+    WITHIN its own tier (Task 3c, replacing "tier 3-4 always first"), before the seeded
+    shuffle in _order_specs breaks ties inside one bucket.
+
+    source_bucket: 0 for anything but a model-written `specgen` spec (teacher suites,
+    owner references), 1 for `specgen` -- the first real unit's finding was that the
+    scheduler started on exactly the specs the model mostly cannot build (source
+    "specgen"), so those now pay LAST inside a tier, never first.
+
+    status_bucket: 0 when a live unconfirmed candidate already sits on disk for this
+    spec (carried_ids, see _live_candidate_spec_ids) -- cheapest to confirm; 1 when the
+    spec has never been sampled (student_attempts == teacher_attempts == 0); 2 otherwise
+    -- a "cold" spec, meaning a previous round was sampled and ended with nothing live
+    to confirm (this is DERIVED, not a stored flag: a spec with attempts and no live
+    candidate is, by construction, exactly a spec whose last round(s) never landed on a
+    confirmable candidate)."""
+    source_bucket = 1 if row.get("source") == "specgen" else 0
+    entry = progress.get(row["id"], {})
+    attempts = entry.get("student_attempts", 0) + entry.get("teacher_attempts", 0)
+    if row["id"] in carried_ids:
+        status_bucket = 0
+    elif attempts == 0:
+        status_bucket = 1
+    else:
+        status_bucket = 2
+    return (source_bucket, status_bucket)
+
+
+def _seeded_rng(cfg: dict, today: str) -> random.Random:
+    """A deterministic RNG from `lab.harvest.seed` (default 1) combined with a calendar
+    date: two _order_specs() calls on the SAME date reproduce the same tie-break order
+    (useful for re-running a smoke test), while the next day's units do not repeat it
+    verbatim -- see _order_specs's own docstring."""
+    payload = f"{cfg.get('seed', 1)}:{today}"
+    digest = hashlib.sha1(payload.encode()).hexdigest()
+    return random.Random(int(digest[:16], 16))
+
+
+def _order_specs(pool: list[dict], progress: dict, cfg: dict,
+                 today: Optional[str] = None) -> list[dict]:
+    """A weighted round-robin over tiers (Task 3c, replacing "tier 3-4 first while the
+    pairs' tier34 share is under 0.40" -- with zero pairs that condition never stops
+    being true, so the old scheduler started every single round on the hardest,
+    mostly model-written specs). `cfg["tier_weights"]` (default
+    cad_v5.config._LAB_DEFAULTS: {"1": 1, "2": 3, "3": 4, "4": 1}) sets each tier's
+    share of the unit; tiers with no eligible spec, or a non-positive/missing weight,
+    are skipped rather than stalling the interleave. The 40% tier 3-4 GOOD-pair share
+    this replaced stays visible in `_pairs_stats()`'s own `good_tier34_share` as a
+    reported goal, never again as a scheduling condition.
+
+    Within one tier, specs are grouped by `_intra_tier_key` (non-specgen before specgen;
+    inside that, a carried unconfirmed candidate first, then never-tried, then cold
+    last) and groups are emitted in that key's ascending order. Ties WITHIN one group
+    are broken by a seeded shuffle (`_seeded_rng`, keyed on `cfg["seed"]` and `today`,
+    default today's calendar date) -- each group is sorted by spec id first so the
+    shuffle's result depends only on (seed, date, the group's own membership), never on
+    the caller's incoming `pool` order, which is what makes "one unit's order is
+    reproducible" true regardless of how the pool was assembled upstream. The seed in
+    effect is printed to stderr once per call."""
+    if not pool:
+        return []
+    today = today or datetime.now().date().isoformat()
+    rng = _seeded_rng(cfg, today)
+    print(f"harvest: spec order seed={cfg.get('seed', 1)!r} date={today}", file=sys.stderr)
+    carried_ids = _live_candidate_spec_ids()
+    weights = cfg.get("tier_weights") or _DEFAULT_TIER_WEIGHTS
+
+    by_tier: dict[str, list] = {}
+    for row in pool:
+        by_tier.setdefault(str(row.get("tier")), []).append(row)
+
+    ordered_by_tier: dict[str, list] = {}
+    for tier, rows in by_tier.items():
+        groups: dict[tuple, list] = {}
+        for row in rows:
+            groups.setdefault(_intra_tier_key(row, progress, carried_ids), []).append(row)
+        tier_order: list = []
+        for key in sorted(groups):
+            group = sorted(groups[key], key=lambda r: r["id"])
+            rng.shuffle(group)
+            tier_order.extend(group)
+        ordered_by_tier[tier] = tier_order
+
+    idx = {t: 0 for t in ordered_by_tier}
+    counts = {t: 0 for t in ordered_by_tier}
+    total = sum(len(v) for v in ordered_by_tier.values())
+    order: list[dict] = []
+    while len(order) < total:
+        active = [t for t in ordered_by_tier
+                 if idx[t] < len(ordered_by_tier[t]) and _tier_weight(weights, t) > 0]
+        if not active:
+            # Every tier with specs left has a zero/missing configured weight -- fall
+            # back to a fixed (tier id ascending) order rather than stalling forever.
+            active = sorted(t for t in ordered_by_tier if idx[t] < len(ordered_by_tier[t]))
+            if not active:
+                break
+        best = min(active, key=lambda t: ((counts[t] + 1) / (_tier_weight(weights, t) or 1.0), t))
+        order.append(ordered_by_tier[best][idx[best]])
+        idx[best] += 1
+        counts[best] += 1
+    return order
 
 
 def _unit_gate(cfg: dict) -> Optional[str]:
@@ -1333,6 +1444,13 @@ def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: di
     -- see this module's docstring) is caught via _check_abort() immediately after each
     call returns.
 
+    Salvage is gated on `cfg["lab.harvest.salvage"]` (Task 3c, default OFF): the first
+    real unit spent one repair codegen call plus a rebuild on every crash, and a salvage
+    candidate can neither confirm nor be confirmed (fix round 3, H1), so with salvage on
+    every one of those calls was pure cost when the model is simply unable to build the
+    spec at all. When off, a crash gets its one ledger row and nothing more -- no repair
+    call, no second materialize.
+
     `deadline` (monotonic seconds), when given and already passed, skips the salvage
     attempt entirely (fix round 2, D1): no salvage codegen call starts once the unit's
     time budget is spent, matching the same rule sample_spec already applies before every
@@ -1349,7 +1467,8 @@ def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: di
     m = _regate_and_strict(m_fluid, build_dir, spec, cfg)
     out = [{"code": code, "prompt_info": prompt_info, "m": m, "turn": "first",
            "seconds": gen_seconds + (time.monotonic() - t0)}]
-    if m["error"] and not (deadline is not None and time.monotonic() >= deadline):
+    if (m["error"] and cfg.get("salvage", False)
+            and not (deadline is not None and time.monotonic() >= deadline)):
         t1 = time.monotonic()
         try:
             _, hint = diagnose(m["error"])
@@ -1859,6 +1978,38 @@ def _cluster_codes(cluster: list[dict], exclude: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Adaptive sampling (Task 3c, 2026-09-19): the first real harvest unit spent 27 GPU
+# minutes and produced ZERO pairs across 3 specs / 22 ledger rows, because every
+# candidate of a tier 3-4 round was sampled even when the first ones all crashed --
+# rejection sampling pays at the model's capability frontier, not above it. A round now
+# PROBES a small number of candidates first and gives up early (a "cold" round) when
+# none of them was even gate-clean, unless a candidate already carried over from an
+# earlier round gives the spec something worth trying one more sample for.
+# ---------------------------------------------------------------------------
+
+def _probe_indices(n: int, is_tier34: bool, probe_candidates: int) -> tuple[list[int], list[int]]:
+    """(probe, rest): the 0-based candidate indices (each maps to `temps[i % len(temps)]`
+    exactly as the main loop always has) to try during a round's PROBE stage, and the
+    remaining indices to try only once the probe finds at least one gate-clean candidate.
+
+    Tier 3-4 spreads its probe across the tier's own temperature list (stride 2 -- with
+    the shipped defaults, `candidates_tier34=5` and `probe_candidates=2`, that is indices
+    0 and 2, i.e. temperatures 0.2 and 0.5) so the two probe samples cover more of the
+    range than two adjacent low temperatures would; tiers 1-2 just take the first
+    `probe_candidates` indices, unchanged from the old always-sequential order (their
+    geometry is simple enough that the old single-probe-sized budget rarely needed a
+    change). `probe_candidates` is floored at 1: a probe of zero candidates cannot ever
+    decide anything."""
+    probe_candidates = max(1, int(probe_candidates))
+    if is_tier34:
+        probe = list(range(0, n, 2))[:probe_candidates]
+    else:
+        probe = list(range(min(probe_candidates, n)))
+    rest = [i for i in range(n) if i not in probe]
+    return probe, rest
+
+
+# ---------------------------------------------------------------------------
 # Per-spec sampling
 # ---------------------------------------------------------------------------
 
@@ -1930,6 +2081,14 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
     else:
         temps = cfg.get("temps") or [0.2]
         n = max(1, int(cfg.get("candidates", 1)))
+    # Task 3c: probe/rest ordering for the adaptive-sampling stop below. `probe_order`
+    # is what the main loop actually iterates; `candidate_label` (and hence the ledger's
+    # own `candidate` field, and which temperature is used) always reflects the ORIGINAL
+    # index `i`, never the probe-reordered position -- only the ORDER candidates are
+    # tried in changes, not their identity.
+    probe_idx, rest_idx = _probe_indices(n, is_tier34,
+                                        cfg.get("probe_candidates", 2))
+    probe_order = probe_idx + rest_idx
     attempt_key = "student_attempts" if mode == "student" else "teacher_attempts"
     agreement_cfg = cfg.get("agreement") or {}
     gv = gate_version(cfg)
@@ -2093,10 +2252,26 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
     # round's single attempt-key increment only when it is still False, i.e. the round
     # produced NOTHING (aborted/infra-errored before even one candidate finished).
     completed_any = False
+    # Task 3c: `probe_found_clean` flips True the moment ANY attempt (first or salvage,
+    # any turn) this round classifies "good" -- see _classify's own verdict table. A
+    # carried unconfirmed candidate already sitting on disk for this spec is "there is
+    # something to confirm" (Task 3c ruling, verbatim): it earns the round one extra try
+    # beyond the plain probe size before giving up cold.
+    probe_found_clean = False
+    stop_threshold = min(len(probe_order), len(probe_idx) + (1 if carried else 0))
     try:
         try:
-            for i in range(n):
+            for pos, i in enumerate(probe_order):
                 _check_abort()
+                # Task 3c: the adaptive-sampling stop. Checked at the TOP of the loop
+                # (rather than after each candidate) so it also applies when the
+                # PREVIOUS candidate's codegen call raised and `continue`d straight past
+                # the bottom of the loop body -- a codegen failure still spent one of
+                # the round's probe tries. `pos` at this point is exactly the count of
+                # candidates already attempted (0-based), so `pos >= stop_threshold`
+                # means the probe (plus any carried-candidate allowance) is fully spent.
+                if pos >= stop_threshold and not probe_found_clean:
+                    break
                 # Fix round 2, Section C: only an ALREADY-CONFIRMED pair count stops
                 # sampling early -- a merely gate-clean, unconfirmed candidate must not
                 # (the old early stop fired on exactly that, which is how a wrong
@@ -2105,7 +2280,7 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
                     break
                 if deadline is not None and time.monotonic() >= deadline:
                     break
-                if i == 0:
+                if pos == 0:
                     # Fix round 3, LOW3: one attempt per ROUND (this whole sample_spec
                     # call), charged only once the round actually starts working, not
                     # once per candidate inside it.
@@ -2138,7 +2313,7 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
                     # The candidate already generated code but there is no time left to
                     # materialize it; drop it rather than starting work we cannot finish.
                     # No attempt-count adjustment here any more (fix round 3, LOW3): the
-                    # round already spent its one attempt at i==0 regardless of exactly
+                    # round already spent its one attempt at pos==0 regardless of exactly
                     # how many of its candidates got through before the deadline.
                     break
 
@@ -2150,6 +2325,13 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
                         label = (candidate_label if attempt["turn"] == "first"
                                 else f"{candidate_label}-salvage")
                         verdict, band_info = _classify(attempt["m"], reference_stl, build_dir)
+                        if verdict == "good":
+                            # Task 3c: a "good" verdict (of ANY turn -- first or salvage,
+                            # confirmed or not yet) is proof the model CAN build this
+                            # spec, which is exactly what the probe is checking for --
+                            # never mind whether this particular sample goes on to be a
+                            # duplicate, a lone unconfirmed candidate, or a full pair.
+                            probe_found_clean = True
                         persisted = (_persist_build(build_dir, unit_id, spec_id, label)
                                     if verdict not in ("none", "unscored") else None)
                         usage = (attempt["prompt_info"] or {}).get("usage")
@@ -2285,17 +2467,109 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
 # Status
 # ---------------------------------------------------------------------------
 
-def _pass_rate(rows: list[dict], key_fn) -> dict:
+def _rate_by(rows: list[dict], key_fn, pred) -> dict:
+    """{key: round(hits/total, 4)} for whatever `pred(row)` counts as a hit, grouped by
+    `key_fn(row)` (None keys are dropped -- nothing to group them under). Generalises the
+    old `_pass_rate` (confirmed-good pass rate) to also drive `_row_is_gate_clean` (Task
+    3c's `gate_clean_rate_by_*`, the model's raw success rate BEFORE cross-candidate
+    agreement is even considered)."""
     counts: dict = {}
-    goods: dict = {}
+    hits: dict = {}
     for r in rows:
         k = key_fn(r)
         if k is None:
             continue
         counts[k] = counts.get(k, 0) + 1
-        if _row_is_good(r):
-            goods[k] = goods.get(k, 0) + 1
-    return {k: round(goods.get(k, 0) / n, 4) for k, n in counts.items()}
+        if pred(r):
+            hits[k] = hits.get(k, 0) + 1
+    return {k: round(hits.get(k, 0) / n, 4) for k, n in counts.items()}
+
+
+def _pass_rate(rows: list[dict], key_fn) -> dict:
+    return _rate_by(rows, key_fn, _row_is_good)
+
+
+def _row_is_gate_clean(row: dict) -> bool:
+    """True for a ledger row whose candidate was gate-clean (Task 3c: `_classify`'s own
+    "good" verdict), regardless of whether it went on to be CONFIRMED -- the model's raw
+    success rate, one step upstream of `_row_is_good`'s confirmed-good rate. Mirrors
+    `_is_good`'s own condition directly off the ledger row's stored fields, since the
+    ledger never stores the verdict string itself: `ok` (error is None) is not enough on
+    its own -- an "unscored" row also has `ok=True` (see _ledger_row's own comment on
+    why regate reports its error as None there), so it must be excluded explicitly."""
+    if not row.get("ok") or row.get("unscored_reason"):
+        return False
+    if row.get("gate_hard") or row.get("gate_spec"):
+        return False
+    return row.get("band") in (None, "match")
+
+
+def _spec_source_map(bank: list[dict]) -> dict:
+    return {r.get("id"): r.get("source") for r in bank}
+
+
+def _row_source_group(row: dict, spec_source: dict) -> str:
+    """"specgen" vs "other" for a ledger row, joined against the bank by spec_id (the
+    ledger itself never carries the spec's bank `source` -- Task 3c's whole point was
+    that a model-written `specgen` spec behaves very differently from a teacher-suite/
+    owner-reference one, so the status breakdown needs this distinction even though the
+    ledger row predates it)."""
+    return "specgen" if spec_source.get(row.get("spec_id")) == "specgen" else "other"
+
+
+def _cold_specs_count(bank: list[dict], progress: dict, cfg: dict) -> int:
+    """Count of currently-ELIGIBLE specs (student or teacher pool -- see _eligible_pools)
+    sitting in the "cold" bucket _intra_tier_key uses for scheduling: sampled at least
+    once, and with no live unconfirmed candidate on disk right now. Reported so the
+    owner can see, at a glance, how many specs the harvest has tried and gotten nothing
+    confirmable from yet -- distinct from `exhausted_specs` (used up its full teacher
+    attempt budget and given up for good)."""
+    student_pool, teacher_pool = _eligible_pools(bank, progress, cfg)
+    spec_ids = {r["id"] for r in student_pool} | {r["id"] for r in teacher_pool}
+    carried_ids = _live_candidate_spec_ids()
+    count = 0
+    for spec_id in spec_ids:
+        entry = progress.get(spec_id, {})
+        attempts = entry.get("student_attempts", 0) + entry.get("teacher_attempts", 0)
+        if attempts > 0 and spec_id not in carried_ids:
+            count += 1
+    return count
+
+
+def _yield_stats(ledger_rows: list[dict]) -> dict:
+    """Confirmed good pairs per GPU-hour (Task 3c: the number the owner tunes
+    `tier_weights` against), both cumulative (the whole ledger) and for just the most
+    recently written unit_id. GPU-hours are the sum of ledger `seconds` -- the exact
+    same field `_hours_today`/`nights_completed` already treat as authoritative wall
+    time spent, converted to hours. `good_pairs_per_gpu_hour` is None (never a
+    ZeroDivisionError, never a misleading 0.0) when there is no ledger time to divide
+    by yet."""
+    def _per_hour(good: int, seconds: float) -> Optional[float]:
+        hours = seconds / 3600.0
+        return round(good / hours, 4) if hours > 0 else None
+
+    last_unit = ledger_rows[-1].get("unit_id") if ledger_rows else None
+    total_seconds = last_seconds = 0.0
+    total_good = last_good = 0
+    for r in ledger_rows:
+        try:
+            secs = float(r.get("seconds") or 0.0)
+        except (TypeError, ValueError):
+            secs = 0.0
+        good = _row_is_good(r)
+        total_seconds += secs
+        total_good += int(good)
+        if r.get("unit_id") == last_unit:
+            last_seconds += secs
+            last_good += int(good)
+    return {
+        "cumulative": {"good_pairs": total_good,
+                      "gpu_hours": round(total_seconds / 3600.0, 4),
+                      "good_pairs_per_gpu_hour": _per_hour(total_good, total_seconds)},
+        "last_unit": {"unit_id": last_unit, "good_pairs": last_good,
+                     "gpu_hours": round(last_seconds / 3600.0, 4),
+                     "good_pairs_per_gpu_hour": _per_hour(last_good, last_seconds)},
+    }
 
 
 def _pairs_stats() -> dict:
@@ -2353,7 +2627,8 @@ def _confirmation_status(ledger_rows: list[dict], bank: list[dict], progress: di
     `stale_candidates` (fix round 3, M3): unconfirmed candidates whose stored
     `gate_version` does not match today's effective one -- they can neither confirm nor
     be promoted until the bank/config catches up with them (see CandidateIndex's own
-    gate_version filtering)."""
+    gate_version filtering).
+    `cold_specs` (Task 3c): see _cold_specs_count's own docstring."""
     cfg_gv = gate_version(cfg)
     candidate_rows = _read_jsonl(CANDIDATES_FILE)
     latest_by_id: dict[str, dict] = {}
@@ -2377,6 +2652,7 @@ def _confirmation_status(ledger_rows: list[dict], bank: list[dict], progress: di
         "confirmed_by": confirmed_by,
         "split_specs": split_specs,
         "exhausted_specs": len(_exhausted_specs(bank, progress, cfg)),
+        "cold_specs": _cold_specs_count(bank, progress, cfg),
     }
 
 
@@ -2410,6 +2686,7 @@ def _compute_status() -> dict:
     progress = _load_progress()
     _, teacher_pool = _eligible_pools(bank, progress, cfg)
     unscored = sum(1 for r in ledger_rows if r.get("unscored_reason"))
+    spec_source = _spec_source_map(bank)
     return {
         "updated": _now_utc(),
         "specs": {"total": len(bank), "by_tier": specs_by_tier},
@@ -2420,7 +2697,18 @@ def _compute_status() -> dict:
             "pass_rate_by_tier": _pass_rate(ledger_rows, lambda r: str(r.get("tier"))),
             "pass_rate_by_pass": _pass_rate(ledger_rows, lambda r: r.get("pass")),
             "last_unit": ledger_rows[-1].get("unit_id") if ledger_rows else None,
+            # Task 3c: raw gate-clean rate (upstream of confirmation) and confirmed-good
+            # rate, both by tier and by bank source (specgen vs the rest) -- the numbers
+            # the owner tunes tier_weights against, alongside `yield` below.
+            "gate_clean_rate_by_tier": _rate_by(ledger_rows, lambda r: str(r.get("tier")),
+                                               _row_is_gate_clean),
+            "gate_clean_rate_by_source": _rate_by(
+                ledger_rows, lambda r: _row_source_group(r, spec_source), _row_is_gate_clean),
+            "confirmed_rate_by_tier": _pass_rate(ledger_rows, lambda r: str(r.get("tier"))),
+            "confirmed_rate_by_source": _rate_by(
+                ledger_rows, lambda r: _row_source_group(r, spec_source), _row_is_good),
         },
+        "yield": _yield_stats(ledger_rows),
         "think_pass": _think_pass_status(cfg, len(teacher_pool)),
         "confirmation": _confirmation_status(ledger_rows, bank, progress, cfg),
         "budget": {
@@ -2475,8 +2763,10 @@ def run_unit(cfg: dict) -> dict:
     pool = teacher_pool if mode == "think" else student_pool
     processed = 0
     if pool:
-        prefer_tier34 = pair_index.good_tier34_share() < 0.40
-        ordered = _order_specs(pool, progress, prefer_tier34)
+        # Task 3c: the weighted round-robin (see _order_specs's own docstring) replaces
+        # the old "tier 3-4 first while good_tier34_share() < 0.40" rule -- that share
+        # stays visible in status (_pairs_stats) as a reported goal only.
+        ordered = _order_specs(pool, progress, cfg)
         for row in ordered:
             _check_abort()   # between specs (Task 3 fix H3)
             if time.monotonic() >= deadline:
