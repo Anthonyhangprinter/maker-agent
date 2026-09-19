@@ -1,0 +1,19 @@
+# deploy/lab-harvest.service  ->  ~/.config/systemd/user/lab-harvest.service
+[Unit]
+Description=Phase 3 data engine harvest unit (samples the maker arm into training pairs)
+After=network.target
+
+[Service]
+Type=oneshot
+# One SIGTERM to the whole unit's cgroup on `systemctl --user stop`, not just the shell
+# script's own PID -- lab/gpu_window.sh's own signal handling then does the reviewed
+# stop path (TERM the child, KILL after grace, restore the box) exactly as it does for
+# a manual `kill <pid>` (Task 3 ruling).
+KillMode=mixed
+TimeoutStopSec=400
+# Dead-man cap well above one unit's own unit_minutes (25) plus the ~70s GPU eviction/
+# restore overhead: a unit that somehow runs long is killed rather than holding the GPU
+# and the build lock into the next scheduled tick.
+RuntimeMaxSec=2400
+WorkingDirectory=%h/.openclaw/skills/cad-builder
+ExecStart=%h/.openclaw/skills/cad-builder/lab/harvest_unit.sh

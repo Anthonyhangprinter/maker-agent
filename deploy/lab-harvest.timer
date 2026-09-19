@@ -1,0 +1,10 @@
+# deploy/lab-harvest.timer  ->  ~/.config/systemd/user/lab-harvest.timer
+[Unit]
+Description=Run the Phase 3 harvest unit every 30 minutes
+
+[Timer]
+OnCalendar=*:0/30
+Persistent=false
+
+[Install]
+WantedBy=timers.target

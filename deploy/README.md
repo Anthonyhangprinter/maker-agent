@@ -16,6 +16,47 @@ Whether it fits is a real question on one 24GB card: the maker running `gemma-4-
 
 Install: `install -m 755 deploy/critic-server ~/.local/bin/critic-server && install -m 644 deploy/critic-server.service ~/.config/systemd/user/critic-server.service && systemctl --user daemon-reload`
 
+## lab-harvest (Phase 3 data engine, NOT installed/enabled by this change)
+
+`lab/harvest_unit.sh` is the timer's launcher: a non-blocking `flock` on
+`lab/state/harvest.lock` (a still-running unit makes the next tick skip, not queue) then
+`exec lab/gpu_window.sh python3 lab/harvest.py --unit` -- it calls `gpu_window.sh`
+unmodified, the one thing on this box that ever takes `~/.openclaw/cad-build.lock`. No
+second locking scheme.
+
+`lab-harvest.service` is `Type=oneshot` with `KillMode=mixed` + `TimeoutStopSec=400`, so a
+`systemctl --user stop lab-harvest.service` sends ONE SIGTERM to the whole unit (not just
+the shell script's own PID), which `gpu_window.sh` then handles the same way it handles a
+manual `kill <pid>`: TERM the child, KILL it after the grace period if it ignores that,
+restore the resident or the maker arm (whichever was active before), in that order.
+`RuntimeMaxSec=2400` is a dead-man cap well clear of one unit's own `unit_minutes` (25)
+plus the ~70s GPU eviction/restore overhead a unit pays switching arms.
+
+`lab-harvest.timer` fires every 30 minutes (`OnCalendar=*:0/30`); `harvest.py --unit`
+itself decides whether a given tick actually does anything (paused file, night window,
+today's GPU-hour budget, the gpu-proxy's queue, the bank being exhausted -- see
+`lab/harvest.py`'s own module docstring), so most ticks outside the 22:00-07:00 window
+are expected to be quick no-ops.
+
+Install (paths below assume `maker-1.0/phase3` has been merged into the main
+`~/.openclaw/skills/cad-builder` checkout -- NOT the `cad-builder-phase3` worktree these
+files were authored in):
+
+```
+install -m 755 lab/harvest_unit.sh ~/.openclaw/skills/cad-builder/lab/harvest_unit.sh
+install -m 644 deploy/lab-harvest.service ~/.config/systemd/user/lab-harvest.service
+install -m 644 deploy/lab-harvest.timer ~/.config/systemd/user/lab-harvest.timer
+systemctl --user daemon-reload
+systemctl --user enable --now lab-harvest.timer
+```
+
+Do not enable the timer before at least one manual `--once --spec-id` smoke and one real
+`--unit` run have been reviewed -- see `docs/plans/2026-09-19-phase3-data-engine.md`
+Task 3's smoke step. `lab/state/paused` (any content, even empty) pauses the timer without
+disabling it: every tick still fires and exits 0 immediately once `_unit_gate()` sees the
+file. `python3 lab/harvest.py --status` reports `timer_active` (paused file absent) plus
+budget/window/bank state without touching the GPU at all -- safe to run any time.
+
 ## Known limitation: preflight still needs Ollama reachable
 
 `cad_engine.preflight()` calls `_installed_ollama_models()` before anything else, and only then
