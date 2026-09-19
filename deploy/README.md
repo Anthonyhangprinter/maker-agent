@@ -28,18 +28,20 @@ calls `gpu_window.sh` unmodified, the one thing on this box that ever HOLDS
 `~/.openclaw/cad-build.lock`. No second locking scheme: `--check-gate`'s own lock probe
 only opens and immediately releases the lock file, it never holds it past the probe.
 
-**M2 (2026-09-19):** `--check-gate`'s lock probe is instant and never waits; the real
-arbiter is still `lab/gpu_window.sh`'s own `flock -w 3600` (frozen for this fix round), so
-a `--check-gate` pass immediately followed by contention for the real lock still queues
-inside the window for up to an hour. Task 3a is expected to shorten that wait for the
-timer path specifically; until then, an occasional `--unit` run can queue a while behind
-an interactive CAD build even after `--check-gate` said go.
+**M2, closed by Task 3a (2026-09-19):** `--check-gate`'s lock probe is instant and never
+waits, and the real arbiter is still `lab/gpu_window.sh`'s own `flock`, but that wait is
+now a knob: `harvest_unit.sh` sets `GPU_WINDOW_LOCK_WAIT_SEC=120` before the `exec`, so a
+tick that would merely queue behind an interactive CAD build gives up after two minutes and
+exits 75 (`EX_TEMPFAIL`, declared in `SuccessExitStatus=`), which systemd logs as a skip
+rather than a failure. The next tick is 30 minutes away.
 
 `lab-harvest.service` is `Type=oneshot` with `KillMode=mixed` + `TimeoutStopSec=400`, so a
-`systemctl --user stop lab-harvest.service` sends ONE SIGTERM to the whole unit (not just
-the shell script's own PID), which `gpu_window.sh` then handles the same way it handles a
-manual `kill <pid>`: TERM the child, KILL it after the grace period if it ignores that,
-restore the resident or the maker arm (whichever was active before), in that order.
+`systemctl --user stop lab-harvest.service` sends ONE SIGTERM to the unit's MAIN process
+(the shell script, which has exec'd into `gpu_window.sh`), with a cgroup-wide SIGKILL only
+once `TimeoutStopSec` expires. `gpu_window.sh` then handles it the same way it handles a
+manual `kill <pid>`: TERM the job's whole process group, KILL that group after
+`GPU_WINDOW_GRACE_SEC` (180s) if it ignores that, then restore the resident, in that order.
+`TimeoutStopSec=400` covers that path (180s grace + about 60s of restore) with margin.
 `RuntimeMaxSec=2400` is a dead-man cap well clear of one unit's own `unit_minutes` (25)
 plus the ~70s GPU eviction/restore overhead a unit pays switching arms.
 
