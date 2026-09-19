@@ -307,10 +307,16 @@ def _is_contaminated(spec: str) -> bool:
     sampled, using the exact same primitive lab.data.default_contamination_sets() (which
     scripts/run_card.py's contamination() also uses) rather than a re-derived copy.
     Any failure to even compute the contamination sets is read as contaminated (fail
-    closed), never as clear."""
+    closed), never as clear -- printed distinctly from an actual key/slug match (a real
+    UnicodeDecodeError from a stale locale, found via a real --unit smoke, previously
+    looked identical in the logs to "this spec really did collide with a card suite",
+    which cost real time to diagnose)."""
     try:
         suite_keys, suite_slugs = default_contamination_sets()
-    except Exception:
+    except Exception as e:
+        print(f"harvest: default_contamination_sets() failed ({e}); refusing this spec "
+              "fail-closed rather than risking a contaminated pair (this is a "
+              "computation failure, not a confirmed match)", file=sys.stderr)
         return True
     key = hc._key(spec)
     if key in suite_keys:

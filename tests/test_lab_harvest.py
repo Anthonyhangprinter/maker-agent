@@ -753,6 +753,19 @@ def test_is_contaminated_fails_closed_when_sets_cannot_be_computed(monkeypatch):
     assert harvest._is_contaminated("anything at all") is True
 
 
+def test_is_contaminated_computation_failure_prints_a_distinct_message(monkeypatch, capsys):
+    """A computation failure (e.g. the real UnicodeDecodeError this fix round found)
+    must be visibly distinguishable in the logs from an actual key/slug match -- both
+    return True, but conflating them under one message cost real debugging time."""
+    def boom():
+        raise RuntimeError("suite files missing")
+    monkeypatch.setattr(harvest, "default_contamination_sets", boom)
+    harvest._is_contaminated("anything at all")
+    err = capsys.readouterr().err
+    assert "computation failure" in err
+    assert "suite files missing" in err
+
+
 # ---------------------------------------------------------------------------
 # Model-string capture + code-model pin refusal (Task 3 fix M3)
 # ---------------------------------------------------------------------------
