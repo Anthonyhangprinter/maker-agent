@@ -1089,6 +1089,70 @@ def test_check_gate_cli_returns_0_on_go(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# --unit-minutes / --allow-day manual overrides (for a bounded manual --unit smoke
+# without redirecting scripts/arms.py's writes away from the real cad.json)
+# ---------------------------------------------------------------------------
+
+def test_unit_minutes_and_allow_day_cli_overrides_reach_run_unit(monkeypatch):
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
+    captured_cfg = {}
+
+    def fake_run_unit(cfg):
+        captured_cfg.update(cfg)
+        return {"unit_id": "u1", "mode": "student", "specs_processed": 0,
+               "builds_pruned": 0, "status": {}}
+
+    monkeypatch.setattr(harvest, "run_unit", fake_run_unit)
+    monkeypatch.setattr(harvest, "_unit_gate", lambda cfg: None)
+    monkeypatch.setattr(harvest, "_check_code_model_pin", lambda: None)
+
+    class _NullArmWindow:
+        def __enter__(self):
+            return "test-arm"
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(harvest, "arm_window", lambda arm: _NullArmWindow())
+    monkeypatch.setattr(sys, "argv",
+                        ["harvest.py", "--unit", "--unit-minutes", "10", "--allow-day"])
+    rc = harvest.main()
+    assert rc == 0
+    assert captured_cfg["unit_minutes"] == 10.0
+    assert captured_cfg["day_allowed"] is True
+
+
+def test_unit_minutes_override_is_seen_by_the_gate_check_too(monkeypatch):
+    """The gate check and run_unit must see the SAME overridden cfg object -- a bug
+    where main() re-reads lab_config() fresh for run_unit would silently drop the CLI
+    override the gate had just been evaluated against."""
+    monkeypatch.setenv("CAD_GPU_WINDOW", "1")
+    monkeypatch.setattr(harvest, "_check_code_model_pin", lambda: None)
+    seen_by_gate = {}
+
+    def fake_unit_gate(cfg):
+        seen_by_gate.update(cfg)
+        return None
+
+    monkeypatch.setattr(harvest, "_unit_gate", fake_unit_gate)
+    monkeypatch.setattr(harvest, "run_unit", lambda cfg: {
+        "unit_id": "u1", "mode": "student", "specs_processed": 0, "builds_pruned": 0,
+        "status": {}})
+
+    class _NullArmWindow:
+        def __enter__(self):
+            return "test-arm"
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(harvest, "arm_window", lambda arm: _NullArmWindow())
+    monkeypatch.setattr(sys, "argv", ["harvest.py", "--unit", "--unit-minutes", "10"])
+    harvest.main()
+    assert seen_by_gate["unit_minutes"] == 10.0
+
+
+# ---------------------------------------------------------------------------
 # Ledger / pair / status row shapes
 # ---------------------------------------------------------------------------
 

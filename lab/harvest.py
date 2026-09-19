@@ -1298,6 +1298,15 @@ def main() -> int:
                     help="maker arm for this run (default: cad.json's maker block)")
     ap.add_argument("--i-know-the-gpu-is-free", action="store_true",
                     help="run outside a GPU window (only when the GPU was freed by hand)")
+    ap.add_argument("--unit-minutes", type=float, default=None,
+                    help="override lab.harvest.unit_minutes for THIS run only (manual/"
+                         "smoke use -- never persisted to cad.json). A temp "
+                         "CAD_CONFIG_FILE would redirect scripts/arms.py's own writes "
+                         "away from the real cad.json, which a manual --unit smoke must "
+                         "not do, so this is the supported way to bound a manual run.")
+    ap.add_argument("--allow-day", action="store_true",
+                    help="override lab.harvest.day_allowed=true for THIS run only "
+                         "(manual/smoke use, same rationale as --unit-minutes)")
     a = ap.parse_args()
 
     if a.status:
@@ -1326,12 +1335,20 @@ def main() -> int:
 
     if a.unit:
         cfg = lab_config()["harvest"]
+        if a.unit_minutes is not None:
+            cfg["unit_minutes"] = a.unit_minutes
+        if a.allow_day:
+            cfg["day_allowed"] = True
         skip_reason = _unit_gate(cfg)
         if skip_reason:
             print(f"harvest: unit skipped ({skip_reason})", file=sys.stderr)
             _write_status()
             return 0
-        return _run_in_window(a.arm, lambda: run_unit(lab_config()["harvest"]))
+        # `cfg` (with any --unit-minutes/--allow-day override already applied) is
+        # captured by this closure rather than re-reading lab_config() fresh here -- a
+        # second fresh read would silently drop the CLI override the gate check above
+        # was just evaluated against.
+        return _run_in_window(a.arm, lambda: run_unit(cfg))
 
     return _run_in_window(a.arm, lambda: run_once(a.spec_id, lab_config()["harvest"]))
 
