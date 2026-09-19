@@ -383,6 +383,373 @@ def test_regate_good_candidate_still_passes(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Geometric signature + independent agreement (fix round 2, Section A). Fixtures are
+# the REAL facts/spec text of the two reviewer-caught cases, saved to
+# tests/fixtures/harvest_agreement_fixtures.json before the pre-round-2 harvest state
+# was moved aside (see the fixture-writing commit for provenance).
+# ---------------------------------------------------------------------------
+
+_FIXTURES_PATH = HERE / "tests" / "fixtures" / "harvest_agreement_fixtures.json"
+
+
+def _load_fixtures() -> dict:
+    return json.loads(_FIXTURES_PATH.read_text(encoding="utf-8"))
+
+
+_AGREEMENT_CFG = {"volume_tol_pct": 0.05, "bbox_tol_mm": 0.05, "bore_round_mm": 0.01}
+
+
+def test_signature_v066_two_temperatures_disagree_on_face_counts():
+    """The real regression this fix round exists for: t:teacher-batch2:V066 sampled at
+    T=0.2 makes a slot (Z-axis cylinder against an X-thin divider) where T=0.5 makes the
+    stated circular hole -- the SAME spec, two wrong-vs-right answers, both gate-clean
+    under the pre-fix-round-2 gate. The separating field, checked here explicitly: total
+    face count (19 vs 17) -- cylindrical face count (2 vs 1) and volume (0.35% apart,
+    over the 0.05% tolerance) also independently disagree, but total faces is the first
+    field signatures_agree checks after solids, so it is the one that actually trips."""
+    fx = _load_fixtures()
+    sig_a = harvest.signature(fx["v066_t02_wrong_slot"]["facts"], _AGREEMENT_CFG)
+    sig_b = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    assert sig_a is not None and sig_b is not None
+    assert sig_a["faces"] == 19 and sig_b["faces"] == 17
+    assert sig_a["faces"] != sig_b["faces"]
+    assert sig_a["cyl_faces"] != sig_b["cyl_faces"]
+    assert not harvest.signatures_agree(sig_a, sig_b, _AGREEMENT_CFG)
+
+
+def test_signature_v066_agrees_with_itself():
+    """Sanity companion to the disagreement test above: a signature always agrees with
+    an identical copy of itself (reflexivity), so the disagreement above is a real
+    tolerance/field mismatch, not a bug that makes signatures_agree() always False."""
+    fx = _load_fixtures()
+    sig = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    assert harvest.signatures_agree(sig, dict(sig), _AGREEMENT_CFG)
+
+
+def test_signature_v064_missing_no_field_but_is_still_a_real_signature():
+    """V064's own facts are fully measured (unlike V066's disagreement, this candidate's
+    rejection comes from the strict spec checks below, not from a signature mismatch) --
+    documented here so a reader can see signature() does not itself reject it."""
+    fx = _load_fixtures()
+    sig = harvest.signature(fx["v064_wrong_sheared_lip"]["facts"], _AGREEMENT_CFG)
+    assert sig is not None
+    assert sig["bbox_sorted"] == [53.0, 130.0, 180.0]
+
+
+@pytest.mark.parametrize("missing_key", ["solids", "faces", "cyl_faces", "cone_faces"])
+def test_signature_fails_closed_on_missing_required_fact(missing_key):
+    facts = dict(_DEFAULT_CLEAN_FACTS)
+    del facts[missing_key]
+    assert harvest.signature(facts) is None
+
+
+@pytest.mark.parametrize("sentinel_key", ["cyl_faces", "cone_faces"])
+def test_signature_fails_closed_on_the_inspect_unavailable_sentinel(sentinel_key):
+    """scripts/inspect reports -1 for cyl_faces/cone_faces when classification was
+    unavailable (older build123d) -- two candidates that both failed to classify must
+    never look like they "agree" by both carrying the same -1 sentinel."""
+    facts = dict(_DEFAULT_CLEAN_FACTS)
+    facts[sentinel_key] = -1
+    assert harvest.signature(facts) is None
+
+
+def test_signatures_agree_is_false_when_either_signature_is_none():
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    assert not harvest.signatures_agree(None, sig)
+    assert not harvest.signatures_agree(sig, None)
+    assert not harvest.signatures_agree(None, None)
+
+
+def test_signatures_agree_within_bbox_and_volume_tolerance():
+    a = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    close_facts = dict(_DEFAULT_CLEAN_FACTS, bbox=[10.04, 10.0, 10.0], volume=1000.4)
+    b = harvest.signature(close_facts)
+    assert harvest.signatures_agree(a, b, _AGREEMENT_CFG)
+
+
+def test_signatures_disagree_outside_bbox_tolerance():
+    a = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    far_facts = dict(_DEFAULT_CLEAN_FACTS, bbox=[10.1, 10.0, 10.0])
+    b = harvest.signature(far_facts)
+    assert not harvest.signatures_agree(a, b, _AGREEMENT_CFG)
+
+
+def test_signatures_disagree_outside_volume_tolerance():
+    a = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    far_facts = dict(_DEFAULT_CLEAN_FACTS, volume=1002.0)   # 0.2% off, over 0.05%
+    b = harvest.signature(far_facts)
+    assert not harvest.signatures_agree(a, b, _AGREEMENT_CFG)
+
+
+def test_signatures_agree_bore_diameters_equal_after_rounding():
+    a = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, bores=[12.001]))
+    b = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, bores=[12.004]))
+    assert harvest.signatures_agree(a, b, _AGREEMENT_CFG)   # both round to 12.00
+    c = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, bores=[12.02]))
+    assert not harvest.signatures_agree(a, c, _AGREEMENT_CFG)
+
+
+def _pool_item(sig, temperature=0.2, origin="new", **extra) -> dict:
+    item = {"origin": origin, "signature": sig, "temperature": temperature}
+    item.update(extra)
+    return item
+
+
+def test_resolve_agreement_empty_pool_is_unconfirmed():
+    assert harvest.resolve_agreement([], _AGREEMENT_CFG) == ([], "unconfirmed")
+
+
+def test_resolve_agreement_single_candidate_is_unconfirmed():
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    pool = [_pool_item(sig)]
+    winners, tag = harvest.resolve_agreement(pool, _AGREEMENT_CFG)
+    assert winners == [] and tag == "unconfirmed"
+
+
+def test_resolve_agreement_two_agreeing_candidates_confirm_each_other():
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    a, b = _pool_item(sig, temperature=0.2), _pool_item(sig, temperature=0.5)
+    winners, tag = harvest.resolve_agreement([a, b], _AGREEMENT_CFG)
+    assert tag == "agreement"
+    assert sorted(id(w) for w in winners) == sorted([id(a), id(b)])
+
+
+def test_resolve_agreement_v066_real_pair_never_confirms():
+    """The real V066 case end to end through resolve_agreement, not just
+    signatures_agree: two gate-clean candidates for one spec that disagree produce
+    exactly the "split" the brief calls for -- nobody confirmed."""
+    fx = _load_fixtures()
+    sig_a = harvest.signature(fx["v066_t02_wrong_slot"]["facts"], _AGREEMENT_CFG)
+    sig_b = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    pool = [_pool_item(sig_a, temperature=0.2), _pool_item(sig_b, temperature=0.5)]
+    winners, tag = harvest.resolve_agreement(pool, _AGREEMENT_CFG)
+    assert winners == []
+    assert tag == "split"
+
+
+def test_resolve_agreement_largest_cluster_must_be_strictly_larger():
+    """A 2-2 tie between two clusters confirms nobody (Task 3 ruling, verbatim: "the
+    largest cluster wins only if it has at least 2 members AND is strictly larger than
+    every other cluster")."""
+    sig1 = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    sig2 = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=5000.0))
+    pool = [_pool_item(sig1, 0.2), _pool_item(sig1, 0.35),
+           _pool_item(sig2, 0.5), _pool_item(sig2, 0.65)]
+    winners, tag = harvest.resolve_agreement(pool, _AGREEMENT_CFG)
+    assert winners == [] and tag == "split"
+
+
+def test_resolve_agreement_larger_cluster_wins_over_a_smaller_one():
+    sig1 = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    sig2 = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=5000.0))
+    a, b, c = (_pool_item(sig1, 0.2), _pool_item(sig1, 0.35), _pool_item(sig1, 0.5))
+    d = _pool_item(sig2, 0.65)
+    winners, tag = harvest.resolve_agreement([a, b, c, d], _AGREEMENT_CFG)
+    assert tag == "agreement"
+    assert sorted(id(w) for w in winners) == sorted([id(a), id(b), id(c)])
+
+
+def test_resolve_agreement_existing_anchor_confirms_a_lone_new_candidate():
+    """An already-confirmed pair's signature (an "existing_anchor" pool item, from
+    PairIndex.signatures_for) confirms a lone new candidate on its own -- no second NEW
+    sample required, matching production's cross-unit confirmation path."""
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    anchor = {"origin": "existing", "existing_anchor": True, "signature": sig,
+             "fingerprint": None, "temperature": 0.0}
+    new = _pool_item(sig, temperature=0.2)
+    winners, tag = harvest.resolve_agreement([anchor, new], _AGREEMENT_CFG)
+    assert tag == "agreement"
+    assert winners == [new]   # the anchor itself is never a "winner" to promote
+
+
+def test_resolve_agreement_existing_anchor_wins_even_alone():
+    """A single new candidate matching an anchor is enough (size 1 is fine when
+    anchored) -- unlike two new candidates, where size 1 is "unconfirmed"."""
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    anchor = {"origin": "existing", "existing_anchor": True, "signature": sig,
+             "fingerprint": None, "temperature": 0.0}
+    new = _pool_item(sig, temperature=0.2)
+    winners, tag = harvest.resolve_agreement([anchor, new], _AGREEMENT_CFG)
+    assert tag == "agreement" and winners == [new]
+
+
+def test_cluster_by_signature_is_order_independent():
+    """Union-find transitivity (fix round 2 design note): shuffling the pool must never
+    change which candidates end up in the same cluster."""
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    pool = [_pool_item(sig, t) for t in (0.2, 0.35, 0.5)]
+    import random
+    shuffled = list(pool)
+    random.Random(7).shuffle(shuffled)
+    c1 = harvest._cluster_by_signature(pool, _AGREEMENT_CFG)
+    c2 = harvest._cluster_by_signature(shuffled, _AGREEMENT_CFG)
+    assert len(c1) == len(c2) == 1
+    assert len(c1[0]) == len(c2[0]) == 3
+
+
+# ---------------------------------------------------------------------------
+# Strict spec checks (fix round 2, Section B) -- harvest-local, fail closed, additional
+# to and independent of the engine's own gate.
+# ---------------------------------------------------------------------------
+
+def test_strict_envelope_check_rejects_v064():
+    """The real regression: V064's stated 180x130x55mm envelope measures 180x130x53mm
+    (a mis-sized lip cutter sheared 2mm off the top) -- within the engine gate's own
+    2.75mm axis tolerance, but over this harvest-local check's 0.2mm one."""
+    fx = _load_fixtures()
+    v064 = fx["v064_wrong_sheared_lip"]
+    reason = harvest.strict_envelope_check(v064["spec"], v064["facts"])
+    assert reason is not None
+    assert "strict_envelope" in reason
+    assert "2.00mm" in reason
+
+
+def test_strict_envelope_check_passes_a_matching_envelope():
+    fx = _load_fixtures()
+    v066 = fx["v066_t02_wrong_slot"]
+    assert harvest.strict_envelope_check(v066["spec"], v066["facts"]) is None
+
+
+def test_strict_envelope_check_none_when_spec_states_no_envelope():
+    assert harvest.strict_envelope_check("a bracket with two M4 holes",
+                                         {"bbox": [1.0, 2.0, 3.0]}) is None
+
+
+def test_strict_envelope_check_skips_assembly_specs():
+    spec = "an assembly of two identical 40x25x5mm ears and a 60mm shaft"
+    # A wildly wrong bbox would fail if this were treated as a single-part envelope --
+    # it must not be, since _ASSEMBLY_SPEC_RE matches "two identical".
+    assert harvest.strict_envelope_check(spec, {"bbox": [1.0, 1.0, 1.0]}) is None
+
+
+@pytest.mark.parametrize("phrasing", [
+    "a housing 100x50x20mm with a lid",
+    "a housing 100 x 50 x 20 mm with a lid",
+    "a housing 100mm x 50mm x 20mm with a lid",
+    "a housing 100 by 50 by 20mm with a lid",
+])
+def test_spec_envelope_dims_mm_accepts_spaced_and_by_forms(phrasing):
+    assert harvest._spec_envelope_dims_mm(phrasing) == [100.0, 50.0, 20.0]
+
+
+def test_spec_envelope_dims_mm_none_when_ambiguous_multiple_matches():
+    spec = "a base 60x40x6mm flange and a 6x40x60mm upright"
+    assert harvest._spec_envelope_dims_mm(spec) is None
+
+
+def test_strict_through_holes_check_rejects_v064():
+    """V064's four corner bosses each state "a 3.2mm through hole"; the regex matches
+    the leading "a" as count=1, and the candidate measured 0 through holes (they came
+    out blind) -- short of even that lower bound."""
+    fx = _load_fixtures()
+    v064 = fx["v064_wrong_sheared_lip"]
+    reason = harvest.strict_through_holes_check(v064["spec"], v064["facts"])
+    assert reason is not None
+    assert "strict_through_holes" in reason
+    assert v064["facts"]["through_holes"] == 0
+
+
+def test_strict_through_holes_check_none_when_spec_states_no_count():
+    fx = _load_fixtures()
+    v066 = fx["v066_t02_wrong_slot"]
+    assert harvest.strict_through_holes_check(v066["spec"], v066["facts"]) is None
+
+
+def test_strict_through_holes_check_passes_when_count_is_met():
+    spec = "a plate with four 5mm through holes"
+    assert harvest.strict_through_holes_check(spec, {"through_holes": 4}) is None
+    assert harvest.strict_through_holes_check(spec, {"through_holes": 6}) is None
+
+
+@pytest.mark.parametrize("phrasing,expected", [
+    ("a plate with four 5mm through holes", 4),
+    ("a bracket with 6 through-holes", 6),
+    ("a bracket with a 5mm through hole", 1),
+    ("a plate with twelve through holes", 12),
+])
+def test_spec_through_hole_count_word_and_digit_forms(phrasing, expected):
+    assert harvest._spec_through_hole_count(phrasing) == expected
+
+
+def test_strict_through_holes_check_unscored_when_measurement_unavailable():
+    """Fix round 2, Section B2, verbatim: "If facts has no usable through-hole
+    measurement, the check is unscored, not pass" -- the -1 sentinel (or a missing key)
+    blocks "good" the same way a genuinely short count does, distinguished only by the
+    "unscored:" prefix. A false accept here is the one thing this check must never do."""
+    spec = "a bracket with four 5mm through holes"
+    r1 = harvest.strict_through_holes_check(spec, {"through_holes": -1})
+    r2 = harvest.strict_through_holes_check(spec, {})
+    assert r1 is not None and r1.startswith("unscored:strict_through_holes")
+    assert r2 is not None and r2.startswith("unscored:strict_through_holes")
+
+
+def test_regate_and_strict_pushes_v064_to_silver_via_gate_spec():
+    """End to end through the actual wiring: _regate_and_strict augments gate_spec with
+    both strict findings, which _classify then reads as "silver", never "good" -- this
+    is the exact mechanism that rejects V064 in production."""
+    fx = _load_fixtures()
+    v064 = fx["v064_wrong_sheared_lip"]
+    monkeypatch_facts = v064["facts"]
+
+    def fake_regate(m_fluid, build_dir, spec):
+        return {"error": None, "facts": monkeypatch_facts, "gate_hard": [],
+               "gate_spec": [], "gate_adv": [], "unscored_reason": None}
+
+    import unittest.mock
+    with unittest.mock.patch.object(harvest, "_regate", fake_regate):
+        m = harvest._regate_and_strict({"error": None}, Path("/tmp"), v064["spec"],
+                                       _default_cfg())
+    assert any("strict_envelope" in n for n in m["gate_spec"])
+    assert any("strict_through_holes" in n for n in m["gate_spec"])
+    verdict, _ = harvest._classify(m, None, Path("/tmp"))
+    assert verdict == "silver"
+
+
+def test_regate_and_strict_leaves_error_and_unscored_rows_untouched():
+    def fake_regate_error(m_fluid, build_dir, spec):
+        return {"error": "boom", "facts": {}, "gate_hard": [], "gate_spec": [],
+               "gate_adv": [], "unscored_reason": None}
+
+    import unittest.mock
+    with unittest.mock.patch.object(harvest, "_regate", fake_regate_error):
+        m = harvest._regate_and_strict({"error": "boom"}, Path("/tmp"), "spec", _default_cfg())
+    assert m["error"] == "boom"
+    assert m["gate_spec"] == []
+
+
+# ---------------------------------------------------------------------------
+# Attempt-cap exhaustion (fix round 2, Section C)
+# ---------------------------------------------------------------------------
+
+def test_eligible_pools_drops_a_teacher_exhausted_spec_from_both_pools():
+    bank = [_spec_row("a")]
+    progress = {"a": {"student_attempts": 2, "teacher_attempts": 5, "pairs": 0}}
+    cfg = _default_cfg(max_pairs_per_spec=2, attempt_caps={"student": 2, "teacher": 5})
+    student, teacher = harvest._eligible_pools(bank, progress, cfg)
+    assert student == [] and teacher == []
+
+
+def test_eligible_pools_keeps_a_spec_under_its_teacher_cap_in_the_teacher_pool():
+    bank = [_spec_row("a")]
+    progress = {"a": {"student_attempts": 2, "teacher_attempts": 4, "pairs": 0}}
+    cfg = _default_cfg(max_pairs_per_spec=2, attempt_caps={"student": 2, "teacher": 5})
+    student, teacher = harvest._eligible_pools(bank, progress, cfg)
+    assert [r["id"] for r in teacher] == ["a"]
+
+
+def test_exhausted_specs_lists_only_specs_over_the_teacher_cap_and_short_of_pairs():
+    bank = [_spec_row("a"), _spec_row("b"), _spec_row("c")]
+    progress = {
+        "a": {"student_attempts": 2, "teacher_attempts": 5, "pairs": 0},   # exhausted
+        "b": {"student_attempts": 2, "teacher_attempts": 5, "pairs": 2},   # done, not exhausted
+        "c": {"student_attempts": 2, "teacher_attempts": 1, "pairs": 0},   # still eligible
+    }
+    cfg = _default_cfg(max_pairs_per_spec=2, attempt_caps={"student": 2, "teacher": 5})
+    exhausted = harvest._exhausted_specs(bank, progress, cfg)
+    assert [r["id"] for r in exhausted] == ["a"]
+
+
+# ---------------------------------------------------------------------------
 # sample_spec: max pairs per spec, dedup by AST fingerprint, prefer lower temperature
 # ---------------------------------------------------------------------------
 

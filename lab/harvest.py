@@ -911,12 +911,17 @@ _THROUGH_HOLE_COUNT_WORDS = {
     "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
     "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
 }
-# "four 3.2mm through holes", "6 through-holes", "a ... through hole" -- the count word
-# (digit or number word up to twelve, "a"/"an" as one), then up to 3 words (a dimension,
-# an adjective) before "through[- ]hole(s)".
+# "four 3.2mm through holes", "6 through-holes", "a 3.2mm through hole" -- the count
+# word (digit or number word up to twelve, "a"/"an" as one) directly followed by an
+# OPTIONAL numeric-dimension filler ("3.2mm ") then "through[- ]hole(s)". The filler is
+# deliberately narrow (a number+unit, not an arbitrary word): an earlier version allowed
+# up to 3 arbitrary filler words and let a spec's leading "a" (from "a bracket with 6
+# through-holes") jump all the way to a LATER "through-holes" over the real count "6" in
+# between -- found via a real fixture (V064's OWN "a" would otherwise misfire on other
+# specs' unrelated leading articles).
 _THROUGH_HOLES_RE = re.compile(
     r"\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+"
-    r"(?:\S+\s+){0,3}?through[- ]?holes?\b", re.I)
+    r"(?:\d+(?:\.\d+)?\s*(?:mm|cm)?\s+)?through[- ]?holes?\b", re.I)
 
 
 def _spec_envelope_dims_mm(spec: str) -> Optional[list[float]]:
