@@ -5,7 +5,7 @@
 # if a previous unit is somehow still running when the next OnCalendar tick lands, this
 # one exits immediately (exit 0, not an error) rather than queueing behind it -- the next
 # tick, 30 minutes later, tries again. This script does NOT touch
-# ~/.openclaw/cad-build.lock itself; it CALLS lab/gpu_window.sh (frozen, unmodified) and
+# ~/.openclaw/cad-build.lock itself; it CALLS lab/gpu_window.sh and
 # lets that be the one thing that ever HOLDS the CAD build lock, exactly like every other
 # GPU-heavy lab entry point (lab/specgen.py, lab/ship.py verify). No second locking
 # scheme (Task 3 ruling).
@@ -21,9 +21,23 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK="$HERE/lab/state/harvest.lock"
 mkdir -p "$(dirname "$LOCK")"
-exec 9>"$LOCK"
-flock -n 9 || { echo "harvest_unit: a unit is already running, skipping this tick" >&2; exit 0; }
+# fd 8, NOT 9: gpu_window.sh reassigns fd 9 to the CAD build lock, which would close this
+# descriptor and silently release harvest.lock the moment the window starts. fd 8 is inherited
+# by the window (which closes it on the job, so an escaped descendant can never wedge the
+# timer), so the lock lives exactly as long as the window does.
+exec 8>"$LOCK"
+flock -n 8 || { echo "harvest_unit: a unit is already running, skipping this tick" >&2; exit 0; }
 if ! python3 "$HERE/lab/harvest.py" --check-gate; then
     exit 0   # quiet skip; --check-gate already printed the reason to stderr
 fi
+# Task 3a (2026-09-19): queue for the CAD build lock for 2 minutes, not the window's own
+# 1h default: a tick that merely QUEUES behind a long interactive build does nothing useful,
+# and the next tick is only 30 minutes away. gpu_window.sh exits 75 (EX_TEMPFAIL) when it
+# does not get the lock in that window, which the unit declares as a success (a skip).
+: "${GPU_WINDOW_LOCK_WAIT_SEC:=120}"
+# The REAL wall-clock cap of a tick. systemd's RuntimeMaxSec= has no effect on Type=oneshot
+# units (man systemd.service), so the window's own cap is the dead-man switch: 40 minutes,
+# well above unit_minutes (25) plus eviction and restore. The window default is 10 h.
+: "${GPU_WINDOW_MAX_SEC:=2400}"
+export GPU_WINDOW_LOCK_WAIT_SEC GPU_WINDOW_MAX_SEC
 exec "$HERE/lab/gpu_window.sh" python3 "$HERE/lab/harvest.py" --unit
