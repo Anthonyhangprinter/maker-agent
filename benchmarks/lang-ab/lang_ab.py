@@ -293,7 +293,7 @@ def _b123d_prompt(spec_text: str, notes: list) -> str:
     for why that matters for testability."""
     notes_str = "\n".join(f"- {n}" for n in (notes or []))
     return (
-        f"USER REQUEST (verbatim — every number here is AUTHORITATIVE):\n{spec_text}\n\n"
+        f"USER REQUEST (verbatim, every number here is AUTHORITATIVE):\n{spec_text}\n\n"
         + (f"Notes:\n{notes_str}\n\n" if notes_str else "")
         + "Write the build123d code:"
     )
@@ -311,7 +311,7 @@ def _codegen_for_arm(arm: str, spec_text: str, call_model_fn: CallModelFn) -> tu
         code = engine._patch_code(extract_code(raw), wants=engine._wanted_edge_features(spec_text))
         return code, raw
     if arm == "cadquery":
-        prompt = (f"USER REQUEST (verbatim — every number here is AUTHORITATIVE):\n{spec_text}\n\n"
+        prompt = (f"USER REQUEST (verbatim, every number here is AUTHORITATIVE):\n{spec_text}\n\n"
                   "Write the CadQuery code:")
         raw = call_model_fn(CADQUERY_SYSTEM, prompt, CODEGEN_TEMPERATURE)
         return extract_code(raw), raw

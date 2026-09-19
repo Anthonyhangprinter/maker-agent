@@ -445,7 +445,7 @@ class TestReportMaths:
         summary = report.summarize(rows)
         paired = report.paired_vs_baseline(rows)
         md = report.render_md(summary, paired, {"run_id": "x", "n_specs": 1, "seed": 1, "arms": ["b123d", "cadquery"]})
-        assert "—" not in md
+        assert "\u2014" not in md
         assert "b123d" in md and "cadquery" in md
 
     def test_write_report_round_trips_through_files(self, tmp_path):
