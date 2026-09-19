@@ -2011,6 +2011,22 @@ _SPEC_HOLES_RE = re.compile(r"(an?|one|two|three|four|five|six|\d+)\s+(\d+(?:\.\
                             r"(?:\w+\s+){0,2}?(?:through[- ]?)?(?:holes?|bores?)", re.I)
 _HOLE_COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
                      "five": 5, "six": 6}
+# A DISTRIBUTIVE count is a multiplier, not a total: "a 14mm hole at each end" is two holes,
+# "bosses each with a 3mm hole" is one per boss. Read as a total it made the overcount check
+# veto every CORRECT part for such a spec (found in the 2026-09-20 harvest: a tie plate with
+# a hole at each end and a plate with a hole at each corner, rejected on every sample). The
+# true total is not recoverable from the text alone, so the overcount check skips these.
+_HOLES_DISTRIB_AFTER_RE = re.compile(
+    r"^\s*(?:(?:drilled|located|positioned|placed|centred|centered)\s+)?"
+    r"(?:at|in|on|near|through|into|per)\s+(?:each|every|both|all)\b", re.I)
+_HOLES_DISTRIB_BEFORE_RE = re.compile(
+    r"\b(?:each|every|both)\s+(?:(?:is|are)\s+)?(?:with|having|has|have|drilled\s+with|"
+    r"bored\s+with|carrying|containing|gets?)\s+$", re.I)
+
+
+def _hole_count_is_distributive(spec: str, m) -> bool:
+    return bool(_HOLES_DISTRIB_AFTER_RE.search(spec[m.end():m.end() + 45])
+                or _HOLES_DISTRIB_BEFORE_RE.search(spec[max(0, m.start() - 40):m.start()]))
 
 # Nouns that mark a dimension as belonging to a FEATURE rather than the part's envelope.
 # "a 3mm wide groove" / "standoffs 8mm across" / "a chamfer 3mm deep" are all satisfied
@@ -2382,6 +2398,8 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # (five Ø10 where one was asked). Undercounts stay with the min_holes/through advisories.
     hgroups = facts.get("hole_groups") or []
     for m in _SPEC_HOLES_RE.finditer(spec or ""):
+        if _hole_count_is_distributive(spec, m):
+            continue
         n_want = _HOLE_COUNT_WORDS.get(m.group(1).lower()) or int(m.group(1))
         d_want = float(m.group(2))
         n_got = sum(g["n"] for g in hgroups
