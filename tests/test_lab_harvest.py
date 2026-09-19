@@ -59,6 +59,9 @@ def _isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(harvest, "PAIRS_FILE", d / "pairs.jsonl")
     monkeypatch.setattr(harvest, "REVIEW_FILE", d / "review.jsonl")
     monkeypatch.setattr(harvest, "CANDIDATES_FILE", d / "candidates.jsonl")
+    # Fix round 3, H2b: isolate the confirm_strength upgrade log too -- omitting this
+    # would let a test's UPGRADES_FILE row land in the REAL lab/state/upgrades.jsonl.
+    monkeypatch.setattr(harvest, "UPGRADES_FILE", d / "upgrades.jsonl")
     monkeypatch.setattr(harvest, "PROGRESS_FILE", d / "progress.json")
     monkeypatch.setattr(harvest, "STATUS_FILE", d / "status.json")
     monkeypatch.setattr(harvest, "PAUSED_FILE", d / "paused")
@@ -489,6 +492,20 @@ def test_signatures_agree_bore_diameters_equal_after_rounding():
     assert not harvest.signatures_agree(a, c, _AGREEMENT_CFG)
 
 
+def test_signatures_never_agree_on_zero_or_negative_volume():
+    """Fix round 3, LOW2: the old `avg_vol <= 0: return a["volume"] == b["volume"]`
+    branch let two candidates that BOTH measured a broken zero (or negative) volume
+    "agree" with each other on the strength of that shared brokenness -- exactly
+    backwards, since a non-positive volume means the measurement itself is untrustworthy,
+    never that it matches."""
+    zero_a = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=0.0))
+    zero_b = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=0.0))
+    assert not harvest.signatures_agree(zero_a, zero_b, _AGREEMENT_CFG)
+    neg = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=-5.0))
+    assert not harvest.signatures_agree(zero_a, neg, _AGREEMENT_CFG)
+    assert not harvest.signatures_agree(neg, neg, _AGREEMENT_CFG)
+
+
 def _pool_item(sig, temperature=0.2, origin="new", **extra) -> dict:
     item = {"origin": origin, "signature": sig, "temperature": temperature}
     item.update(extra)
@@ -573,9 +590,27 @@ def test_resolve_agreement_existing_anchor_wins_even_alone():
     assert tag == "agreement" and winners == [new]
 
 
+def test_resolve_agreement_anchored_cluster_with_no_new_members_is_split_not_unconfirmed():
+    """Fix round 3, LOW1: when the anchor's own cluster gains no new member (a new
+    candidate this round disagreed with it), the outcome is "split" -- a real
+    disagreement occurred, not merely "nobody to compare against yet". Before this fix,
+    resolve_agreement returned `([], "agreement")` here (an empty-winners "agreement" is
+    nonsensical -- nothing was actually confirmed), which then made the caller label the
+    disagreeing new candidate "unconfirmed" instead of "split"."""
+    sig_anchor = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    sig_other = harvest.signature(dict(_DEFAULT_CLEAN_FACTS, volume=5000.0))
+    anchor = {"origin": "existing", "existing_anchor": True, "signature": sig_anchor,
+             "fingerprint": None, "temperature": 0.0}
+    new = _pool_item(sig_other, temperature=0.2)
+    winners, tag = harvest.resolve_agreement([anchor, new], _AGREEMENT_CFG)
+    assert winners == [] and tag == "split"
+
+
 def test_cluster_by_signature_is_order_independent():
-    """Union-find transitivity (fix round 2 design note): shuffling the pool must never
-    change which candidates end up in the same cluster."""
+    """Complete-link clustering (fix round 3, M2, replacing fix round 2's union-find
+    design): shuffling the pool must never change which candidates end up in the same
+    cluster -- processing order is derived from each item's own stable key, never from
+    its position in the caller's list."""
     sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
     pool = [_pool_item(sig, t) for t in (0.2, 0.35, 0.5)]
     import random
@@ -585,6 +620,30 @@ def test_cluster_by_signature_is_order_independent():
     c2 = harvest._cluster_by_signature(shuffled, _AGREEMENT_CFG)
     assert len(c1) == len(c2) == 1
     assert len(c1[0]) == len(c2[0]) == 3
+
+
+def test_cluster_by_signature_complete_link_rejects_a_tolerance_chain():
+    """Fix round 3, M2, the reviewer's own counter-example: three candidates whose bbox
+    (100.00/100.05/100.10mm on one axis) and volume (1000.00/1000.25/1000.50) each drift
+    from their IMMEDIATE neighbour by exactly one tolerance step, but the two EXTREMES
+    (100.00 vs 100.10, a 0.10mm gap over the 0.05mm bbox_tol_mm) do not themselves agree.
+    Single-link (union-find) transitivity fuses all three into one cluster via the A~B,
+    B~C chain even though A and C disagree -- complete-link must never do that: at most
+    a 2-member cluster may form here, never a 3-member one."""
+    cfg = {"volume_tol_pct": 0.05, "bbox_tol_mm": 0.05, "bore_round_mm": 0.01}
+    facts_a = dict(_DEFAULT_CLEAN_FACTS, bbox=[100.00, 50.0, 20.0], volume=1000.00)
+    facts_b = dict(_DEFAULT_CLEAN_FACTS, bbox=[100.05, 50.0, 20.0], volume=1000.25)
+    facts_c = dict(_DEFAULT_CLEAN_FACTS, bbox=[100.10, 50.0, 20.0], volume=1000.50)
+    sig_a, sig_b, sig_c = (harvest.signature(f, cfg) for f in (facts_a, facts_b, facts_c))
+    # Sanity: neighbours agree, extremes do not (confirms the fixture is a real chain).
+    assert harvest.signatures_agree(sig_a, sig_b, cfg)
+    assert harvest.signatures_agree(sig_b, sig_c, cfg)
+    assert not harvest.signatures_agree(sig_a, sig_c, cfg)
+
+    pool = [_pool_item(sig_a, 0.2), _pool_item(sig_b, 0.35), _pool_item(sig_c, 0.5)]
+    clusters = harvest._cluster_by_signature(pool, cfg)
+    assert all(len(c) < 3 for c in clusters)
+    assert sum(len(c) for c in clusters) == 3   # every item still accounted for
 
 
 # ---------------------------------------------------------------------------
@@ -637,16 +696,48 @@ def test_spec_envelope_dims_mm_none_when_ambiguous_multiple_matches():
     assert harvest._spec_envelope_dims_mm(spec) is None
 
 
-def test_strict_through_holes_check_rejects_v064():
-    """V064's four corner bosses each state "a 3.2mm through hole"; the regex matches
-    the leading "a" as count=1, and the candidate measured 0 through holes (they came
-    out blind) -- short of even that lower bound."""
+def test_strict_through_holes_check_no_verdict_on_v064_real_facts():
+    """Fix round 3, M1: the OLD undercount test rejected V064 because its aggregate
+    `through_holes` measured 0 against a stated count of 1 -- but that classifier only
+    recognises one hole orientation, so a bare low/zero AGGREGATE count is not
+    trustworthy evidence either way (Task 3 ruling, verbatim: "not reject, not
+    unscored"). The new check requires POSITIVE evidence: a `hole_groups` entry whose
+    diameter matches the spec's stated 3.2mm through-hole diameter, measured blind.
+    V064's REAL facts (tests/fixtures/harvest_agreement_fixtures.json) carry per-hole
+    diameter grouping in general, but the one group present is d=9.0 (the boss body) --
+    there is no hole_groups entry anywhere near 3.2mm, so there is nothing to check
+    positive evidence against: this check now gives NO verdict on this fixture. V064
+    still ends up rejected overall -- via strict_envelope_check alone (its stated
+    180x130x55mm envelope measures 180x130x53mm), tested separately above."""
     fx = _load_fixtures()
     v064 = fx["v064_wrong_sheared_lip"]
-    reason = harvest.strict_through_holes_check(v064["spec"], v064["facts"])
+    assert v064["facts"]["hole_groups"] == [{"d": 9.0, "n": 4, "through": 0, "circle_d": 199.7}]
+    assert harvest.strict_through_holes_check(v064["spec"], v064["facts"]) is None
+
+
+def test_strict_through_holes_check_rejects_on_positive_blind_evidence():
+    """Fix round 3, M1: the check DOES fire when a hole_groups entry's diameter matches
+    a spec-stated through-hole diameter (within 0.1mm) and that group measured at least
+    one hole of that diameter blind."""
+    spec = "a bracket with a 5mm through hole"
+    facts = {"hole_groups": [{"d": 5.02, "n": 1, "through": 0, "circle_d": 0.0}]}
+    reason = harvest.strict_through_holes_check(spec, facts)
     assert reason is not None
     assert "strict_through_holes" in reason
-    assert v064["facts"]["through_holes"] == 0
+    assert "5mm" in reason   # the SPEC's stated diameter, not the measured group's 5.02
+
+
+def test_strict_through_holes_check_no_false_reject_on_a_correct_orientation():
+    """Fix round 3, M1's own false-rejection test: a part whose through hole is real and
+    correct, but whose orientation the aggregate through/blind classifier does not
+    recognise (through_holes: 0, blind_holes: 0, bore_axes axial -- exactly how
+    scripts/inspect really reports a correctly-drilled axial hole it could not resolve
+    to a through/blind verdict) must PASS, not be rejected, because there is no
+    hole_groups entry (positive evidence) naming that diameter as blind."""
+    spec = "a shaft with a 10mm through hole"
+    facts = {"through_holes": 0, "blind_holes": 0, "bore_axes": [(10.0, "axial")],
+            "hole_groups": []}
+    assert harvest.strict_through_holes_check(spec, facts) is None
 
 
 def test_strict_through_holes_check_none_when_spec_states_no_count():
@@ -657,8 +748,17 @@ def test_strict_through_holes_check_none_when_spec_states_no_count():
 
 def test_strict_through_holes_check_passes_when_count_is_met():
     spec = "a plate with four 5mm through holes"
-    assert harvest.strict_through_holes_check(spec, {"through_holes": 4}) is None
-    assert harvest.strict_through_holes_check(spec, {"through_holes": 6}) is None
+    clean = {"hole_groups": [{"d": 5.0, "n": 4, "through": 4, "circle_d": 0.0}]}
+    assert harvest.strict_through_holes_check(spec, clean) is None
+
+
+def test_strict_through_holes_check_none_without_a_stated_diameter():
+    """A count with no accompanying diameter has nothing to positively match against a
+    hole_groups entry (fix round 3, M1) -- no verdict, not a reject or an unscored."""
+    spec = "a bracket with 6 through-holes"
+    assert harvest._spec_through_hole_diameter_mm(spec) is None
+    assert harvest.strict_through_holes_check(
+        spec, {"hole_groups": [{"d": 5.0, "n": 6, "through": 0, "circle_d": 0.0}]}) is None
 
 
 @pytest.mark.parametrize("phrasing,expected", [
@@ -671,22 +771,22 @@ def test_spec_through_hole_count_word_and_digit_forms(phrasing, expected):
     assert harvest._spec_through_hole_count(phrasing) == expected
 
 
-def test_strict_through_holes_check_unscored_when_measurement_unavailable():
-    """Fix round 2, Section B2, verbatim: "If facts has no usable through-hole
-    measurement, the check is unscored, not pass" -- the -1 sentinel (or a missing key)
-    blocks "good" the same way a genuinely short count does, distinguished only by the
-    "unscored:" prefix. A false accept here is the one thing this check must never do."""
+def test_strict_through_holes_check_no_verdict_when_hole_groups_missing_entirely():
+    """Fix round 3, M1: there is no "unscored" branch any more -- a missing/empty
+    hole_groups field (no per-hole detail at all) gives no verdict, same as one present
+    but with no matching diameter."""
     spec = "a bracket with four 5mm through holes"
-    r1 = harvest.strict_through_holes_check(spec, {"through_holes": -1})
-    r2 = harvest.strict_through_holes_check(spec, {})
-    assert r1 is not None and r1.startswith("unscored:strict_through_holes")
-    assert r2 is not None and r2.startswith("unscored:strict_through_holes")
+    assert harvest.strict_through_holes_check(spec, {}) is None
+    assert harvest.strict_through_holes_check(spec, {"hole_groups": []}) is None
 
 
 def test_regate_and_strict_pushes_v064_to_silver_via_gate_spec():
     """End to end through the actual wiring: _regate_and_strict augments gate_spec with
-    both strict findings, which _classify then reads as "silver", never "good" -- this
-    is the exact mechanism that rejects V064 in production."""
+    the strict_envelope finding, which _classify then reads as "silver", never "good" --
+    this is the exact mechanism that rejects V064 in production. Fix round 3, M1:
+    strict_through_holes_check no longer ALSO fires on this real fixture (see
+    test_strict_through_holes_check_no_verdict_on_v064_real_facts) -- envelope alone
+    carries the rejection now, which this test asserts explicitly."""
     fx = _load_fixtures()
     v064 = fx["v064_wrong_sheared_lip"]
     monkeypatch_facts = v064["facts"]
@@ -700,7 +800,7 @@ def test_regate_and_strict_pushes_v064_to_silver_via_gate_spec():
         m = harvest._regate_and_strict({"error": None}, Path("/tmp"), v064["spec"],
                                        _default_cfg())
     assert any("strict_envelope" in n for n in m["gate_spec"])
-    assert any("strict_through_holes" in n for n in m["gate_spec"])
+    assert not any("strict_through_holes" in n for n in m["gate_spec"])
     verdict, _ = harvest._classify(m, None, Path("/tmp"))
     assert verdict == "silver"
 
@@ -778,7 +878,9 @@ def test_max_pairs_per_spec_stops_once_enough_good_candidates_are_found(monkeypa
     kept_codes = {p["code"] for p in pairs}
     assert kept_codes == {"code-A", "code-B"}   # temp 0.2 and 0.5 kept
     assert progress["s1"]["pairs"] == 2
-    assert progress["s1"]["student_attempts"] == 2
+    # Fix round 3, LOW3: attempt caps count ROUNDS (one sample_spec call), not
+    # candidates -- this was a single round, however many of its candidates ran.
+    assert progress["s1"]["student_attempts"] == 1
 
 
 def test_candidates_exceed_slots_when_duplicates_force_extra_sampling(monkeypatch, tmp_path):
@@ -846,18 +948,259 @@ def test_dedup_across_units_via_pair_index_seeded_from_disk(monkeypatch, tmp_pat
     assert new_codes == ["code-B"]
 
 
+# ---------------------------------------------------------------------------
+# gate_version + promotion re-check (fix round 3, M3)
+# ---------------------------------------------------------------------------
+
+def test_gate_version_changes_with_effective_agreement_or_strict_config():
+    cfg1 = _default_cfg()
+    cfg2 = _default_cfg(agreement={"volume_tol_pct": 0.1, "bbox_tol_mm": 0.05,
+                                   "bore_round_mm": 0.01})
+    assert harvest.gate_version(cfg1) != harvest.gate_version(cfg2)
+    assert harvest.gate_version(cfg1) == harvest.gate_version(_default_cfg())
+
+
+def test_candidate_index_excludes_a_stale_gate_version_row():
+    """Fix round 3, M3: a candidate written under a DIFFERENT gate_version than the one
+    in effect now is excluded outright -- it can neither confirm anything nor be
+    promoted (see the module docstring's own note on why this happens at CandidateIndex
+    level, not only at the final promotion step)."""
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:s1:x", "spec_id": "s1", "status": "unconfirmed",
+        "fingerprint": "fp1", "gate_version": "gv1-deadbeef"})
+    idx = harvest.CandidateIndex(harvest.PairIndex(), current_gate_version="gv1-somethingelse")
+    assert idx.unconfirmed_for("s1") == []
+    # Matching gate_version: not excluded.
+    idx2 = harvest.CandidateIndex(harvest.PairIndex(), current_gate_version="gv1-deadbeef")
+    assert len(idx2.unconfirmed_for("s1")) == 1
+
+
+def test_promotion_recheck_rejects_a_carried_candidate_that_fails_strict_today(
+        monkeypatch, tmp_path):
+    """Fix round 3, M3, the reviewer's own scenario: a carried candidate whose STORED
+    facts show a stated-diameter through hole measuring blind (the M1 positive-evidence
+    check) must not be allowed to confirm -- or be promoted alongside -- a new clean
+    sample that agrees with it on geometric signature. `hole_groups` is not part of
+    `signature()` at all, so the two rows' signatures agree even though only the
+    carried one's facts fail today's strict check."""
+    spec_text = "a bracket with a 5mm through hole"
+    row = _spec_row("s1", spec=spec_text)
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
+    gv = harvest.gate_version(cfg)
+    bad_facts = dict(_DEFAULT_CLEAN_FACTS,
+                     hole_groups=[{"d": 5.0, "n": 1, "through": 0, "circle_d": 0.0}])
+    sig = harvest.signature(bad_facts)
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:s1:carried1", "spec_id": "s1", "spec": spec_text, "tier": 2,
+        "group": "plate", "source": "student", "kind": "candidate", "turn": "first",
+        "code": "carried-code", "facts": bad_facts, "signature": sig,
+        "fingerprint": "carriedfp", "temperature": 0.2, "status": "unconfirmed",
+        "gate_version": gv, "confirm_strength": None})
+
+    _patch_generate_sequence(monkeypatch, ["new-code"])
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    good_facts = dict(_DEFAULT_CLEAN_FACTS,
+                      hole_groups=[{"d": 5.0, "n": 1, "through": 1, "circle_d": 0.0}])
+    _patch_regate_passthrough(monkeypatch, facts=good_facts)
+    # Same geometric signature as the carried row (hole_groups is not part of it).
+    assert harvest.signature(good_facts) == sig
+
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
+    by_id = {}
+    for r in harvest._read_jsonl(harvest.CANDIDATES_FILE):
+        by_id[r["id"]] = r
+    assert by_id["c:s1:carried1"]["status"] == "rejected_at_promotion"
+    assert "strict_through_holes" in by_id["c:s1:carried1"]["rejected_reason"]
+
+
 def test_ast_fingerprint_collapses_comment_only_differences():
     a = "from build123d import *\n# a comment\nresult = Box(1, 1, 1)\n"
     b = "from build123d import *\n# a DIFFERENT comment\nresult = Box(1, 1, 1)\n"
     assert harvest._code_fingerprint(a) == harvest._code_fingerprint(b)
 
 
-def test_ast_fingerprint_does_not_collapse_a_renamed_variable():
-    """Task 3 fix L7, as ruled: "a renamed variable will not [collapse]; that is
-    accepted" -- catching that needs alpha-renaming normalisation this fix does not do."""
+def test_ast_fingerprint_collapses_a_pure_variable_rename():
+    """Fix round 3, H2a: the old Task 3 fix L7 accepted that a renamed variable would
+    NOT collapse ("catching that needs a heavier alpha-renaming normalisation this fix
+    does not attempt"). This fix round IS that heavier normalisation: two programs
+    identical except for which name they gave the same locally-bound value now collapse
+    to the same fingerprint (both alpha-rename to `_v0 = Box(1, 1, 1); _v1 = _v0`)."""
     a = "from build123d import *\nslot = Box(1, 1, 1)\nresult = slot\n"
     b = "from build123d import *\nslot_cutter = Box(1, 1, 1)\nresult = slot_cutter\n"
+    assert harvest._code_fingerprint(a) == harvest._code_fingerprint(b)
+
+
+def test_ast_fingerprint_does_not_collapse_an_extra_intermediate_statement():
+    """Fix round 3, H2a: a genuinely different PROGRAM STRUCTURE -- not merely a rename
+    -- must still NOT collapse. "result = Box(20, 20, 20)" is one statement;
+    "cube = Box(20, 20, 20); result = cube" is two (an extra assignment indirection).
+    Alpha-renaming both (result->_v0 in the first; cube->_v0, result->_v1 in the second)
+    still leaves the second with one more statement than the first, so they remain
+    genuinely different code -- this is also the exact pair the real-subprocess
+    end-to-end test below (test_agreement_end_to_end_real_subprocess) samples as its
+    "alone" spec's two distinct-but-agreeing-on-geometry codes, and this test confirms
+    directly, at the fingerprint level, why that test still expects 2 DISTINCT pairs
+    rather than one being silently deduplicated as "the same code" under this fix."""
+    a = "from build123d import *\nresult = Box(20, 20, 20)\n"
+    b = "from build123d import *\ncube = Box(20, 20, 20)\nresult = cube\n"
     assert harvest._code_fingerprint(a) != harvest._code_fingerprint(b)
+
+
+def test_ast_fingerprint_collapses_numeric_literal_int_vs_float():
+    """Fix round 3, H2a: `5` and `5.0` normalise to the same Constant value."""
+    a = "from build123d import *\nresult = Box(5, 5, 5)\n"
+    b = "from build123d import *\nresult = Box(5.0, 5.0, 5.0)\n"
+    assert harvest._code_fingerprint(a) == harvest._code_fingerprint(b)
+
+
+def test_ast_fingerprint_never_renames_builtins_attributes_or_kwargs():
+    """Fix round 3, H2a: a builtin name used as a Load-context call (`sum`, `len`, ...),
+    an attribute access (`x.faces`), and a keyword-argument name (`radius=`) must never
+    be folded into the identifier-renaming map -- only genuinely NEW locally-bound names
+    are renamed. Swapping the keyword-argument NAME (radius vs height, an actual
+    semantic difference, not a rename of a bound value) must still change the
+    fingerprint; swapping which bound local holds the same call result must not."""
+    a = "from build123d import *\nx = Cylinder(radius=5, height=len([1, 2]))\nresult = x.faces\n"
+    b = "from build123d import *\ny = Cylinder(radius=5, height=len([1, 2]))\nresult = y.faces\n"
+    assert harvest._code_fingerprint(a) == harvest._code_fingerprint(b)
+    c = "from build123d import *\nx = Cylinder(height=5, radius=len([1, 2]))\nresult = x.faces\n"
+    assert harvest._code_fingerprint(a) != harvest._code_fingerprint(c)
+
+
+# ---------------------------------------------------------------------------
+# code_similarity + confirm_strength (fix round 3, H2b)
+# ---------------------------------------------------------------------------
+
+def test_code_similarity_pure_function():
+    a = "from build123d import *\nresult = Box(10, 10, 10)\n"
+    b = "from build123d import *\nbox_ = Box(10, 10, 10)\nresult = box_\n"
+    sim = harvest.code_similarity(a, [b])
+    assert 0.0 < sim < 1.0
+    assert sim == round(sim, 3)
+    assert harvest.code_similarity(a, []) == 0.0   # nothing to compare against
+    assert harvest.code_similarity(a, [a]) == 1.0   # identical to itself
+
+
+def test_confirm_strength_for_cluster_labels():
+    """Fix round 3, H2b: "cross_pass" requires the agreeing set to span BOTH a
+    student-pass and a think-pass member; any set drawn from only one pass, however
+    many members, is "same_pass". `_item_pass_label` reads a carried/existing item's
+    own historical `source`, and a "new" item's pass from the CURRENT round's mode."""
+    new_item = {"origin": "new"}
+    carried_student = {"origin": "carried", "cand_row": {"source": "student"}}
+    carried_think = {"origin": "carried", "cand_row": {"source": "teacher:think"}}
+    existing_student = {"origin": "existing", "source": "student"}
+    existing_think = {"origin": "existing", "source": "teacher:think"}
+
+    assert harvest._confirm_strength_for_cluster([new_item, new_item], "student") == "same_pass"
+    assert harvest._confirm_strength_for_cluster(
+        [new_item, carried_think], "student") == "cross_pass"
+    assert harvest._confirm_strength_for_cluster(
+        [existing_student, new_item], "student") == "same_pass"
+    assert harvest._confirm_strength_for_cluster(
+        [existing_think, new_item], "student") == "cross_pass"
+    assert harvest._confirm_strength_for_cluster(
+        [carried_student, carried_student], "think") == "same_pass"
+
+
+def test_confirm_strength_same_pass_when_both_new_candidates_share_a_pass(monkeypatch, tmp_path):
+    _patch_generate_sequence(monkeypatch, ["code-A", "code-B"])
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+    pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
+    assert len(pairs) == 2
+    assert all(p["confirm_strength"] == "same_pass" for p in pairs)
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    confirmed = [r for r in ledger if r["agreement"] == "agreement"]
+    assert confirmed and all(r["confirm_strength"] == "same_pass" for r in confirmed)
+
+
+def test_confirm_strength_cross_pass_when_a_new_candidate_agrees_with_a_think_pass_anchor(
+        monkeypatch, tmp_path):
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    harvest._append_jsonl(harvest.PAIRS_FILE, {
+        "id": "p:s1:anchor1", "spec_id": "s1", "tier": 2, "kind": "good",
+        "code": "anchor-code", "signature": sig, "source": "teacher:think",
+        "confirm_strength": "reference"})
+    _patch_generate_sequence(monkeypatch, ["new-code"])
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+    pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
+    new_pair = [p for p in pairs if p["code"] == "new-code"][0]
+    assert new_pair["confirm_strength"] == "cross_pass"
+    # The anchor was already "reference" (owner ground truth) -- never "upgraded" just
+    # because a same-geometry sample landed under a different pass.
+    assert harvest._read_jsonl(harvest.UPGRADES_FILE) == []
+
+
+def test_confirm_strength_upgrade_appended_without_rewriting_pairs_jsonl(monkeypatch, tmp_path):
+    """Fix round 3, H2b part 2: a later think-pass sample agreeing with an anchor that
+    was originally confirmed same_pass appends an UPGRADES_FILE row for that anchor's
+    pair_id -- pairs.jsonl itself (append-only) is never rewritten; a FRESH PairIndex
+    picks up the upgrade via anchors_for."""
+    sig = harvest.signature(_DEFAULT_CLEAN_FACTS)
+    harvest._append_jsonl(harvest.PAIRS_FILE, {
+        "id": "p:s1:anchor1", "spec_id": "s1", "tier": 2, "kind": "good",
+        "code": "anchor-code", "signature": sig, "source": "student",
+        "confirm_strength": "same_pass"})
+    _patch_generate_sequence(monkeypatch, ["new-code"], mode="think")
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "think", "unit1", progress, harvest.PairIndex())
+
+    upgrades = harvest._read_jsonl(harvest.UPGRADES_FILE)
+    assert len(upgrades) == 1
+    assert upgrades[0]["pair_id"] == "p:s1:anchor1"
+    assert upgrades[0]["confirm_strength"] == "cross_pass"
+    anchor_row = [p for p in harvest._read_jsonl(harvest.PAIRS_FILE)
+                 if p["id"] == "p:s1:anchor1"][0]
+    assert anchor_row["confirm_strength"] == "same_pass"   # pairs.jsonl untouched
+    fresh_index = harvest.PairIndex()
+    anchors = fresh_index.anchors_for("s1")
+    assert any(a["id"] == "p:s1:anchor1" and a["confirm_strength"] == "cross_pass"
+              for a in anchors)
+
+
+def test_reference_match_pair_has_zero_code_similarity_and_reference_confirm_strength(
+        monkeypatch, tmp_path):
+    row = _confirm_via_reference(monkeypatch, "s1")
+    _patch_generate_sequence(monkeypatch, ["code-A"])
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
+    harvest.sample_spec(row, cfg, "student", "unit1", {}, harvest.PairIndex())
+    pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
+    assert pairs[0]["confirm_strength"] == "reference"
+    assert pairs[0]["code_similarity"] == 0.0
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    assert ledger[0]["confirm_strength"] == "reference"
+
+
+def test_pairs_stats_reports_good_by_confirm_strength(monkeypatch, tmp_path):
+    harvest._append_jsonl(harvest.PAIRS_FILE, {
+        "spec_id": "s1", "tier": 2, "kind": "good", "code": "a",
+        "id": "p:s1:a", "confirm_strength": "same_pass"})
+    harvest._append_jsonl(harvest.PAIRS_FILE, {
+        "spec_id": "s2", "tier": 2, "kind": "good", "code": "b",
+        "id": "p:s2:b", "confirm_strength": "reference"})
+    harvest._append_jsonl(harvest.UPGRADES_FILE, {
+        "pair_id": "p:s1:a", "confirm_strength": "cross_pass", "ts": "2026-09-19T00:00:00Z"})
+    stats = harvest._pairs_stats()
+    assert stats["good_by_confirm_strength"] == {"cross_pass": 1, "reference": 1}
 
 
 def test_ast_fingerprint_falls_back_to_raw_hash_on_unparseable_code():
@@ -891,7 +1234,9 @@ def test_generation_exception_writes_a_failed_ledger_row_and_continues(monkeypat
     assert all(not r["ok"] for r in ledger)
     assert all("codegen failed" in r["error"] for r in ledger)
     assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
-    assert progress["s1"]["student_attempts"] == 2
+    # Fix round 3, LOW3: one round (one sample_spec call) is one attempt, whatever the
+    # candidate width -- both candidates here failed inside the SAME round.
+    assert progress["s1"]["student_attempts"] == 1
 
 
 def test_crash_salvage_produces_two_ledger_rows_and_a_pair_on_recovery(monkeypatch, tmp_path):
@@ -931,6 +1276,73 @@ def test_crash_salvage_produces_two_ledger_rows_and_a_pair_on_recovery(monkeypat
     assert pairs[0]["code"] == "fixed-code"
     assert pairs[0]["kind"] == "good"
     assert pairs[0]["turn"] == "salvage"   # Task 3 fix M8
+
+
+def test_salvage_candidates_never_confirm_each_other(monkeypatch, tmp_path):
+    """Fix round 3, H1: a candidate with turn=="salvage" never enters the agreement
+    pool. Both candidates here crash on their first turn and recover identically via
+    salvage (same facts, no reference); before this fix the two salvages would
+    geometrically agree with each other and become 2 confirmed good pairs -- exactly the
+    loophole a reviewer found (a repair call is more likely than a first try to produce
+    a plausible-but-wrong shape, so two of them agreeing is weak evidence at best)."""
+    _patch_generate_sequence(monkeypatch, ["broken-A", "broken-B"])
+    calls = {"n": 0}
+
+    def fake_materialize(code, build_dir, spec):
+        calls["n"] += 1
+        if calls["n"] % 2 == 1:   # every candidate's FIRST turn crashes
+            return {"error": "the script failed to run: boom"}
+        return {"error": None}   # every candidate's salvage turn recovers
+
+    monkeypatch.setattr(fluid_gen, "_materialize", fake_materialize)
+    _patch_regate_passthrough(monkeypatch)
+    monkeypatch.setattr(harvest, "diagnose", lambda err: ("generic", "try wrapping it"))
+    monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung",
+                        lambda spec, code, problem: (f"fixed-{code}", None))
+
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
+    assert harvest._read_jsonl(harvest.CANDIDATES_FILE) == []   # never entered the pool
+    review = harvest._read_jsonl(harvest.REVIEW_FILE)
+    assert len(review) == 2
+    assert all(r["turn"] == "salvage" for r in review)
+
+
+def test_salvage_must_not_confirm_a_first_turn_candidate(monkeypatch, tmp_path):
+    """Fix round 3, H1: a lone first-turn candidate with nobody else to agree with stays
+    "unconfirmed" even when a LATER candidate's salvage attempt lands on the identical
+    geometric signature -- a salvage is never allowed to BE the confirming partner."""
+    _patch_generate_sequence(monkeypatch, ["good-code", "broken-code"])
+
+    def fake_materialize(code, build_dir, spec):
+        if code == "broken-code":
+            return {"error": "the script failed to run: boom"}
+        return {"error": None}   # "good-code" (first turn) and "fixed-code" (salvage)
+
+    monkeypatch.setattr(fluid_gen, "_materialize", fake_materialize)
+    _patch_regate_passthrough(monkeypatch)
+    monkeypatch.setattr(harvest, "diagnose", lambda err: ("generic", "try wrapping it"))
+    monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung",
+                        lambda spec, code, problem: ("fixed-code", None))
+
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
+    candidates = harvest._read_jsonl(harvest.CANDIDATES_FILE)
+    assert len(candidates) == 1
+    assert candidates[0]["code"] == "good-code"
+    assert candidates[0]["agreement"] == "unconfirmed"
+    review = harvest._read_jsonl(harvest.REVIEW_FILE)
+    assert len(review) == 1
+    assert review[0]["turn"] == "salvage"
+    assert review[0]["code"] == "fixed-code"
 
 
 def test_owner_reference_near_miss_writes_a_fail_pair_with_null_code(monkeypatch, tmp_path):
@@ -1622,14 +2034,21 @@ LEDGER_KEYS = {"ts", "unit_id", "spec_id", "tier", "arm", "model", "pass", "cand
               "unscored_reason",
               # Fix round 2, Section A: the code fingerprint (when generated) and the
               # confirmation outcome (None/"reference"/"agreement"/"unconfirmed"/"split").
-              "fingerprint", "agreement"}
+              "fingerprint", "agreement",
+              # Fix round 3, M3/H2c: the effective gate configuration this row was
+              # judged under, and (for a confirmed good row) how strongly.
+              "gate_version", "confirm_strength"}
 
 GOOD_PAIR_KEYS = {"id", "spec_id", "spec", "tier", "group", "source", "kind", "turn",
                   "band", "arm", "model", "temperature", "system_sha1", "prompt", "code",
                   "bad_code", "problem", "facts", "verified", "ts", "unit_id",
                   # Fix round 2, Section A: the geometric signature and why this pair
                   # was trusted ("reference" or "agreement").
-                  "signature", "confirmed_by"}
+                  "signature", "confirmed_by",
+                  # Fix round 3, H2b/M3: how much weight the confirmation can bear, how
+                  # similar this code is to the rest of its agreeing set, and the
+                  # effective gate configuration it was judged under.
+                  "confirm_strength", "code_similarity", "gate_version"}
 
 
 def test_ledger_row_has_the_documented_shape():
@@ -1842,6 +2261,57 @@ def test_run_unit_prunes_builds_at_the_end(monkeypatch, tmp_path):
     result = harvest.run_unit(_default_cfg(keep_builds=123))
     assert calls == [123]
     assert result["builds_pruned"] == 0
+
+
+# ---------------------------------------------------------------------------
+# progress.json reconciliation against pairs.jsonl (fix round 3, M4)
+# ---------------------------------------------------------------------------
+
+def test_reconcile_progress_repairs_a_stale_low_pairs_count(monkeypatch, tmp_path):
+    """Fix round 3, M4: a crash between a pair append and the next _save_progress call
+    leaves progress.json's own "pairs" counter stale-LOW; pairs.jsonl is the truth, and
+    run_unit must reconcile against it BEFORE deciding whether a spec is still eligible,
+    or a later unit would sample straight past max_pairs_per_spec. Simulated here as:
+    2 good pairs already really exist on disk, but progress.json (never saved after the
+    simulated crash) does not exist at all -- the worst-case stale value, 0."""
+    row = _spec_row("s1")
+    _plant_bank([row])
+    cfg = _default_cfg(max_pairs_per_spec=2, candidates=1, temps=[0.2])
+    for i in range(2):
+        harvest._append_jsonl(harvest.PAIRS_FILE, {
+            "spec_id": "s1", "tier": 2, "kind": "good", "code": f"existing-code-{i}",
+            "id": f"p:s1:existing{i}"})
+    assert not harvest.PROGRESS_FILE.exists()
+
+    calls = _patch_generate_sequence(monkeypatch, ["should-not-be-called"] * 5)
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+
+    harvest.run_unit(cfg)
+    # Reconciled BEFORE pool-eligibility was checked: s1 was already full, so it was
+    # never even sampled.
+    assert calls["n"] == 0
+    assert harvest._load_progress()["s1"]["pairs"] == 2
+
+    # A second run_unit call is equally safe (idempotent reconciliation) -- never more
+    # than max_pairs_per_spec good pairs for the spec, across the crash and both reruns.
+    harvest.run_unit(cfg)
+    assert calls["n"] == 0
+    pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
+    assert len([p for p in pairs if p["spec_id"] == "s1"]) == 2
+
+
+def test_reconcile_progress_leaves_attempt_counters_untouched():
+    """pairs.jsonl can tell "pairs", never student_attempts/teacher_attempts (fix round
+    3, M4) -- reconciliation must not reset or otherwise touch those."""
+    bank = [_spec_row("s1")]
+    progress = {"s1": {"student_attempts": 3, "teacher_attempts": 1, "pairs": 0}}
+    harvest._append_jsonl(harvest.PAIRS_FILE, {
+        "spec_id": "s1", "tier": 2, "kind": "good", "code": "x", "id": "p:s1:x"})
+    harvest._reconcile_progress(progress, bank, harvest.PairIndex())
+    assert progress["s1"]["pairs"] == 1
+    assert progress["s1"]["student_attempts"] == 3
+    assert progress["s1"]["teacher_attempts"] == 1
 
 
 # ---------------------------------------------------------------------------
