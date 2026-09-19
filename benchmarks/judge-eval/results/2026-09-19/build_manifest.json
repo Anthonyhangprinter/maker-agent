@@ -1,0 +1,3142 @@
+{
+  "gemma-4-31b-sameprompt::cadprompt__cp-00000633": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00000633",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.13
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.19,
+        0.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00000633/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00000633/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00000007": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00000007",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.21
+      ],
+      "bore_axes": [],
+      "volume": 0.37,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.5,
+        1.5,
+        0.21
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00000007/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00000007/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00034243": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00034243",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.177,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 3,
+          "volume": 0.177
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.1,
+        1.5,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00034243/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00034243/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00037276": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00037276",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 2,
+      "bores": [
+        0.16,
+        0.49
+      ],
+      "hole_groups": [
+        {
+          "d": 0.2,
+          "n": 1,
+          "through": 0,
+          "circle_d": 0.8
+        },
+        {
+          "d": 0.5,
+          "n": 1,
+          "through": 0,
+          "circle_d": 0.5
+        }
+      ],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.2,
+          "axial"
+        ]
+      ],
+      "volume": 0.064,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.99,
+        0.49,
+        0.24
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00037276/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00037276/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00039012": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00039012",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 4,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 1,
+      "blind_holes": 0,
+      "bores": [
+        17.84,
+        20.95
+      ],
+      "hole_groups": [
+        {
+          "d": 17.8,
+          "n": 1,
+          "through": 1,
+          "circle_d": 0.0
+        }
+      ],
+      "walls": [
+        1.56
+      ],
+      "bore_axes": [
+        [
+          17.8,
+          "axial"
+        ]
+      ],
+      "volume": 1820.031,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        20.95,
+        20.95,
+        19.19
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00039012/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00039012/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00986712": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00986712",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 3,
+      "shells": 3,
+      "faces": 18,
+      "cyl_faces": 4,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.3
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.091,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.027
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.038
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.027
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.0
+        ],
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.403
+        ],
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.0
+        ]
+      ],
+      "bbox": [
+        0.88,
+        0.15,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00986712/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00986712/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00996368": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00996368",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 8,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.01,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.4,
+        0.23,
+        0.13
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00996368/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00996368/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00995843": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00995843",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 5,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.27,
+        0.57
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.153,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.57,
+        0.57,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00995843/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00995843/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00996962": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00996962",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.152,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.074
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.078
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.086
+        ]
+      ],
+      "bbox": [
+        1.5,
+        1.37,
+        0.08
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00996962/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00996962/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00998300": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00998300",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 14,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [
+        13.5
+      ],
+      "bore_axes": [],
+      "volume": 536544.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        240.0,
+        13.5,
+        900.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00998300/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00998300/build.step"
+  },
+  "gemma-4-31b-sameprompt::cadprompt__cp-00999374": {
+    "program_id": "gemma-4-31b-sameprompt::cadprompt__cp-00999374",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.06,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.039
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.021
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.217
+        ]
+      ],
+      "bbox": [
+        0.79,
+        0.87,
+        0.49
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00999374/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_cadprompt__cp-00999374/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0014": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0014",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.018,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.42,
+        0.75,
+        0.06
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0014/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0014/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0034": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0034",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.06,
+        0.01
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0034/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0034/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0016": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0016",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 2,
+      "faces": 13,
+      "cyl_faces": 5,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 5,
+      "bores": [
+        20.0,
+        160.0
+      ],
+      "hole_groups": [
+        {
+          "d": 20.0,
+          "n": 4,
+          "through": 0,
+          "circle_d": 747.3
+        },
+        {
+          "d": 160.0,
+          "n": 1,
+          "through": 0,
+          "circle_d": 0.0
+        }
+      ],
+      "walls": [
+        2.8
+      ],
+      "bore_axes": [
+        [
+          20.0,
+          "axial"
+        ]
+      ],
+      "volume": 24228251.327,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        750.0,
+        180.0,
+        180.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0016/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0016/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0039": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0039",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.041,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.71,
+        0.11,
+        0.53
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0039/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0039/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0060": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0060",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 18,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.03
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.0,
+          "radial"
+        ]
+      ],
+      "volume": 0.112,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 8,
+          "volume": 0.0
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 10,
+          "volume": 0.112
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.023
+        ]
+      ],
+      "bbox": [
+        0.45,
+        0.75,
+        0.48
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0060/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0060/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0070": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0070",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 11,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.02
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.02,
+        0.04,
+        0.76
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0070/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0070/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0083": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0083",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.053,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.39,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0083/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0083/build.step"
+  },
+  "gemma-4-31b-sameprompt::text2cadquery__t2cq-0084": {
+    "program_id": "gemma-4-31b-sameprompt::text2cadquery__t2cq-0084",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 8,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.1,
+        0.11
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.01
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.11,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0084/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/gemma-4-31b-sameprompt_text2cadquery__t2cq-0084/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00000007": {
+    "program_id": "claude-sonnet::cadprompt__cp-00000007",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.21
+      ],
+      "bore_axes": [],
+      "volume": 0.37,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.5,
+        1.5,
+        0.21
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00000007/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00000007/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00000633": {
+    "program_id": "claude-sonnet::cadprompt__cp-00000633",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.13
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.19,
+        0.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00000633/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00000633/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00034243": {
+    "program_id": "claude-sonnet::cadprompt__cp-00034243",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 5,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.11,
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.69
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.173,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 7,
+          "volume": 0.173
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.1,
+        1.5,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00034243/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00034243/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00039012": {
+    "program_id": "claude-sonnet::cadprompt__cp-00039012",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 5,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.7,
+        0.82
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.06
+      ],
+      "bore_axes": [
+        [
+          0.7,
+          "axial"
+        ]
+      ],
+      "volume": 0.297,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.82,
+        0.82,
+        0.76
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00039012/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00039012/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00520638": {
+    "program_id": "claude-sonnet::cadprompt__cp-00520638",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 33,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.55
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.6,
+          "radial"
+        ]
+      ],
+      "volume": 0.265,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.11,
+        0.99,
+        0.76
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00520638/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00520638/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00986712": {
+    "program_id": "claude-sonnet::cadprompt__cp-00986712",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 12,
+      "cyl_faces": 4,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 2,
+      "bores": [
+        0.15,
+        0.3
+      ],
+      "hole_groups": [
+        {
+          "d": 0.1,
+          "n": 2,
+          "through": 0,
+          "circle_d": 0.7
+        }
+      ],
+      "walls": [
+        0.08
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.152,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.88,
+        0.15,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00986712/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00986712/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00995843": {
+    "program_id": "claude-sonnet::cadprompt__cp-00995843",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 5,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.27,
+        0.57
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.153,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.57,
+        0.57,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00995843/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00995843/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00996368": {
+    "program_id": "claude-sonnet::cadprompt__cp-00996368",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 10,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.011,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.4,
+        0.28,
+        0.13
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00996368/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00996368/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00996962": {
+    "program_id": "claude-sonnet::cadprompt__cp-00996962",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.152,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.074
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.078
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.086
+        ]
+      ],
+      "bbox": [
+        1.5,
+        1.37,
+        0.08
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00996962/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00996962/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00998300": {
+    "program_id": "claude-sonnet::cadprompt__cp-00998300",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 10,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.28,
+        0.01,
+        0.9
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00998300/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00998300/build.step"
+  },
+  "claude-sonnet::cadprompt__cp-00999374": {
+    "program_id": "claude-sonnet::cadprompt__cp-00999374",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.06,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.039
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.021
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.195
+        ]
+      ],
+      "bbox": [
+        0.75,
+        0.88,
+        0.49
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00999374/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_cadprompt__cp-00999374/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0014": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0014",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.018,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.42,
+        0.75,
+        0.06
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0014/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0014/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0016": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0016",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 2,
+      "faces": 13,
+      "cyl_faces": 5,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.04,
+        0.16
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.06
+      ],
+      "bore_axes": [
+        [
+          0.0,
+          "axial"
+        ]
+      ],
+      "volume": 0.013,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.18,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0016/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0016/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0034": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0034",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.06,
+        0.01
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0034/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0034/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0039": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0039",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.058,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.71,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0039/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0039/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0060": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0060",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 16,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 1,
+      "bores": [
+        0.03
+      ],
+      "hole_groups": [
+        {
+          "d": 0.0,
+          "n": 1,
+          "through": 0,
+          "circle_d": 0.4
+        }
+      ],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.0,
+          "radial"
+        ]
+      ],
+      "volume": 0.098,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.45,
+        0.75,
+        0.48
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0060/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0060/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0070": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0070",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.02,
+        0.04,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0070/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0070/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0083": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0083",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.053,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.39,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0083/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0083/build.step"
+  },
+  "claude-sonnet::text2cadquery__t2cq-0084": {
+    "program_id": "claude-sonnet::text2cadquery__t2cq-0084",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.11
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.007,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.11,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0084/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-sonnet_text2cadquery__t2cq-0084/build.step"
+  },
+  "claude-opus::cadprompt__cp-00000007": {
+    "program_id": "claude-opus::cadprompt__cp-00000007",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.21
+      ],
+      "bore_axes": [],
+      "volume": 0.37,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.5,
+        1.5,
+        0.21
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00000007/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00000007/build.step"
+  },
+  "claude-opus::cadprompt__cp-00000633": {
+    "program_id": "claude-opus::cadprompt__cp-00000633",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.13
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.19,
+        0.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00000633/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00000633/build.step"
+  },
+  "claude-opus::cadprompt__cp-00034243": {
+    "program_id": "claude-opus::cadprompt__cp-00034243",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 5,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.11,
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.69
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.173,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 7,
+          "volume": 0.173
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.1,
+        1.5,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00034243/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00034243/build.step"
+  },
+  "claude-opus::cadprompt__cp-00037276": {
+    "program_id": "claude-opus::cadprompt__cp-00037276",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.16,
+        0.49
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.2,
+          "axial"
+        ]
+      ],
+      "volume": 0.079,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.079
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.99,
+        0.49,
+        0.24
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00037276/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00037276/build.step"
+  },
+  "claude-opus::cadprompt__cp-00039012": {
+    "program_id": "claude-opus::cadprompt__cp-00039012",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 3,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.58,
+        0.7,
+        0.82
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.06
+      ],
+      "bore_axes": [
+        [
+          0.6,
+          "axial"
+        ],
+        [
+          0.7,
+          "axial"
+        ]
+      ],
+      "volume": 0.094,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.094
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.82,
+        0.82,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00039012/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00039012/build.step"
+  },
+  "claude-opus::cadprompt__cp-00520638": {
+    "program_id": "claude-opus::cadprompt__cp-00520638",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 28,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.55
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.243,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 28,
+          "volume": 0.243
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.11,
+        0.55,
+        0.71
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00520638/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00520638/build.step"
+  },
+  "claude-opus::cadprompt__cp-00986712": {
+    "program_id": "claude-opus::cadprompt__cp-00986712",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 10,
+      "cyl_faces": 4,
+      "cone_faces": 0,
+      "through_holes": 4,
+      "blind_holes": 0,
+      "bores": [
+        0.3,
+        0.5
+      ],
+      "hole_groups": [
+        {
+          "d": 0.3,
+          "n": 2,
+          "through": 2,
+          "circle_d": 1.1
+        },
+        {
+          "d": 0.5,
+          "n": 2,
+          "through": 2,
+          "circle_d": 1.1
+        }
+      ],
+      "walls": [
+        0.1,
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.172,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.88,
+        0.15,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00986712/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00986712/build.step"
+  },
+  "claude-opus::cadprompt__cp-00995843": {
+    "program_id": "claude-opus::cadprompt__cp-00995843",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 5,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.27,
+        0.57
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.153,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 5,
+          "volume": 0.153
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.57,
+        0.57,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00995843/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00995843/build.step"
+  },
+  "claude-opus::cadprompt__cp-00996368": {
+    "program_id": "claude-opus::cadprompt__cp-00996368",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 9,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.007,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 9,
+          "volume": 0.007
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.4,
+        0.19,
+        0.13
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00996368/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00996368/build.step"
+  },
+  "claude-opus::cadprompt__cp-00996962": {
+    "program_id": "claude-opus::cadprompt__cp-00996962",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.152,
+      "parts": [
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.074
+        },
+        {
+          "label": "(unlabeled)",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.078
+        }
+      ],
+      "interference": [],
+      "part_gaps": [
+        [
+          "(unlabeled)",
+          "(unlabeled)",
+          0.086
+        ]
+      ],
+      "bbox": [
+        1.5,
+        1.37,
+        0.08
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00996962/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00996962/build.step"
+  },
+  "claude-opus::cadprompt__cp-00998300": {
+    "program_id": "claude-opus::cadprompt__cp-00998300",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 14,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 14,
+          "volume": 0.001
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.24,
+        0.01,
+        0.9
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00998300/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00998300/build.step"
+  },
+  "claude-opus::cadprompt__cp-00999374": {
+    "program_id": "claude-opus::cadprompt__cp-00999374",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 2,
+      "shells": 2,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.06,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 2,
+          "faces": 12,
+          "volume": 0.06
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.88,
+        0.49
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00999374/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_cadprompt__cp-00999374/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0014": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0014",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.018,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.42,
+        0.75,
+        0.06
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0014/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0014/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0016": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0016",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 16,
+      "cyl_faces": 6,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.04,
+        0.16
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.0,
+          "radial"
+        ]
+      ],
+      "volume": 0.024,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.18,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0016/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0016/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0034": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0034",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.06,
+        0.01
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0034/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0034/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0039": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0039",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.058,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.71,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0039/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0039/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0060": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0060",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 18,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.06
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.1,
+          "radial"
+        ]
+      ],
+      "volume": 0.098,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.45,
+        0.75,
+        0.48
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0060/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0060/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0070": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0070",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.02,
+        0.04,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0070/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0070/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0083": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0083",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.053,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.39,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0083/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0083/build.step"
+  },
+  "claude-opus::text2cadquery__t2cq-0084": {
+    "program_id": "claude-opus::text2cadquery__t2cq-0084",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.11
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.007,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.11,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0084/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-opus_text2cadquery__t2cq-0084/build.step"
+  },
+  "claude-fable::cadprompt__cp-00000007": {
+    "program_id": "claude-fable::cadprompt__cp-00000007",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 3,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.21
+      ],
+      "bore_axes": [],
+      "volume": 0.37,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.5,
+        1.5,
+        0.21
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00000007/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00000007/build.step"
+  },
+  "claude-fable::cadprompt__cp-00000633": {
+    "program_id": "claude-fable::cadprompt__cp-00000633",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.13
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.19,
+        0.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00000633/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00000633/build.step"
+  },
+  "claude-fable::cadprompt__cp-00034243": {
+    "program_id": "claude-fable::cadprompt__cp-00034243",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 7,
+      "cyl_faces": 5,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.11,
+        1.5
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.69
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.173,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 7,
+          "volume": 0.173
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.1,
+        1.5,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00034243/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00034243/build.step"
+  },
+  "claude-fable::cadprompt__cp-00037276": {
+    "program_id": "claude-fable::cadprompt__cp-00037276",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.16,
+        0.49
+      ],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.2,
+          "axial"
+        ]
+      ],
+      "volume": 0.079,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 6,
+          "volume": 0.079
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.99,
+        0.49,
+        0.24
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00037276/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00037276/build.step"
+  },
+  "claude-fable::cadprompt__cp-00039012": {
+    "program_id": "claude-fable::cadprompt__cp-00039012",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 3,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.66,
+        0.7,
+        0.82
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.02,
+        0.06
+      ],
+      "bore_axes": [
+        [
+          0.7,
+          "axial"
+        ]
+      ],
+      "volume": 0.034,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.82,
+        0.82,
+        0.76
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00039012/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00039012/build.step"
+  },
+  "claude-fable::cadprompt__cp-00520638": {
+    "program_id": "claude-fable::cadprompt__cp-00520638",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 37,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.19,
+        0.55
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.18
+      ],
+      "bore_axes": [
+        [
+          0.2,
+          "axial"
+        ]
+      ],
+      "volume": 0.249,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 37,
+          "volume": 0.249
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.11,
+        0.55,
+        0.71
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00520638/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00520638/build.step"
+  },
+  "claude-fable::cadprompt__cp-00986712": {
+    "program_id": "claude-fable::cadprompt__cp-00986712",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 10,
+      "cyl_faces": 4,
+      "cone_faces": 0,
+      "through_holes": 4,
+      "blind_holes": 0,
+      "bores": [
+        0.3,
+        0.5
+      ],
+      "hole_groups": [
+        {
+          "d": 0.3,
+          "n": 2,
+          "through": 2,
+          "circle_d": 0.9
+        },
+        {
+          "d": 0.5,
+          "n": 2,
+          "through": 2,
+          "circle_d": 1.1
+        }
+      ],
+      "walls": [
+        0.1,
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.173,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.88,
+        0.15,
+        1.5
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00986712/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00986712/build.step"
+  },
+  "claude-fable::cadprompt__cp-00995843": {
+    "program_id": "claude-fable::cadprompt__cp-00995843",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 5,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.27,
+        0.57
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.15
+      ],
+      "bore_axes": [
+        [
+          0.3,
+          "axial"
+        ]
+      ],
+      "volume": 0.153,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.57,
+        0.57,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00995843/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00995843/build.step"
+  },
+  "claude-fable::cadprompt__cp-00996368": {
+    "program_id": "claude-fable::cadprompt__cp-00996368",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 9,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.007,
+      "parts": [
+        {
+          "label": "COMPOUND",
+          "solids": 1,
+          "faces": 9,
+          "volume": 0.007
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.4,
+        0.19,
+        0.13
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00996368/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00996368/build.step"
+  },
+  "claude-fable::cadprompt__cp-00996962": {
+    "program_id": "claude-fable::cadprompt__cp-00996962",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 10,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.156,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        1.5,
+        1.37,
+        0.08
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00996962/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00996962/build.step"
+  },
+  "claude-fable::cadprompt__cp-00998300": {
+    "program_id": "claude-fable::cadprompt__cp-00998300",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 14,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [
+        13.5,
+        36.0
+      ],
+      "bore_axes": [],
+      "volume": 547479.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        240.0,
+        36.0,
+        900.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00998300/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00998300/build.step"
+  },
+  "claude-fable::cadprompt__cp-00999374": {
+    "program_id": "claude-fable::cadprompt__cp-00999374",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 12,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.058,
+      "parts": [
+        {
+          "label": "SOLID",
+          "solids": 1,
+          "faces": 12,
+          "volume": 0.058
+        }
+      ],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.78,
+        0.85,
+        0.49
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00999374/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_cadprompt__cp-00999374/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0014": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0014",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.018,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.42,
+        0.75,
+        0.06
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0014/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0014/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0016": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0016",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 15,
+      "cyl_faces": 6,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 4,
+      "bores": [
+        0.04,
+        0.16
+      ],
+      "hole_groups": [
+        {
+          "d": 0.0,
+          "n": 4,
+          "through": 0,
+          "circle_d": 0.7
+        }
+      ],
+      "walls": [
+        0.06
+      ],
+      "bore_axes": [
+        [
+          0.0,
+          "axial"
+        ]
+      ],
+      "volume": 0.024,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.18,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0016/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0016/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0034": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0034",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.001,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.06,
+        0.01
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0034/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0034/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0039": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0039",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.058,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.71,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0039/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0039/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0060": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0060",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 20,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 2,
+      "bores": [
+        0.03
+      ],
+      "hole_groups": [
+        {
+          "d": 0.0,
+          "n": 1,
+          "through": 0,
+          "circle_d": 0.4
+        }
+      ],
+      "walls": [],
+      "bore_axes": [
+        [
+          0.0,
+          "radial"
+        ]
+      ],
+      "volume": 0.097,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.45,
+        0.75,
+        0.38
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0060/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0060/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0070": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0070",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.0,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.02,
+        0.04,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0070/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0070/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0083": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0083",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 6,
+      "cyl_faces": 0,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [],
+      "hole_groups": [],
+      "walls": [],
+      "bore_axes": [],
+      "volume": 0.053,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.75,
+        0.39,
+        0.18
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0083/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0083/build.step"
+  },
+  "claude-fable::text2cadquery__t2cq-0084": {
+    "program_id": "claude-fable::text2cadquery__t2cq-0084",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 4,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        0.07,
+        0.11
+      ],
+      "hole_groups": [],
+      "walls": [
+        0.02
+      ],
+      "bore_axes": [
+        [
+          0.1,
+          "axial"
+        ]
+      ],
+      "volume": 0.004,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        0.11,
+        0.11,
+        0.75
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0084/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/claude-fable_text2cadquery__t2cq-0084/build.step"
+  },
+  "fixture::v066_t02_wrong_slot": {
+    "program_id": "fixture::v066_t02_wrong_slot",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 19,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 2,
+      "bores": [
+        12.0
+      ],
+      "hole_groups": [
+        {
+          "d": 12.0,
+          "n": 1,
+          "through": 0,
+          "circle_d": 17.5
+        }
+      ],
+      "walls": [
+        2.5,
+        3.0,
+        4.5
+      ],
+      "bore_axes": [
+        [
+          12.0,
+          "radial"
+        ]
+      ],
+      "volume": 142168.092,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        140.0,
+        90.0,
+        60.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v066_t02_wrong_slot/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v066_t02_wrong_slot/build.step"
+  },
+  "fixture::v064_wrong_sheared_lip": {
+    "program_id": "fixture::v064_wrong_sheared_lip",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 35,
+      "cyl_faces": 12,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 8,
+      "bores": [
+        3.2,
+        9.0
+      ],
+      "hole_groups": [
+        {
+          "d": 9.0,
+          "n": 4,
+          "through": 0,
+          "circle_d": 199.7
+        }
+      ],
+      "walls": [
+        2.9,
+        3.5,
+        4.0
+      ],
+      "bore_axes": [
+        [
+          3.2,
+          "radial"
+        ],
+        [
+          9.0,
+          "radial"
+        ]
+      ],
+      "volume": 200641.187,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        180.0,
+        130.0,
+        53.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v064_wrong_sheared_lip/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v064_wrong_sheared_lip/build.step"
+  },
+  "fixture::v066_t05_correct_hole": {
+    "program_id": "fixture::v066_t05_correct_hole",
+    "ok": true,
+    "stage": null,
+    "error": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 17,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        12.0
+      ],
+      "hole_groups": [],
+      "walls": [
+        2.5,
+        3.0,
+        4.5
+      ],
+      "bore_axes": [
+        [
+          12.0,
+          "axial"
+        ]
+      ],
+      "volume": 142664.257,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        140.0,
+        90.0,
+        60.0
+      ]
+    },
+    "png": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v066_t05_correct_hole/render.png",
+    "step": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/results/2026-09-19/artifacts/fixture_v066_t05_correct_hole/build.step"
+  }
+}
