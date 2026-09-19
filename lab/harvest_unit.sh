@@ -21,8 +21,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK="$HERE/lab/state/harvest.lock"
 mkdir -p "$(dirname "$LOCK")"
-exec 9>"$LOCK"
-flock -n 9 || { echo "harvest_unit: a unit is already running, skipping this tick" >&2; exit 0; }
+# fd 8, NOT 9: gpu_window.sh reassigns fd 9 to the CAD build lock, which would close this
+# descriptor and silently release harvest.lock the moment the window starts. fd 8 is inherited
+# by the window and the job, so the lock lives exactly as long as the unit does.
+exec 8>"$LOCK"
+flock -n 8 || { echo "harvest_unit: a unit is already running, skipping this tick" >&2; exit 0; }
 if ! python3 "$HERE/lab/harvest.py" --check-gate; then
     exit 0   # quiet skip; --check-gate already printed the reason to stderr
 fi
