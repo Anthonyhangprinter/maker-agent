@@ -99,7 +99,13 @@ def _default_cfg(**overrides) -> dict:
           "attempt_caps": {"student": 2, "teacher": 5},
           "agreement": {"volume_tol_pct": 0.05, "bbox_tol_mm": 0.05, "bore_round_mm": 0.01},
           "strict": {"envelope_tol_mm": 0.2},
-          "keep_builds": 500}
+          "keep_builds": 500,
+          # Task 3c: adaptive-sampling/salvage/scheduling defaults, mirrored from
+          # cad_v5.config._LAB_DEFAULTS so tests exercise the real shape. `salvage`
+          # defaults OFF here too -- tests that need the old always-salvage behaviour
+          # pass `salvage=True` explicitly (see the salvage tests below).
+          "probe_candidates": 2, "salvage": False,
+          "tier_weights": {"1": 1, "2": 3, "3": 4, "4": 1}, "seed": 1}
     cfg.update(overrides)
     return cfg
 
@@ -949,6 +955,156 @@ def test_dedup_across_units_via_pair_index_seeded_from_disk(monkeypatch, tmp_pat
 
 
 # ---------------------------------------------------------------------------
+# Adaptive sampling + salvage-off (Task 3c, 2026-09-19): the first real harvest unit
+# spent 27 GPU minutes and produced ZERO pairs across 3 specs / 22 ledger rows -- see
+# lab/harvest.py's own module docstring. A round now probes a small number of
+# candidates and gives up early ("cold") when none of them was even gate-clean, unless
+# a carried candidate is already waiting for a partner; salvage (a repair codegen call
+# plus a rebuild on every crash) is off by default.
+# ---------------------------------------------------------------------------
+
+def test_probe_indices_tier34_spreads_across_the_list():
+    probe, rest = harvest._probe_indices(5, is_tier34=True, probe_candidates=2)
+    assert probe == [0, 2]
+    assert rest == [1, 3, 4]
+
+
+def test_probe_indices_tier12_is_the_old_sequential_order():
+    """Tiers 1-2 keep the plain "first N" order -- for the shipped defaults
+    (candidates=3, probe_candidates=2) this is IDENTICAL to the pre-Task-3c order, so
+    every existing tier-1/2 test's candidate sequence is unaffected by this change."""
+    probe, rest = harvest._probe_indices(3, is_tier34=False, probe_candidates=2)
+    assert probe == [0, 1]
+    assert rest == [2]
+
+
+def test_probe_indices_floors_probe_candidates_at_one():
+    probe, _ = harvest._probe_indices(3, is_tier34=False, probe_candidates=0)
+    assert probe == [0]
+
+
+def test_cold_probe_stops_after_two_with_one_attempt_counted(monkeypatch, tmp_path):
+    """Tier 3-4, every candidate crashes: the round must stop after the probe
+    (probe_candidates=2, default) rather than spending the full candidates_tier34
+    budget (5), and still counts as exactly one round (one attempt) -- Task 3c ruling."""
+    codes = [f"broken-{i}" for i in range(5)]
+    calls = _patch_generate_sequence(monkeypatch, codes)
+    monkeypatch.setattr(fluid_gen, "_materialize",
+                        lambda code, build_dir, spec: {"error": "boom: never builds"})
+    row = _spec_row("h1", tier=3)
+    cfg = _default_cfg()   # salvage off, probe_candidates=2, both defaults
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert calls["n"] == 2   # only the two probe candidates were even generated
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    assert len(ledger) == 2
+    assert all(not r["ok"] for r in ledger)
+    assert progress["h1"]["student_attempts"] == 1
+    assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
+
+
+def test_gate_clean_probe_continues_through_the_full_budget(monkeypatch, tmp_path):
+    """The FIRST probe candidate is gate-clean: the round must NOT stop early, and goes
+    on to try the tier's full candidate budget (5, tier 3-4 default)."""
+    codes = [f"code-{i}" for i in range(5)]
+    calls = _patch_generate_sequence(monkeypatch, codes)
+    monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
+    _patch_regate_passthrough(monkeypatch)
+    row = _spec_row("h1", tier=3)
+    cfg = _default_cfg(max_pairs_per_spec=99)   # never satisfied early by the quota
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert calls["n"] == 5   # the full tier 3-4 candidate budget was tried
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    assert len(ledger) == 5
+
+
+def test_carried_candidate_forces_a_third_try_before_giving_up_cold(monkeypatch, tmp_path):
+    """A carried unconfirmed candidate is "there is something to confirm" (Task 3c
+    ruling, verbatim): even when the probe (2 candidates) is entirely cold, the round
+    tries one MORE candidate (the 3rd) before giving up, in case it can confirm it."""
+    cfg = _default_cfg()
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:h1:carried", "spec_id": "h1", "status": "unconfirmed",
+        "fingerprint": "carried-fp", "temperature": 0.2,
+        "signature": harvest.signature(_clean_m()["facts"]), "source": "student",
+        "code": "carried-code", "tier": 3, "gate_version": harvest.gate_version(cfg)})
+    codes = [f"broken-{i}" for i in range(5)]
+    calls = _patch_generate_sequence(monkeypatch, codes)
+    monkeypatch.setattr(fluid_gen, "_materialize",
+                        lambda code, build_dir, spec: {"error": "boom: never builds"})
+    row = _spec_row("h1", tier=3)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert calls["n"] == 3   # probe_candidates (2) + 1 extra try for the carried one
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    assert len(ledger) == 3
+    assert all(not r["ok"] for r in ledger)
+
+
+def test_salvage_off_by_default_no_repair_call(monkeypatch, tmp_path):
+    """Task 3c: with salvage off (the shipped default), a crash gets its one ledger row
+    and NOTHING else -- no repair codegen call, no second materialize."""
+    _patch_generate_sequence(monkeypatch, ["broken-code"])
+    materialize_calls = {"n": 0}
+
+    def fake_materialize(code, build_dir, spec):
+        materialize_calls["n"] += 1
+        return {"error": "the script failed to run: boom"}
+
+    monkeypatch.setattr(fluid_gen, "_materialize", fake_materialize)
+
+    def boom_revise(*a, **k):
+        pytest.fail("salvage is off: _revise_on_repair_rung must never be called")
+
+    monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung", boom_revise)
+    monkeypatch.setattr(
+        harvest, "diagnose",
+        lambda err: pytest.fail("salvage is off: diagnose() must never run"))
+
+    row = _spec_row("s1")
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)   # salvage=False
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+
+    assert materialize_calls["n"] == 1   # the crash, no salvage rebuild
+    ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
+    assert len(ledger) == 1
+    assert ledger[0]["ok"] is False
+    assert harvest._read_jsonl(harvest.PAIRS_FILE) == []
+    assert harvest._read_jsonl(harvest.REVIEW_FILE) == []
+
+
+def test_salvage_on_still_repairs_a_crash(monkeypatch, tmp_path):
+    """The opt-in path (salvage=True) is unchanged: a crash still gets one repair turn."""
+    row = _confirm_via_reference(monkeypatch, "s1")
+    _patch_generate_sequence(monkeypatch, ["broken-code"])
+    revise_calls = {"n": 0}
+
+    def fake_materialize(code, build_dir, spec):
+        return ({"error": "the script failed to run: boom"} if revise_calls["n"] == 0
+               else {"error": None})
+
+    monkeypatch.setattr(fluid_gen, "_materialize", fake_materialize)
+    _patch_regate_passthrough(monkeypatch)
+    monkeypatch.setattr(harvest, "diagnose", lambda err: ("generic", "try wrapping it"))
+
+    def fake_revise(spec, code, problem):
+        revise_calls["n"] += 1
+        return "fixed-code", None
+
+    monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung", fake_revise)
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2, salvage=True)
+    progress: dict = {}
+    harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
+    assert revise_calls["n"] == 1
+    assert len(harvest._read_jsonl(harvest.PAIRS_FILE)) == 1
+
+
+# ---------------------------------------------------------------------------
 # gate_version + promotion re-check (fix round 3, M3)
 # ---------------------------------------------------------------------------
 
@@ -1260,7 +1416,9 @@ def test_crash_salvage_produces_two_ledger_rows_and_a_pair_on_recovery(monkeypat
     monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung",
                         lambda spec, code, problem: ("fixed-code", None))
 
-    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
+    # Task 3c: salvage defaults OFF -- this test exercises the (still-supported, opt-in)
+    # salvage mechanics themselves, so it turns salvage back on explicitly.
+    cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2, salvage=True)
     progress: dict = {}
     harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
 
@@ -1301,7 +1459,9 @@ def test_salvage_candidates_never_confirm_each_other(monkeypatch, tmp_path):
                         lambda spec, code, problem: (f"fixed-{code}", None))
 
     row = _spec_row("s1")
-    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2)
+    # Task 3c: salvage defaults OFF -- exercised here explicitly (this test is about
+    # H1's own agreement-pool exclusion, which only matters when salvage runs at all).
+    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2, salvage=True)
     progress: dict = {}
     harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
 
@@ -1330,7 +1490,9 @@ def test_salvage_must_not_confirm_a_first_turn_candidate(monkeypatch, tmp_path):
                         lambda spec, code, problem: ("fixed-code", None))
 
     row = _spec_row("s1")
-    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2)
+    # Task 3c: salvage defaults OFF -- exercised here explicitly (the second candidate's
+    # crash needs a salvage turn for this test's own point to apply).
+    cfg = _default_cfg(candidates=2, temps=[0.2, 0.5], max_pairs_per_spec=2, salvage=True)
     progress: dict = {}
     harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
 
@@ -1825,26 +1987,109 @@ def test_run_once_unknown_spec_id_raises_system_exit(monkeypatch):
 # Tier-first scheduling
 # ---------------------------------------------------------------------------
 
-def test_order_specs_prefers_tier34_first_when_share_is_low():
-    pool = [_spec_row("p1", tier=1), _spec_row("p2", tier=2),
-           _spec_row("h1", tier=3), _spec_row("h2", tier=4)]
-    ordered = harvest._order_specs(pool, {}, prefer_tier34=True)
-    assert set(r["id"] for r in ordered[:2]) == {"h1", "h2"}
+def test_order_specs_weighted_round_robin_exact_order_with_singleton_groups():
+    """Task 3c: weights {"1": 1, "2": 2} over one tier-1 spec and two tier-2 specs, each
+    spec placed in its OWN intra-tier group (so the seeded shuffle never has more than
+    one item to permute and cannot affect this test) -- the exact emitted order is fully
+    determined by the weighted round-robin fractions alone: pick argmin over active
+    tiers of (emissions_so_far + 1) / weight, ties broken by tier id ascending.
+      step 1: tier1 frac 1/1=1.0, tier2 frac 1/2=0.5      -> tier2 ("b-carried")
+      step 2: tier1 frac 1/1=1.0, tier2 frac 2/2=1.0 (tie) -> tier1 ("a1", "1" < "2")
+      step 3: tier1 exhausted                              -> tier2 ("b-new")
+    """
+    carried_row = _spec_row("b-carried", tier=2)
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:b-carried:x", "spec_id": "b-carried", "status": "unconfirmed"})
+    pool = [_spec_row("a1", tier=1), carried_row, _spec_row("b-new", tier=2)]
+    cfg = _default_cfg(tier_weights={"1": 1, "2": 2})
+    ordered = harvest._order_specs(pool, {}, cfg, today="2026-09-19")
+    assert [r["id"] for r in ordered] == ["b-carried", "a1", "b-new"]
 
 
-def test_order_specs_round_robins_by_attempts_when_share_is_high():
-    pool = [_spec_row("a", tier=1), _spec_row("b", tier=1), _spec_row("c", tier=1)]
-    progress = {"a": {"student_attempts": 3}, "b": {"student_attempts": 0},
-               "c": {"student_attempts": 1}}
-    ordered = harvest._order_specs(pool, progress, prefer_tier34=False)
-    assert [r["id"] for r in ordered] == ["b", "c", "a"]
+def test_order_specs_teacher_suite_before_specgen_within_a_tier():
+    """Task 3c ruling: the scheduler must no longer start on the specs the model mostly
+    cannot build (source "specgen") -- those now pay LAST inside a tier. Both specs are
+    never-tried, so this isolates the source_bucket half of _intra_tier_key alone."""
+    teacher_row = _spec_row("teacher-1", tier=2, source="teacher-suite")
+    specgen_row = _spec_row("specgen-1", tier=2, source="specgen")
+    cfg = _default_cfg()
+    ordered = harvest._order_specs([specgen_row, teacher_row], {}, cfg, today="2026-09-19")
+    assert [r["id"] for r in ordered] == ["teacher-1", "specgen-1"]
 
 
-def test_order_specs_tier34_bucket_itself_is_attempt_ordered():
-    progress = {"h1": {"student_attempts": 2}, "h2": {"student_attempts": 0}}
-    pool = [_spec_row("h1", tier=3), _spec_row("h2", tier=4), _spec_row("p1", tier=1)]
-    ordered = harvest._order_specs(pool, progress, prefer_tier34=True)
-    assert [r["id"] for r in ordered] == ["h2", "h1", "p1"]
+def test_order_specs_carried_first_never_tried_then_cold_last():
+    """Task 3c: within one tier, a spec with a live unconfirmed candidate goes first
+    (cheapest to confirm), a never-sampled spec next, and a spec that has already been
+    sampled with nothing live to show for it (cold) goes last."""
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:carried-1:x", "spec_id": "carried-1", "status": "unconfirmed"})
+    progress = {"cold-1": {"student_attempts": 2, "teacher_attempts": 0}}
+    pool = [_spec_row("cold-1", tier=2), _spec_row("never-1", tier=2),
+           _spec_row("carried-1", tier=2)]
+    cfg = _default_cfg()
+    ordered = harvest._order_specs(pool, progress, cfg, today="2026-09-19")
+    assert [r["id"] for r in ordered] == ["carried-1", "never-1", "cold-1"]
+
+
+def test_order_specs_promoted_candidate_does_not_count_as_carried():
+    """A candidates.jsonl row marked "promoted" is a terminal, already-confirmed pair --
+    it must not make its spec look "carried" (cheapest to confirm) when there is nothing
+    live left to confirm."""
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:s1:x", "spec_id": "s1", "status": "promoted"})
+    progress = {"s1": {"student_attempts": 1, "teacher_attempts": 0}}
+    pool = [_spec_row("s1", tier=2), _spec_row("s2", tier=2)]
+    cfg = _default_cfg()
+    ordered = harvest._order_specs(pool, progress, cfg, today="2026-09-19")
+    # s1 is "cold" (attempted, nothing live), s2 is "never-tried" -- s2 first.
+    assert [r["id"] for r in ordered] == ["s2", "s1"]
+
+
+def test_order_specs_same_seed_and_date_reproduce_the_same_order():
+    pool = [_spec_row(f"s{i}", tier=2) for i in range(6)]
+    cfg = _default_cfg()
+    first = [r["id"] for r in harvest._order_specs(pool, {}, cfg, today="2026-09-19")]
+    second = [r["id"] for r in harvest._order_specs(pool, {}, cfg, today="2026-09-19")]
+    assert first == second
+    assert sorted(first) == [r["id"] for r in sorted(pool, key=lambda r: r["id"])]
+
+
+def test_order_specs_different_date_changes_the_order():
+    pool = [_spec_row(f"s{i}", tier=2) for i in range(6)]
+    cfg = _default_cfg()
+    day1 = [r["id"] for r in harvest._order_specs(pool, {}, cfg, today="2026-09-19")]
+    day2 = [r["id"] for r in harvest._order_specs(pool, {}, cfg, today="2026-09-20")]
+    assert day1 != day2
+
+
+def test_order_specs_different_seed_changes_the_order():
+    pool = [_spec_row(f"s{i}", tier=2) for i in range(6)]
+    cfg1 = _default_cfg(seed=1)
+    cfg2 = _default_cfg(seed=2)
+    order1 = [r["id"] for r in harvest._order_specs(pool, {}, cfg1, today="2026-09-19")]
+    order2 = [r["id"] for r in harvest._order_specs(pool, {}, cfg2, today="2026-09-19")]
+    assert order1 != order2
+
+
+def test_order_specs_skips_a_tier_with_no_eligible_specs():
+    """tier "3" carries the heaviest configured weight but has no spec in the pool --
+    the scheduler must not stall or crash looking for it, it simply never gets picked."""
+    pool = [_spec_row("a", tier=1), _spec_row("b", tier=2)]
+    cfg = _default_cfg(tier_weights={"1": 1, "2": 1, "3": 99, "4": 1})
+    ordered = harvest._order_specs(pool, {}, cfg, today="2026-09-19")
+    assert sorted(r["id"] for r in ordered) == ["a", "b"]
+
+
+def test_order_specs_empty_pool_returns_empty_list():
+    assert harvest._order_specs([], {}, _default_cfg()) == []
+
+
+def test_order_specs_defaults_today_to_the_real_date(monkeypatch):
+    """Called without an explicit `today` (the real run_unit call site), _order_specs
+    must not raise and must still return every spec exactly once."""
+    pool = [_spec_row("a", tier=2), _spec_row("b", tier=2)]
+    ordered = harvest._order_specs(pool, {}, _default_cfg())
+    assert sorted(r["id"] for r in ordered) == ["a", "b"]
 
 
 # ---------------------------------------------------------------------------
@@ -2167,6 +2412,95 @@ def test_pass_rate_by_pass_and_tier(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Status additions (Task 3c): yield, gate_clean_rate/confirmed_rate by tier AND by
+# source, cold_specs -- the numbers the owner tunes tier_weights against.
+# ---------------------------------------------------------------------------
+
+def test_row_is_gate_clean_matches_classify_good():
+    good = harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
+                               candidate="0", temperature=0.2, m=_clean_m(), band_info={},
+                               usage={}, model="x", build_dir=None, seconds=1.0)
+    unscored = harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
+                                   candidate="1", temperature=0.2,
+                                   m=_clean_m(unscored_reason="inspect timed out"),
+                                   band_info={}, usage={}, model="x", build_dir=None,
+                                   seconds=1.0)
+    hard = harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
+                               candidate="2", temperature=0.2,
+                               m=_clean_m(gate_hard=["bad"]), band_info={}, usage={},
+                               model="x", build_dir=None, seconds=1.0)
+    assert harvest._row_is_gate_clean(good) is True
+    # An unscored row still has ok=True (regate reports its error as None there) --
+    # _row_is_gate_clean must exclude it explicitly, same as _classify itself does.
+    assert unscored["ok"] is True
+    assert harvest._row_is_gate_clean(unscored) is False
+    assert harvest._row_is_gate_clean(hard) is False
+
+
+def test_gate_clean_and_confirmed_rate_by_source(tmp_path):
+    _plant_bank([_spec_row("teacher-1", tier=2, source="teacher-suite"),
+                _spec_row("specgen-1", tier=2, source="specgen")])
+    harvest._append_jsonl(harvest.LEDGER_FILE, harvest._ledger_row(
+        unit_id="u1", spec_id="teacher-1", tier=2, mode="student", candidate="0",
+        temperature=0.2, m=_clean_m(), band_info={}, usage={}, model="x", build_dir=None,
+        seconds=1.0, agreement="agreement"))
+    harvest._append_jsonl(harvest.LEDGER_FILE, harvest._ledger_row(
+        unit_id="u1", spec_id="specgen-1", tier=2, mode="student", candidate="0",
+        temperature=0.2, m=_clean_m(gate_hard=["bad"]), band_info={}, usage={}, model="x",
+        build_dir=None, seconds=1.0))
+    status = harvest._compute_status()
+    assert status["ledger"]["gate_clean_rate_by_source"] == {"other": 1.0, "specgen": 0.0}
+    assert status["ledger"]["confirmed_rate_by_source"] == {"other": 1.0, "specgen": 0.0}
+
+
+def test_cold_specs_count_excludes_never_tried_and_carried(tmp_path):
+    _plant_bank([_spec_row("cold-1", tier=2), _spec_row("never-1", tier=2),
+                _spec_row("carried-1", tier=2)])
+    progress = {"cold-1": {"student_attempts": 2, "teacher_attempts": 0, "pairs": 0},
+               "carried-1": {"student_attempts": 1, "teacher_attempts": 0, "pairs": 0}}
+    harvest._append_jsonl(harvest.CANDIDATES_FILE, {
+        "id": "c:carried-1:x", "spec_id": "carried-1", "status": "unconfirmed"})
+    cfg = _default_cfg()
+    # cold-1: attempted, nothing live -> cold. never-1: never attempted. carried-1: live
+    # candidate on disk -> not cold, despite having been attempted too.
+    assert harvest._cold_specs_count(specbank.load_bank(), progress, cfg) == 1
+
+
+def test_yield_stats_cumulative_and_last_unit():
+    rows = [
+        harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
+                            candidate="0", temperature=0.2, m=_clean_m(), band_info={},
+                            usage={}, model="x", build_dir=None, seconds=3600.0,
+                            agreement="agreement"),
+        harvest._ledger_row(unit_id="u1", spec_id="s2", tier=2, mode="student",
+                            candidate="0", temperature=0.2,
+                            m=_clean_m(gate_hard=["bad"]), band_info={}, usage={},
+                            model="x", build_dir=None, seconds=3600.0),
+        harvest._ledger_row(unit_id="u2", spec_id="s3", tier=2, mode="student",
+                            candidate="0", temperature=0.2, m=_clean_m(), band_info={},
+                            usage={}, model="x", build_dir=None, seconds=1800.0,
+                            agreement="reference"),
+    ]
+    for r in rows:
+        harvest._append_jsonl(harvest.LEDGER_FILE, r)
+    y = harvest._yield_stats(harvest._read_jsonl(harvest.LEDGER_FILE))
+    assert y["cumulative"]["good_pairs"] == 2
+    assert y["cumulative"]["gpu_hours"] == 2.5
+    assert y["cumulative"]["good_pairs_per_gpu_hour"] == 0.8
+    assert y["last_unit"]["unit_id"] == "u2"
+    assert y["last_unit"]["good_pairs"] == 1
+    assert y["last_unit"]["gpu_hours"] == 0.5
+    assert y["last_unit"]["good_pairs_per_gpu_hour"] == 2.0
+
+
+def test_yield_stats_empty_ledger_is_none_not_a_crash():
+    y = harvest._yield_stats([])
+    assert y["cumulative"]["good_pairs_per_gpu_hour"] is None
+    assert y["last_unit"]["unit_id"] is None
+    assert y["last_unit"]["good_pairs_per_gpu_hour"] is None
+
+
+# ---------------------------------------------------------------------------
 # run_unit: wall-clock deadline (Task 3 fix M1: checked inside the candidate loop too)
 # ---------------------------------------------------------------------------
 
@@ -2177,7 +2511,12 @@ def test_run_unit_stops_between_specs_at_the_real_deadline(monkeypatch, tmp_path
     here (its own deadline handling is covered separately, above) so only run_unit's
     between-specs deadline arithmetic is under test: a fake clock that advances by
     exactly 1.0 per spec "processed", with a budget of 2.5, must process exactly 3 specs
-    (0.0 < 2.5, 1.0 < 2.5, 2.0 < 2.5, then 3.0 >= 2.5 stops the 4th)."""
+    (0.0 < 2.5, 1.0 < 2.5, 2.0 < 2.5, then 3.0 >= 2.5 stops the 4th). Task 3c: the five
+    specs are identical in tier/source/attempt-status, so the new weighted round-robin
+    scheduler (_order_specs) places them all in one date-seeded-shuffle group -- WHICH
+    three of the five run first is no longer asserted (that is _order_specs's own
+    concern, tested directly below); this test only cares that exactly three distinct
+    specs ran before the deadline stopped a fourth."""
     _plant_bank([_spec_row(f"s{i}") for i in range(5)])
 
     fake_now = {"t": 0.0}
@@ -2196,7 +2535,9 @@ def test_run_unit_stops_between_specs_at_the_real_deadline(monkeypatch, tmp_path
 
     cfg = _default_cfg(unit_minutes=2.5 / 60)
     result = harvest.run_unit(cfg)
-    assert processed_ids == ["s0", "s1", "s2"]
+    assert len(processed_ids) == 3
+    assert len(set(processed_ids)) == 3
+    assert set(processed_ids) <= {"s0", "s1", "s2", "s3", "s4"}
     assert result["specs_processed"] == 3
 
 

@@ -528,6 +528,63 @@ def test_lab_config_partial_override_also_returns_deep_copies(tmp_path):
     assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
 
 
+def test_lab_config_new_task_3c_keys_have_the_documented_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    h = cfg.lab_config()["harvest"]
+    assert h["probe_candidates"] == 2
+    assert h["salvage"] is False
+    assert h["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert h["seed"] == 1
+
+
+# ── lab_config() tier_weights (Task 3c: wrong shapes must fall back, never raise) ──
+_BAD_TIER_WEIGHTS = [
+    ("a list", ["1", "2", "3", "4"]),
+    ("a string", "1,2,3,4"),
+    ("all negative", {"1": -1, "2": -3, "3": -4, "4": -1}),
+    ("one negative weight", {"1": 1, "2": -3, "3": 4, "4": 1}),
+    ("zero-sum", {"1": 0, "2": 0, "3": 0, "4": 0}),
+    ("empty dict", {}),
+    ("non-numeric value", {"1": "a lot", "2": 3, "3": 4, "4": 1}),
+]
+
+
+@pytest.mark.parametrize("label,bad", _BAD_TIER_WEIGHTS, ids=[b[0] for b in _BAD_TIER_WEIGHTS])
+def test_lab_config_tier_weights_wrong_shape_falls_back_to_the_default(tmp_path, label, bad):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": bad}}})
+    assert cfg.lab_config()["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+
+
+def test_lab_config_tier_weights_negative_values_log_a_warning(tmp_path, caplog):
+    """A real dict of the right TYPE but invalid VALUES (unlike a list/string, which the
+    generic "not a dict" fallback above already warns about on its own path) is caught
+    by `_valid_tier_weights` specifically -- this is the case that needs its own warning."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": {"1": 1, "2": -3,
+                                                                       "3": 4, "4": 1}}}})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        h = cfg.lab_config()["harvest"]
+    assert h["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert any("tier_weights" in r.message for r in caplog.records)
+
+
+def test_lab_config_tier_weights_partial_positive_dict_is_kept_as_is(tmp_path):
+    """A partial but internally-valid override (missing tiers, all non-negative, a
+    positive sum) is not "wrong shape" -- it merges over the defaults like any other
+    lab.harvest key, never silently discarded."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": {"1": 5}}}})
+    h = cfg.lab_config()["harvest"]
+    assert h["tier_weights"] == {"1": 5, "2": 3, "3": 4, "4": 1}
+
+
+def test_lab_config_tier_weights_never_raises_and_stays_a_deep_copy(tmp_path):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": "oops"}}})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["tier_weights"]["1"] = 999
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert cfg._LAB_DEFAULTS["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+
+
 class _FakeHealthResponse:
     def __enter__(self):
         return self
