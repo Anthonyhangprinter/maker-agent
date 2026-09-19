@@ -1,0 +1,238 @@
+{
+  "meta": {
+    "run_id": "langab-20260919-resident",
+    "arms": [
+      "b123d",
+      "b123d-nofs",
+      "cadquery",
+      "openscad"
+    ],
+    "n_specs": 40,
+    "seed": 20260919,
+    "suite_root": "/home/theultimatecunt/.openclaw/skills/cad-builder/benchmarks",
+    "started": "2026-09-19T09:49:09+00:00"
+  },
+  "summary": {
+    "b123d": {
+      "n": 40,
+      "built_pct": 77.5,
+      "error_class_pct": {
+        "api_misuse": 17.5,
+        "import_or_name": 2.5,
+        "kernel": 2.5
+      },
+      "match_pct": 10.0,
+      "match_or_valid_pct": 25.0,
+      "median_codegen_s": 96.83,
+      "median_build_s": 2.29,
+      "median_tokens_out": 326.5,
+      "top_error_signatures": [
+        [
+          "ValueError: Unable to repositioned type <class 'NoneType'> with respect to local coordinates",
+          2
+        ],
+        [
+          "TypeError: Shape.translate() takes 2 positional arguments but 3 were given",
+          1
+        ],
+        [
+          "OCP.OCP.StdFail.StdFail_NotDone: BRep_API: command not done",
+          1
+        ],
+        [
+          "TypeError: Face.extrude() got an unexpected keyword argument 'amount'",
+          1
+        ],
+        [
+          "TypeError: Compound.extrude() got an unexpected keyword argument 'amount'",
+          1
+        ],
+        [
+          "AttributeError: 'Edge' object has no attribute 'pos'",
+          1
+        ],
+        [
+          "NameError: name 'Extrude' is not defined. Did you mean: 'extrude'?",
+          1
+        ],
+        [
+          "TypeError: BuildSketch.__init__() got an unexpected keyword argument 'origin'",
+          1
+        ]
+      ]
+    },
+    "b123d-nofs": {
+      "n": 40,
+      "built_pct": 80.0,
+      "error_class_pct": {
+        "api_misuse": 15.0,
+        "import_or_name": 5.0
+      },
+      "match_pct": 17.5,
+      "match_or_valid_pct": 30.0,
+      "median_codegen_s": 81.17,
+      "median_build_s": 2.27,
+      "median_tokens_out": 331.5,
+      "top_error_signatures": [
+        [
+          "AttributeError: 'BuildSketch' has no attribute 'extrude'. Did you intend '<BuildSketch>.sketch.extru",
+          1
+        ],
+        [
+          "NameError: name 'LineTo' is not defined. Did you mean: 'Line'?",
+          1
+        ],
+        [
+          "AttributeError: 'Polyline' object has no attribute 'to_edge'",
+          1
+        ],
+        [
+          "TypeError: Compound.extrude() got an unexpected keyword argument 'amount'",
+          1
+        ],
+        [
+          "NameError: name 'make_polygon' is not defined",
+          1
+        ],
+        [
+          "AttributeError: 'Vector' object has no attribute 'x'. Did you mean: 'X'?",
+          1
+        ],
+        [
+          "ValueError: Line requires two pts",
+          1
+        ],
+        [
+          "AttributeError: 'BuildSketch' has no attribute 'polygon'. Did you intend '<BuildSketch>.sketch.polyg",
+          1
+        ]
+      ]
+    },
+    "cadquery": {
+      "n": 40,
+      "built_pct": 82.5,
+      "error_class_pct": {
+        "api_misuse": 15.0,
+        "kernel": 2.5
+      },
+      "match_pct": 17.5,
+      "match_or_valid_pct": 30.0,
+      "median_codegen_s": 5.46,
+      "median_build_s": 1.76,
+      "median_tokens_out": 254.5,
+      "top_error_signatures": [
+        [
+          "AttributeError: 'Workplane' object has no attribute 'arcTo'",
+          2
+        ],
+        [
+          "AttributeError: type object 'Shape' has no attribute 'makePolygon'",
+          1
+        ],
+        [
+          "ValueError: Cannot find a solid on the stack or in the parent chain",
+          1
+        ],
+        [
+          "ValueError: Workplane object must have at least one solid on the stack to union!",
+          1
+        ],
+        [
+          "TypeError: Workplane.center() takes 3 positional arguments but 4 were given",
+          1
+        ],
+        [
+          "OCP.OCP.Standard.Standard_Failure: There are no suitable edges for chamfer or fillet",
+          1
+        ]
+      ]
+    },
+    "openscad": {
+      "n": 40,
+      "built_pct": 32.5,
+      "error_class_pct": {
+        "no_code": 42.5,
+        "other": 25.0
+      },
+      "match_pct": 2.5,
+      "match_or_valid_pct": 2.5,
+      "median_codegen_s": 5.6,
+      "median_build_s": 0.54,
+      "median_tokens_out": 305.5,
+      "top_error_signatures": [
+        [
+          "no_code: empty model reply",
+          17
+        ],
+        [
+          "Current top level object is empty.",
+          5
+        ],
+        [
+          "Can't parse file '/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/lang-ab/resul",
+          3
+        ],
+        [
+          "Current top level object is not a 3D object.",
+          2
+        ]
+      ]
+    }
+  },
+  "paired_vs_baseline": {
+    "b123d-nofs": {
+      "n_pairs": 40,
+      "match_flips": {
+        "improved": 4,
+        "worsened": 1
+      },
+      "built_flips": {
+        "improved": 2,
+        "worsened": 1
+      },
+      "by_tier": {
+        "0": {
+          "n": 40,
+          "match_improved": 4,
+          "match_worsened": 1
+        }
+      }
+    },
+    "cadquery": {
+      "n_pairs": 40,
+      "match_flips": {
+        "improved": 4,
+        "worsened": 1
+      },
+      "built_flips": {
+        "improved": 6,
+        "worsened": 4
+      },
+      "by_tier": {
+        "0": {
+          "n": 40,
+          "match_improved": 4,
+          "match_worsened": 1
+        }
+      }
+    },
+    "openscad": {
+      "n_pairs": 40,
+      "match_flips": {
+        "improved": 1,
+        "worsened": 4
+      },
+      "built_flips": {
+        "improved": 3,
+        "worsened": 21
+      },
+      "by_tier": {
+        "0": {
+          "n": 40,
+          "match_improved": 1,
+          "match_worsened": 4
+        }
+      }
+    }
+  }
+}
