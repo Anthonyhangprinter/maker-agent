@@ -1497,7 +1497,42 @@ def _is_good(ok: bool, gate_hard: list, gate_spec: list, band: Optional[str]) ->
     return bool(ok) and not gate_hard and not gate_spec and band in (None, "match")
 
 
-def _classify(m: dict, reference_stl: Optional[str], build_dir: Path) -> tuple[str, dict]:
+REFERENCE_VOLUME_TOL_PCT = 0.2
+REFERENCE_BBOX_TOL_MM = 0.2
+
+
+def reference_facts_agree(facts: dict, ref_facts: Optional[dict]) -> tuple[bool, str]:
+    """(agrees, reason). A Chamfer band "match" alone is NOT enough to confirm a candidate
+    against a reference: the band is a whole-shape distance, and a small wrong feature sits
+    inside it (2026-09-19, V066: a 12x5 slot where the spec asks for a 12 mm round hole has
+    the same bbox and the same bore list as the right part, 0.35 % volume apart). So the
+    measured facts must agree too: solids, cylindrical and conical face counts, bore
+    diameters, sorted bbox within REFERENCE_BBOX_TOL_MM, volume within
+    REFERENCE_VOLUME_TOL_PCT. Total face count is deliberately NOT compared (two valid
+    modelling routes can split planar faces differently). Fail closed: a reference with no
+    stored facts confirms nobody; a false reject costs only yield."""
+    a, b = signature(facts), signature(ref_facts or {})
+    if a is None or b is None:
+        return False, "reference or candidate facts incomplete"
+    if a["solids"] != b["solids"]:
+        return False, f"solids {a['solids']} vs reference {b['solids']}"
+    if a["cyl_faces"] != b["cyl_faces"] or a["cone_faces"] != b["cone_faces"]:
+        return False, (f"cyl/cone faces {a['cyl_faces']}/{a['cone_faces']} vs reference "
+                       f"{b['cyl_faces']}/{b['cone_faces']}")
+    if a["bores_sorted"] != b["bores_sorted"]:
+        return False, f"bores {a['bores_sorted']} vs reference {b['bores_sorted']}"
+    if any(abs(x - y) > REFERENCE_BBOX_TOL_MM for x, y in zip(a["bbox_sorted"], b["bbox_sorted"])):
+        return False, f"bbox {a['bbox_sorted']} vs reference {b['bbox_sorted']}"
+    if b["volume"] <= 0 or a["volume"] <= 0:
+        return False, "non-positive volume"
+    if abs(a["volume"] - b["volume"]) / b["volume"] * 100.0 > REFERENCE_VOLUME_TOL_PCT:
+        return False, f"volume {a['volume']:.1f} vs reference {b['volume']:.1f}"
+    return True, ""
+
+
+def _classify(m: dict, reference_stl: Optional[str], build_dir: Path,
+              reference_facts: Optional[dict] = None,
+              require_reference_facts: bool = False) -> tuple[str, dict]:
     """(verdict, band_info) -- verdict in ("good", "silver", "fail", "unscored", "none").
     band_info is the geom_bands.score_against_reference() dict, or {} when there was no
     reference or nothing could be scored.
@@ -1526,6 +1561,13 @@ def _classify(m: dict, reference_stl: Optional[str], build_dir: Path) -> tuple[s
             raise
         except Exception as e:
             return "unscored", {"errors": [str(e)[:200]]}
+        if band_info.get("band") == "match" and (reference_facts or require_reference_facts):
+            agrees, why = reference_facts_agree(facts, reference_facts)
+            if not agrees:
+                # keep the Chamfer verdict for the record, but this is NOT a confirmation and
+                # NOT a near-miss "fail" pair either: it is simply not good.
+                band_info = dict(band_info, band="facts_mismatch", band_chamfer="match",
+                                 facts_mismatch=why)
     band = band_info.get("band")
     gate_hard = m.get("gate_hard") or []
     gate_spec = m.get("gate_spec") or []
@@ -2000,7 +2042,11 @@ def _probe_indices(n: int, is_tier34: bool, probe_candidates: int) -> tuple[list
     geometry is simple enough that the old single-probe-sized budget rarely needed a
     change). `probe_candidates` is floored at 1: a probe of zero candidates cannot ever
     decide anything."""
-    probe_candidates = max(1, int(probe_candidates))
+    try:
+        probe_candidates = max(1, int(probe_candidates))
+    except (TypeError, ValueError):
+        # a hand-edited cad.json ("abc", null) must cost nothing, not crash every unit
+        probe_candidates = 2
     if is_tier34:
         probe = list(range(0, n, 2))[:probe_candidates]
     else:
@@ -2063,6 +2109,10 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
     `completed_any` flag below and this function's outer except)."""
     spec_id, spec, tier = row["id"], row["spec"], row.get("tier")
     reference_stl = row.get("reference_stl")
+    reference_facts = row.get("reference_facts")
+    # teacher-built references always carry their facts; an owner reference imported from a
+    # bare STL may not, and then the band alone has to do (owner geometry is ground truth).
+    require_reference_facts = row.get("reference_source") == "teacher-claude"
     entry = progress.setdefault(
         spec_id, {"student_attempts": 0, "teacher_attempts": 0, "pairs": 0})
     max_pairs = cfg["max_pairs_per_spec"]
@@ -2324,7 +2374,10 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
                     for attempt in attempts:
                         label = (candidate_label if attempt["turn"] == "first"
                                 else f"{candidate_label}-salvage")
-                        verdict, band_info = _classify(attempt["m"], reference_stl, build_dir)
+                        verdict, band_info = _classify(
+                            attempt["m"], reference_stl, build_dir,
+                            reference_facts=reference_facts,
+                            require_reference_facts=require_reference_facts)
                         if verdict == "good":
                             # Task 3c: a "good" verdict (of ANY turn -- first or salvage,
                             # confirmed or not yet) is proof the model CAN build this

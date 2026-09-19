@@ -3251,3 +3251,60 @@ def test_agreement_end_to_end_real_subprocess(tmp_path):
     assert all(r["agreement"] == "split" for r in split_candidates)
     split_ledger = _ledger_for(state_dir, "split")
     assert all(r["agreement"] == "split" for r in split_ledger if r.get("ok"))
+
+
+# --- Task 3d-2 (2026-09-19): a reference band "match" must also agree on measured facts ---
+
+def test_reference_facts_agree_rejects_the_real_v066_slot_against_the_correct_hole():
+    """The real case the Chamfer band cannot see: same bbox, same bore list, 0.35 % volume
+    apart, a 12x5 slot where the reference has a 12 mm round hole."""
+    fx = _load_fixtures()
+    ref = fx["v066_t05_correct_hole"]["facts"]
+    ok, why = harvest.reference_facts_agree(fx["v066_t02_wrong_slot"]["facts"], ref)
+    assert ok is False and why
+    assert harvest.reference_facts_agree(dict(ref), ref) == (True, "")
+
+
+def test_reference_facts_agree_fails_closed_without_reference_facts():
+    fx = _load_fixtures()
+    facts = fx["v066_t05_correct_hole"]["facts"]
+    assert harvest.reference_facts_agree(facts, None)[0] is False
+    assert harvest.reference_facts_agree(facts, {})[0] is False
+    assert harvest.reference_facts_agree({}, facts)[0] is False
+
+
+def test_reference_facts_agree_tolerates_a_different_planar_face_split_only():
+    fx = _load_fixtures()
+    ref = fx["v066_t05_correct_hole"]["facts"]
+    other_route = dict(ref, faces=ref["faces"] + 2)          # same geometry, faces split
+    assert harvest.reference_facts_agree(other_route, ref)[0] is True
+    assert harvest.reference_facts_agree(dict(ref, volume=ref["volume"] * 1.003), ref)[0] is False
+    grown = dict(ref, bbox=[ref["bbox"][0] + 0.3] + list(ref["bbox"][1:]))
+    assert harvest.reference_facts_agree(grown, ref)[0] is False
+
+
+def test_classify_band_match_with_disagreeing_facts_is_not_good(monkeypatch, tmp_path):
+    fx = _load_fixtures()
+    ref = fx["v066_t05_correct_hole"]["facts"]
+    monkeypatch.setattr(harvest, "score_against_reference",
+                        lambda step, stl: {"band": "match", "chamfer_mm": 0.01})
+    m_wrong = {"error": None, "facts": fx["v066_t02_wrong_slot"]["facts"],
+               "gate_hard": [], "gate_spec": []}
+    verdict, info = harvest._classify(m_wrong, "ref.stl", tmp_path, reference_facts=ref,
+                                      require_reference_facts=True)
+    assert verdict != "good"
+    assert info["band"] == "facts_mismatch" and info["band_chamfer"] == "match"
+    m_right = dict(m_wrong, facts=dict(ref))
+    assert harvest._classify(m_right, "ref.stl", tmp_path, reference_facts=ref,
+                             require_reference_facts=True)[0] == "good"
+    # a teacher reference that somehow lost its facts confirms nobody
+    assert harvest._classify(m_right, "ref.stl", tmp_path, reference_facts=None,
+                             require_reference_facts=True)[0] != "good"
+    # an owner reference without stored facts keeps the band-only behaviour
+    assert harvest._classify(m_right, "ref.stl", tmp_path)[0] == "good"
+
+
+@pytest.mark.parametrize("bad", ["abc", None, [], {}])
+def test_probe_indices_survive_a_non_numeric_probe_candidates(bad):
+    idx = harvest._probe_indices(5, True, bad)
+    assert list(idx) and len(list(idx)) <= 5
