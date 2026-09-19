@@ -181,7 +181,18 @@ def _suite_specs_by_suite() -> dict[str, list[str]]:
     for suite in CARD_SUITES:
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
-            data = json.loads(f.read_text())
+            # encoding="utf-8" (Task 3 fix round 1, found via a real --unit smoke under
+            # the harvest's own environment): benchmarks/text-to-cad/specs.json's own
+            # "source" field carries a real, un-escaped em dash, and Path.read_text()
+            # with no explicit encoding defaults to locale.getpreferredencoding(), which
+            # resolves to ASCII in the C/POSIX locale lab/gpu_window.sh's launch
+            # environment uses -- raising UnicodeDecodeError on every call. That
+            # exception was being caught by lab/harvest.py's fail-closed contamination
+            # check (L1) and silently refusing EVERY spec it examined, since the failure
+            # look identical to "computation could not be trusted" from the caller's
+            # side. Same locale-bug class the Task 3 rulings already called out for
+            # score_external.py.
+            data = json.loads(f.read_text(encoding="utf-8"))
             if isinstance(data, dict):   # text-to-cad wraps the list in {"benchmarks": [...]}
                 data = data.get("benchmarks", [])
             out[suite] = [b["spec"] for b in data]

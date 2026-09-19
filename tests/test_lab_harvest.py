@@ -709,9 +709,41 @@ def test_is_contaminated_matches_a_real_card_suite_spec():
     specs_path = HERE / "benchmarks" / "text-to-cad" / "specs.json"
     if not specs_path.exists():
         pytest.skip("benchmarks/text-to-cad/specs.json not present in this checkout")
-    raw = _json.loads(specs_path.read_text())
+    raw = _json.loads(specs_path.read_text(encoding="utf-8"))
     items = raw["benchmarks"] if isinstance(raw, dict) else raw
     assert harvest._is_contaminated(items[0]["spec"]) is True
+
+
+def test_default_contamination_sets_survives_a_c_locale_real_subprocess():
+    """Regression test for a real bug found via a real --unit smoke (fix round 1):
+    benchmarks/text-to-cad/specs.json's own "source" field carries a real em dash, and
+    scripts/harvest_census.py's _suite_specs_by_suite() read it via Path.read_text()
+    with no explicit encoding, which raised UnicodeDecodeError under the C/POSIX locale
+    lab/gpu_window.sh's launch environment uses. lab/harvest.py's own fail-closed L1
+    check then caught that exception and refused EVERY spec it examined -- the entire
+    bank looked "contaminated". Fixed with encoding="utf-8" in harvest_census.py (not a
+    frozen file). Driven as a real subprocess with LC_ALL=C/LANG=C so this actually
+    exercises Python's locale-dependent default encoding, which a UTF-8 dev shell would
+    never trigger (this exact test, without the forced C locale, would not have caught
+    the original bug)."""
+    specs_path = HERE / "benchmarks" / "text-to-cad" / "specs.json"
+    if not specs_path.exists():
+        pytest.skip("benchmarks/text-to-cad/specs.json not present in this checkout")
+    code = (
+        f"import sys; sys.path.insert(0, {str(HERE)!r}); "
+        f"sys.path.insert(0, {str(HERE / 'scripts')!r})\n"
+        "from lab.data import default_contamination_sets\n"
+        "keys, slugs = default_contamination_sets()\n"
+        "print(len(keys), len(slugs))\n"
+    )
+    env = dict(os.environ)
+    env.update({"LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0"})
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env,
+                          timeout=15)
+    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
+    n_keys, n_slugs = map(int, proc.stdout.decode().split())
+    assert n_keys > 0
+    assert n_slugs > 0
 
 
 def test_is_contaminated_fails_closed_when_sets_cannot_be_computed(monkeypatch):
