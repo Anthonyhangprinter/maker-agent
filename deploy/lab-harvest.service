@@ -1,19 +1,38 @@
 # deploy/lab-harvest.service  ->  ~/.config/systemd/user/lab-harvest.service
+#
+# WorkingDirectory/ExecStart below point at the MAIN checkout
+# (~/.openclaw/skills/cad-builder), not at any worktree: install this unit only once the
+# branch carrying lab/harvest_unit.sh and lab/gpu_window.sh has been merged there.
 [Unit]
 Description=Phase 3 data engine harvest unit (samples the maker arm into training pairs)
 After=network.target
 
 [Service]
 Type=oneshot
-# One SIGTERM to the whole unit's cgroup on `systemctl --user stop`, not just the shell
-# script's own PID -- lab/gpu_window.sh's own signal handling then does the reviewed
-# stop path (TERM the child, KILL after grace, restore the box) exactly as it does for
-# a manual `kill <pid>` (Task 3 ruling).
+# KillMode=mixed: `systemctl --user stop` sends SIGTERM to the MAIN process only (the shell
+# script, which has exec'd into lab/gpu_window.sh), and SIGKILL to the whole remaining cgroup
+# once TimeoutStopSec expires. That is exactly what the window wants: it does the reviewed
+# stop path itself (TERM the job's process group, KILL it after the grace, restore the
+# resident), and a cgroup-wide SIGTERM would instead hit the job directly, behind the
+# window's back (Task 3 ruling).
 KillMode=mixed
+# TimeoutStopSec must exceed the window's whole stop path: GPU_WINDOW_GRACE_SEC (180s) plus
+# the restore (stop maker-server, start qwen38-server: about 60s worst case) = 240s, so 400s
+# keeps 160s of margin. Raise this together with GPU_WINDOW_GRACE_SEC, never separately.
 TimeoutStopSec=400
 # Dead-man cap well above one unit's own unit_minutes (25) plus the ~70s GPU eviction/
 # restore overhead: a unit that somehow runs long is killed rather than holding the GPU
-# and the build lock into the next scheduled tick.
+# and the build lock into the next scheduled tick. lab/harvest_unit.sh caps the window's
+# lock wait at 120s so a tick can never spend this budget merely queueing.
 RuntimeMaxSec=2400
+# gpu_window.sh exits 75 (EX_TEMPFAIL) when the CAD build lock was busy for the whole wait:
+# a skipped tick, not a failed one.
+SuccessExitStatus=75
+# OpenCascade's Mesher().write() resets the process locale to C inside any Python process
+# that builds geometry, after which unencoded reads in that process decode as ASCII. UTF-8
+# mode makes Python ignore the locale for file and subprocess text. gpu_window.sh exports
+# this for its own child too; setting it here covers --check-gate, which runs before the
+# window exists.
+Environment=PYTHONUTF8=1
 WorkingDirectory=%h/.openclaw/skills/cad-builder
 ExecStart=%h/.openclaw/skills/cad-builder/lab/harvest_unit.sh

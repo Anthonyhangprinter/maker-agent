@@ -5,7 +5,7 @@
 # if a previous unit is somehow still running when the next OnCalendar tick lands, this
 # one exits immediately (exit 0, not an error) rather than queueing behind it -- the next
 # tick, 30 minutes later, tries again. This script does NOT touch
-# ~/.openclaw/cad-build.lock itself; it CALLS lab/gpu_window.sh (frozen, unmodified) and
+# ~/.openclaw/cad-build.lock itself; it CALLS lab/gpu_window.sh and
 # lets that be the one thing that ever HOLDS the CAD build lock, exactly like every other
 # GPU-heavy lab entry point (lab/specgen.py, lab/ship.py verify). No second locking
 # scheme (Task 3 ruling).
@@ -26,4 +26,11 @@ flock -n 9 || { echo "harvest_unit: a unit is already running, skipping this tic
 if ! python3 "$HERE/lab/harvest.py" --check-gate; then
     exit 0   # quiet skip; --check-gate already printed the reason to stderr
 fi
+# Task 3a (2026-09-19): queue for the CAD build lock for 2 minutes, not the window's own
+# 1h default. lab-harvest.service caps the unit at RuntimeMaxSec=2400, so a tick that merely
+# QUEUES behind a long interactive build would be killed as a failure while doing nothing at
+# all; the next tick is only 30 minutes away. gpu_window.sh exits 75 (EX_TEMPFAIL) when it
+# does not get the lock in that window, which the unit declares as a success (a skip).
+: "${GPU_WINDOW_LOCK_WAIT_SEC:=120}"
+export GPU_WINDOW_LOCK_WAIT_SEC
 exec "$HERE/lab/gpu_window.sh" python3 "$HERE/lab/harvest.py" --unit
