@@ -1,0 +1,198 @@
+{
+  "v064_wrong_sheared_lip": {
+    "id": "p:t:teacher-batch2:V064:61e50d314885",
+    "spec_id": "t:teacher-batch2:V064",
+    "spec": "a hollow enclosure 180x130x55mm with 3.5mm walls and a 4mm floor, having a stepped recessed lip 6mm wide and 2mm deep around the inner rim for a snap-on lid, plus four corner bosses 9mm across and 14mm tall each with a 3.2mm through hole for machine screws",
+    "tier": 3,
+    "group": "enclosure",
+    "source": "student",
+    "kind": "good",
+    "turn": "first",
+    "band": null,
+    "arm": "gemma-4-31b",
+    "model": "local:gemma-4-31b",
+    "temperature": 0.2,
+    "system_sha1": "2fe4683f4e62b273af75bdfe02ab112e2dbdb959",
+    "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na hollow enclosure 180x130x55mm with 3.5mm walls and a 4mm floor, having a stepped recessed lip 6mm wide and 2mm deep around the inner rim for a snap-on lid, plus four corner bosses 9mm across and 14mm tall each with a 3.2mm through hole for machine screws\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: hollow a solid into an open-top container: subtract an inner box offset up by the wall thickness with each dimension reduced by 2*wall.\n  how it's expressed in build123d:\nfrom build123d import *\nresult = Box(<DIM>, <DIM>, <DIM>) - Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\n\n\u2022 Idiom: hollow open-top container: outer Box minus inner Box offset UP by the wall thickness (keeps the floor); standoffs are ADDED bosses (result += Pos(...) * Cylinder) rising from the floor, each then drilled with a NARROWER blind hole; vertical-corner fillet via edges().filter_by(Axis.Z).\n  how it's expressed in build123d:\nfrom build123d import *\n\n# Dimensions\nX = <DIM>\nY = <DIM>\nZ = <DIM>\nwall_mm = <DIM>\n\n# Hollow out the box to create an open-top container.\n# Outer box spans z -15..+<DIM>; the inner cut is offset UP by the wall thickness,\n# so it spans z -9..+<DIM> \u2014 that keeps a floor and leaves the top open.\nresult = Box(X, Y, Z) - Pos(<DIM>, <DIM>, wall_mm) * Box(X - <DIM>*wall_mm, Y - <DIM>*wall_mm, Z - <DIM>*wall_mm)\n\n# Standoffs are ADDED bosses rising from the floor (top of floor is z = -<DIM>),\n# 12mm tall => spans -9..+<DIM>, so centred at z = -3.\n# The blind hole is then drilled DOWN into the boss from its top face.\nfor x in (-<DIM>, <DIM>):\n    for y\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For M3 mounting bosses, ensure the cylindrical hole is placed with its base at the bottom of the boss and extends upward into the boss so the hole is fully visible in top-down views.\n- For hollow enclosures, ensure the inner cavity is created by subtracting a smaller box from the outer box with correct offsetting to leave an open top.\n- For mounting standoffs, position the Cylinder base at the correct floor coordinates and ensure the blind hole is placed at the correct height relative to the standoff top.\n\nWrite the build123d code:",
+    "code": "from build123d import *\n\n# Dimensions\nlength = 180.0\nwidth = 130.0\nheight = 55.0\nwall = 3.5\nfloor = 4.0\nlip_width = 6.0\nlip_depth = 2.0\nboss_d = 9.0\nboss_h = 14.0\nhole_d = 3.2\n\n# The outer shell is centered at origin. \n# Z spans from -height/2 to +height/2.\nouter_box = Box(length, width, height)\n\n# The inner cavity to make it a hollow enclosure.\n# To leave a floor of 'floor' thickness, the inner box must be offset up.\n# Bottom of outer box is at -height/2. \n# Bottom of inner box should be at -height/2 + floor.\n# Inner box height = height - floor.\n# Inner box center Z = (-height/2 + floor) + (height - floor)/2 = floor/2.\ninner_box = Pos(0, 0, floor / 2) * Box(length - 2 * wall, width - 2 * wall, height - floor)\n\n# The stepped recessed lip for the snap-on lid.\n# This is a subtraction from the top rim.\n# The lip is 6mm wide and 2mm deep.\n# It removes material from the top edge (z = height/2).\n# The lip box spans the inner cavity but is wider by lip_width on each side.\nlip_cut = Pos(0, 0, height / 2 - lip_depth / 2) * Box(\n    length - 2 * wall + 2 * lip_width, \n    width - 2 * wall + 2 * lip_width, \n    lip_depth\n)\n\n# Base enclosure\nenclosure = outer_box - inner_box - lip_cut\n\n# Corner bosses\n# Bosses are 14mm tall, rising from the floor.\n# Floor top is at z = -height/2 + floor.\n# Boss center Z = (-height/2 + floor) + boss_h / 2.\nboss_z = -height / 2 + floor + boss_h / 2\nboss_x_pos = length / 2 - wall - boss_d / 2\nboss_y_pos = width / 2 - wall - boss_d / 2\n\nbosses = None\nfor x in (-boss_x_pos, boss_x_pos):\n    for y in (-boss_y_pos, boss_y_pos):\n        # Create the boss cylinder\n        boss = Pos(x, y, boss_z) * Cylinder(radius=boss_d / 2, height=boss_h)\n        # Create the through hole for the boss\n        hole = Pos(x, y, boss_z) * Cylinder(radius=hole_d / 2, height=boss_h * 2)\n        \n        if bosses is None:\n            bosses = boss - hole\n        else:\n            bosses += (boss - hole)\n\nresult = enclosure + bosses",
+    "bad_code": null,
+    "problem": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 35,
+      "cyl_faces": 12,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 8,
+      "bores": [
+        3.2,
+        9.0
+      ],
+      "hole_groups": [
+        {
+          "d": 9.0,
+          "n": 4,
+          "through": 0,
+          "circle_d": 199.7
+        }
+      ],
+      "walls": [
+        2.9,
+        3.5,
+        4.0
+      ],
+      "bore_axes": [
+        [
+          3.2,
+          "radial"
+        ],
+        [
+          9.0,
+          "radial"
+        ]
+      ],
+      "volume": 200641.187,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        180.0,
+        130.0,
+        53.0
+      ]
+    },
+    "verified": {
+      "gate_hard": 0,
+      "gate_spec": 0,
+      "band": null
+    },
+    "ts": "2026-09-19T02:52:57.072648+00:00",
+    "unit_id": "2026-09-19T02:45:17.145839+00:00"
+  },
+  "v066_t02_wrong_slot": {
+    "id": "p:t:teacher-batch2:V066:4bc74414b9d7",
+    "spec_id": "t:teacher-batch2:V066",
+    "spec": "a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through",
+    "tier": 3,
+    "group": "enclosure",
+    "source": "student",
+    "kind": "good",
+    "turn": "first",
+    "band": null,
+    "arm": "gemma-4-31b",
+    "model": "local:gemma-4-31b",
+    "temperature": 0.2,
+    "system_sha1": "2fe4683f4e62b273af75bdfe02ab112e2dbdb959",
+    "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: hollow open-top container: outer Box minus inner Box offset UP by the wall thickness (keeps the floor); standoffs are ADDED bosses (result += Pos(...) * Cylinder) rising from the floor, each then drilled with a NARROWER blind hole; vertical-corner fillet via edges().filter_by(Axis.Z).\n  how it's expressed in build123d:\nfrom build123d import *\n\n# Dimensions\nX = <DIM>\nY = <DIM>\nZ = <DIM>\nwall_mm = <DIM>\n\n# Hollow out the box to create an open-top container.\n# Outer box spans z -15..+<DIM>; the inner cut is offset UP by the wall thickness,\n# so it spans z -9..+<DIM> \u2014 that keeps a floor and leaves the top open.\nresult = Box(X, Y, Z) - Pos(<DIM>, <DIM>, wall_mm) * Box(X - <DIM>*wall_mm, Y - <DIM>*wall_mm, Z - <DIM>*wall_mm)\n\n# Standoffs are ADDED bosses rising from the floor (top of floor is z = -<DIM>),\n# 12mm tall => spans -9..+<DIM>, so centred at z = -3.\n# The blind hole is then drilled DOWN into the boss from its top face.\nfor x in (-<DIM>, <DIM>):\n    for y\n\n\u2022 Idiom: hollow a solid into an open-top container: subtract an inner box offset up by the wall thickness with each dimension reduced by 2*wall.\n  how it's expressed in build123d:\nfrom build123d import *\nresult = Box(<DIM>, <DIM>, <DIM>) - Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For M3 mounting bosses, ensure the cylindrical hole is placed with its base at the bottom of the boss and extends upward into the boss so the hole is fully visible in top-down views.\n- For hollow enclosures, ensure the inner cavity is created by subtracting a smaller box from the outer box with correct offsetting to leave an open top.\n- For mounting standoffs, position the Cylinder base at the correct floor coordinates and ensure the blind hole is placed at the correct height relative to the standoff top.\n\nWrite the build123d code:",
+    "code": "from build123d import *\n\n# Dimensions\nlength = 140.0\nwidth = 90.0\nheight = 60.0\nwall = 3.0\ndivider_thick = 2.5\ndivider_offset_from_end = 60.0\ncable_hole_d = 12.0\n\n# Outer shell\nouter_box = Box(length, width, height)\n\n# Inner cavity to create open-top housing\n# Outer box spans z = -height/2 to +height/2\n# Inner box is offset up by 'wall' to leave the floor\n# Inner box height is (height - wall) to leave the top open\ninner_box = Pos(0, 0, wall) * Box(length - 2 * wall, width - 2 * wall, height - wall)\n\n# The housing shell\nshell = outer_box - inner_box\n\n# Internal divider\n# Positioned 60mm from one end. \n# End of box is at x = -length/2. \n# Divider center x = -length/2 + 60 + divider_thick/2\ndiv_x = -length / 2 + divider_offset_from_end + divider_thick / 2\n# Divider spans the inner width and inner height\ndivider_solid = Pos(div_x, 0, 0) * Box(divider_thick, width - 2 * wall, height - wall)\n# Adjust divider z to sit on the floor (floor is at z = -height/2)\n# The divider_solid is currently centered at z=0, spanning - (height-wall)/2 to + (height-wall)/2\n# We shift it so the bottom is at -height/2\ndivider_solid = Pos(div_x, 0, (height - wall) / 2 - height / 2) * Box(divider_thick, width - 2 * wall, height - wall)\n\n# Cable feed-through hole in the divider\n# Centered in the divider's height and width\ncable_hole = Pos(div_x, 0, 0) * Cylinder(radius=cable_hole_d / 2, height=divider_thick * 2)\n\n# Final assembly\nresult = shell + (divider_solid - cable_hole)",
+    "bad_code": null,
+    "problem": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 19,
+      "cyl_faces": 2,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 2,
+      "bores": [
+        12.0
+      ],
+      "hole_groups": [
+        {
+          "d": 12.0,
+          "n": 1,
+          "through": 0,
+          "circle_d": 17.5
+        }
+      ],
+      "walls": [
+        2.5,
+        3.0,
+        4.5
+      ],
+      "bore_axes": [
+        [
+          12.0,
+          "radial"
+        ]
+      ],
+      "volume": 142168.092,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        140.0,
+        90.0,
+        60.0
+      ]
+    },
+    "verified": {
+      "gate_hard": 0,
+      "gate_spec": 0,
+      "band": null
+    },
+    "ts": "2026-09-19T02:53:59.131932+00:00",
+    "unit_id": "2026-09-19T02:45:17.145839+00:00"
+  },
+  "v066_t05_correct_hole": {
+    "id": "p:t:teacher-batch2:V066:564e3df6a103",
+    "spec_id": "t:teacher-batch2:V066",
+    "spec": "a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through",
+    "tier": 3,
+    "group": "enclosure",
+    "source": "student",
+    "kind": "good",
+    "turn": "first",
+    "band": null,
+    "arm": "gemma-4-31b",
+    "model": "local:gemma-4-31b",
+    "temperature": 0.5,
+    "system_sha1": "2fe4683f4e62b273af75bdfe02ab112e2dbdb959",
+    "prompt": "USER REQUEST (verbatim \u2014 every number here is AUTHORITATIVE):\na modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through\n\nNotes:\n- TECHNIQUE REFERENCES \u2014 idioms from past *verified* builds, NOT answers to copy.\nEvery number in the reference code has been replaced with <DIM>. Study HOW each\none performs its operation (edge selection, boolean, helper call, polar layout),\nthen write ORIGINAL code for THIS part \u2014 every dimension, count and radius must\ncome from the user's request, never from a reference. Never write <DIM> itself.\n\n\u2022 Idiom: hollow open-top container: outer Box minus inner Box offset UP by the wall thickness (keeps the floor); standoffs are ADDED bosses (result += Pos(...) * Cylinder) rising from the floor, each then drilled with a NARROWER blind hole; vertical-corner fillet via edges().filter_by(Axis.Z).\n  how it's expressed in build123d:\nfrom build123d import *\n\n# Dimensions\nX = <DIM>\nY = <DIM>\nZ = <DIM>\nwall_mm = <DIM>\n\n# Hollow out the box to create an open-top container.\n# Outer box spans z -15..+<DIM>; the inner cut is offset UP by the wall thickness,\n# so it spans z -9..+<DIM> \u2014 that keeps a floor and leaves the top open.\nresult = Box(X, Y, Z) - Pos(<DIM>, <DIM>, wall_mm) * Box(X - <DIM>*wall_mm, Y - <DIM>*wall_mm, Z - <DIM>*wall_mm)\n\n# Standoffs are ADDED bosses rising from the floor (top of floor is z = -<DIM>),\n# 12mm tall => spans -9..+<DIM>, so centred at z = -3.\n# The blind hole is then drilled DOWN into the boss from its top face.\nfor x in (-<DIM>, <DIM>):\n    for y\n\n\u2022 Idiom: hollow a solid into an open-top container: subtract an inner box offset up by the wall thickness with each dimension reduced by 2*wall.\n  how it's expressed in build123d:\nfrom build123d import *\nresult = Box(<DIM>, <DIM>, <DIM>) - Pos(<DIM>, <DIM>, <DIM>) * Box(<DIM>, <DIM>, <DIM>)\n- PITFALLS to avoid (learned from past builds of similar parts):\n- For M3 mounting bosses, ensure the cylindrical hole is placed with its base at the bottom of the boss and extends upward into the boss so the hole is fully visible in top-down views.\n- For hollow enclosures, ensure the inner cavity is created by subtracting a smaller box from the outer box with correct offsetting to leave an open top.\n- For mounting standoffs, position the Cylinder base at the correct floor coordinates and ensure the blind hole is placed at the correct height relative to the standoff top.\n\nWrite the build123d code:",
+    "code": "from build123d import *\n\n# Dimensions\nlength = 140.0\nwidth = 90.0\nheight = 60.0\nwall = 3.0\ndivider_thick = 2.5\ndivider_offset_from_end = 60.0\ncable_hole_d = 12.0\n\n# The outer box is centred at origin: X -70..70, Y -45..45, Z -30..30\nouter_box = Box(length, width, height)\n\n# The inner cavity is subtracted to create an open-top container.\n# To keep the floor (thickness=wall), we offset the inner box UP by wall.\n# Inner box dimensions are reduced by 2*wall in X and Y, and by wall in Z.\n# The inner box spans Z from (-height/2 + wall) to (+height/2 + wall) to ensure it cuts through the top.\ninner_cavity = Pos(0, 0, wall) * Box(length - 2 * wall, width - 2 * wall, height - wall)\n\n# The divider is a thin box. \n# Position: 60mm from one end. \n# One end is at x = -70. 60mm from there is x = -10.\n# The divider spans the internal width and internal height.\ndivider_x = -length / 2 + divider_offset_from_end + divider_thick / 2\ndivider_w = width - 2 * wall\ndivider_h = height - wall\n# The divider must start from the floor (z = -height/2 + wall)\ndivider_z = -height / 2 + (divider_h / 2) + wall\ndivider = Pos(divider_x, 0, divider_z) * Box(divider_thick, divider_w, divider_h)\n\n# Cable feed-through hole in the divider.\n# The hole is circular, 12mm diameter, passing through the divider (X axis).\ncable_hole = Pos(divider_x, 0, divider_z) * Rotation(0, 90, 0) * Cylinder(radius=cable_hole_d / 2, height=divider_thick * 2)\n\n# Final assembly: (Outer - Cavity) + (Divider - Hole)\nresult = (outer_box - inner_cavity) + (divider - cable_hole)",
+    "bad_code": null,
+    "problem": null,
+    "facts": {
+      "solids": 1,
+      "shells": 1,
+      "faces": 17,
+      "cyl_faces": 1,
+      "cone_faces": 0,
+      "through_holes": 0,
+      "blind_holes": 0,
+      "bores": [
+        12.0
+      ],
+      "hole_groups": [],
+      "walls": [
+        2.5,
+        3.0,
+        4.5
+      ],
+      "bore_axes": [
+        [
+          12.0,
+          "axial"
+        ]
+      ],
+      "volume": 142664.257,
+      "parts": [],
+      "interference": [],
+      "part_gaps": [],
+      "bbox": [
+        140.0,
+        90.0,
+        60.0
+      ]
+    },
+    "verified": {
+      "gate_hard": 0,
+      "gate_spec": 0,
+      "band": null
+    },
+    "ts": "2026-09-19T02:53:59.132222+00:00",
+    "unit_id": "2026-09-19T02:45:17.145839+00:00"
+  }
+}
