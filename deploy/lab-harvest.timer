@@ -1,9 +1,15 @@
 # deploy/lab-harvest.timer  ->  ~/.config/systemd/user/lab-harvest.timer
 [Unit]
-Description=Run the Phase 3 harvest unit every 30 minutes
+Description=Run the Phase 3 harvest unit every 30 minutes, night hours only
 
 [Timer]
-OnCalendar=*:0/30
+# Fix round 1 (2026-09-19, H4): restricted to match cad.json's lab.harvest default
+# window (night_start 22:00, night_end 07:00). The timer and lab.harvest.night_window
+# must be changed TOGETHER -- if the owner widens or narrows the config window, these
+# two OnCalendar= lines need the matching edit, or the timer will fire (and immediately
+# no-op via --check-gate) outside the configured hours, or miss hours inside it.
+OnCalendar=*-*-* 22..23:00/30
+OnCalendar=*-*-* 00..06:00/30
 Persistent=false
 
 [Install]

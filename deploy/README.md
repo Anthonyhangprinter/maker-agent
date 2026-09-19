@@ -19,10 +19,21 @@ Install: `install -m 755 deploy/critic-server ~/.local/bin/critic-server && inst
 ## lab-harvest (Phase 3 data engine, NOT installed/enabled by this change)
 
 `lab/harvest_unit.sh` is the timer's launcher: a non-blocking `flock` on
-`lab/state/harvest.lock` (a still-running unit makes the next tick skip, not queue) then
-`exec lab/gpu_window.sh python3 lab/harvest.py --unit` -- it calls `gpu_window.sh`
-unmodified, the one thing on this box that ever takes `~/.openclaw/cad-build.lock`. No
-second locking scheme.
+`lab/state/harvest.lock` (a still-running unit makes the next tick skip, not queue), then
+(fix round 1, H4) `python3 lab/harvest.py --check-gate` -- the SAME paused/night-window/
+budget/gpu-proxy/bank-exhausted checks `--unit` re-runs once inside the window, plus a
+non-blocking probe of the CAD build lock, all WITHOUT starting a GPU window -- and only on
+a `--check-gate` exit 0 does it `exec lab/gpu_window.sh python3 lab/harvest.py --unit`. It
+calls `gpu_window.sh` unmodified, the one thing on this box that ever HOLDS
+`~/.openclaw/cad-build.lock`. No second locking scheme: `--check-gate`'s own lock probe
+only opens and immediately releases the lock file, it never holds it past the probe.
+
+**M2 (2026-09-19):** `--check-gate`'s lock probe is instant and never waits; the real
+arbiter is still `lab/gpu_window.sh`'s own `flock -w 3600` (frozen for this fix round), so
+a `--check-gate` pass immediately followed by contention for the real lock still queues
+inside the window for up to an hour. Task 3a is expected to shorten that wait for the
+timer path specifically; until then, an occasional `--unit` run can queue a while behind
+an interactive CAD build even after `--check-gate` said go.
 
 `lab-harvest.service` is `Type=oneshot` with `KillMode=mixed` + `TimeoutStopSec=400`, so a
 `systemctl --user stop lab-harvest.service` sends ONE SIGTERM to the whole unit (not just
@@ -32,11 +43,16 @@ restore the resident or the maker arm (whichever was active before), in that ord
 `RuntimeMaxSec=2400` is a dead-man cap well clear of one unit's own `unit_minutes` (25)
 plus the ~70s GPU eviction/restore overhead a unit pays switching arms.
 
-`lab-harvest.timer` fires every 30 minutes (`OnCalendar=*:0/30`); `harvest.py --unit`
-itself decides whether a given tick actually does anything (paused file, night window,
-today's GPU-hour budget, the gpu-proxy's queue, the bank being exhausted -- see
-`lab/harvest.py`'s own module docstring), so most ticks outside the 22:00-07:00 window
-are expected to be quick no-ops.
+`lab-harvest.timer` fires every 30 minutes but ONLY inside 22:00-07:00 (fix round 1, H4:
+two `OnCalendar=` lines, `22..23:00/30` and `00..06:00/30`, matching `cad.json`'s
+`lab.harvest.night_start`/`night_end` defaults exactly). **The timer and
+`lab.harvest.night_window` must be changed together** -- widening or narrowing the config
+window without editing these two lines leaves the timer either firing (and immediately
+no-oping via `--check-gate`) outside the configured hours, or missing hours inside it.
+Even within the window, `--check-gate`/`--unit` still decide whether a given tick actually
+does anything (paused file, today's GPU-hour budget, the gpu-proxy's queue, the bank being
+exhausted -- see `lab/harvest.py`'s own module docstring), so a tick landing inside the
+window is not a guarantee of real work, just of being worth checking.
 
 Install (paths below assume `maker-1.0/phase3` has been merged into the main
 `~/.openclaw/skills/cad-builder` checkout -- NOT the `cad-builder-phase3` worktree these
