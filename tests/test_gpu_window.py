@@ -145,7 +145,9 @@ class Window:
         self.procs: list[subprocess.Popen] = []
         self.watched_pids: list[int] = []
 
-    def launch(self, cmd: list[str], **overrides: str) -> subprocess.Popen:
+    def safe_env(self, **overrides: str) -> dict:
+        """The ONLY environment a test may run the window with: every side-effecting seam
+        points at a stub. Never build an env for the script any other way."""
         env = dict(os.environ)
         env.update({
             "GPU_WINDOW_SYSTEMCTL": str(self.systemctl),
@@ -158,8 +160,12 @@ class Window:
             "PYTHONUTF8": "0",
         })
         env.update(overrides)
+        return env
+
+    def launch(self, cmd: list[str], prefix: tuple = (), **overrides: str) -> subprocess.Popen:
+        env = self.safe_env(**overrides)
         p = subprocess.Popen(
-            [str(SCRIPT), *cmd], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [*prefix, str(SCRIPT), *cmd], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             encoding="utf-8", start_new_session=True,
         )
         self.procs.append(p)
@@ -233,6 +239,43 @@ def test_term_kills_a_stubborn_child_and_grandchild(win):
     assert _wait_gone(grand), f"the grandchild {grand} outlived the window"
     assert win.lock_is_free(), "the build lock is still held after the window exited"
     assert win.calls()[-2:] == ["--user stop maker-server", "--user start qwen38-server"]
+
+
+def test_hup_kills_the_job_before_the_restore(win):
+    """Review H1. An untrapped HUP still ran the EXIT trap, so the restore started the resident
+    on top of a LIVE job. HUP must take the same path as TERM: job group dead, then restore."""
+    p = win.launch([str(win.stubborn), str(win.tmp)], GPU_WINDOW_GRACE_SEC="2")
+    child = win.read_pid("child.pid")
+    grand = win.read_pid("grand.pid")
+    assert _alive(child) and _alive(grand)
+
+    p.send_signal(signal.SIGHUP)
+    rc = p.wait(timeout=60)
+
+    assert rc == 129, f"expected the HUP exit code, got {rc}"
+    assert _wait_gone(child), f"the job {child} outlived a hung-up window"
+    assert _wait_gone(grand), f"the grandchild {grand} outlived a hung-up window"
+    assert win.calls()[-2:] == ["--user stop maker-server", "--user start qwen38-server"]
+
+
+def test_the_job_inherits_neither_fd_8_nor_fd_9(win, tmp_path):
+    """Review M3. harvest_unit.sh holds harvest.lock on fd 8 and execs the window; the job must
+    not inherit it (an escaped descendant would wedge the timer for ever) nor fd 9."""
+    out = tmp_path / "fds.txt"
+    probe = _write_exe(win.bin / "fd_probe.sh",
+                       '#!/usr/bin/env bash\nls /proc/$$/fd | tr "\\n" " " > "$1"\n')
+    held = tmp_path / "harvest.lock"
+    wrapper = _write_exe(win.bin / "with_fd8.sh",
+                         '#!/usr/bin/env bash\nexec 8>"$1"; shift; exec "$@"\n')
+    p = win.launch([str(probe), str(out)])
+    assert p.wait(timeout=60) == 0
+    assert " 9 " not in f" {out.read_text(encoding='utf-8')} "
+    # now with fd 8 open in the window's parent, as harvest_unit.sh does
+    out.unlink()
+    p = win.launch([str(probe), str(out)], prefix=(str(wrapper), str(held)))
+    assert p.wait(timeout=60) == 0
+    fds = f" {out.read_text(encoding='utf-8')} "
+    assert " 8 " not in fds and " 9 " not in fds, fds
 
 
 def test_max_sec_expiry_kills_a_stubborn_child_and_grandchild_and_restores(win):

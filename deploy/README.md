@@ -41,9 +41,11 @@ rather than a failure. The next tick is 30 minutes away.
 once `TimeoutStopSec` expires. `gpu_window.sh` then handles it the same way it handles a
 manual `kill <pid>`: TERM the job's whole process group, KILL that group after
 `GPU_WINDOW_GRACE_SEC` (180s) if it ignores that, then restore the resident, in that order.
-`TimeoutStopSec=400` covers that path (180s grace + about 60s of restore) with margin.
-`RuntimeMaxSec=2400` is a dead-man cap well clear of one unit's own `unit_minutes` (25)
-plus the ~70s GPU eviction/restore overhead a unit pays switching arms.
+`TimeoutStopSec=400` covers that path (180s grace + up to about 90s of restore) with margin.
+The dead-man cap is the window's own `GPU_WINDOW_MAX_SEC=2400`, set by `harvest_unit.sh`:
+systemd's `RuntimeMaxSec=` has no effect on `Type=oneshot` units. `TimeoutStartSec=2800` is
+the systemd-side belt above it, and `ExecStopPost=` starts the resident even when the wrapper
+itself was SIGKILLed and its restore never ran.
 
 `lab-harvest.timer` fires every 30 minutes but ONLY inside 22:00-07:00 (fix round 1, H4:
 two `OnCalendar=` lines, `22..23:00/30` and `00..06:00/30`, matching `cad.json`'s

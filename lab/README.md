@@ -131,13 +131,13 @@ lock-contention and child-environment cases.
 ### The SIGKILL limitation (read this before using kill -9)
 
 `SIGKILL` (`kill -9`) cannot be trapped by any shell, so killing the WRAPPER that way still skips
-the restore: nothing stops the maker arm or starts the resident, and `health-watch.sh` treats a
-held build lock as a deliberate eviction, so it will not restore the resident either. The box
-then sits with no resident until someone intervenes.
-
-What a `kill -9` no longer does is strand the job: it runs in its own process group with the
-build lock fd closed, so the lock is released with the wrapper and the group is named in the
-holder line:
+the restore, and the JOB SURVIVES and keeps the GPU. The job no longer holds the build lock
+(its fd is closed), so the lock is released with the wrapper; `health-watch.sh` then sees a
+free lock with no maker-server active, calls it a real failure and restarts the resident ON
+TOP of the orphaned job within about 5 minutes. So after a `kill -9` of the wrapper, kill the
+job's group yourself first; the group is named in the holder line. Under the harvest unit,
+`ExecStopPost=` starts the resident after systemd has SIGKILLed the whole cgroup, which is safe.
+Stop the window with TERM, never KILL:
 
 ```bash
 cat ~/.openclaw/cad-build.lock     # {"pid": ..., "child_pid": 12345, "pgid": 12345, ...}

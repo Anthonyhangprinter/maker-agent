@@ -39,8 +39,8 @@
 #    resident, leaving the household with no chat model. The trap now ALWAYS restores the
 #    resident. `GPU_WINDOW_RESTORE=maker` is the documented escape hatch for a caller that
 #    really wants the maker arm left up; nothing uses it today.
-# D4 LOCK WAIT. The lock wait was a fixed 3600s, so a systemd unit with a `RuntimeMaxSec`
-#    below that (lab-harvest.service: 2400s) could die while merely queueing.
+# D4 LOCK WAIT. The lock wait was a fixed 3600s, so a timer tick could spend an hour merely
+#    queueing behind an interactive build while the next ticks pile up behind it.
 #    `GPU_WINDOW_LOCK_WAIT_SEC` now governs it (default 3600, unchanged), and a run that
 #    does not get the lock exits 75 (EX_TEMPFAIL) so a unit can log it as a skip.
 #
@@ -152,6 +152,10 @@ kill_job() {
 trap restore EXIT
 trap 'kill_job; exit 143' TERM
 trap 'kill_job; exit 130' INT
+# HUP (dropped ssh, closed terminal): without this trap bash still runs the EXIT trap on the
+# fatal signal, so the restore would start the resident ON TOP of a live job. nohup/systemd
+# launches ignore HUP already; an interactive run does not.
+trap 'kill_job; exit 129' HUP
 
 "$SYSTEMCTL" --user stop maker-server 2>/dev/null || true
 "$SYSTEMCTL" --user stop qwen38-server || true
@@ -173,7 +177,7 @@ export PYTHONUTF8=1
 # lock out of the job's file descriptors; `</dev/null` preserves the stdin a background job
 # gets without job control.
 set -m
-timeout --signal=TERM --kill-after="$GRACE_SEC" "$MAX_SEC" "$@" </dev/null 9>&- &
+timeout --signal=TERM --kill-after="$GRACE_SEC" "$MAX_SEC" "$@" </dev/null 8>&- 9>&- &
 CHILD=$!
 set +m
 CHILD_PGID=$(proc_pgid "$CHILD" || true)
