@@ -58,6 +58,7 @@ def _isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(harvest, "LEDGER_FILE", d / "ledger.jsonl")
     monkeypatch.setattr(harvest, "PAIRS_FILE", d / "pairs.jsonl")
     monkeypatch.setattr(harvest, "REVIEW_FILE", d / "review.jsonl")
+    monkeypatch.setattr(harvest, "CANDIDATES_FILE", d / "candidates.jsonl")
     monkeypatch.setattr(harvest, "PROGRESS_FILE", d / "progress.json")
     monkeypatch.setattr(harvest, "STATUS_FILE", d / "status.json")
     monkeypatch.setattr(harvest, "PAUSED_FILE", d / "paused")
@@ -87,20 +88,48 @@ def _spec_row(id_, tier=2, group="plate", **extra) -> dict:
 def _default_cfg(**overrides) -> dict:
     cfg = {"night_start": "22:00", "night_end": "07:00", "day_allowed": True,
           "hours_per_day": 12, "unit_minutes": 25, "candidates": 3,
-          "temps": [0.2, 0.5, 0.8], "max_pairs_per_spec": 2, "teacher_passes": ["think"],
+          "temps": [0.2, 0.5, 0.8],
+          # Fix round 2, Section C: tier 3-4 defaults, mirrored from
+          # cad_v5.config._LAB_DEFAULTS so tests exercise the real shape.
+          "candidates_tier34": 5, "temps_tier34": [0.2, 0.35, 0.5, 0.65, 0.8],
+          "max_pairs_per_spec": 2, "teacher_passes": ["think"],
+          "attempt_caps": {"student": 2, "teacher": 5},
+          "agreement": {"volume_tol_pct": 0.05, "bbox_tol_mm": 0.05, "bore_round_mm": 0.01},
+          "strict": {"envelope_tol_mm": 0.2},
           "keep_builds": 500}
     cfg.update(overrides)
     return cfg
+
+
+# Fix round 2, Section A: a simple-box default so DIFFERENT fake codes sampled for the
+# SAME spec, all regated via _patch_regate_passthrough's default facts, naturally
+# AGREE on signature -- matching how two genuinely-correct-but-differently-written
+# programs behave in production. Tests that need to exercise DISAGREEMENT pass an
+# explicit `facts=` override.
+_DEFAULT_CLEAN_FACTS = {"solids": 1, "faces": 6, "cyl_faces": 0, "cone_faces": 0,
+                        "volume": 1000.0, "bbox": [10.0, 10.0, 10.0], "bores": []}
 
 
 def _clean_m(gate_hard=None, gate_spec=None, gate_adv=None, error=None, facts=None,
             unscored_reason=None) -> dict:
     """A fully-measured, gate-clean `m` dict -- the shape _regate() itself would produce
     for a valid, fully-inspected candidate. Must include solids/volume/bbox (Task 3 fix
-    H2: _classify now requires all three before it will even consider "good")."""
-    return {"facts": facts or {"solids": 1, "volume": 1000.0, "bbox": [10.0, 10.0, 10.0]},
+    H2: _classify now requires all three before it will even consider "good") plus
+    faces/cyl_faces/cone_faces (fix round 2: signature() also fails closed on those)."""
+    return {"facts": facts if facts is not None else dict(_DEFAULT_CLEAN_FACTS),
            "error": error, "gate_hard": gate_hard or [], "gate_spec": gate_spec or [],
            "gate_adv": gate_adv or [], "unscored_reason": unscored_reason}
+
+
+def _confirm_via_reference(monkeypatch, row_id: str = "s1") -> dict:
+    """Fix round 2: a single-candidate test that only cares about some OTHER mechanic
+    (system_sha1 dedup, model-string propagation, salvage row shape...) needs its lone
+    candidate to actually become a pair. A reference-band "match" confirms on its own
+    (Section A, path 1), same as before this fix round, without needing a second
+    agreeing candidate. Returns the spec row to use (carries reference_stl)."""
+    monkeypatch.setattr(harvest, "score_against_reference",
+                        lambda *a, **k: {"band": "match", "reference": "ref.stl"})
+    return _spec_row(row_id, reference_stl="ref.stl")
 
 
 def _patch_regate_passthrough(monkeypatch, facts=None):
@@ -233,15 +262,23 @@ def test_classify_unscored_when_reference_scoring_raises(monkeypatch, tmp_path):
     assert verdict == "unscored"
 
 
-def test_row_is_good_matches_classify(tmp_path):
-    """_row_is_good (used for pass-rate stats) must agree with _classify's own "good"
-    predicate -- one definition of "good", read time and write time."""
+def test_row_is_good_requires_confirmation_not_just_classify_good(tmp_path):
+    """Fix round 2, Section A: _classify's "good" (gate-clean) is necessary but no
+    longer sufficient for _row_is_good (used for pass-rate stats) -- only a CONFIRMED
+    good counts ("reference" or "agreement"), matching the new rule that a lone
+    gate-clean candidate with no partner is "unconfirmed", not good (the exact class of
+    defect this fix round exists to catch: V064/V066 were both gate-clean and wrong)."""
     m = _clean_m()
     verdict, _ = harvest._classify(m, None, tmp_path)
-    row = harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
+    assert verdict == "good"
+    unconfirmed_row = harvest._ledger_row(unit_id="u1", spec_id="s1", tier=2, mode="student",
                               candidate="0", temperature=0.2, m=m, band_info={},
-                              usage={}, model="local:x", build_dir=None, seconds=1.0)
-    assert (verdict == "good") == harvest._row_is_good(row)
+                              usage={}, model="local:x", build_dir=None, seconds=1.0,
+                              agreement="unconfirmed")
+    assert harvest._row_is_good(unconfirmed_row) is False
+    assert harvest._row_is_good({**unconfirmed_row, "agreement": "agreement"}) is True
+    assert harvest._row_is_good({**unconfirmed_row, "agreement": "reference"}) is True
+    assert harvest._row_is_good({**unconfirmed_row, "agreement": "split"}) is False
 
 
 def test_row_is_good_is_false_for_an_unscored_row_even_with_empty_gate_lists():
@@ -416,9 +453,15 @@ def test_dedup_by_ast_fingerprint_skips_repeated_candidate(monkeypatch, tmp_path
 
 def test_dedup_across_units_via_pair_index_seeded_from_disk(monkeypatch, tmp_path):
     """Task 3 fix M5: a PairIndex built from an existing pairs.jsonl (a previous unit's
-    output) must dedup against it too, not just within one sample_spec call."""
+    output) must dedup against it too, not just within one sample_spec call. Fix round 2:
+    the seeded pair also carries a "signature" matching _clean_m()'s default facts, so
+    code-B (a genuinely new candidate) is confirmed by AGREEING with that already-
+    confirmed pair (Section A: an existing pair is trusted evidence, not only a sibling
+    sampled in the same round) -- without a signature to agree with, a lone new gate-
+    clean candidate would stay "unconfirmed" and never become a pair at all."""
     harvest._append_jsonl(harvest.PAIRS_FILE, {
-        "spec_id": "s1", "tier": 2, "kind": "good", "code": "code-A"})
+        "spec_id": "s1", "tier": 2, "kind": "good", "code": "code-A",
+        "signature": harvest.signature(_clean_m()["facts"])})
     _patch_generate_sequence(monkeypatch, ["code-A", "code-B"])
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
@@ -485,6 +528,11 @@ def test_generation_exception_writes_a_failed_ledger_row_and_continues(monkeypat
 
 
 def test_crash_salvage_produces_two_ledger_rows_and_a_pair_on_recovery(monkeypatch, tmp_path):
+    """Fix round 2: the salvage's own single candidate needs a reference match to
+    become a pair on its own (Section A path 1) -- otherwise a lone salvaged candidate
+    would only ever reach "unconfirmed", which is a separate concern from what this test
+    actually exercises (the salvage mechanics themselves)."""
+    row = _confirm_via_reference(monkeypatch, "s1")
     _patch_generate_sequence(monkeypatch, ["broken-code"])
     calls = {"n": 0}
 
@@ -500,7 +548,6 @@ def test_crash_salvage_produces_two_ledger_rows_and_a_pair_on_recovery(monkeypat
     monkeypatch.setattr(fluid_gen, "_revise_on_repair_rung",
                         lambda spec, code, problem: ("fixed-code", None))
 
-    row = _spec_row("s1")
     cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
     progress: dict = {}
     harvest.sample_spec(row, cfg, "student", "unit1", progress, harvest.PairIndex())
@@ -547,7 +594,7 @@ def test_silver_writes_a_review_row_not_a_pair(monkeypatch, tmp_path):
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
     monkeypatch.setattr(harvest, "_execute_with_salvage", lambda spec, code, build_dir,
-                        prompt_info, gen_seconds: [{
+                        prompt_info, gen_seconds, cfg, deadline=None: [{
                             "code": code, "prompt_info": prompt_info, "turn": "first",
                             "seconds": gen_seconds,
                             "m": _clean_m(gate_spec=["[spec] length is 90mm, spec said 80mm"])}])
@@ -771,10 +818,10 @@ def test_is_contaminated_computation_failure_prints_a_distinct_message(monkeypat
 # ---------------------------------------------------------------------------
 
 def test_ledger_and_pair_rows_carry_the_recorded_model_string(monkeypatch, tmp_path):
+    row = _confirm_via_reference(monkeypatch, "s1")
     _patch_generate_sequence(monkeypatch, ["code-A"])
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
-    row = _spec_row("s1")
     cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
     harvest.sample_spec(row, cfg, "student", "unit1", {}, harvest.PairIndex())
     ledger = harvest._read_jsonl(harvest.LEDGER_FILE)
@@ -872,10 +919,10 @@ def test_store_system_returns_none_for_empty_string():
 
 
 def test_good_pair_row_carries_system_sha1_not_the_raw_system_text(monkeypatch, tmp_path):
+    row = _confirm_via_reference(monkeypatch, "s1")
     _patch_generate_sequence(monkeypatch, ["code-A"])
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
-    row = _spec_row("s1")
     cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
     harvest.sample_spec(row, cfg, "student", "unit1", {}, harvest.PairIndex())
     pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
@@ -1160,7 +1207,8 @@ def test_unit_minutes_and_allow_day_cli_overrides_reach_run_unit(monkeypatch):
 
     monkeypatch.setattr(harvest, "arm_window", lambda arm: _NullArmWindow())
     monkeypatch.setattr(sys, "argv",
-                        ["harvest.py", "--unit", "--unit-minutes", "10", "--allow-day"])
+                        ["harvest.py", "--unit", "--unit-minutes", "10", "--allow-day",
+                         "--i-am-the-owner"])
     rc = harvest.main()
     assert rc == 0
     assert captured_cfg["unit_minutes"] == 10.0
@@ -1192,7 +1240,7 @@ def test_unit_minutes_override_is_seen_by_the_gate_check_too(monkeypatch):
             return False
 
     monkeypatch.setattr(harvest, "arm_window", lambda arm: _NullArmWindow())
-    monkeypatch.setattr(sys, "argv", ["harvest.py", "--unit", "--unit-minutes", "10"])
+    monkeypatch.setattr(sys, "argv", ["harvest.py", "--unit", "--unit-minutes", "10", "--i-am-the-owner"])
     harvest.main()
     assert seen_by_gate["unit_minutes"] == 10.0
 
@@ -1204,11 +1252,17 @@ def test_unit_minutes_override_is_seen_by_the_gate_check_too(monkeypatch):
 LEDGER_KEYS = {"ts", "unit_id", "spec_id", "tier", "arm", "model", "pass", "candidate",
               "temperature", "ok", "gate_hard", "gate_spec", "gate_adv", "band", "ref",
               "chamfer_mm", "tokens_in", "tokens_out", "seconds", "build_dir", "error",
-              "unscored_reason"}
+              "unscored_reason",
+              # Fix round 2, Section A: the code fingerprint (when generated) and the
+              # confirmation outcome (None/"reference"/"agreement"/"unconfirmed"/"split").
+              "fingerprint", "agreement"}
 
 GOOD_PAIR_KEYS = {"id", "spec_id", "spec", "tier", "group", "source", "kind", "turn",
                   "band", "arm", "model", "temperature", "system_sha1", "prompt", "code",
-                  "bad_code", "problem", "facts", "verified", "ts", "unit_id"}
+                  "bad_code", "problem", "facts", "verified", "ts", "unit_id",
+                  # Fix round 2, Section A: the geometric signature and why this pair
+                  # was trusted ("reference" or "agreement").
+                  "signature", "confirmed_by"}
 
 
 def test_ledger_row_has_the_documented_shape():
@@ -1229,10 +1283,10 @@ def test_ledger_row_has_the_documented_shape():
 
 
 def test_pair_row_has_the_documented_shape(monkeypatch, tmp_path):
+    row = _confirm_via_reference(monkeypatch, "s1")
     _patch_generate_sequence(monkeypatch, ["code-A"])
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
-    row = _spec_row("s1")
     cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
     harvest.sample_spec(row, cfg, "student", "unit1", {}, harvest.PairIndex())
     pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
@@ -1240,13 +1294,14 @@ def test_pair_row_has_the_documented_shape(monkeypatch, tmp_path):
     assert set(pairs[0].keys()) == GOOD_PAIR_KEYS
     assert pairs[0]["source"] == "student"
     assert pairs[0]["turn"] == "first"
+    assert pairs[0]["confirmed_by"] == "reference"
 
 
 def test_pair_row_source_is_teacher_think_for_the_think_pass(monkeypatch, tmp_path):
+    row = _confirm_via_reference(monkeypatch, "s1")
     _patch_generate_sequence(monkeypatch, ["code-A"], mode="think")
     monkeypatch.setattr(fluid_gen, "_materialize", lambda code, build_dir, spec: {"error": None})
     _patch_regate_passthrough(monkeypatch)
-    row = _spec_row("s1")
     cfg = _default_cfg(candidates=1, temps=[0.2], max_pairs_per_spec=2)
     harvest.sample_spec(row, cfg, "think", "unit1", {}, harvest.PairIndex())
     pairs = harvest._read_jsonl(harvest.PAIRS_FILE)
@@ -1299,16 +1354,22 @@ def test_status_ledger_unscored_count(tmp_path):
 
 
 def test_pass_rate_by_pass_and_tier(tmp_path):
+    """Fix round 2: pass rates are computed on CONFIRMED goods (Section A) -- the
+    "good" row below is given an explicit agreement="agreement" to represent a
+    confirmed candidate, and the plain gate_hard failure stays unconfirmed (agreement
+    defaults to None), same 0.5/1.0 split the pre-fix-round-2 test encoded."""
     rows = [
         harvest._ledger_row(unit_id="u1", spec_id="s1", tier=3, mode="student", candidate="0",
                             temperature=0.2, m=_clean_m(), band_info={}, usage={},
-                            model="local:x", build_dir=None, seconds=1.0),
+                            model="local:x", build_dir=None, seconds=1.0,
+                            agreement="agreement"),
         harvest._ledger_row(unit_id="u1", spec_id="s1", tier=3, mode="student", candidate="1",
                             temperature=0.5, m=_clean_m(gate_hard=["bad"]), band_info={},
                             usage={}, model="local:x", build_dir=None, seconds=1.0),
         harvest._ledger_row(unit_id="u1", spec_id="s2", tier=1, mode="think", candidate="0",
                             temperature=0.2, m=_clean_m(), band_info={}, usage={},
-                            model="local:x", build_dir=None, seconds=1.0),
+                            model="local:x", build_dir=None, seconds=1.0,
+                            agreement="reference"),
     ]
     for r in rows:
         harvest._append_jsonl(harvest.LEDGER_FILE, r)

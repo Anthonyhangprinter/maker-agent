@@ -427,7 +427,46 @@ _LAB_DEFAULTS = {
         "unit_minutes": 25,
         "candidates": 3,
         "temps": [0.2, 0.5, 0.8],
+        # Fix round 2 (2026-09-19), Section C: tier 3-4 specs sample wider before giving
+        # up on finding a confirming (agreeing) partner -- a reviewer found the gate
+        # passes structurally-clean geometry that names the wrong feature (V064, V066;
+        # see tests/fixtures/harvest_agreement_fixtures.json), so a single gate-clean
+        # candidate is no longer "good" on its own (see the "agreement" block below).
+        # Tiers 1-2 keep the original 3-candidate budget -- their geometry is simple
+        # enough that the old single-sample gate rarely disagreed with itself.
+        "candidates_tier34": 5,
+        "temps_tier34": [0.2, 0.35, 0.5, 0.65, 0.8],
         "max_pairs_per_spec": 2,
+        # Fix round 2, Section C: the per-spec attempt budget before giving up. A spec
+        # that has used its full teacher_attempt_cap of think-pass attempts and still
+        # has fewer than max_pairs_per_spec confirmed pairs is "exhausted" -- dropped
+        # from both the student and teacher pools (see _eligible_pools) so the unit
+        # scheduler stops paying GPU time on it every night. Its unconfirmed candidates
+        # are NOT deleted: they stay in lab/state/candidates.jsonl in case Phase 3's
+        # later reference-scoring work can resolve them without a new sample.
+        # student_attempt_cap unchanged at 2 (matches the pre-existing promotion rule);
+        # teacher_attempt_cap of 5 gives one full think-pass round (candidates_tier34's
+        # own width) before a spec is written off.
+        "attempt_caps": {"student": 2, "teacher": 5},
+        # Fix round 2, Section A: tolerances for signatures_agree() -- the cross-
+        # candidate geometric-agreement check that replaced "gate-clean alone is good
+        # enough". Bore diameters are compared after rounding to bore_round_mm inside
+        # signature() itself (equal after rounding, not toleranced here).
+        "agreement": {
+            "volume_tol_pct": 0.05,
+            "bbox_tol_mm": 0.05,
+            "bore_round_mm": 0.01,
+        },
+        # Fix round 2, Section B: harvest-local strict spec checks, independent of and
+        # in addition to the engine's own deterministic gate (engine.verify_expected).
+        # envelope_tol_mm is deliberately tighter than the engine's own axis-dimension
+        # tolerance (max(1, 5%) mm) -- V064 (180x130x55mm spec, 180x130x53mm measured,
+        # 2mm off) passed the engine gate's 2.75mm tolerance but is visibly the wrong
+        # part (a cutter sheared the whole top off); through-hole counting has no
+        # engine-side tolerance concept at all, it is pass/fail against the stated count.
+        "strict": {
+            "envelope_tol_mm": 0.2,
+        },
         # Task 1b (2026-09-19): teaching is a per-request think PASS on the SAME arm, not a
         # separate model or arm, so the key is named for what it now holds (fix round 1;
         # the plan's own Global Constraints block always called this teacher_passes, the
@@ -495,8 +534,9 @@ def lab_config() -> dict:
     below so a partial or malformed override keeps every default it doesn't name (and
     never crashes or leaks a wrong type on a malformed one):
       {"harvest": {"night_start", "night_end", "day_allowed", "hours_per_day",
-                    "unit_minutes", "candidates", "temps", "max_pairs_per_spec",
-                    "teacher_passes"}}
+                    "unit_minutes", "candidates", "temps", "candidates_tier34",
+                    "temps_tier34", "max_pairs_per_spec", "attempt_caps",
+                    "agreement", "strict", "teacher_passes", "keep_builds"}}
     Same file/pattern as maker_config()/cloud_config()/print_config() above: never put
     this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
     Global Constraints for where these defaults come from."""

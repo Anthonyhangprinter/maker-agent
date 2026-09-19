@@ -106,6 +106,7 @@ import ast
 import fcntl
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -148,6 +149,10 @@ STATE_DIR    = HERE / "lab" / "state"
 LEDGER_FILE  = STATE_DIR / "ledger.jsonl"
 PAIRS_FILE   = STATE_DIR / "pairs.jsonl"
 REVIEW_FILE  = STATE_DIR / "review.jsonl"
+# Fix round 2, Section A: gate-clean candidates that were NOT confirmed this round (no
+# reference match, no agreeing partner yet) -- never a pair until a later unit's
+# agreeing sample promotes one, see CandidateIndex/_resolve_agreement.
+CANDIDATES_FILE = STATE_DIR / "candidates.jsonl"
 PROGRESS_FILE = STATE_DIR / "progress.json"
 STATUS_FILE  = STATE_DIR / "status.json"
 PAUSED_FILE  = STATE_DIR / "paused"
@@ -325,11 +330,16 @@ def _is_contaminated(spec: str) -> bool:
 
 
 def _is_infra_error(e: Exception) -> bool:
-    """See _InfraError's docstring. urllib.error.URLError is itself an OSError subclass
-    (as are ConnectionError and socket.timeout/TimeoutError in modern Python), so this
-    tuple is intentionally redundant for readability rather than coverage -- a reviewer
-    should not have to know that fact to trust this check."""
-    return isinstance(e, (urllib.error.URLError, ConnectionError, OSError,
+    """See _InfraError's docstring. Fix round 2, D2: catching bare OSError was too wide
+    -- FileNotFoundError, PermissionError and other local filesystem OSErrors are not
+    "the model server is unreachable", and treating them as an infra error would abort
+    the whole unit over what might be a genuine local bug, hiding it as a false "server
+    down" report. Only connection-level failures count: urllib.error.URLError (itself an
+    OSError subclass, as are ConnectionError and socket.timeout/TimeoutError in modern
+    Python -- listed explicitly anyway so a reviewer does not have to know that fact to
+    trust this check), ConnectionError and its subclasses, and socket.timeout/
+    TimeoutError."""
+    return isinstance(e, (urllib.error.URLError, ConnectionError,
                          socket.timeout, TimeoutError))
 
 
@@ -338,7 +348,11 @@ def _prune_builds(keep: int) -> int:
     newest, same discipline as cad_engine's own KEEP_BUILDS fix (a name-based prune had
     been deleting the wrong directories there). A pruned build dir may belong to an
     already-recorded pair -- fair game, since the pair row holds the code itself and the
-    build dir is only supplementary render/mesh evidence. Returns the count removed."""
+    build dir is only supplementary render/mesh evidence. Returns the count removed.
+    Fix round 2, D3: `keep` is floored at 1 -- a misconfigured or non-positive
+    `keep_builds` must never let this prune every directory including the one a caller
+    could still be reading from."""
+    keep = max(1, keep)
     if not BUILDS_DIR.exists():
         return 0
     dirs = sorted((d for d in BUILDS_DIR.iterdir() if d.is_dir()),
@@ -352,6 +366,158 @@ def _prune_builds(keep: int) -> int:
         except Exception:
             pass
     return removed
+
+
+# ---------------------------------------------------------------------------
+# Geometric signature + independent agreement (fix round 2, Section A). A reviewer read
+# the 7 tier-3 "good" pairs from the first real run by eye and found 2 that are WRONG
+# geometry the deterministic gate passed: t:teacher-batch2:V064 (a cutter sheared the
+# whole top off a hollow enclosure, and its "through holes" are blind) and
+# t:teacher-batch2:V066 (one sample's cylinder bores the wrong axis, making a slot
+# instead of a circular hole through a thin divider -- the OTHER sample of the SAME spec
+# is correct). The gate measures structure and numbers, not whether a named feature
+# exists. Real facts for both, taken from lab/state/ledger.jsonl / pairs.jsonl before
+# this fix round's state reset, are fixtured at
+# tests/fixtures/harvest_agreement_fixtures.json.
+#
+# Ruling: gate-clean is no longer enough for "good". A gate-clean, measured candidate
+# becomes a confirmed "good" pair only when EITHER a reference exists and the band is
+# "match" (as before -- an owner-reference bank row is ground truth, no cross-checking
+# needed), OR at least one OTHER gate-clean candidate for the same spec_id, with a
+# DIFFERENT code fingerprint, has the same geometric signature. "Other candidate" also
+# includes an already-confirmed pair sitting on disk from an earlier unit (PairIndex
+# carries signatures for exactly this purpose) -- a new sample that matches previously-
+# vetted truth is just as confirmed as two new samples agreeing with each other.
+# ---------------------------------------------------------------------------
+
+_SIGNATURE_FACT_KEYS = ("solids", "faces", "cyl_faces", "cone_faces")
+
+
+def signature(facts: dict, cfg: Optional[dict] = None) -> Optional[dict]:
+    """A candidate's geometric fingerprint for cross-candidate agreement, or None when
+    `facts` is missing a required field or carries scripts/inspect's own "couldn't
+    classify" sentinel (a negative cyl_faces/cone_faces) -- fail closed: an incomplete
+    signature can never be compared, never silently "agrees" by omission (two candidates
+    whose classification both failed are NOT thereby the same geometry). `cfg` is the
+    cad.json lab.harvest.agreement block (bore_round_mm); defaults match
+    cad_v5.config._LAB_DEFAULTS when omitted, which every real caller passes."""
+    cfg = cfg or {}
+    bore_round = cfg.get("bore_round_mm", 0.01)
+    if any(facts.get(k) is None for k in _SIGNATURE_FACT_KEYS):
+        return None
+    if facts.get("cyl_faces", -1) < 0 or facts.get("cone_faces", -1) < 0:
+        return None
+    if facts.get("volume") is None:
+        return None
+    bbox = facts.get("bbox")
+    if not bbox or len(bbox) != 3:
+        return None
+    ndigits = max(0, -int(round(math.log10(bore_round)))) if bore_round else 2
+    bores = facts.get("bores") or []
+    return {
+        "solids": facts["solids"], "faces": facts["faces"],
+        "cyl_faces": facts["cyl_faces"], "cone_faces": facts["cone_faces"],
+        "volume": float(facts["volume"]),
+        "bbox_sorted": sorted(round(float(x), 6) for x in bbox),
+        "bores_sorted": sorted(round(float(b), ndigits) for b in bores),
+    }
+
+
+def signatures_agree(a: Optional[dict], b: Optional[dict], cfg: Optional[dict] = None) -> bool:
+    """True when two signatures describe the same physical geometry within the
+    configured tolerances (cad.json lab.harvest.agreement: volume_tol_pct, bbox_tol_mm).
+    Missing signatures never agree (fail closed, see signature()'s own docstring). Field
+    order matters for which one a caller sees fail first on a real mismatch: solids,
+    then total face count, then cylindrical/conical face counts, then bore diameters,
+    then bbox, then volume -- topology before size, since two genuinely different builds
+    of the same spec (V066's slot-vs-hole pair) usually diverge in face counts long
+    before their volumes drift enough to notice."""
+    if a is None or b is None:
+        return False
+    if a["solids"] != b["solids"] or a["faces"] != b["faces"]:
+        return False
+    if a["cyl_faces"] != b["cyl_faces"] or a["cone_faces"] != b["cone_faces"]:
+        return False
+    if a["bores_sorted"] != b["bores_sorted"]:
+        return False
+    if len(a["bbox_sorted"]) != len(b["bbox_sorted"]):
+        return False
+    cfg = cfg or {}
+    bbox_tol = cfg.get("bbox_tol_mm", 0.05)
+    for x, y in zip(a["bbox_sorted"], b["bbox_sorted"]):
+        if abs(x - y) > bbox_tol:
+            return False
+    avg_vol = (a["volume"] + b["volume"]) / 2.0
+    vol_tol_pct = cfg.get("volume_tol_pct", 0.05)
+    if avg_vol <= 0:
+        return a["volume"] == b["volume"]
+    if abs(a["volume"] - b["volume"]) / avg_vol * 100.0 > vol_tol_pct:
+        return False
+    return True
+
+
+def _cluster_by_signature(pool: list[dict], cfg: dict) -> list[list[dict]]:
+    """Connected components of `pool` under signatures_agree (fix round 2, Section A):
+    union-find over pairwise agreement, not a single-representative greedy scan, so
+    membership is transitive by construction and never depends on sampling/insertion
+    order. Each pool item must carry a "signature" key (possibly None -- signatures_agree
+    already treats that as never-agreeing)."""
+    n = len(pool)
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            parent[ri] = rj
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if signatures_agree(pool[i].get("signature"), pool[j].get("signature"), cfg):
+                union(i, j)
+
+    groups: dict[int, list[dict]] = {}
+    for i, item in enumerate(pool):
+        groups.setdefault(find(i), []).append(item)
+    return list(groups.values())
+
+
+def resolve_agreement(pool: list[dict], cfg: dict) -> tuple[list[dict], str]:
+    """(winners, tag) for a spec's confirmable candidate pool (fix round 2, Section A).
+    `tag` is one of:
+      "agreement"   a decisive cluster was found -- `winners` are its members, MINUS any
+                    synthetic existing_anchor entries (an already-confirmed pair on disk
+                    is trusted evidence, never itself something to "promote" again). A
+                    cluster containing an existing_anchor wins outright regardless of
+                    size (it agrees with already-vetted truth); otherwise the largest
+                    cluster wins only when it has >=2 members AND is strictly larger than
+                    every other cluster (Task 3 ruling, verbatim).
+      "unconfirmed" exactly one candidate (or one cluster of size 1, no anchor) -- a lone
+                    gate-clean candidate with nobody to agree with yet.
+      "split"       2+ clusters exist, none anchored, and none wins outright (a tie, or
+                    every candidate disagrees with every other) -- nobody is confirmed.
+    An empty pool is "unconfirmed" with no winners (nothing to resolve)."""
+    if not pool:
+        return [], "unconfirmed"
+    if len(pool) == 1 and not pool[0].get("existing_anchor"):
+        return [], "unconfirmed"
+    clusters = _cluster_by_signature(pool, cfg)
+    anchored = [c for c in clusters if any(item.get("existing_anchor") for item in c)]
+    if anchored:
+        winners = [item for c in anchored for item in c if not item.get("existing_anchor")]
+        return winners, "agreement"
+    if len(clusters) == 1:
+        only = clusters[0]
+        return (only, "agreement") if len(only) >= 2 else ([], "unconfirmed")
+    sizes = sorted((len(c) for c in clusters), reverse=True)
+    if sizes[0] >= 2 and sizes[0] > sizes[1]:
+        return max(clusters, key=len), "agreement"
+    return [], "split"
 
 
 # ---------------------------------------------------------------------------
@@ -470,23 +636,55 @@ def nights_completed(cfg: dict) -> int:
     return sum(1 for total in buckets.values() if total >= threshold)
 
 
+_DEFAULT_ATTEMPT_CAPS = {"student": 2, "teacher": 5}
+
+
 def _eligible_pools(bank: list[dict], progress: dict, cfg: dict) -> tuple[list, list]:
     """(student_pool, teacher_pool): a spec with `pairs >= max_pairs_per_spec` is excluded
-    from both (done); a spec with fewer than 2 student attempts is student-pool; one with
-    2+ and still short of its pair quota graduates to the teacher pool. Pool membership is
-    independent of whether a think pass is actually available this run -- that decision
-    (and the >=20-spec threshold) belongs to the caller."""
+    from both (done); a spec with fewer than attempt_caps["student"] student attempts is
+    student-pool; one with more, and still short of its pair quota, graduates to the
+    teacher pool. Fix round 2, Section C: a spec that has ALSO used its full
+    attempt_caps["teacher"] think-pass attempts and is still short is EXHAUSTED -- dropped
+    from both pools (see _exhausted_specs for the matching status/reporting view). One
+    full think-pass round samples up to candidates_tier34 candidates in one call, so a
+    default teacher cap of 5 gives a spec exactly one such round before it is written off;
+    its unconfirmed candidates are not deleted, only no longer resampled (see
+    lab/state/candidates.jsonl). Pool membership is independent of whether a think pass is
+    actually available this run -- that decision (and the >=20-spec threshold) belongs to
+    the caller."""
     max_pairs = cfg["max_pairs_per_spec"]
+    caps = cfg.get("attempt_caps") or _DEFAULT_ATTEMPT_CAPS
     student, teacher = [], []
     for row in bank:
         entry = progress.get(row["id"], {})
         if entry.get("pairs", 0) >= max_pairs:
             continue
-        if entry.get("student_attempts", 0) >= 2:
+        if entry.get("teacher_attempts", 0) >= caps.get("teacher", _DEFAULT_ATTEMPT_CAPS["teacher"]):
+            continue   # exhausted -- see _exhausted_specs
+        if entry.get("student_attempts", 0) >= caps.get("student", _DEFAULT_ATTEMPT_CAPS["student"]):
             teacher.append(row)
         else:
             student.append(row)
     return student, teacher
+
+
+def _exhausted_specs(bank: list[dict], progress: dict, cfg: dict) -> list[dict]:
+    """Specs that have used their full teacher attempt budget (attempt_caps["teacher"])
+    and still have fewer than max_pairs_per_spec confirmed pairs (fix round 2, Section
+    C) -- excluded from _eligible_pools's own two pools, reported separately here so
+    --status can show how many specs the bank has given up on for the night without
+    silently losing count of them."""
+    max_pairs = cfg["max_pairs_per_spec"]
+    caps = cfg.get("attempt_caps") or _DEFAULT_ATTEMPT_CAPS
+    teacher_cap = caps.get("teacher", _DEFAULT_ATTEMPT_CAPS["teacher"])
+    out = []
+    for row in bank:
+        entry = progress.get(row["id"], {})
+        if entry.get("pairs", 0) >= max_pairs:
+            continue
+        if entry.get("teacher_attempts", 0) >= teacher_cap:
+            out.append(row)
+    return out
 
 
 def _order_specs(pool: list[dict], progress: dict, prefer_tier34: bool) -> list[dict]:
@@ -688,15 +886,158 @@ def _regate(m_fluid: dict, build_dir: Path, spec: str) -> dict:
            "unscored_reason": None}
 
 
+# ---------------------------------------------------------------------------
+# Strict spec checks (fix round 2, Section B) -- harvest-local, fail closed, additional
+# to and independent of the engine's own deterministic gate (engine.verify_expected,
+# run inside _regate above). V064 (a hollow enclosure sheared 2mm off its stated height
+# by a mis-sized lip cutter, with its stated through holes measuring blind) passed the
+# engine gate's own axis tolerance (max(1, 5%)mm = 2.75mm here) and is still visibly the
+# wrong part -- these checks exist to catch exactly that class of "numerically close
+# enough, structurally the wrong shape" defect. Both are pure functions of (spec, facts)
+# so they are unit-testable directly against the real fixture rows, no build required.
+# ---------------------------------------------------------------------------
+
+# "180x130x55mm", "180 x 130 x 55 mm", "180mm x 130mm x 55mm", "180 by 130 by 55mm" --
+# with or without spaces/units on the first two numbers, but the LAST number must carry
+# an explicit "mm" (same discipline as cad_engine._DIMS3_SPEC_RE: a bare, unitless
+# "180x130x55" out of context is too ambiguous to enforce). Extends _DIMS3_SPEC_RE
+# (which only covers the no-space "NxNxN mm" form) with the "by" phrasing and optional
+# per-number units the brief calls for; cad_engine has no such regex to reuse as-is.
+_ENVELOPE_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:x|by)\s*(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:x|by)\s*"
+    r"(\d+(?:\.\d+)?)\s*mm\b", re.I)
+
+_THROUGH_HOLE_COUNT_WORDS = {
+    "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+# "four 3.2mm through holes", "6 through-holes", "a ... through hole" -- the count word
+# (digit or number word up to twelve, "a"/"an" as one), then up to 3 words (a dimension,
+# an adjective) before "through[- ]hole(s)".
+_THROUGH_HOLES_RE = re.compile(
+    r"\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+"
+    r"(?:\S+\s+){0,3}?through[- ]?holes?\b", re.I)
+
+
+def _spec_envelope_dims_mm(spec: str) -> Optional[list[float]]:
+    """The ONE stated envelope AxBxC in mm the spec text names, or None when the spec
+    states no envelope, states more than one (too ambiguous to enforce -- same discipline
+    as cad_engine._spec_axis_dims's own multi-match handling), or is an assembly spec
+    (engine._ASSEMBLY_SPEC_RE), whose bbox is emergent, not specified."""
+    spec = spec or ""
+    if engine._ASSEMBLY_SPEC_RE.search(spec):
+        return None
+    matches = _ENVELOPE_RE.findall(spec)
+    if len(matches) != 1:
+        return None
+    return [float(x) for x in matches[0]]
+
+
+def strict_envelope_check(spec: str, facts: dict, tol_mm: float = 0.2) -> Optional[str]:
+    """None when the spec states no single envelope (or is an assembly spec), or the
+    measured bbox matches the stated one within tol_mm axis-for-axis after sorting both
+    (permutation-free, same reasoning as the engine's own axis check -- the spec does not
+    say which axis is which). Otherwise a "strict_envelope: ..." reason string (fix round
+    2, Section B1) naming the mismatch. `facts` is assumed already known to carry a valid
+    bbox (the caller only runs this on a fully-measured candidate)."""
+    dims = _spec_envelope_dims_mm(spec)
+    if dims is None:
+        return None
+    bbox = facts.get("bbox")
+    if not bbox or len(bbox) != 3:
+        return "strict_envelope: spec states an envelope but no bbox was measured"
+    stated = sorted(dims)
+    measured = sorted(float(x) for x in bbox)
+    worst = max(abs(s - m) for s, m in zip(stated, measured))
+    if worst > tol_mm:
+        return (f"strict_envelope: stated {dims[0]:g}x{dims[1]:g}x{dims[2]:g}mm vs "
+                f"measured bbox {bbox[0]:g}x{bbox[1]:g}x{bbox[2]:g}mm (sorted {stated} "
+                f"vs {measured}, worst axis off by {worst:.2f}mm > {tol_mm}mm)")
+    return None
+
+
+def _spec_through_hole_count(spec: str) -> Optional[int]:
+    m = _THROUGH_HOLES_RE.search(spec or "")
+    if not m:
+        return None
+    token = m.group(1).lower()
+    if token in _THROUGH_HOLE_COUNT_WORDS:
+        return _THROUGH_HOLE_COUNT_WORDS[token]
+    return int(token) if token.isdigit() else None
+
+
+def strict_through_holes_check(spec: str, facts: dict) -> Optional[str]:
+    """None when the spec states no through-hole count, or the measured through-hole
+    count meets it. When the spec DOES state a count but `facts` carries no usable
+    through-hole measurement (scripts/inspect's own -1 "analysis unavailable" sentinel,
+    or the key missing entirely), the check is UNSCORED, NOT PASS (fix round 2, Section
+    B2, verbatim): a false accept is unacceptable here, so uncertainty blocks "good" the
+    same way an outright short count does, distinguished only by the reason prefix."""
+    stated = _spec_through_hole_count(spec)
+    if stated is None:
+        return None
+    measured = facts.get("through_holes")
+    if measured is None or measured < 0:
+        return ("unscored:strict_through_holes: spec states "
+                f"{stated} through hole(s) but through-hole classification is "
+                "unavailable for this candidate")
+    if measured < stated:
+        return (f"strict_through_holes: spec states {stated} through hole(s), measured "
+                f"only {measured}")
+    return None
+
+
+def _strict_check_notes(spec: str, facts: dict, cfg: dict) -> list[str]:
+    """Both strict checks, formatted as "[strict] ..." notes ready to extend an `m`
+    dict's gate_spec list (fix round 2): appending a non-empty result here makes
+    _classify() fall through to "silver" exactly the way an engine [spec] finding does,
+    reusing that path rather than adding a parallel verdict branch. Empty when neither
+    check fires."""
+    strict_cfg = cfg.get("strict") or {}
+    tol_mm = strict_cfg.get("envelope_tol_mm", 0.2)
+    notes = []
+    for reason in (strict_envelope_check(spec, facts, tol_mm),
+                  strict_through_holes_check(spec, facts)):
+        if reason:
+            notes.append(f"[strict] {reason}")
+    return notes
+
+
+def _regate_and_strict(m_fluid: dict, build_dir: Path, spec: str, cfg: dict) -> dict:
+    """_regate() plus the strict spec checks above, applied only to a fully-measured
+    candidate (no error, no unscored_reason) -- a candidate that already failed to
+    execute or measure has nothing for these checks to examine. Returns a NEW dict (never
+    mutates `_regate`'s own return value) with gate_spec extended by any strict finding,
+    so a strict violation blocks "good" via the exact same _is_good/_classify path an
+    engine [spec] finding already uses."""
+    m = _regate(m_fluid, build_dir, spec)
+    if m["error"] or m["unscored_reason"]:
+        return m
+    facts = m.get("facts") or {}
+    if not facts.get("bbox") or facts.get("volume") is None:
+        return m   # not enough measured to run a strict check meaningfully either
+    strict_notes = _strict_check_notes(spec, facts, cfg)
+    if not strict_notes:
+        return m
+    return {**m, "gate_spec": list(m.get("gate_spec") or []) + strict_notes}
+
+
 def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: dict,
-                          gen_seconds: float) -> list[dict]:
+                          gen_seconds: float, cfg: dict,
+                          deadline: Optional[float] = None) -> list[dict]:
     """Execute through fluid_gen._materialize for its side effects only (the exact
     execute/inspect/render path a real fluid build uses), independently re-gate via
-    _regate (Task 3 fix H1/H2) and, on a crash, ONE salvage attempt reusing fluid_gen's
-    own diagnose()/_revise_on_repair_rung() -- never reimplemented, so the salvage logic
-    itself can never drift from production's. A signal that landed anywhere inside either
-    _materialize call (and was swallowed there -- see this module's docstring) is caught
-    via _check_abort() immediately after each call returns.
+    _regate_and_strict (Task 3 fix H1/H2, fix round 2 Section B) and, on a crash, ONE
+    salvage attempt reusing fluid_gen's own diagnose()/_revise_on_repair_rung() -- never
+    reimplemented, so the salvage logic itself can never drift from production's. A
+    signal that landed anywhere inside either _materialize call (and was swallowed there
+    -- see this module's docstring) is caught via _check_abort() immediately after each
+    call returns.
+
+    `deadline` (monotonic seconds), when given and already passed, skips the salvage
+    attempt entirely (fix round 2, D1): no salvage codegen call starts once the unit's
+    time budget is spent, matching the same rule sample_spec already applies before every
+    OTHER codegen call.
 
     Returns one or two rows: {code, prompt_info, m, turn, seconds} -- `turn` is "first" or
     "salvage" (Task 3 fix M8). The first row's `seconds` includes the codegen call that
@@ -706,10 +1047,10 @@ def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: di
     t0 = time.monotonic()
     m_fluid = fluid_gen._materialize(code, build_dir, spec)
     _check_abort()
-    m = _regate(m_fluid, build_dir, spec)
+    m = _regate_and_strict(m_fluid, build_dir, spec, cfg)
     out = [{"code": code, "prompt_info": prompt_info, "m": m, "turn": "first",
            "seconds": gen_seconds + (time.monotonic() - t0)}]
-    if m["error"]:
+    if m["error"] and not (deadline is not None and time.monotonic() >= deadline):
         t1 = time.monotonic()
         try:
             _, hint = diagnose(m["error"])
@@ -718,7 +1059,7 @@ def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: di
                 fixed, _rung = fluid_gen._revise_on_repair_rung(spec, code, problem)
             m2_fluid = fluid_gen._materialize(fixed, build_dir, spec)
             _check_abort()
-            m2 = _regate(m2_fluid, build_dir, spec)
+            m2 = _regate_and_strict(m2_fluid, build_dir, spec, cfg)
             if not m2["error"]:
                 m2["salvaged"] = True
             out.append({"code": fixed, "prompt_info": rec.last, "m": m2, "turn": "salvage",
@@ -780,16 +1121,17 @@ def _classify(m: dict, reference_stl: Optional[str], build_dir: Path) -> tuple[s
 
 
 def _row_is_good(row: dict) -> bool:
-    """Recomputes the SAME "good" predicate _classify uses, from what a ledger row
-    already stored -- used by the status/pass-rate aggregation, so there is one
-    definition of "good" shared by write time and read time. An unscored row is never
-    good regardless of what its (necessarily empty) gate/band fields happen to look like
-    (Task 3 fix H2 -- this was the exact class of bug the review found: ok=True with
-    empty gate lists and band=None used to satisfy _is_good by accident)."""
-    if row.get("unscored_reason"):
-        return False
-    return _is_good(bool(row.get("ok")), row.get("gate_hard") or [],
-                    row.get("gate_spec") or [], row.get("band"))
+    """A ledger row counts as "good" for pass-rate stats only when it was CONFIRMED (fix
+    round 2, Section A: "pass rates ... computed on CONFIRMED goods") -- gate-clean
+    (_classify's own "good" verdict) is necessary but no longer sufficient, since a lone
+    gate-clean candidate with no partner is "unconfirmed", not good (the exact class of
+    defect this fix round exists to catch: V064/V066 were both gate-clean and wrong).
+    `agreement` is set at ledger-write time to "reference" or "agreement" only when
+    _classify said "good" AND a confirmation (a reference-band match, or a matching
+    OTHER candidate/existing pair) was actually found -- every other row, including an
+    unscored one (Task 3 fix H2's original regression), carries None here and is never
+    good."""
+    return row.get("agreement") in ("reference", "agreement")
 
 
 def _persist_build(build_dir: Path, unit_id: str, spec_id: str, label: str) -> str:
@@ -813,7 +1155,9 @@ def _ledger_row(*, unit_id: str, spec_id: str, tier, mode: str, candidate: str,
                 temperature: float, m: Optional[dict], band_info: Optional[dict],
                 usage: Optional[dict], model: Optional[str], build_dir: Optional[str],
                 seconds: Optional[float], error_text: Optional[str] = None,
-                unscored_reason: Optional[str] = None) -> dict:
+                unscored_reason: Optional[str] = None,
+                fingerprint: Optional[str] = None,
+                agreement: Optional[str] = None) -> dict:
     m = m or {}
     band_info = band_info or {}
     error = error_text if error_text is not None else m.get("error")
@@ -841,6 +1185,16 @@ def _ledger_row(*, unit_id: str, spec_id: str, tier, mode: str, candidate: str,
         "error": error,
         # Task 3 fix H2: "ledger row with the reason", counted separately in status.
         "unscored_reason": unscored_reason or m.get("unscored_reason"),
+        # Fix round 2, Section A: the AST-normalised code fingerprint (when code was
+        # generated for this attempt), so a ledger row can be cross-referenced against
+        # pairs.jsonl/candidates.jsonl after the fact without storing the code itself
+        # twice.
+        "fingerprint": fingerprint,
+        # Fix round 2, Section A: None unless this candidate was gate-clean AND
+        # confirmed ("reference" or "agreement") -- or, for a gate-clean candidate that
+        # was NOT confirmed this round, "unconfirmed" or "split" (see resolve_agreement).
+        # _row_is_good reads exactly this field.
+        "agreement": agreement,
     }
 
 
@@ -850,7 +1204,12 @@ def _pair_source(mode: str) -> str:
 
 def _good_pair_row(row: dict, unit_id: str, mode: str, temperature: float,
                    prompt_info: Optional[dict], code: str, m: dict, band_info: dict,
-                   turn: str) -> dict:
+                   turn: str, confirmed_by: str) -> dict:
+    """`confirmed_by` is "reference" (an owner-reference band match) or "agreement" (a
+    matching other candidate or already-confirmed pair) -- fix round 2, Section A: every
+    good pair now carries the reason it was trusted, never implicit. `signature` is
+    stored too, so PairIndex can offer this pair as agreement evidence to a FUTURE
+    candidate without re-deriving it from `facts`."""
     prompt_info = prompt_info or {}
     return {
         "id": f"p:{row['id']}:{hashlib.sha1(code.encode()).hexdigest()[:12]}",
@@ -864,10 +1223,64 @@ def _good_pair_row(row: dict, unit_id: str, mode: str, temperature: float,
         "prompt": prompt_info.get("prompt", ""),
         "code": code, "bad_code": None, "problem": None,
         "facts": m.get("facts") or {},
+        # signature()'s own default bore_round_mm (0.01) matches
+        # cad_v5.config._LAB_DEFAULTS["harvest"]["agreement"]["bore_round_mm"] -- no cfg
+        # threaded through here (this function has many call sites already); an owner
+        # who customises that tuning knob away from the default would see a stored
+        # signature rounded slightly differently from a live signatures_agree() check,
+        # a narrow, documented edge case rather than a correctness bug for the default
+        # configuration this ships with.
+        "signature": signature(m.get("facts") or {}),
+        "confirmed_by": confirmed_by,
         "verified": {"gate_hard": len(m.get("gate_hard") or []),
                     "gate_spec": len(m.get("gate_spec") or []),
                     "band": band_info.get("band")},
         "ts": _now_utc(), "unit_id": unit_id,
+    }
+
+
+def _candidate_row(row: dict, unit_id: str, mode: str, temperature: float,
+                   prompt_info: Optional[dict], code: str, m: dict, fingerprint: str,
+                   turn: str, agreement: str) -> dict:
+    """A gate-clean candidate that was NOT confirmed this round (fix round 2, Section A:
+    "a full row (same fields as a pair row plus signature)"). Same shape as a good pair
+    row, distinguished by id prefix "c:" (never collides with a real "p:" pair id) and
+    kind="candidate"; `agreement` is "unconfirmed" or "split". Never written to
+    PAIRS_FILE -- only CANDIDATES_FILE."""
+    base = _good_pair_row(row, unit_id, mode, temperature, prompt_info, code, m, {},
+                          turn, confirmed_by=None)
+    base["id"] = f"c:{row['id']}:{base['id'].rsplit(':', 1)[-1]}"
+    base["kind"] = "candidate"
+    base["fingerprint"] = fingerprint
+    base["agreement"] = agreement
+    base["status"] = "unconfirmed"
+    return base
+
+
+def _promote_candidate_row(cand: dict, unit_id: str, confirmed_by: str) -> dict:
+    """Turn an already-recorded candidates.jsonl row into a real pairs.jsonl "good" row
+    (fix round 2, Section A: cross-unit confirmation) without re-deriving anything the
+    candidate row already carries -- its system_sha1 already points at the stored prompt
+    text, and there is no raw system string left on the candidate row to re-hash (that
+    would also silently rewrite lab/state/systems/ with a duplicate under a fresh
+    _store_system call, which is exactly the redundancy that function exists to avoid)."""
+    return {
+        "id": f"p:{cand['spec_id']}:{cand['fingerprint'][:12]}",
+        "spec_id": cand["spec_id"], "spec": cand["spec"], "tier": cand.get("tier"),
+        "group": cand.get("group"),
+        "source": cand.get("source"), "kind": "good", "turn": cand.get("turn"),
+        "band": cand.get("band"),
+        "arm": cand.get("arm"), "model": cand.get("model"),
+        "temperature": cand.get("temperature"),
+        "system_sha1": cand.get("system_sha1"),
+        "prompt": cand.get("prompt", ""),
+        "code": cand.get("code"), "bad_code": None, "problem": None,
+        "facts": cand.get("facts") or {},
+        "signature": cand.get("signature"),
+        "confirmed_by": confirmed_by,
+        "verified": cand.get("verified") or {},
+        "ts": _now_utc(), "unit_id": unit_id,
+        "promoted_from": cand.get("id"),
     }
 
 
@@ -926,12 +1339,16 @@ class PairIndex:
     """Cache of pairs.jsonl state for the duration of one unit/once call (Task 3 fix M5):
     read once, updated in memory as pairs are appended, never re-read from disk mid-run.
     Dedup uses the AST-normalised fingerprint (_code_fingerprint, fix L7); tier34-share
-    tracks GOOD pairs only (the scheduler's own priority signal, see run_unit)."""
+    tracks GOOD pairs only (the scheduler's own priority signal, see run_unit). Fix round
+    2, Section A: also indexes each GOOD pair's stored "signature" per spec_id, so a NEW
+    candidate can be confirmed by agreeing with an ALREADY-confirmed pair from an earlier
+    unit, not only with a sibling sampled in the same round."""
 
     def __init__(self) -> None:
         self._hashes: dict[str, set] = {}
         self._good_by_tier: dict[str, int] = {}
         self._good_total = 0
+        self._sigs: dict[str, list] = {}
         for r in _read_jsonl(PAIRS_FILE):
             code = r.get("code")
             if code:
@@ -940,15 +1357,23 @@ class PairIndex:
                 self._good_total += 1
                 t = str(r.get("tier"))
                 self._good_by_tier[t] = self._good_by_tier.get(t, 0) + 1
+                sig = r.get("signature")
+                if sig:
+                    self._sigs.setdefault(r.get("spec_id"), []).append(sig)
 
     def has(self, spec_id: str, fingerprint: str) -> bool:
         return fingerprint in self._hashes.get(spec_id, set())
 
-    def add(self, spec_id: str, fingerprint: str, tier) -> None:
+    def add(self, spec_id: str, fingerprint: str, tier, signature: Optional[dict] = None) -> None:
         self._hashes.setdefault(spec_id, set()).add(fingerprint)
         self._good_total += 1
         t = str(tier)
         self._good_by_tier[t] = self._good_by_tier.get(t, 0) + 1
+        if signature:
+            self._sigs.setdefault(spec_id, []).append(signature)
+
+    def signatures_for(self, spec_id: str) -> list:
+        return list(self._sigs.get(spec_id, []))
 
     @property
     def good_total(self) -> int:
@@ -961,27 +1386,70 @@ class PairIndex:
         return tier34 / self._good_total
 
 
+class CandidateIndex:
+    """Cache of candidates.jsonl state for the duration of one unit/once call (fix round
+    2, Section A, same discipline as PairIndex): read once, folded by id (last write
+    wins, so a "promoted" status row written after the original unconfirmed row correctly
+    supersedes it in memory without ever rewriting or deleting the earlier line -- this
+    is an append-only log). `pair_index` provides the belt-and-braces exclusion: a
+    candidate whose fingerprint already has a real pair on disk is never offered again as
+    "still unconfirmed", which is what actually makes a crash between promoting two
+    candidates safe to re-run (see run_unit/sample_spec's own docstrings) -- the "promoted"
+    status marker is written for human/tool legibility of candidates.jsonl, not as the
+    correctness mechanism itself."""
+
+    def __init__(self, pair_index: "PairIndex") -> None:
+        self._pair_index = pair_index
+        by_id: dict[str, dict] = {}
+        for r in _read_jsonl(CANDIDATES_FILE):
+            rid = r.get("id")
+            if rid:
+                by_id[rid] = r
+        self._by_spec: dict[str, list] = {}
+        for r in by_id.values():
+            if r.get("status") == "promoted":
+                continue
+            fp = r.get("fingerprint")
+            spec_id = r.get("spec_id")
+            if fp and self._pair_index.has(spec_id, fp):
+                continue
+            self._by_spec.setdefault(spec_id, []).append(r)
+
+    def unconfirmed_for(self, spec_id: str) -> list:
+        return list(self._by_spec.get(spec_id, []))
+
+
 # ---------------------------------------------------------------------------
 # Per-spec sampling
 # ---------------------------------------------------------------------------
 
 def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
                 pair_index: PairIndex, deadline: Optional[float] = None) -> None:
-    """Sample up to cfg["candidates"] candidates for one bank spec, in the given pass
-    ("student" thinking-off, "think" thinking-on), verify each, and write a ledger row for
-    every one plus a pair/review row where the verdict earns it. Never raises except
+    """Sample up to cfg["candidates"] (or cfg["candidates_tier34"] for a tier 3/4 spec,
+    fix round 2 Section C) candidates for one bank spec, in the given pass ("student"
+    thinking-off, "think" thinking-on), verify each, and write a ledger row for every
+    one plus a pair/review/candidate row where the verdict earns it. Never raises except
     SpecgenAborted (a signal) or _InfraError (the model server itself unreachable), both
     of which propagate straight through so the caller's arm_window() bookend still runs
     its restore step; a candidate aborted or hit by an infra error mid-flight gets NO
     ledger row and its attempt-counter increment is undone (Task 3 fix H3/L3).
 
+    Fix round 2, Section A: a gate-clean, measured candidate with no reference match is
+    no longer immediately "good" -- it is held as a CANDIDATE until either an existing
+    confirmed pair on disk, a candidate carried over from an earlier unit
+    (CandidateIndex), or another candidate sampled THIS round agrees with it on geometric
+    signature (see resolve_agreement). Reference-band-matched candidates are unaffected
+    (still immediately good, as before): an owner-reference row is ground truth.
+
     `deadline` (monotonic seconds), when given, is checked before every codegen call and
-    before every materialize call inside the per-candidate loop (Task 3 fix M1) -- not
-    only between specs. A single already-in-flight model call cannot itself be cut short
-    this way (engine.generate_code_raw resolves its own timeout internally and takes no
-    override parameter, and editing cad_engine.py is out of scope for this fix), so a unit
-    can still run somewhat past its budget on its LAST candidate; this bounds how often
-    that happens to at most once per spec, not once per candidate."""
+    before every materialize call inside the per-candidate loop (Task 3 fix M1), and
+    before the salvage codegen call too (fix round 2, D1, via _execute_with_salvage's own
+    deadline param) -- not only between specs. A single already-in-flight model call
+    cannot itself be cut short this way (engine.generate_code_raw resolves its own
+    timeout internally and takes no override parameter, and editing cad_engine.py is out
+    of scope for this fix), so a unit can still run somewhat past its budget on its LAST
+    candidate; this bounds how often that happens to at most once per spec, not once per
+    candidate."""
     spec_id, spec, tier = row["id"], row["spec"], row.get("tier")
     reference_stl = row.get("reference_stl")
     entry = progress.setdefault(
@@ -995,118 +1463,275 @@ def sample_spec(row: dict, cfg: dict, mode: str, unit_id: str, progress: dict,
         return
 
     notes = engine.retrieval_notes_for(spec)
-    temps = cfg.get("temps") or [0.2]
-    n = max(1, int(cfg.get("candidates", 1)))
+    is_tier34 = str(tier) in _TIER34
+    if is_tier34:
+        temps = cfg.get("temps_tier34") or cfg.get("temps") or [0.2]
+        n = max(1, int(cfg.get("candidates_tier34", cfg.get("candidates", 3))))
+    else:
+        temps = cfg.get("temps") or [0.2]
+        n = max(1, int(cfg.get("candidates", 1)))
     attempt_key = "student_attempts" if mode == "student" else "teacher_attempts"
-    good_found: list[dict] = []
-    seen_fps: set = set()
+    agreement_cfg = cfg.get("agreement") or {}
 
-    for i in range(n):
-        _check_abort()
-        # Stop sampling this spec once it already has enough DISTINCT good candidates --
-        # temps are cycled ascending, so whatever is already in good_found is already the
-        # lowest-temperature run found so far; a later (higher-temperature) candidate can
-        # only ever be dropped by the "prefer lower temperature" rule below, never chosen
-        # over it, so there is nothing left to gain by spending more GPU time on this spec.
-        if entry.get("pairs", 0) + len(good_found) >= max_pairs:
-            break
-        if deadline is not None and time.monotonic() >= deadline:
-            break
-        temperature = temps[i % len(temps)]
-        entry[attempt_key] = entry.get(attempt_key, 0) + 1
-        candidate_label = str(i)
-        t0 = time.monotonic()
-        # The WHOLE candidate body lives inside this try, with ONE outer except that
-        # undoes the attempt-counter increment above before re-raising (Task 3 fix H3/
-        # L3: an aborted or infra-failed candidate must never count as a student/teacher
-        # attempt). A normal codegen failure (`continue`) and a deadline cutoff (`break`)
-        # both happen inside the inner try/if below and never reach this except, since
-        # neither raises SpecgenAborted/_InfraError.
-        try:
-            try:
-                if mode == "student":
-                    code, prompt_info = _student_generate(spec, notes, temperature)
-                else:
-                    code, prompt_info = _teacher_generate(spec, notes, temperature)
-            except SpecgenAborted:
-                raise
-            except Exception as e:
-                if _is_infra_error(e):
-                    raise _InfraError(f"model server unreachable: {str(e)[:300]}") from e
-                _append_jsonl(LEDGER_FILE, _ledger_row(
-                    unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
-                    candidate=candidate_label, temperature=temperature, m=None,
-                    band_info=None, usage=None, model=None, build_dir=None,
-                    seconds=time.monotonic() - t0,
-                    error_text=f"codegen failed: {str(e)[:400]}"))
-                _save_progress(progress)
+    candidate_index = CandidateIndex(pair_index)
+    carried = [{"origin": "carried", "cand_row": c, "fingerprint": c.get("fingerprint"),
+               "signature": c.get("signature"), "temperature": c.get("temperature") or 0.0}
+              for c in candidate_index.unconfirmed_for(spec_id)]
+    existing_anchors = [{"origin": "existing", "existing_anchor": True, "signature": sig,
+                         "fingerprint": None, "temperature": 0.0}
+                        for sig in pair_index.signatures_for(spec_id)]
+    clean_candidates: list[dict] = []
+    # seen_fps also seeded from carried candidates: a NEW sample identical to one already
+    # sitting unconfirmed on disk is the SAME code, not a second opinion, and must not be
+    # allowed to "confirm" it (Section A: "a DIFFERENT code fingerprint").
+    seen_fps: set = {c["fingerprint"] for c in carried if c.get("fingerprint")}
+    resolved = {"done": False}
+
+    def _pool() -> list[dict]:
+        return existing_anchors + carried + clean_candidates
+
+    def _write_new_ledger(c: dict, agreement: Optional[str]) -> None:
+        _append_jsonl(LEDGER_FILE, _ledger_row(
+            unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+            candidate=c["candidate_label"], temperature=c["temperature"], m=c["m"],
+            band_info={}, usage=c["usage"], model=c["model"], build_dir=c["build_dir"],
+            seconds=c["seconds"], fingerprint=c["fingerprint"], agreement=agreement))
+
+    def _finalize() -> bool:
+        """Resolve the current pool (existing pairs + carried unconfirmed candidates +
+        this round's new clean candidates) and commit the outcome: a winning cluster's
+        NEW members become good pairs (ledger row written now, for the first time -- a
+        clean candidate's ledger row is deferred exactly until this point, since its
+        final agreement status is not known any earlier) up to the remaining
+        max_pairs_per_spec slots (lower temperature preferred); a winning carried member
+        is promoted (a real pair written from its already-recorded candidates.jsonl row,
+        marked "promoted" there so it is never re-promoted -- see CandidateIndex); every
+        other new candidate this round gets its (first) ledger row now too, tagged
+        "unconfirmed" or "split"; an untouched carried candidate is left exactly as it
+        already is on disk. A no-op (returns False) when no NEW candidate emerged this
+        round (nothing to report -- a spec with only stale carried candidates is not
+        re-litigated without new evidence, and the caller's own finally block uses this
+        return value to skip a needless progress.json save on a round that changed
+        nothing, preserving the pre-existing "an aborted first candidate never even
+        creates progress.json" guarantee)."""
+        if resolved["done"]:
+            return False
+        resolved["done"] = True
+        if not clean_candidates:
+            return False
+        pool = _pool()
+        winners, tag = resolve_agreement(pool, agreement_cfg)
+        winner_ids = {id(w) for w in winners}
+        if tag == "agreement":
+            winners_sorted = sorted(winners, key=lambda c: c.get("temperature", 0.0))
+            slots = max(0, max_pairs - entry.get("pairs", 0))
+            chosen_ids = {id(c) for c in winners_sorted[:slots]}
+            for c in winners_sorted:
+                chosen = id(c) in chosen_ids
+                if c["origin"] == "new":
+                    _write_new_ledger(c, "agreement")
+                    if chosen:
+                        pair_row = _good_pair_row(row, unit_id, mode, c["temperature"],
+                                                  c["prompt_info"], c["code"], c["m"], {},
+                                                  c["turn"], confirmed_by="agreement")
+                        _append_jsonl(PAIRS_FILE, pair_row)
+                        pair_index.add(spec_id, c["fingerprint"], tier,
+                                       pair_row.get("signature"))
+                        entry["pairs"] = entry.get("pairs", 0) + 1
+                    else:
+                        _append_jsonl(CANDIDATES_FILE, _candidate_row(
+                            row, unit_id, mode, c["temperature"], c["prompt_info"],
+                            c["code"], c["m"], c["fingerprint"], c["turn"],
+                            agreement="agreement"))
+                elif chosen:   # carried, and this round has a slot for it
+                    pair_row = _promote_candidate_row(c["cand_row"], unit_id, "agreement")
+                    _append_jsonl(PAIRS_FILE, pair_row)
+                    pair_index.add(spec_id, c["fingerprint"], tier,
+                                   pair_row.get("signature"))
+                    entry["pairs"] = entry.get("pairs", 0) + 1
+                    _append_jsonl(CANDIDATES_FILE, {
+                        **c["cand_row"], "status": "promoted",
+                        "promoted_unit": unit_id, "promoted_ts": _now_utc()})
+                # a carried, non-chosen winner is left exactly as it is on disk.
+        # Every NEW candidate not already handled above (a losing-cluster member when
+        # tag=="agreement", or every new candidate at all when tag is "unconfirmed"/
+        # "split") gets its first-ever ledger + candidate row now.
+        loser_tag = "split" if tag == "split" else "unconfirmed"
+        for c in clean_candidates:
+            if id(c) in winner_ids:
                 continue
-            gen_seconds = time.monotonic() - t0
-            _check_abort()
-            if deadline is not None and time.monotonic() >= deadline:
-                # The candidate already generated code but there is no time left to
-                # materialize it; drop it rather than starting work we cannot finish,
-                # and undo the attempt (it was never actually scored).
-                entry[attempt_key] -= 1
-                break
+            _write_new_ledger(c, loser_tag)
+            _append_jsonl(CANDIDATES_FILE, _candidate_row(
+                row, unit_id, mode, c["temperature"], c["prompt_info"], c["code"],
+                c["m"], c["fingerprint"], c["turn"], agreement=loser_tag))
+        return True
 
-            with tempfile.TemporaryDirectory(prefix="harvest_") as td:
-                build_dir = Path(td)
-                attempts = _execute_with_salvage(spec, code, build_dir, prompt_info,
-                                                gen_seconds)
-                for attempt in attempts:
-                    label = (candidate_label if attempt["turn"] == "first"
-                            else f"{candidate_label}-salvage")
-                    verdict, band_info = _classify(attempt["m"], reference_stl, build_dir)
-                    persisted = (_persist_build(build_dir, unit_id, spec_id, label)
-                                if verdict not in ("none", "unscored") else None)
-                    usage = (attempt["prompt_info"] or {}).get("usage")
-                    model = (attempt["prompt_info"] or {}).get("model")
+    # The whole loop lives inside a try/finally so an abort or infra error propagating
+    # out (SpecgenAborted/_InfraError, re-raised below after undoing the interrupted
+    # candidate's own attempt count) still flushes whatever clean_candidates an EARLIER,
+    # successfully-completed candidate this round already added -- without this, a
+    # signal landing on candidate 2 would silently lose candidate 1's gate-clean result
+    # forever, since its ledger/candidate row is deferred until _finalize() runs
+    # (fix round 2: "every candidate ... gets one row in the ledger" must still hold
+    # when the unit is interrupted, not only when it completes normally).
+    try:
+        for i in range(n):
+            _check_abort()
+            # Fix round 2, Section C: only an ALREADY-CONFIRMED pair count stops
+            # sampling early -- a merely gate-clean, unconfirmed candidate must not (the
+            # old early stop fired on exactly that, which is how a wrong candidate went
+            # unchallenged).
+            if entry.get("pairs", 0) >= max_pairs:
+                break
+            if deadline is not None and time.monotonic() >= deadline:
+                break
+            temperature = temps[i % len(temps)]
+            entry[attempt_key] = entry.get(attempt_key, 0) + 1
+            candidate_label = str(i)
+            t0 = time.monotonic()
+            # The WHOLE candidate body lives inside this try, with ONE outer except that
+            # undoes the attempt-counter increment above before re-raising (Task 3 fix H3/
+            # L3: an aborted or infra-failed candidate must never count as a student/teacher
+            # attempt). A normal codegen failure (`continue`) and a deadline cutoff (`break`)
+            # both happen inside the inner try/if below and never reach this except, since
+            # neither raises SpecgenAborted/_InfraError.
+            try:
+                try:
+                    if mode == "student":
+                        code, prompt_info = _student_generate(spec, notes, temperature)
+                    else:
+                        code, prompt_info = _teacher_generate(spec, notes, temperature)
+                except SpecgenAborted:
+                    raise
+                except Exception as e:
+                    if _is_infra_error(e):
+                        raise _InfraError(f"model server unreachable: {str(e)[:300]}") from e
                     _append_jsonl(LEDGER_FILE, _ledger_row(
                         unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
-                        candidate=label, temperature=temperature, m=attempt["m"],
-                        band_info=band_info, usage=usage, model=model,
-                        build_dir=persisted, seconds=attempt["seconds"]))
-                    if verdict == "good":
-                        fp = _code_fingerprint(attempt["code"])
-                        # pair_index.has() only reflects pairs already on disk (from a
-                        # previous unit) plus anything added THIS round via .add() below
-                        # -- but .add() only runs at the very end of sample_spec, once
-                        # the winners are chosen. seen_fps catches a duplicate found
-                        # earlier in THIS SAME per-candidate loop, which pair_index alone
-                        # would miss until the next spec/unit.
-                        if pair_index.has(spec_id, fp) or fp in seen_fps:
-                            continue
-                        seen_fps.add(fp)
-                        good_found.append({**attempt, "temperature": temperature,
-                                           "band_info": band_info, "fingerprint": fp})
-                    elif verdict == "silver":
-                        render = str(Path(persisted) / "build.png") if persisted else None
-                        _append_jsonl(REVIEW_FILE, _review_row(
-                            row, unit_id, mode, temperature, attempt["prompt_info"],
-                            attempt["code"], attempt["m"], render, attempt["turn"]))
-                    elif verdict == "fail":
-                        _append_jsonl(PAIRS_FILE, _fail_pair_row(
-                            row, unit_id, mode, temperature, attempt["prompt_info"],
-                            attempt["code"], attempt["m"], band_info, attempt["turn"]))
-            _save_progress(progress)
-            _check_abort()
-        except (SpecgenAborted, _InfraError):
-            entry[attempt_key] -= 1
-            raise
+                        candidate=candidate_label, temperature=temperature, m=None,
+                        band_info=None, usage=None, model=None, build_dir=None,
+                        seconds=time.monotonic() - t0,
+                        error_text=f"codegen failed: {str(e)[:400]}"))
+                    _save_progress(progress)
+                    continue
+                gen_seconds = time.monotonic() - t0
+                _check_abort()
+                if deadline is not None and time.monotonic() >= deadline:
+                    # The candidate already generated code but there is no time left to
+                    # materialize it; drop it rather than starting work we cannot finish,
+                    # and undo the attempt (it was never actually scored).
+                    entry[attempt_key] -= 1
+                    break
 
-    # Dedup already enforced above via pair_index; keep at most the remaining slots,
-    # preferring lower temperature (Task 3: "at most max_pairs_per_spec distinct codes
-    # per spec (dedup by code hash, prefer lower temperature)").
-    good_found.sort(key=lambda g: g["temperature"])
-    slots = max(0, max_pairs - entry.get("pairs", 0))
-    for g in good_found[:slots]:
-        _append_jsonl(PAIRS_FILE, _good_pair_row(
-            row, unit_id, mode, g["temperature"], g["prompt_info"], g["code"], g["m"],
-            g["band_info"], g["turn"]))
-        pair_index.add(spec_id, g["fingerprint"], tier)
-        entry["pairs"] = entry.get("pairs", 0) + 1
-    _save_progress(progress)
+                with tempfile.TemporaryDirectory(prefix="harvest_") as td:
+                    build_dir = Path(td)
+                    attempts = _execute_with_salvage(spec, code, build_dir, prompt_info,
+                                                    gen_seconds, cfg, deadline=deadline)
+                    for attempt in attempts:
+                        label = (candidate_label if attempt["turn"] == "first"
+                                else f"{candidate_label}-salvage")
+                        verdict, band_info = _classify(attempt["m"], reference_stl, build_dir)
+                        persisted = (_persist_build(build_dir, unit_id, spec_id, label)
+                                    if verdict not in ("none", "unscored") else None)
+                        usage = (attempt["prompt_info"] or {}).get("usage")
+                        model = (attempt["prompt_info"] or {}).get("model")
+                        fp = (_code_fingerprint(attempt["code"])
+                             if verdict != "unscored" else None)
+
+                        if verdict == "good" and band_info.get("band") == "match":
+                            # An owner-reference band match confirms on its own, exactly as
+                            # before this fix round -- no cross-candidate agreement needed.
+                            if pair_index.has(spec_id, fp) or fp in seen_fps:
+                                _append_jsonl(LEDGER_FILE, _ledger_row(
+                                    unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                    candidate=label, temperature=temperature, m=attempt["m"],
+                                    band_info=band_info, usage=usage, model=model,
+                                    build_dir=persisted, seconds=attempt["seconds"],
+                                    fingerprint=fp, agreement=None))
+                                continue
+                            seen_fps.add(fp)
+                            _append_jsonl(LEDGER_FILE, _ledger_row(
+                                unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                candidate=label, temperature=temperature, m=attempt["m"],
+                                band_info=band_info, usage=usage, model=model,
+                                build_dir=persisted, seconds=attempt["seconds"],
+                                fingerprint=fp, agreement="reference"))
+                            if entry.get("pairs", 0) < max_pairs:
+                                pair_row = _good_pair_row(
+                                    row, unit_id, mode, temperature, attempt["prompt_info"],
+                                    attempt["code"], attempt["m"], band_info, attempt["turn"],
+                                    confirmed_by="reference")
+                                _append_jsonl(PAIRS_FILE, pair_row)
+                                pair_index.add(spec_id, fp, tier, pair_row.get("signature"))
+                                entry["pairs"] = entry.get("pairs", 0) + 1
+                        elif verdict == "good":
+                            # Gate-clean, no reference -- held for agreement (fix round 2,
+                            # Section A). Its ledger row is written only once _finalize()
+                            # knows this candidate's outcome.
+                            if pair_index.has(spec_id, fp) or fp in seen_fps:
+                                _append_jsonl(LEDGER_FILE, _ledger_row(
+                                    unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                    candidate=label, temperature=temperature, m=attempt["m"],
+                                    band_info=band_info, usage=usage, model=model,
+                                    build_dir=persisted, seconds=attempt["seconds"],
+                                    fingerprint=fp, agreement=None))
+                                continue
+                            seen_fps.add(fp)
+                            clean_candidates.append({
+                                "origin": "new", "code": attempt["code"],
+                                "prompt_info": attempt["prompt_info"], "m": attempt["m"],
+                                "temperature": temperature, "turn": attempt["turn"],
+                                "fingerprint": fp,
+                                "signature": signature(attempt["m"].get("facts") or {}),
+                                "candidate_label": label, "usage": usage, "model": model,
+                                "build_dir": persisted, "seconds": attempt["seconds"],
+                            })
+                            # Stop sampling once a CONFIRMED quota is reached (Section C: the
+                            # old early stop fired on merely-unconfirmed goods). Re-resolve
+                            # the whole pool fresh -- cheap at this scale, never order-
+                            # dependent (see resolve_agreement/_cluster_by_signature).
+                            winners_now, tag_now = resolve_agreement(_pool(), agreement_cfg)
+                            if (tag_now == "agreement"
+                                    and entry.get("pairs", 0) + len(winners_now) >= max_pairs):
+                                _finalize()
+                        elif verdict == "silver":
+                            _append_jsonl(LEDGER_FILE, _ledger_row(
+                                unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                candidate=label, temperature=temperature, m=attempt["m"],
+                                band_info=band_info, usage=usage, model=model,
+                                build_dir=persisted, seconds=attempt["seconds"],
+                                fingerprint=fp, agreement=None))
+                            render = str(Path(persisted) / "build.png") if persisted else None
+                            _append_jsonl(REVIEW_FILE, _review_row(
+                                row, unit_id, mode, temperature, attempt["prompt_info"],
+                                attempt["code"], attempt["m"], render, attempt["turn"]))
+                        elif verdict == "fail":
+                            _append_jsonl(LEDGER_FILE, _ledger_row(
+                                unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                candidate=label, temperature=temperature, m=attempt["m"],
+                                band_info=band_info, usage=usage, model=model,
+                                build_dir=persisted, seconds=attempt["seconds"],
+                                fingerprint=fp, agreement=None))
+                            _append_jsonl(PAIRS_FILE, _fail_pair_row(
+                                row, unit_id, mode, temperature, attempt["prompt_info"],
+                                attempt["code"], attempt["m"], band_info, attempt["turn"]))
+                        else:   # "none" or "unscored"
+                            _append_jsonl(LEDGER_FILE, _ledger_row(
+                                unit_id=unit_id, spec_id=spec_id, tier=tier, mode=mode,
+                                candidate=label, temperature=temperature, m=attempt["m"],
+                                band_info=band_info, usage=usage, model=model,
+                                build_dir=persisted, seconds=attempt["seconds"],
+                                fingerprint=fp, agreement=None))
+                _save_progress(progress)
+                _check_abort()
+                if resolved["done"]:
+                    break
+            except (SpecgenAborted, _InfraError):
+                entry[attempt_key] -= 1
+                raise
+    finally:
+        if _finalize():
+            _save_progress(progress)
 
 
 # ---------------------------------------------------------------------------
@@ -1152,6 +1777,42 @@ def _pairs_stats() -> dict:
     }
 
 
+def _confirmation_status(ledger_rows: list[dict], bank: list[dict], progress: dict,
+                         cfg: dict) -> dict:
+    """Fix round 2, Section A: "Status gets unconfirmed, confirmed_by: {reference,
+    agreement}, and split_specs counts" -- an aggregate view of how the confirmation
+    layer is doing, alongside (not replacing) the per-pair confirmed_by field and the
+    per-ledger-row agreement field this same fix round adds.
+    `unconfirmed_candidates`: rows in candidates.jsonl not marked "promoted" (still
+    waiting on a confirming partner, or permanently stuck if their spec is exhausted).
+    `confirmed_by`: how many GOOD pairs on disk were confirmed each way.
+    `split_specs`: distinct spec_ids with at least one ledger row recording a "split"
+    this fix round found (2+ disagreeing clusters, nobody confirmed) -- a running total,
+    not just this unit's, since a split spec needs a human's attention eventually.
+    `exhausted_specs`: specs that used their full teacher attempt budget and are still
+    short of max_pairs_per_spec (see _exhausted_specs)."""
+    candidate_rows = _read_jsonl(CANDIDATES_FILE)
+    latest_by_id: dict[str, dict] = {}
+    for r in candidate_rows:
+        rid = r.get("id")
+        if rid:
+            latest_by_id[rid] = r
+    unconfirmed_candidates = sum(1 for r in latest_by_id.values()
+                                if r.get("status") != "promoted")
+    confirmed_by = {"reference": 0, "agreement": 0}
+    for r in _read_jsonl(PAIRS_FILE):
+        if r.get("kind") == "good" and r.get("confirmed_by") in confirmed_by:
+            confirmed_by[r["confirmed_by"]] += 1
+    split_specs = len({r.get("spec_id") for r in ledger_rows
+                       if r.get("agreement") == "split" and r.get("spec_id")})
+    return {
+        "unconfirmed_candidates": unconfirmed_candidates,
+        "confirmed_by": confirmed_by,
+        "split_specs": split_specs,
+        "exhausted_specs": len(_exhausted_specs(bank, progress, cfg)),
+    }
+
+
 def _think_pass_status(cfg: dict, teacher_pool_len: int) -> dict:
     """Task 3 ruling: "when unavailable the teacher pass is skipped and the status says
     so." `configured` is whether cad.json's lab.harvest.teacher_passes even lists "think";
@@ -1194,6 +1855,7 @@ def _compute_status() -> dict:
             "last_unit": ledger_rows[-1].get("unit_id") if ledger_rows else None,
         },
         "think_pass": _think_pass_status(cfg, len(teacher_pool)),
+        "confirmation": _confirmation_status(ledger_rows, bank, progress, cfg),
         "budget": {
             "hours_today": round(_hours_today(now_local), 2),
             "hours_per_day": cfg["hours_per_day"],
@@ -1313,7 +1975,23 @@ def main() -> int:
     ap.add_argument("--allow-day", action="store_true",
                     help="override lab.harvest.day_allowed=true for THIS run only "
                          "(manual/smoke use, same rationale as --unit-minutes)")
+    ap.add_argument("--i-am-the-owner", action="store_true",
+                    help="required, together with an interactive TTY on stdin, to use "
+                         "--unit-minutes/--allow-day (fix round 2, D4) -- the timer path "
+                         "(lab/harvest_unit.sh) passes neither flag and never needs this")
     a = ap.parse_args()
+
+    if a.unit_minutes is not None or a.allow_day:
+        # Fix round 2, D4: loud on every use (these override the night-window/GPU-hour
+        # budget gates a nightly, unattended run relies on), and refused outside an
+        # interactive session unless the caller explicitly claims ownership -- the timer
+        # path (lab/harvest_unit.sh) passes neither flag, so this never affects it.
+        print("harvest: --unit-minutes/--allow-day override the night-window/budget "
+              "gates -- manual/smoke use only, never the timer path.", file=sys.stderr)
+        if not (sys.stdin.isatty() or a.i_am_the_owner):
+            print("harvest: refusing --unit-minutes/--allow-day without an interactive "
+                  "TTY on stdin or --i-am-the-owner", file=sys.stderr)
+            return 1
 
     if a.status:
         print(json.dumps(_compute_status(), indent=2))
