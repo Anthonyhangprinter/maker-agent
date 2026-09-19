@@ -314,3 +314,46 @@ lab/gpu_window.sh python3 lab/specgen.py --once --group plate --n 20
   stop of an already-stopped maker plus a start of an already-running resident. Since Task 3a
   the window's restore always targets the resident, so the two can no longer disagree (they
   used to: a stray maker at entry made the window restart the maker over specgen's resident).
+
+## Teacher reference geometry (Phase 3 Task 3d1, `lab/teacher_refs.py`)
+
+The harvest confirms a candidate as a training pair either by agreement between two samples
+of the local model, or by matching a REFERENCE geometry (`reference_stl` on a bank row,
+scored by `geom_bands.score_against_reference`) -- the stronger of the two. Only
+owner-supplied references existed until now. `lab/teacher_refs.py` promotes the 414
+`source: "teacher-suite"` bank rows' own August solves as references: `~/.openclaw/
+cad-sftpairs.jsonl` already holds accepted build123d code for most of them (`source`
+"teacher" or "teacher-human-accepted"), written by a stronger teacher model back when the
+gate was weaker. That code is used ONLY as geometry to check the local model's own code
+against -- it never becomes training text.
+
+```bash
+python3 lab/specbank.py import-teacher-refs --dry-run                # counts only, writes nothing
+python3 lab/specbank.py import-teacher-refs --limit 10                # a real, bounded run
+python3 lab/specbank.py import-teacher-refs                           # the full remaining set
+python3 lab/specbank.py stats                                         # now reports with_reference
+```
+
+CPU only, no model calls, no service starts/stops: `cad_engine._ollama` is patched to raise
+on import, and every part is built/inspected through `cad_engine.run_step`/`run_inspect`
+(local subprocesses) plus a fresh child interpreter for build123d's STEP->STL conversion and
+for `lab/harvest.py`'s `strict_envelope_check` (a separate process per call, deliberately,
+so a bad moment in a file being edited elsewhere never takes the whole run down -- see the
+module docstring). Each matched teacher solve is RE-BUILT and RE-GATED under TODAY's rules
+(the engine's deterministic gate plus the strict envelope check); several suites clean in
+August now fail on the same numeric mismatches the gate was hardened to catch since, and
+those are reported, never admitted. Up to 3 candidates build in parallel
+(`--workers`, clamped to 3). Admitted rows gain `reference_stl` (cached at
+`lab/state/refs/<key[:16]>.stl`, git-ignored), `reference_source: "teacher-claude"`,
+`reference_facts` (solids/faces/volume/bbox/bores/hole_groups) and `reference_added`.
+Owner references always win and a second run is a no-op: any row that already carries
+`reference_stl` is left alone. A full run writes `lab/state/teacher_refs_report.json`
+(git-ignored) with counts by tier/suite for every stage (read, rejected by review, matched,
+crashed, failed-gate, admitted) plus the non-admitted list with reasons.
+
+`specbank.apply_reference_updates` is the bank-mutation half: it takes the SAME flock
+`add_items`/`import_teacher`/`import_references` already use, rewrites the file in place
+(never via a temp-file + rename -- a rename would swap the path to a new inode while a
+concurrent appender already blocked on this lock still holds an fd to the old one, so its
+write would succeed and still be lost forever once orphaned), and leaves every row it does
+not touch byte-identical to how it was written.
