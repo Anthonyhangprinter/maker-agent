@@ -413,7 +413,7 @@ _LAB_DEFAULTS = {
     "harvest": {
         "night_start": "22:00",
         "night_end": "07:00",
-        # Task 3 ruling (2026-09-19): night-only until the owner says otherwise — a unit
+        # Task 3 ruling (2026-09-19): night-only until the owner says otherwise. A unit
         # evicts and restores the resident (about 70s of model loads) and there is one
         # GPU, so daytime harvesting would compete with interactive CAD builds.
         "day_allowed": False,
