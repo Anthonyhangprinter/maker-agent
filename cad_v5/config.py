@@ -413,9 +413,15 @@ _LAB_DEFAULTS = {
     "harvest": {
         "night_start": "22:00",
         "night_end": "07:00",
-        "day_allowed": True,
+        # Task 3 ruling (2026-09-19): night-only until the owner says otherwise — a unit
+        # evicts and restores the resident (about 70s of model loads) and there is one
+        # GPU, so daytime harvesting would compete with interactive CAD builds.
+        "day_allowed": False,
         "hours_per_day": 12,
-        "unit_minutes": 10,
+        # Task 3 ruling (2026-09-19): raised from 10 -> 25 (paired with the timer's own
+        # 30-minute OnCalendar), so a unit's ~70s eviction/restore overhead is a smaller
+        # fraction of its wall clock and consecutive units don't thrash the GPU swap.
+        "unit_minutes": 25,
         "candidates": 3,
         "temps": [0.2, 0.5, 0.8],
         "max_pairs_per_spec": 2,
