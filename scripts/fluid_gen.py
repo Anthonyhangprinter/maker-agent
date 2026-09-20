@@ -42,6 +42,8 @@ import cad_engine as engine  # noqa: E402
 from cad_v5.diagnose import diagnose  # noqa: E402
 from cad_v5.config import (first_turn_candidates, load_config,  # noqa: E402
                           repair_think_enabled, think_rung_available)
+from cad_v5.design_assistant import (extract_build123d_params,  # noqa: E402
+                                     substitute_build123d_params)
 
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
 
@@ -288,6 +290,15 @@ def cmd_build(a) -> dict:
     # could only degrade it, so gate findings there are display-only.
     m = _materialize_with_salvage(spec, code, build_dir, gate_repair=not helper)
     extra = {"build_dir": str(build_dir), "candidates": n_used}
+    if not m["error"]:
+        # Post-build sliders (design assistant, item D): the on-disk source is whatever
+        # the winning attempt actually wrote (salvage/repair may have changed it from
+        # `code` above), so read it back rather than re-deriving from a stale variable.
+        try:
+            extra["params"] = extract_build123d_params(
+                (build_dir / "build_source.py").read_text(encoding="utf-8"))
+        except Exception:
+            pass
     if expansion:
         extra["expanded_spec"] = expansion["expanded_spec"]
         extra["assumptions"] = expansion["assumptions"]
@@ -329,8 +340,64 @@ def cmd_revise(a) -> dict:
          "ok": m["error"] is None})
     meta_f.write_text(json.dumps(meta))
     extra = {"build_dir": str(build_dir), "turns": len(meta["history"]) + 1}
+    if not m["error"]:
+        try:
+            extra["params"] = extract_build123d_params(
+                (build_dir / "build_source.py").read_text(encoding="utf-8"))
+        except Exception:
+            pass
     if meta.get("assumptions"):
         extra["assumptions"] = meta["assumptions"]
+    return _result(m, extra, t0)
+
+
+def cmd_rescale(a) -> dict:
+    """The build123d counterpart of the OpenSCAD Customizer sliders (webui/app.py's
+    /api/rescale): ZERO LLM, pure AST substitution of the named constants
+    _CODE_SYSTEM tells the coder to put at the top of every script, then the SAME
+    execute+inspect+gate+render pipeline a normal build uses. A rescale that fails to
+    build restores the previous artifacts byte-for-byte and reports the error — the
+    working version must never be lost to a bad slider value."""
+    build_dir = Path(a.build_dir)
+    src = build_dir / "build_source.py"
+    meta_f = build_dir / "fluid.json"
+    if not src.is_file():
+        return {"ok": False, "error": "no build_source.py in that build dir"}
+    try:
+        params = json.loads(a.params)
+        if not isinstance(params, dict):
+            raise ValueError("params must be a JSON object")
+    except Exception as e:
+        return {"ok": False, "error": f"bad --params ({e})"}
+    meta = json.loads(meta_f.read_text(encoding="utf-8")) if meta_f.is_file() \
+        else {"spec": "", "history": []}
+    t0 = time.monotonic()
+    code = src.read_text(encoding="utf-8")
+    new_code = substitute_build123d_params(code, params)
+    if new_code == code:
+        return {"ok": False, "error": "none of those parameters are substitutable "
+                                       "constants in this build", "build_dir": str(build_dir)}
+    snap = {}
+    for name in ("build_source.py", "build.step", "build.stl", "build.png"):
+        p = build_dir / name
+        if p.is_file():
+            snap[name] = p.read_bytes()
+    spec = meta.get("spec", "")
+    m = _materialize(new_code, build_dir, spec)
+    if m["error"]:
+        for name, data in snap.items():
+            try:
+                (build_dir / name).write_bytes(data)
+            except Exception:
+                pass
+        return {"ok": False, "mode": "fluid", "rescaled": False,
+                "error": "rescale failed to build — restored the previous version: "
+                         + m["error"],
+                "build_dir": str(build_dir),
+                "params": extract_build123d_params(code),
+                "build_time_s": round(time.monotonic() - t0, 1)}
+    extra = {"build_dir": str(build_dir), "rescaled": True,
+             "params": extract_build123d_params(new_code)}
     return _result(m, extra, t0)
 
 
@@ -350,9 +417,18 @@ def main() -> int:
     r.add_argument("--image", default=None)        # accepted for frontend symmetry; the
     r.add_argument("--no-fewshots", action="store_true")  # reference already lives in the dir
     r.add_argument("--json", action="store_true")
+    s = sub.add_parser("rescale")
+    s.add_argument("build_dir")
+    s.add_argument("params", help="JSON object mapping constant name -> new numeric value")
+    s.add_argument("--json", action="store_true")
     a = ap.parse_args()
     try:
-        res = cmd_build(a) if a.cmd == "build" else cmd_revise(a)
+        if a.cmd == "build":
+            res = cmd_build(a)
+        elif a.cmd == "revise":
+            res = cmd_revise(a)
+        else:
+            res = cmd_rescale(a)
     finally:
         # Fluid runs bypass engine.build(), so the resident resume (evicted for the
         # maker arm by _ensure_default_server) must happen here too.
