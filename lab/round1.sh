@@ -83,7 +83,11 @@ fi
 # --out lab/runs/round1 below is the literal DEFAULT train.py sees; if the caller's own
 # "$@" also carries --out (forwarded last), argparse's last-value-wins semantics let the
 # caller's value win, same pattern as spike.sh.
-lab/gpu_window.sh lab/.venv/bin/python lab/train.py \
+# The training venv is untracked and lives in the MAIN checkout; a worktree has none.
+LAB_PY="${LAB_PY:-lab/.venv/bin/python}"
+[ -x "$LAB_PY" ] || LAB_PY="$HOME/.openclaw/skills/cad-builder/lab/.venv/bin/python"
+[ -x "$LAB_PY" ] || { echo "lab/round1.sh: no training venv found ($LAB_PY)" >&2; exit 2; }
+lab/gpu_window.sh "$LAB_PY" lab/train.py \
     --base /mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit \
     --data lab/rounds/round1 \
     --out "$OUT" \
