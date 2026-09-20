@@ -56,6 +56,24 @@ fi
 exit 0
 """
 
+CURL_STUB = """#!/usr/bin/env bash
+# Stands in for curl against the gpu-proxy status endpoint (D4 drain). Each call consumes
+# one line of $STUB_PROXY_REPLIES: a number is served as an {"active": N} body, the literal
+# word FAIL exits non-zero (proxy unreachable), and the literal word GARBAGE returns a body
+# with no usable active key. Running past the last line repeats it, so a test only has to
+# write the prefix it cares about.
+printf '%s\\n' "curl $*" >> "$STUB_LOG"
+n=$(grep -c '^curl ' "$STUB_LOG")
+reply=$(sed -n "${n}p" "$STUB_PROXY_REPLIES")
+[ -n "$reply" ] || reply=$(tail -1 "$STUB_PROXY_REPLIES")
+case "$reply" in
+    FAIL)    exit 7 ;;
+    GARBAGE) printf '%s' 'not json at all' ;;
+    *)       printf '{"waiting": 0, "active": %s, "served": 1}' "$reply" ;;
+esac
+exit 0
+"""
+
 NVIDIA_SMI_STUB = """#!/usr/bin/env bash
 printf '%s\\n' "${STUB_VRAM:-0}"
 """
@@ -135,6 +153,9 @@ class Window:
         self.bin.mkdir()
         self.systemctl = _write_exe(self.bin / "systemctl", SYSTEMCTL_STUB)
         self.nvidia_smi = _write_exe(self.bin / "nvidia-smi", NVIDIA_SMI_STUB)
+        self.curl = _write_exe(self.bin / "curl", CURL_STUB)
+        self.proxy_replies = tmp_path / "proxy_replies"
+        self.proxy_replies.write_text("0\n", encoding="utf-8")
         self.stubborn = _write_exe(self.bin / "stubborn_job.sh", STUBBORN_JOB)
         self.slow_cleanup = _write_exe(self.bin / "slow_cleanup_job.sh", SLOW_CLEANUP_JOB)
         self.env_report = _write_exe(self.bin / "env_report_job.sh", ENV_REPORT_JOB)
@@ -153,6 +174,11 @@ class Window:
             "GPU_WINDOW_SYSTEMCTL": str(self.systemctl),
             "GPU_WINDOW_NVIDIA_SMI": str(self.nvidia_smi),
             "CAD_BUILD_LOCK_FILE": str(self.lock),
+            "GPU_WINDOW_CURL": str(self.curl),
+            "GPU_WINDOW_PROXY_STATUS_URL": "http://127.0.0.1:8087/",
+            "STUB_PROXY_REPLIES": str(self.proxy_replies),
+            # Tests that do not care about the drain must not sit through it.
+            "GPU_WINDOW_DRAIN_SEC": "0",
             "STUB_LOG": str(self.log),
             "HOME": str(self.home),
             # Deliberately hostile defaults: the window must set these for its child itself.
@@ -177,9 +203,21 @@ class Window:
         return pid
 
     def calls(self) -> list[str]:
+        """The systemctl calls only. The D4 drain logs its probes to the same STUB_LOG, and
+        every existing assertion here is positional ("the last two calls are..."), so they
+        are filtered out rather than allowed to shift every index."""
+        return [ln for ln in self.raw_log() if not ln.startswith("curl ")]
+
+    def raw_log(self) -> list[str]:
         if not self.log.exists():
             return []
         return [ln for ln in self.log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+    def probes(self) -> list[str]:
+        return [ln for ln in self.raw_log() if ln.startswith("curl ")]
+
+    def set_proxy_replies(self, *replies: str) -> None:
+        self.proxy_replies.write_text("\n".join(replies) + "\n", encoding="utf-8")
 
     def lock_is_free(self) -> bool:
         """True when nothing (no orphaned descendant holding an inherited fd 9) still holds
@@ -414,3 +452,73 @@ def test_child_environment_exit_code_and_output_passthrough(win):
     assert "out CAD_GPU_WINDOW=1 PYTHONUTF8=1" in out, out
     assert "err line" in err, err
     assert "== gpu_window: start" in out and "== gpu_window: done" in out
+
+
+# ------------------------------------------------------- D4: drain before the eviction
+
+def test_drain_waits_for_the_resident_to_go_idle(win):
+    """The whole point: in-flight work finishes BEFORE systemd is asked to stop the unit,
+    so llama.cpp is idle when SIGTERM arrives instead of being SIGKILLed mid-generation
+    90s later (2026-09-20)."""
+    win.set_proxy_replies("2", "1", "0")
+    p = win.launch(["bash", "-c", "exit 0"], GPU_WINDOW_DRAIN_SEC="30")
+    rc = p.wait(timeout=60)
+    err = p.stderr.read()
+
+    assert rc == 0
+    assert "drain: resident idle after" in err, err
+    assert len(win.probes()) >= 3, win.probes()
+    assert "--user stop qwen38-server" in win.calls()
+
+
+def test_drain_runs_after_the_lock_and_before_the_eviction(win):
+    """Ordering matters twice over: draining before the lock would wait on work a competing
+    job could replace, and draining after the stop would be pointless."""
+    win.set_proxy_replies("1", "0")
+    p = win.launch(["bash", "-c", "exit 0"], GPU_WINDOW_DRAIN_SEC="30")
+    assert p.wait(timeout=60) == 0
+
+    raw = win.raw_log()
+    first_probe = next(i for i, ln in enumerate(raw) if ln.startswith("curl "))
+    first_stop = next(i for i, ln in enumerate(raw) if ln == "--user stop qwen38-server")
+    assert first_probe < first_stop, raw
+
+
+def test_drain_gives_up_after_the_bound_and_evicts_anyway(win):
+    """A request that never ends must not hold the window open for ever: the bound expires
+    and the eviction proceeds, exactly as before this change."""
+    win.set_proxy_replies("3")
+    p = win.launch(["bash", "-c", "exit 0"], GPU_WINDOW_DRAIN_SEC="4")
+    rc = p.wait(timeout=60)
+    err = p.stderr.read()
+
+    assert rc == 0
+    assert "still in flight after 4s, evicting anyway" in err, err
+    assert "--user stop qwen38-server" in win.calls()
+
+
+@pytest.mark.parametrize("reply, why", [("FAIL", "unreachable"), ("GARBAGE", "non-JSON")])
+def test_drain_fails_open_when_the_proxy_cannot_be_trusted(win, reply, why):
+    """Fail-open, the same rule harvest.py's own proxy probes follow: the build lock is the
+    safety boundary, and a down proxy must never wedge the nightly window shut."""
+    win.set_proxy_replies(reply)
+    p = win.launch(["bash", "-c", "exit 0"], GPU_WINDOW_DRAIN_SEC="30")
+    rc = p.wait(timeout=60)
+    err = p.stderr.read()
+
+    assert rc == 0, why
+    assert "drain: gpu-proxy status unreadable" in err, err
+    assert len(win.probes()) == 1, win.probes()   # one look, then proceed
+    assert "--user stop qwen38-server" in win.calls()
+
+
+def test_drain_disabled_never_touches_the_proxy(win):
+    win.set_proxy_replies("9")
+    p = win.launch(["bash", "-c", "exit 0"], GPU_WINDOW_DRAIN_SEC="0")
+    rc = p.wait(timeout=60)
+    err = p.stderr.read()
+
+    assert rc == 0
+    assert "drain disabled" in err, err
+    assert win.probes() == []
+    assert "--user stop qwen38-server" in win.calls()

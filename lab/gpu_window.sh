@@ -56,6 +56,21 @@
 #   CAD_BUILD_LOCK_FILE    (default: ~/.openclaw/cad-build.lock; the SAME env var
 #                           cad_v5/config.py's BUILD_LOCK_FILE honours, so a test or a probe
 #                           that redirects one redirects both)
+#   GPU_WINDOW_CURL        (default: curl)
+#   GPU_WINDOW_PROXY_STATUS_URL (default: http://127.0.0.1:8087/)
+#   GPU_WINDOW_DRAIN_SEC   (default: 120; 0 disables the drain entirely)
+#
+# D4 DRAIN BEFORE EVICTION (2026-09-20). Stopping the resident while it is mid-generation
+# cut the client's connection, and llama.cpp does not exit on SIGTERM inside
+# qwen38-server.service's TimeoutStopSec, so systemd SIGKILLed it and left the unit
+# `failed` (cosmetic, the next start works) while the caller died with RemoteDisconnected.
+# harvest.py's pre-flight could not see this: it reads only the gpu-proxy's `waiting`
+# counter, which counts requests queued while the backend is DOWN and is therefore 0
+# whenever the resident is up and busy. So AFTER the lock is held and BEFORE any unit is
+# stopped, this script now polls the proxy's `active` counter and lets in-flight work
+# finish, bounded by GPU_WINDOW_DRAIN_SEC. The drain fails OPEN on any error (proxy down,
+# non-JSON, missing key): the build lock is the safety boundary, not this probe, and an
+# unreachable proxy must never wedge the nightly window shut.
 set -euo pipefail
 
 SYSTEMCTL="${GPU_WINDOW_SYSTEMCTL:-systemctl}"
@@ -65,6 +80,9 @@ LOCK_WAIT_SEC="${GPU_WINDOW_LOCK_WAIT_SEC:-3600}"
 GRACE_SEC="${GPU_WINDOW_GRACE_SEC:-180}"
 MAX_SEC="${GPU_WINDOW_MAX_SEC:-36000}"
 RESTORE_TO="${GPU_WINDOW_RESTORE:-resident}"
+CURL="${GPU_WINDOW_CURL:-curl}"
+PROXY_STATUS_URL="${GPU_WINDOW_PROXY_STATUS_URL:-http://127.0.0.1:8087/}"
+DRAIN_SEC="${GPU_WINDOW_DRAIN_SEC:-120}"
 
 mkdir -p "$(dirname "$LOCK")"
 # Open append-only: `exec 9>"$LOCK"` truncated the file BEFORE flock returned, wiping the
@@ -157,6 +175,43 @@ trap 'kill_job; exit 130' INT
 # launches ignore HUP already; an interactive run does not.
 trap 'kill_job; exit 129' HUP
 
+proxy_active() {
+    # Echoes the gpu-proxy's `active` count, or nothing at all when the answer cannot be
+    # trusted (proxy unreachable, non-JSON body, key absent). "Nothing" is the fail-open
+    # signal the caller treats as "stop waiting", never as "0 requests in flight".
+    local body="" n=""
+    body=$("$CURL" -sf -m 3 "$PROXY_STATUS_URL" 2>/dev/null) || return 0
+    n=$(printf '%s' "$body" | grep -o '"active"[[:space:]]*:[[:space:]]*[0-9][0-9]*' | head -1 \
+        | grep -o '[0-9][0-9]*$') || return 0
+    [ -n "$n" ] && printf '%s\n' "$n"
+    return 0
+}
+
+drain_resident() {
+    # Bounded wait for in-flight resident work to finish before the eviction cuts it off
+    # (D4). Never touches a service and never holds anything: the lock is already held, so
+    # no new CAD or lab job can start behind our back, and a chat turn that arrives during
+    # the drain simply extends it up to the bound.
+    [ "$DRAIN_SEC" -gt 0 ] || { echo "gpu_window: drain disabled (GPU_WINDOW_DRAIN_SEC=0)" >&2; return 0; }
+    local waited=0 n=""
+    while [ "$waited" -lt "$DRAIN_SEC" ]; do
+        n=$(proxy_active)
+        if [ -z "$n" ]; then
+            echo "gpu_window: drain: gpu-proxy status unreadable at ${PROXY_STATUS_URL}, proceeding (fail-open) after ${waited}s" >&2
+            return 0
+        fi
+        if [ "$n" -eq 0 ]; then
+            echo "gpu_window: drain: resident idle after ${waited}s, evicting" >&2
+            return 0
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    echo "gpu_window: drain: ${n} request(s) still in flight after ${DRAIN_SEC}s, evicting anyway" >&2
+    return 0
+}
+
+drain_resident
 "$SYSTEMCTL" --user stop maker-server 2>/dev/null || true
 "$SYSTEMCTL" --user stop qwen38-server || true
 for i in $(seq 1 30); do used=$("$NVIDIA_SMI" --query-gpu=memory.used --format=csv,noheader,nounits | head -1); [ "$used" -lt 1500 ] && break; sleep 2; done

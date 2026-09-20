@@ -181,10 +181,19 @@ UPGRADES_FILE = STATE_DIR / "upgrades.jsonl"
 PROGRESS_FILE = STATE_DIR / "progress.json"
 STATUS_FILE  = STATE_DIR / "status.json"
 PAUSED_FILE  = STATE_DIR / "paused"
+# D4 (2026-09-20): how many consecutive ticks have already yielded to in-flight
+# resident work. Its own small file, not progress.json: progress.json is large and
+# rewritten by a running unit, and this counter is touched by ticks that never open
+# a window at all.
+GATE_BUSY_FILE = STATE_DIR / "gate_busy.json"
 BUILDS_DIR   = STATE_DIR / "builds"
 SYSTEMS_DIR  = STATE_DIR / "systems"
 
-GPU_PROXY_STATUS_URL = "http://127.0.0.1:8087/"
+GPU_PROXY_STATUS_URL = os.environ.get("GPU_PROXY_STATUS_URL") or "http://127.0.0.1:8087/"
+# A chat turn in flight must not postpone harvesting for ever: after this many
+# consecutive yielded ticks the next one proceeds and evicts, where gpu_window.sh's
+# own bounded drain then gives that request a last chance to finish cleanly.
+DEFAULT_MAX_BUSY_SKIPS = 3
 
 GPU_WINDOW_HINT = (
     "harvest samples the maker arm in a loop for a whole unit: it must run inside a GPU "
@@ -785,6 +794,37 @@ def _gpu_proxy_waiting(timeout: float = 2.0) -> int:
         return 0
 
 
+def _gpu_proxy_active(timeout: float = 2.0) -> int:
+    """The gpu-proxy's `active` counter: requests being served by a resident that is UP,
+    which `waiting` (queued while the backend is DOWN) can never show. This is the signal
+    that was missing on 2026-09-20, when a tick evicted the resident out from under an
+    in-flight ingest and systemd SIGKILLed it mid-generation. Fail-open on any error, for
+    exactly the reasons _gpu_proxy_waiting() gives: the build lock is the safety boundary,
+    and a down proxy must never wedge the nightly timer shut."""
+    try:
+        with urllib.request.urlopen(GPU_PROXY_STATUS_URL, timeout=timeout) as r:
+            body = json.loads(r.read())
+        return int(body.get("active") or 0)
+    except Exception:
+        return 0
+
+
+def _busy_skips() -> int:
+    """Consecutive ticks already yielded to in-flight resident work. Unreadable or corrupt
+    state reads as 0: the worst case is one extra yielded tick, never a wedged timer."""
+    try:
+        return int(json.loads(GATE_BUSY_FILE.read_text(encoding="utf-8")).get("skips") or 0)
+    except Exception:
+        return 0
+
+
+def _set_busy_skips(n: int) -> None:
+    try:
+        _atomic_write_json(GATE_BUSY_FILE, {"skips": int(n), "at": datetime.now().isoformat(timespec="seconds")})
+    except Exception:
+        pass   # a counter that cannot be persisted degrades to "yield once per tick", never to a crash
+
+
 def _build_lock_free() -> bool:
     """Non-blocking probe (Task 3 fix H4): true when the CAD build lock (BUILD_LOCK_FILE,
     env-overridable so tests never touch the real lock) is currently uncontended. This is
@@ -1082,6 +1122,17 @@ def _unit_gate(cfg: dict) -> Optional[str]:
     waiting = _gpu_proxy_waiting()
     if waiting:
         return f"gpu-proxy has {waiting} queued request(s)"
+    active = _gpu_proxy_active()
+    cap = int(cfg.get("max_busy_skips", DEFAULT_MAX_BUSY_SKIPS))
+    if active and cap > 0:
+        skips = _busy_skips()
+        if skips < cap:
+            _set_busy_skips(skips + 1)
+            return (f"gpu-proxy has {active} request(s) in flight "
+                    f"(busy skip {skips + 1}/{cap})")
+        # Cap reached: proceed anyway, and start the next run of yields from zero.
+        # gpu_window.sh drains before it evicts, so this is not a hard cut-off.
+    _set_busy_skips(0)
     bank = specbank.load_bank()
     progress = _load_progress()
     student_pool, teacher_pool = _eligible_pools(bank, progress, cfg)
