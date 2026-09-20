@@ -357,3 +357,103 @@ crashed, failed-gate, admitted) plus the non-admitted list with reasons.
 concurrent appender already blocked on this lock still holds an fd to the old one, so its
 write would succeed and still be lost forever once orphaned), and leaves every row it does
 not touch byte-identical to how it was written.
+
+## Compile and train a round (Phase 3 Task 4, `lab/compile.py` + `lab/round1.sh`)
+
+`lab/compile.py` turns `lab/state/pairs.jsonl` (the harvest's verified pairs) into a
+round: it selects rows by `kind=="good"`, `turn=="first"` (a salvage turn never trains),
+an effective `confirm_strength` (after `lab/state/upgrades.jsonl`) in `--strengths`, not
+listed in `--exclude-ids`, and a `gate_version` that is either today's or explicitly
+accepted; dedups by AST-normalised code fingerprint and caps at `--max-per-spec` per
+spec, preferring the strongest evidence; splits surviving specs into train/val by a
+FROZEN, spec-level, tier-stratified assignment (`--val-specs-file`, default
+`lab/state/val_specs.json` -- read and reused verbatim once it exists, so round 2 stays
+comparable to round 1; a copy also lands in `--out-dir` for this round's own record);
+and renders every surviving pair through `lab.data.render_pairs`, the SAME function
+`lab/data.py` itself uses, so a row's spec and prompt shape are contamination-checked
+against the exact same card-suite sets and rendered through the exact same checkpoint
+template `lab/data.py` would use -- there is no separate, hand-rolled rendering path
+here. `spec_id`/`tier`/`confirm_strength`/`pair_id`/`source` ride alongside the rendered
+`prompt`/`completion`/`id`/`kind` for provenance; `lab/train.py`'s own `load_rows` only
+ever reads `prompt` and `completion`, so the extra keys are inert to it.
+
+```bash
+# 1. Compile round 1 (dry run first: prints data_meta, writes nothing)
+python3 lab/compile.py --round 1 --strengths reference,cross_pass \
+    --out-dir lab/rounds/round1 --dry-run
+python3 lab/compile.py --round 1 --strengths reference,cross_pass \
+    --out-dir lab/rounds/round1
+# writes lab/rounds/round1/{train.jsonl, val.jsonl, val_specs.json, data_meta.json}
+```
+
+Two real dry runs against the live bank on this branch (2026-09-20, harvest still
+running so `rows_total_seen` will differ on a later re-run):
+
+| strengths | train rows | val rows | held-out specs |
+|---|---|---|---|
+| `reference,cross_pass` | 93 | 9 | 5 |
+| `reference,cross_pass,same_pass` | 185 | 15 | 8 |
+
+`same_pass` evidence is the weaker kind (agreement within one sampling pass, not across
+a student/think pass split -- see `lab/harvest.py`'s own `confirm_strength` docstring),
+so start a round on `reference,cross_pass` and widen to `same_pass` only once round 1's
+card result is in.
+
+```bash
+# 2. Train (GPU, inside a window) -- a GENTLER preset than the Phase 2 spike (see
+#    lab/round1.sh's own header comment for the one preset knob it could not apply:
+#    lab/train.py hardcodes learning_rate=2e-4 with no --lr flag)
+lab/round1.sh
+# adapter lands at ~/lab-scratch/round1-adapter-<timestamp>/adapter (printed at launch)
+```
+
+```bash
+# 3. Ship the adapter as a GGUF arm. Per the 2026-09-19 disk decision (NVMe has about
+#    26GB free, and each round's GGUF is about 18.7GB): round outputs go to the root
+#    SSD under ~/lab-scratch/rounds/, not lab/ship.py's own NVMe DEFAULT_STORE_DIR
+#    (that default is the Phase 2 spike arm's own store, not a shared one).
+ADAPTER=~/lab-scratch/round1-adapter-<timestamp>/adapter   # from step 2's printed path
+lab/.venv/bin/python lab/ship.py all --adapter "$ADAPTER" \
+    --model-name gemma-4-31b-cad-round1 \
+    --quant-out ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf
+# ship.py all stops after quantize on purpose (verify needs a human at the GPU,
+# register touches the shared benchmarks/arms.json, clean is destructive)
+lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify \
+    --gguf ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf
+lab/.venv/bin/python lab/ship.py register \
+    --gguf ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf \
+    --name gemma-4-31b-cad-round1 --adapter "$ADAPTER" \
+    --store ~/lab-scratch/rounds/round1-store
+```
+
+```bash
+# 4. Card the new arm on the SAME subset/flags the Phase 2 card used (restated from
+#    benchmarks/results/card/phase2/card.json's own meta: mode oneshot, subset phase1 --
+#    DECISION.md's prose names the same two knobs but the exact invocation lives in that
+#    run's meta). scripts/run_card.py switches arms itself per --arms entry (via
+#    scripts/arms.py's own cmd_use) and restores the resident when it finishes, so this
+#    does not need a separate arms.py call first; `scripts/arms.py use <arm>` is only
+#    for pointing the maker server at the new arm for an interactive spot-check outside
+#    a card run (restore it afterward: `scripts/arms.py restore`).
+python3 scripts/run_card.py --arms gemma-4-31b-cad-round1 --subset phase1 --mode oneshot \
+    --out benchmarks/results/card/round1
+
+# 5. Lift vs the stock arm, like-for-like on the public suites (the Phase 2 card reused
+#    its baseline rows from the Phase 1 card the same way; round1's card above only
+#    needs to add the new arm's own rows for lift_report to diff against).
+python3 scripts/lift_report.py benchmarks/results/card/round1 --baseline gemma-4-31b
+```
+
+Ship rule (`benchmarks/results/card/phase2/DECISION.md`, section 4): promote an arm only
+when its card beats the stock arm on the public suites (invalid ratio first, then match
+share) with the paired flips column in its favour -- exactly the rule that failed the
+Phase 2 spike. `~/.openclaw/cad.json`'s `maker` block stays pointed at the stock
+`gemma-4-31b` arm until round 1's card actually clears that bar.
+
+**Known gap:** `lab/train.py`'s `SFTConfig` hardcodes `learning_rate=2e-4`
+(`lab/train.py:598`) with no CLI flag to change it. The intended round 1 preset wanted a
+gentler `1e-4` for this smaller, self-generated set; `lab/round1.sh` cannot apply that
+one knob without editing the frozen trainer, so it trains at 2e-4 and prints that gap at
+launch. Every other spike knob is unchanged (r16 / alpha 16 / language layers only /
+batch 1 x accum 4 / max-seq 5120 / adamw_8bit / bf16); round 1 only raises `--epochs` to
+2 (the spike used 1) since round 1's own set is much smaller than the spike's 353 rows.
