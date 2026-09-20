@@ -20,6 +20,7 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -42,6 +43,20 @@ import mesh as meshmod
 import titler
 
 SKILL_ROOT  = Path(__file__).resolve().parent.parent          # …/skills/cad-builder
+
+# compose_spec is a pure string function (no LLM, no build123d) so it is safe to import
+# straight into this process, the same way /api/rescale already loads openscad_gen.py
+# in-process for its (also build123d-free) compile/parse helpers. Guarded because this
+# app's own tiny venv, not the system interpreter, runs this import — see ENGINE_PYTHON
+# above for why everything build123d-touching stays a subprocess instead.
+try:
+    if str(SKILL_ROOT) not in sys.path:
+        sys.path.insert(0, str(SKILL_ROOT))
+    from cad_v5.design_assistant import compose_spec as _compose_spec
+except Exception as _e:                                        # pragma: no cover
+    _compose_spec = None
+    print(f"[assist] compose_spec unavailable ({_e}) — parameters form field will be "
+          f"ignored", flush=True)
 STATIC_DIR  = Path(__file__).resolve().parent / "static"
 BUILDS_DIR  = (Path.home() / ".openclaw" / "cad-builds").resolve()
 UPLOADS_DIR = Path.home() / ".openclaw" / "cad-web" / "uploads"
@@ -49,6 +64,7 @@ SESSIONS_FILE = Path.home() / ".openclaw" / "cad-web" / "sessions.json"
 MAX_SESSIONS = 200                      # matches the engine's KEEP_BUILDS artifact rotation
 MAX_UPLOAD  = 10 * 1024 * 1024          # 10 MB
 BUILD_TIMEOUT = 2 * 1860                # engine budget + a full lock wait (matches Satine)
+ASSIST_TIMEOUT = 330                    # one schema-constrained LLM call (LLM_TIMEOUT=300) + slack
 LOG_TAIL    = 40
 ARTIFACT_EXTS = {".step", ".stl", ".dxf", ".png", ".py", ".jpg", ".scad"}
 CODERS = {"auto", "fast", "strong"}
@@ -158,7 +174,7 @@ _WAIT_RE = re.compile(r"waiting for build lock")
 # mirrored to one JSON file. The live `log` deque is progress, not history — it is not
 # persisted. Writes are atomic (tmp + os.replace) so a crash mid-write cannot truncate the
 # file into unparseable JSON.
-_PERSIST_SKIP = {"log", "pending_chat", "guest"}
+_PERSIST_SKIP = {"log", "pending_chat", "pending_rescale", "guest"}
 
 
 def _persist():
@@ -286,6 +302,7 @@ def _job_public(job: dict) -> dict:
         "result": job.get("result"), "error": job.get("error"),
         "chat": job.get("chat", []),
         "turns": _turns_public(job),
+        "parameters": job.get("parameters"),   # the accepted design-assistant proposal, if any
         "created_at": job["created_at"], "updated_at": job.get("updated_at", job["created_at"]),
     }
 
@@ -356,8 +373,17 @@ def _run_build(job: dict):
     job["status"] = "running"
     job["updated_at"] = time.time()
     chat_msg = job.pop("pending_chat", None)
+    rescale_params = job.pop("pending_rescale", None)
     prev_dir = (job.get("result") or {}).get("build_dir_fs", "")
-    if chat_msg and prev_dir:
+    if rescale_params is not None and prev_dir:
+        # Design-assistant post-build sliders (build123d path): deterministic AST
+        # substitution + full rebuild, zero LLM. Same snapshot-before-overwrite
+        # discipline as a chat revise turn, routed through this same queue/worker so
+        # "waiting for build lock" still surfaces as status "waiting_gpu" like any build.
+        _snapshot_turn(job, prev_dir, "parameter rescale")
+        cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
+               "rescale", prev_dir, json.dumps(rescale_params), "--json"]
+    elif chat_msg and prev_dir:
         # Conversational revise turn on the existing build — the user is the gate.
         # The version about to be overwritten was produced by the PREVIOUS message
         # (chat[-1] is the one we are about to apply), or by the original spec.
@@ -370,14 +396,20 @@ def _run_build(job: dict):
             cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
                    "revise", prev_dir, chat_msg, "--json"]
     elif job.get("lang") == "openscad":
+        # The design assistant's composed spec (original words + a Parameters: block) —
+        # see api_build's `_compose_spec` call — is what actually gets built; job["spec"]
+        # stays the user's original text for the title/rail display.
+        build_spec = job.get("composed_spec") or job["spec"]
         cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "openscad_gen.py"),
-               job["spec"], "--json"]
+               build_spec, "--json"]
     elif job.get("engine_mode") == "loop":
-        cmd = [ENGINE_PYTHON, "-m", "cad_v5", job["spec"], "--once", "--json", "--ask",
+        build_spec = job.get("composed_spec") or job["spec"]
+        cmd = [ENGINE_PYTHON, "-m", "cad_v5", build_spec, "--once", "--json", "--ask",
                "--coder", job["coder"], "--target", "file"]
     else:                                     # fluid: fast single turn, no gate vetoes
+        build_spec = job.get("composed_spec") or job["spec"]
         cmd = [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "fluid_gen.py"),
-               "build", job["spec"], "--coder",
+               "build", build_spec, "--coder",
                job["coder"] if job["coder"] in ("fast", "strong", "cloud") else "strong",  # auto = strong since the Phase 1 lock-in
                "--json"]
     if job["image"]:
@@ -458,7 +490,11 @@ def _result_public(result: dict) -> dict:
             "needs_clarification", "questions", "spec", "error",
             # gates-on fluid mode (2026-08-11): severity-preserved findings + expansion rung
             "gate_hard", "gate_spec", "gate_adv", "gate_repaired", "salvaged",
-            "expanded_spec", "assumptions")}
+            "expanded_spec", "assumptions",
+            # design assistant, post-build sliders (2026-09-21): "params" above already
+            # carries the build123d/OpenSCAD constants; "rescaled" marks a turn that came
+            # from the sliders rather than a chat revise, from fluid_gen's rescale result.
+            "rescaled")}
     build_dir = result.get("build_dir") or ""
     out["instruments"] = result.get("instruments")
     out["mode"] = result.get("mode")
@@ -476,10 +512,47 @@ def _result_public(result: dict) -> dict:
     return {k: v for k, v in out.items() if v not in (None, "")}
 
 
+@app.post("/api/assist")
+def api_assist(payload: dict):
+    """Design assistant, step 1: turn a spec into a "Parameters" panel BEFORE building.
+    Runs as its own subprocess under the system interpreter (scripts/assist_gen.py), same
+    reasoning as every other engine call from this app. Follows the title worker's own
+    GPU-busy interlock (a non-blocking check, not a queue): a build owns the card while it
+    runs, so an assist call that landed mid-build would either contend for VRAM or sit
+    behind the whole build for no reason — better to say so up front than to queue."""
+    spec = str(payload.get("spec", "")).strip()
+    mode = str(payload.get("mode") or "").strip()
+    if not spec:
+        raise HTTPException(400, "spec required")
+    if mode and mode not in {"off", "auto", "always"}:
+        raise HTTPException(400, "mode must be off, auto or always")
+    if _gpu_busy.is_set() or not (_queue.empty() and _mesh_queue.empty()):
+        raise HTTPException(409, "a build is using the GPU right now — build as typed, "
+                                  "or try the design assistant again once it finishes")
+    try:
+        proc = subprocess.run(
+            [ENGINE_PYTHON, str(SKILL_ROOT / "scripts" / "assist_gen.py"), spec,
+             "--mode", mode, "--json"],
+            cwd=str(SKILL_ROOT), env={**os.environ, "PYTHONUTF8": "1"},
+            capture_output=True, encoding="utf-8", errors="replace", timeout=ASSIST_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "design assistant timed out — build as typed instead")
+    line = next((ln for ln in reversed((proc.stdout or "").strip().splitlines())
+                 if ln.strip().startswith("{")), "")
+    try:
+        result = json.loads(line) if line else None
+    except Exception:
+        result = None
+    if result is None:
+        raise HTTPException(502, (proc.stderr or "no output from the design assistant")[-300:])
+    return result
+
+
 @app.post("/api/build")
 async def api_build(request: Request, spec: str = Form(""), coder: str = Form("auto"),
                     candidates: str = Form(""), fewshots: str = Form("on"),
                     lang: str = Form("build123d"), engine_mode: str = Form("fluid"),
+                    parameters: str = Form(""),
                     image: UploadFile | None = File(None)):
     spec = spec.strip()
     if candidates and candidates not in {"1", "3", "5"}:
@@ -492,6 +565,25 @@ async def api_build(request: Request, spec: str = Form(""), coder: str = Form("a
         raise HTTPException(400, "provide a spec, an image, or both")
     if coder not in CODERS:
         raise HTTPException(400, f"coder must be one of {sorted(CODERS)}")
+    # Design assistant, step 2: the user's edited parameters compose into the working
+    # spec (their own words first, verbatim, then a "Parameters:" block the gate's
+    # [spec] checks can enforce) — the ORIGINAL spec is kept for the title/rail display.
+    params_list = []
+    if parameters:
+        try:
+            params_list = json.loads(parameters)
+            if not isinstance(params_list, list):
+                raise ValueError("parameters must be a JSON array")
+        except Exception as e:
+            raise HTTPException(400, f"bad parameters ({e})")
+    composed_spec = None
+    if params_list and _compose_spec is not None:
+        try:
+            composed = _compose_spec(spec, params_list)
+            composed_spec = composed if composed != spec else None
+        except Exception as e:
+            print(f"[assist] compose_spec failed ({e}) — building the spec as typed",
+                  flush=True)
     image_path = None
     if image is not None and image.filename:
         data = await image.read()
@@ -508,6 +600,7 @@ async def api_build(request: Request, spec: str = Form(""), coder: str = Form("a
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
         "candidates": candidates, "fewshots": fewshots != "off", "lang": lang,
         "engine_mode": engine_mode if engine_mode in ("fluid", "loop") else "fluid",
+        "composed_spec": composed_spec, "parameters": params_list or None,
         "user": user, "guest": guest,
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(), "updated_at": time.time(),
@@ -555,38 +648,83 @@ def api_chat(payload: dict, request: Request):
 
 @app.post("/api/rescale")
 def api_rescale(payload: dict):
-    """The CADAM slider loop: substitute parameter values in a build's .scad and recompile
-    locally. Zero LLM — pure text substitution + OpenSCAD. Runs in FastAPI's threadpool."""
-    build_id = str(payload.get("build_id", ""))
+    """The CADAM slider loop, two backends:
+
+    OpenSCAD (`build_id`, unchanged): substitute parameter values in a build's .scad and
+    recompile locally — zero LLM, pure text substitution + OpenSCAD, synchronous, runs in
+    FastAPI's threadpool. compile_scad/parse_params/stl_facts touch OpenSCAD's own AppImage
+    and a binary STL parser, never build123d/OCP, so loading openscad_gen.py in-process
+    here is safe (same reasoning as compose_spec above).
+
+    build123d (`job_id`, new 2026-09-21): AST-substitute the named constants and rebuild
+    through the SAME execute+inspect+gate+render pipeline a normal build uses, which needs
+    build123d/OCP — those only live under ENGINE_PYTHON, so this path queues a
+    "pending_rescale" turn on the job and runs it through the existing worker/lock, exactly
+    like a chat revise. The response is therefore async here (poll /api/jobs/<id> as usual,
+    "waiting_gpu" included), unlike the OpenSCAD path's immediate result.
+    """
+    build_id = str(payload.get("build_id", "") or "")
+    job_id = str(payload.get("job_id", "") or "")
     params = payload.get("params") or {}
-    if not re.fullmatch(r"scad_[0-9_]+", build_id):
-        raise HTTPException(400, "not an openscad build")
-    build_dir = BUILDS_DIR / build_id
-    scad = build_dir / "build.scad"
-    if not scad.is_file():
-        raise HTTPException(404, "build not found")
-    code = scad.read_text()
+    if build_id:
+        if not re.fullmatch(r"scad_[0-9_]+", build_id):
+            raise HTTPException(400, "not an openscad build")
+        build_dir = BUILDS_DIR / build_id
+        scad = build_dir / "build.scad"
+        if not scad.is_file():
+            raise HTTPException(404, "build not found")
+        code = scad.read_text()
+        for name, val in params.items():
+            if not re.fullmatch(r"\$?\w+", str(name)):
+                continue
+            try:
+                v = float(val)
+            except (TypeError, ValueError):
+                continue
+            vs = str(int(v)) if v == int(v) else f"{v:g}"
+            code = re.sub(rf"^(\s*{re.escape(str(name))}\s*=\s*)-?[0-9.]+(\s*;)",
+                          rf"\g<1>{vs}\g<2>", code, count=1, flags=re.M)
+        scad.write_text(code)
+        import importlib.util as ilu
+        spec_ = ilu.spec_from_file_location("og", SKILL_ROOT / "scripts" / "openscad_gen.py")
+        og = ilu.module_from_spec(spec_)
+        spec_.loader.exec_module(og)
+        ok, err = og.compile_scad(scad, build_dir / "build.stl")
+        if not ok:
+            raise HTTPException(422, f"recompile failed: {err[:300]}")
+        return {"ok": True, "facts": og.stl_facts(build_dir / "build.stl"),
+                "stl": f"/artifacts/{build_id}/build.stl",
+                "params": og.parse_params(code)}
+
+    if not job_id:
+        raise HTTPException(400, "build_id or job_id required")
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "unknown job (jobs do not survive a restart)")
+    if job.get("kind") == "mesh":
+        raise HTTPException(400, "rescale isn't wired for mesh jobs")
+    build_dir_fs = (job.get("result") or {}).get("build_dir_fs", "")
+    if job["status"] not in ("done", "error") or not build_dir_fs:
+        raise HTTPException(409, "job has no completed build to rescale yet")
+    if not (Path(build_dir_fs) / "build_source.py").is_file():
+        raise HTTPException(400, "not a build123d build")
+    clean = {}
     for name, val in params.items():
-        if not re.fullmatch(r"\$?\w+", str(name)):
+        if not re.fullmatch(r"\w+", str(name)):
             continue
         try:
-            v = float(val)
+            clean[str(name)] = float(val)
         except (TypeError, ValueError):
             continue
-        vs = str(int(v)) if v == int(v) else f"{v:g}"
-        code = re.sub(rf"^(\s*{re.escape(str(name))}\s*=\s*)-?[0-9.]+(\s*;)",
-                      rf"\g<1>{vs}\g<2>", code, count=1, flags=re.M)
-    scad.write_text(code)
-    import importlib.util as ilu
-    spec_ = ilu.spec_from_file_location("og", SKILL_ROOT / "scripts" / "openscad_gen.py")
-    og = ilu.module_from_spec(spec_)
-    spec_.loader.exec_module(og)
-    ok, err = og.compile_scad(scad, build_dir / "build.stl")
-    if not ok:
-        raise HTTPException(422, f"recompile failed: {err[:300]}")
-    return {"ok": True, "facts": og.stl_facts(build_dir / "build.stl"),
-            "stl": f"/artifacts/{build_id}/build.stl",
-            "params": og.parse_params(code)}
+    if not clean:
+        raise HTTPException(400, "no valid numeric parameters given")
+    job["pending_rescale"] = clean
+    job["status"] = "queued"
+    job["updated_at"] = time.time()
+    _persist()
+    _queue.put(job_id)
+    return {"ok": True, "job_id": job_id}
 
 
 @app.post("/api/mesh")
