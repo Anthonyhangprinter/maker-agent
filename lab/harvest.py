@@ -1103,16 +1103,50 @@ def _check_gate() -> Optional[str]:
     return None
 
 
-def _choose_mode(teacher_pool: list[dict], cfg: dict) -> str:
+def _choose_mode(teacher_pool: list[dict], cfg: dict, student_pool_size: int = 0) -> str:
     """"student" or "think" -- never both in the same unit (Task 3 ruling: "a unit never
     swaps arms"). A think pass needs: the config to list it, the active arm's request
     shape to actually change under it (think_rung_available(), consulted here -- per
     _ollama()'s own contract for a caller passing think=True directly), and at least 20
     specs waiting (a teacher unit is not worth an eviction/restore cycle for one spec)."""
     if "think" in (cfg.get("teacher_passes") or []) and len(teacher_pool) >= 20:
-        if think_rung_available():
+        if think_rung_available() and _think_turn(student_pool_size, cfg):
             return "think"
     return "student"
+
+
+def _recent_unit_modes(limit: int = 12) -> list[str]:
+    """The pass ("student"/"think") of the most recent units, newest last, read from the
+    ledger (the only durable record of what a unit did)."""
+    modes: dict[str, str] = {}
+    try:
+        with open(LEDGER_FILE, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if r.get("unit_id"):
+                    modes[r["unit_id"]] = r.get("pass") or "student"
+    except OSError:
+        return []
+    return [modes[k] for k in sorted(modes)][-limit:]
+
+
+def _think_turn(student_pool_size: int, cfg: dict) -> bool:
+    """Think units must not starve the student pass. Found live 2026-09-20: once 20 specs
+    had failed twice, EVERY unit became a think unit (slow, ~14 candidates an hour, zero
+    pairs) while hundreds of untried specs waited. Rule: while the student pool still has
+    work, at most one unit in `think_unit_every` (default 4) is a think unit; when the
+    student pool is empty the think pass may run every unit."""
+    if student_pool_size <= 0:
+        return True
+    try:
+        every = max(1, int(cfg.get("think_unit_every", 4)))
+    except (TypeError, ValueError):
+        every = 4
+    recent = _recent_unit_modes(every - 1) if every > 1 else []
+    return len(recent) >= every - 1 and "think" not in recent
 
 
 def _check_code_model_pin() -> Optional[str]:
@@ -2812,7 +2846,7 @@ def run_unit(cfg: dict) -> dict:
     _reconcile_progress(progress, bank, pair_index)
     _save_progress(progress)
     student_pool, teacher_pool = _eligible_pools(bank, progress, cfg)
-    mode = _choose_mode(teacher_pool, cfg)
+    mode = _choose_mode(teacher_pool, cfg, len(student_pool))
     pool = teacher_pool if mode == "think" else student_pool
     processed = 0
     if pool:

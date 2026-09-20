@@ -479,6 +479,8 @@ _LAB_DEFAULTS = {
         # (15% invalid / 22 matches vs Gemma-4-31B's 6% / 39 on CADPrompt), and the
         # Decisions section rules a weaker model out as a teacher regardless of gating.
         "teacher_passes": ["think"],
+        # at most one unit in this many is a think unit while the student pool has work
+        "think_unit_every": 4,
         # Task 3 fix L9 (2026-09-19): retention cap for lab/state/builds/, mtime-based
         # (never the newest), same discipline as cad_engine's own KEEP_BUILDS fix. A
         # pruned build dir may belong to an already-recorded pair -- fair game, since the

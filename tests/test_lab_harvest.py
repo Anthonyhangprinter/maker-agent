@@ -3308,3 +3308,41 @@ def test_classify_band_match_with_disagreeing_facts_is_not_good(monkeypatch, tmp
 def test_probe_indices_survive_a_non_numeric_probe_candidates(bad):
     idx = harvest._probe_indices(5, True, bad)
     assert list(idx) and len(list(idx)) <= 5
+
+
+# --- 2026-09-20: think units must not starve the student pass ---
+
+def _write_ledger_units(modes):
+    harvest.LEDGER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(harvest.LEDGER_FILE, "w", encoding="utf-8") as fh:
+        for i, mode in enumerate(modes):
+            fh.write(json.dumps({"unit_id": f"2026-09-20T0{i}:00:00+00:00", "pass": mode,
+                                 "spec_id": "s", "ts": "x"}) + "\n")
+
+
+def test_think_unit_is_at_most_one_in_four_while_students_have_work(monkeypatch):
+    monkeypatch.setattr(harvest, "think_rung_available", lambda: True)
+    cfg = {"teacher_passes": ["think"], "think_unit_every": 4}
+    pool = [{"id": f"s{i}"} for i in range(25)]
+    _write_ledger_units(["student", "think", "student", "student"])
+    assert harvest._choose_mode(pool, cfg, student_pool_size=100) == "student"
+    _write_ledger_units(["think", "student", "student", "student"])
+    assert harvest._choose_mode(pool, cfg, student_pool_size=100) == "think"
+    _write_ledger_units(["think", "think", "think", "think"])      # the live defect
+    assert harvest._choose_mode(pool, cfg, student_pool_size=100) == "student"
+
+
+def test_think_runs_every_unit_once_the_student_pool_is_empty(monkeypatch):
+    monkeypatch.setattr(harvest, "think_rung_available", lambda: True)
+    cfg = {"teacher_passes": ["think"], "think_unit_every": 4}
+    pool = [{"id": f"s{i}"} for i in range(25)]
+    _write_ledger_units(["think", "think"])
+    assert harvest._choose_mode(pool, cfg, student_pool_size=0) == "think"
+
+
+def test_think_unit_every_survives_a_bad_config_value(monkeypatch):
+    monkeypatch.setattr(harvest, "think_rung_available", lambda: True)
+    pool = [{"id": f"s{i}"} for i in range(25)]
+    _write_ledger_units(["student", "student", "student"])
+    assert harvest._choose_mode(pool, {"teacher_passes": ["think"],
+                                       "think_unit_every": "abc"}, 5) == "think"
