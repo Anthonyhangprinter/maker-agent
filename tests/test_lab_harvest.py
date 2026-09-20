@@ -65,12 +65,19 @@ def _isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(harvest, "PROGRESS_FILE", d / "progress.json")
     monkeypatch.setattr(harvest, "STATUS_FILE", d / "status.json")
     monkeypatch.setattr(harvest, "PAUSED_FILE", d / "paused")
+    # D4: without this a gate test writes its busy counter into the REAL
+    # lab/state/gate_busy.json and steers the live nightly timer.
+    monkeypatch.setattr(harvest, "GATE_BUSY_FILE", d / "gate_busy.json")
     monkeypatch.setattr(harvest, "BUILDS_DIR", d / "builds")
     monkeypatch.setattr(harvest, "SYSTEMS_DIR", d / "systems")
     monkeypatch.setattr(harvest, "BUILD_LOCK_FILE", d / "cad-build.lock")
     monkeypatch.setattr(specbank, "SPECS_FILE", d / "specs.jsonl")
     monkeypatch.setattr(harvest, "_current_arm_alias", lambda: "test-arm")
     monkeypatch.setattr(aw, "_ABORT_REQUESTED", False)
+    # The real gpu-proxy runs on this box, so an unstubbed probe would make the
+    # gate tests depend on whatever the household is asking the resident right now.
+    monkeypatch.setattr(harvest, "_gpu_proxy_waiting", lambda timeout=2.0: 0)
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 0)
     return d
 
 
@@ -2145,6 +2152,53 @@ def test_unit_gate_passes_when_nothing_blocks(monkeypatch):
     _plant_bank([_spec_row("a")])
     reason = harvest._unit_gate(_default_cfg(day_allowed=True))
     assert reason is None
+
+
+# --------------------------------------------------------------------------- D4: in-flight
+
+def test_unit_gate_yields_to_an_in_flight_request(monkeypatch):
+    """`waiting` is 0 while the resident is UP, so only `active` can see the request that
+    got SIGKILLed on 2026-09-20."""
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 1)
+    _plant_bank([_spec_row("a")])
+    reason = harvest._unit_gate(_default_cfg(day_allowed=True))
+    assert reason is not None and "in flight" in reason and "1/3" in reason
+
+
+def test_unit_gate_busy_skips_are_capped(monkeypatch):
+    """A chat turn must not postpone harvesting for ever: after the cap the tick proceeds."""
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 2)
+    _plant_bank([_spec_row("a")])
+    cfg = _default_cfg(day_allowed=True)
+    reasons = [harvest._unit_gate(cfg) for _ in range(4)]
+    assert all(r is not None and "in flight" in r for r in reasons[:3])
+    assert reasons[3] is None            # cap reached, evict anyway
+    assert harvest._busy_skips() == 0    # and the next run of yields starts from zero
+
+
+def test_unit_gate_busy_counter_resets_when_the_resident_goes_idle(monkeypatch):
+    _plant_bank([_spec_row("a")])
+    cfg = _default_cfg(day_allowed=True)
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 1)
+    assert harvest._unit_gate(cfg) is not None
+    assert harvest._busy_skips() == 1
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 0)
+    assert harvest._unit_gate(cfg) is None
+    assert harvest._busy_skips() == 0
+
+
+def test_unit_gate_busy_skips_disabled_by_zero_cap(monkeypatch):
+    monkeypatch.setattr(harvest, "_gpu_proxy_active", lambda timeout=2.0: 5)
+    _plant_bank([_spec_row("a")])
+    reason = harvest._unit_gate(_default_cfg(day_allowed=True, max_busy_skips=0))
+    assert reason is None
+
+
+def test_gpu_proxy_active_fails_open(monkeypatch):
+    """An unreachable or misshapen proxy reads as idle, never as busy: the same fail-open
+    rule _gpu_proxy_waiting() already follows."""
+    monkeypatch.setattr(harvest, "GPU_PROXY_STATUS_URL", "http://127.0.0.1:1/")
+    assert harvest._gpu_proxy_active(timeout=0.2) == 0
 
 
 def test_build_lock_free_true_when_uncontended(tmp_path):

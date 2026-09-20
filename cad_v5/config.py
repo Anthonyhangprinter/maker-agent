@@ -487,6 +487,12 @@ _LAB_DEFAULTS = {
         # pair row holds the code itself; the build dir is only supplementary render/
         # mesh evidence.
         "keep_builds": 500,
+        # D4 (2026-09-20): consecutive timer ticks that may yield to an in-flight
+        # request on the resident before one proceeds anyway. 0 disables yielding.
+        # The bound exists so a long chat turn cannot postpone harvesting for ever;
+        # lab/gpu_window.sh still drains before it evicts, so the tick that does
+        # proceed is not a hard cut-off. See lab/harvest.py _unit_gate().
+        "max_busy_skips": 3,
         # Task 3c (2026-09-19, fix round for the first real unit's zero-pair result):
         # a round only samples this many candidates before checking whether ANY of them
         # was gate-clean; if none was, the round stops there rather than burning the
@@ -587,6 +593,7 @@ def lab_config() -> dict:
                     "unit_minutes", "candidates", "temps", "candidates_tier34",
                     "temps_tier34", "max_pairs_per_spec", "attempt_caps",
                     "agreement", "strict", "teacher_passes", "keep_builds",
+                    "max_busy_skips",
                     "probe_candidates", "salvage", "tier_weights", "seed"}}
     Same file/pattern as maker_config()/cloud_config()/print_config() above: never put
     this in openclaw.json, only cad.json. See docs/plans/2026-09-19-phase3-data-engine.md
