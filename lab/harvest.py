@@ -1123,7 +1123,11 @@ def _unit_gate(cfg: dict) -> Optional[str]:
     if waiting:
         return f"gpu-proxy has {waiting} queued request(s)"
     active = _gpu_proxy_active()
-    cap = int(cfg.get("max_busy_skips", DEFAULT_MAX_BUSY_SKIPS))
+    try:
+        cap = int(cfg.get("max_busy_skips", DEFAULT_MAX_BUSY_SKIPS))
+    except (TypeError, ValueError):
+        # a hand-edited cad.json value must never turn every tick into a silent skip
+        cap = DEFAULT_MAX_BUSY_SKIPS
     if active and cap > 0:
         skips = _busy_skips()
         if skips < cap:
