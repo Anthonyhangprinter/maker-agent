@@ -12,13 +12,7 @@
 #   and the "Compile and train a round" section of lab/README.md for how that directory
 #   is produced), output under ~/lab-scratch/round1-adapter-<timestamp>.
 #
-# KNOWN GAP, not fixed here (this branch may not edit lab/train.py): the intended gentle
-# preset also wanted a lower learning rate (1e-4, vs the spike's 2e-4), but
-# lab/train.py's SFTConfig hardcodes learning_rate=2e-4 (lab/train.py:598) with NO --lr
-# (or any other) CLI flag to override it. This script cannot apply that part of the
-# preset without editing the frozen trainer, so it trains at the spike's own 2e-4 and
-# says so loudly below rather than silently matching only 5 of 6 knobs.
-#
+# Learning rate 1e-4 (the spike used 2e-4): lab/train.py gained --lr on 2026-09-21.
 # Usage:
 #   lab/round1.sh                                            # full round 1 run
 #   lab/round1.sh --out ~/lab-scratch/round1-try2             # explicit output dir
@@ -69,10 +63,7 @@ mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/round1-train-$STAMP-$$.log"
 
 echo "lab/round1.sh: logging this launch to $LOG"
-echo "lab/round1.sh: KNOWN GAP -- lab/train.py hardcodes learning_rate=2e-4 with no --lr"
-echo "  flag, so this run trains at 2e-4, NOT the intended gentler 1e-4 preset. See the"
-echo "  header comment of this script and lab/README.md's 'Compile and train a round'"
-echo "  section."
+echo "lab/round1.sh: gentle preset, lr 1e-4 (spike: 2e-4), 2 epochs"
 
 # Expected wall time from the row count (informational only; the spike measured 78s per
 # optimizer step at accum 4, i.e. 4 rows/step): steps = ceil(rows/4) * epochs. Silent if
@@ -98,6 +89,7 @@ lab/gpu_window.sh lab/.venv/bin/python lab/train.py \
     --out "$OUT" \
     --rank 16 \
     --epochs 2 \
+    --lr 1e-4 \
     --max-seq 5120 \
     --save-steps 25 \
     "$@" 2>&1 | tee -a "$LOG"
