@@ -1,0 +1,162 @@
+# Maker Agent 1.0 findings, for Andrew
+
+## 1. Summary
+
+Maker Agent 1.0 set out to fine-tune a CAD-coding model on a local RTX 3090: shootout a base
+model, measure which agent-loop levers help it, prove a local QLoRA pipeline end to end, then
+feed it enough verified data to beat the stock base. We built and measured all of that. The
+pipeline works: a 31B QLoRA fine-tune trains, merges, converts and serves on this card with no
+rented compute. It just has nothing good to train on yet. The single most important finding: the
+bottleneck is not the model, the language, or the training mechanics, it is verified-good CAD
+data. Our best local coder gets fewer than half of hard (tier 3) parts gate-clean on one attempt,
+and even among the ones the gate calls "good," a hand check found roughly a third wrong. A Phase
+2 fine-tune on our older 7B-era pairs made the base model measurably worse, because that data was
+below the model's own quality. Phase 3 spent this week building the harvest that produces better
+data, and measuring how hard that is.
+
+## 2. What we built
+
+A benchmark card over public and internal CAD-text suites with geometry-aware scoring; a
+swappable CAD model server (`maker-server`, one GGUF at a time, conflicts with the household chat
+model); a local QLoRA train/merge/quantise/serve pipeline (`lab/`, own venv, one 3090); a
+gate-verified harvest that samples, verifies and grades confirmation strength; 301 Claude-rebuilt
+reference parts for cross-model checking; a hardened GPU window script; and two doors on the GPU
+proxy so family chat gets a "busy until HH:MM" notice instead of a timeout during a harvest.
+
+| Piece | Key measured numbers |
+|---|---|
+| Benchmark card | reproduced BenchCAD's published Gemma Code-QA score (0.663 vs 0.664) |
+| Maker server (:8088) | one GPU, conflicts with the resident chat model by design |
+| QLoRA pipeline | 21.7 GB peak VRAM, 78 s/step, 1 h 54 min/epoch over 348 rows |
+| Gate-verified harvest | 2,514-spec bank, 194 good pairs, 10.3 good pairs/GPU-hour |
+| Reference intake | 301 of 414 teacher specs admitted under today's gate |
+| GPU busy doors | human door answers in about 7 ms with an ETA during a unit |
+
+## 3. Findings
+
+**Phase 0, base model.** Gemma-4-31B-it won the seven-arm shootout: 3% invalid versus
+Qwen3.8-27B's 18%, 42 matches versus 23. Caveat: one-shot, thinking off, no critic, so this
+measures the base model, not the loop; BenchCAD favours the 27B on two of three tasks, a note
+about edit-style training data, not a reason to change the pick.
+
+**Phase 1, agent-lift levers.** Retrieval matters, stays on (off cost 7 of 85 specs). Best-of-3
+and the full critic loop gave no geometry lift over one-shot at 2.4x-4.2x the time; one-shot
+stays default. Thinking on gave a small lift (45% vs 40% match) at 5x time, 7x tokens: an
+escalation option, not a default. The coder judging its own render beat the old Ollama critic on
+match and time, so that critic was dropped. Caveat: n is 40-85, one sample per lever; read the
+paired flips, not the percentages.
+
+**Phase 2, training spike.** Pipeline GO, model NO-SHIP. The adapter, trained on 353 pairs from
+the old 7B-era pipeline (short, idiom-heavy, masked dimensions), made Gemma write shorter,
+faster, measurably worse code (invalid 12% vs 2%, match 24% vs 35%, flips +2/-11).
+
+**Claude vs Gemma, 20 specs.** After one repair, all four models (Gemma, Sonnet, Opus, Fable)
+build 19 or 20 of 20: no reliability gap. On exact match Claude leads 6 to 3, a lead all three
+Claude models agree on, arguing against luck but not against shared lineage. Noise floor: two
+Gemma runs on the same 20 specs disagreed on 2 of 7. The harvest stays local: Claude's edge only
+shows where a reference proves it, and metered cost (10k-14k tokens/spec) rules it out at scale.
+
+**Hard-part hit rate.** On teacher-suite tier 3 specs (written and solvable by stronger models),
+the gate calls about 35% of one-shot attempts gate-clean; a hand check of 7 of those found 2
+wrong (a lip cutter shearing the whole top off instead of a rim; a vertical cylinder standing in
+for a horizontal through-hole). On tier 3 specs the model wrote for itself, one attended unit
+produced zero pairs from 3 specs: it cannot yet set and pass its own hard homework.
+
+**Same-model agreement.** When the harvest confirms a pair by two same-spec samples agreeing
+(`same_pass`), the programs are usually the same one written twice: code similarity measured
+0.66-0.94. That is evidence against sampling noise, not against a shared misconception, so every
+pair records `confirm_strength` (`reference`/`cross_pass`/`same_pass`) plus code similarity, and
+the audit decides which strengths are trainable.
+
+**References.** 301 of 414 teacher specs now have a Claude-built reference passing today's gate;
+as of Sunday night only 51 of those (about one in six) were solved and confirmed (the live table
+below has a more recent total but no unique-spec breakdown). Separately, 19 of 321 (about 6%) of
+the August Claude-teacher parts the old gate accepted fail today's stricter gate.
+
+**Language A/B.** Across two models and three usable languages, exact match stayed in a
+10%-17.5% band: Gemma+build123d 15% (no few-shots 15%), Gemma+CadQuery 12.5% (42.5% of attempts
+fail on API misuse), Qwen(resident)+build123d 10% (no few-shots 17.5%), Qwen+CadQuery 17.5%.
+OpenSCAD always compiled but produced no STEP file. The Qwen OpenSCAD row (32.5% built) is not
+real: a harness fault returned an empty reply for 17 of 40 specs. Match barely moves across
+languages, so spec interpretation is the bottleneck, not the language.
+
+**Qwen as judge.** Precision of a "correct" verdict was 30.8% (text) and 36.0% (with a render)
+against a 27% base rate: barely better than guessing. Caveat: the label was "exact match," a
+stricter bar than "valid part," so some "wrong" verdicts may be reasonable readings. On three
+fully dimensioned fixtures it was sharp, naming the exact error on two known-wrong parts, but it
+also flagged the third (labelled correct) for a real floor-thickness discrepancy, so our own
+label may need a second look.
+
+## 4. Defects the process caught
+
+- OCCT's mesh writer resets the process locale to ASCII mid-run, breaking UTF-8 decoding of child
+  output in three tools; fixed with explicit decoding everywhere.
+- Fluid mode's production gate never sets the expected solid count and silently accepts an
+  unmeasured candidate; caught in the harvest's draft code, not yet fixed live.
+- The harvest's first draft graded a candidate good whenever inspection raised an exception
+  instead of failing closed; fixed before any pair was trusted.
+- A stop signal mid-batch was swallowed by a generic exception handler, so the generator kept
+  running after being told to stop.
+- The GPU window's kill escalation hit the wrong process, and its exit handler could restore the
+  CAD arm instead of the chat model after an abort; fixed with group signalling.
+- A scheduler meant to escalate hard specs to thinking-on units instead locked onto thinking-only
+  units for hours, starving normal sampling.
+- The gate misread "a hole at each end" as one hole and vetoed correct multi-hole parts.
+- A reviewer's test called the model-serving path unpatched and silently swapped the household
+  chat model out for 1 h 43 min; the rule that followed: such tests must patch the model-call
+  helpers, and status checks read one service at a time.
+
+## 5. What is not done
+
+No fine-tuned model has shipped from Phase 3. The harvest stops automatically Monday 07:00; a
+pilot round happens only if reference- or cross-model-confirmed pairs reach 300, and this
+morning's live count is 102 (98 reference plus 4 cross-model), below threshold pending the
+owner's call on extending collection. The by-eye audit deciding which confirmation strengths are
+trainable has not run. Fluid mode still runs the weaker gate above; the harvest's fix has not
+been ported back. None of the phase0/1/2/3 branches, nor the sibling branches (Claude comparison,
+gate fix, design assistant), have merged to master.
+
+## 6. Version 2 plan
+
+Bring in public CAD-code datasets with a real lineage (DeepCAD, Text2CAD, Text-to-CadQuery,
+CAD-Recode), held out against every card suite by today's contamination guard. Use the owner's
+own CAD models, plus scraped or service-generated meshes, as geometry confirmers the way Claude
+references are used now, since a dimensioned reference is our strongest verifier. Add
+documentation retrieval aimed at the build123d API-misuse failures the A/B surfaced (it will not
+fix spec interpretation, the real ceiling). Explore a cross-model rejector-style judge on fully
+dimensioned specs, where Qwen was sharp despite being unreliable generally. Build a "design
+assistant" that expands a vague request into an editable, parameter-level spec before codegen;
+the literature (Self-planning, ClarifyGPT, TICoder) shows real gains from clarify-before-code in
+code generation generally, but no clean CAD ablation exists, so this would be a new result.
+
+## 7. Reproduce
+
+```
+# Benchmark card (subset used for the Phase 1/2 lift tables)
+PYTHONUTF8=1 python3 scripts/run_card.py --subset phase1 --arms gemma-4-31b
+
+# Harvest status (read-only, live numbers)
+PYTHONUTF8=1 python3 lab/harvest.py --status
+
+# Language A/B (must run inside a GPU window)
+lab/gpu_window.sh python3 benchmarks/lang-ab/lang_ab.py --arms b123d,b123d-nofs,cadquery,openscad --specs 40 --run-id <id>
+
+# Judge eval
+cd benchmarks/judge-eval && python3 run_judge.py && python3 report.py
+```
+
+## Harvest numbers (updated 2026-09-21 01:03 AEST / 2026-09-20 15:03 UTC)
+
+| metric | value |
+|---|---|
+| Spec bank | 2,514 (tier 1/2/3/4 = 71/632/1,576/235) |
+| Total pairs (all confirm strengths) | 365 |
+| Good pairs (gate-clean, confirmed) | 194 |
+| Good by confirm strength | reference 98, same_pass 92, cross_pass 4 |
+| Good tier 3-4 share | 13.9% |
+| Cumulative yield | 184 good pairs / 17.92 GPU-hours = 10.27/GPU-hour |
+| Last unit yield | 13 good pairs / 0.38 GPU-hours = 33.9/GPU-hour |
+| Reference-or-cross-model confirmed (300-pair training threshold) | 102 |
+| Unconfirmed candidates awaiting a second sample | 74 |
+| Cold specs (no gate-clean candidate yet) | 328 |
+| Timer status | active, budget 20 h/day, stops automatically Mon 2026-09-21 07:00 |
