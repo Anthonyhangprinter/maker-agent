@@ -419,12 +419,21 @@ def fetch_imatrix_argv(out_dir: Path) -> list[str]:
 
 
 def verify_server_argv(gguf_file: Path, mmproj_file: Path, port: int) -> list[str]:
+    # -np 1: without an explicit slot count llama-server defaults to -np -1 ("auto"), which
+    # picked 4 parallel slots here and reserved KV cache for 4x8192 tokens instead of one --
+    # about 4.4GB, enough to starve the ~1.14GB mmproj buffer that loads right after it and
+    # fail the whole verify with a misleading "out of memory" on a 24GB card that had over
+    # 5GB nominally free moments earlier (round 1, 2026-09-21: reproduced twice, confirmed by
+    # loading the same GGUF standalone with and without --mmproj while polling nvidia-smi).
+    # maker-server's own launcher (~/.local/bin/maker-server) always passes -np 1; verify is
+    # supposed to smoke-test the arm the way it is actually served, so it should match.
     return [
         str(LLAMA_SERVER_BIN),
         "-m", str(gguf_file),
         "--mmproj", str(mmproj_file),
         "-ngl", "99",
         "-c", "8192",
+        "-np", "1",
         "--port", str(port),
         "--host", "127.0.0.1",
         "--chat-template-kwargs", '{"enable_thinking":false}',

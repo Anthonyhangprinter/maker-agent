@@ -101,10 +101,22 @@ def test_verify_server_argv():
         "--mmproj", "/g/mmproj.gguf",
         "-ngl", "99",
         "-c", "8192",
+        "-np", "1",
         "--port", "8093",
         "--host", "127.0.0.1",
         "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
+
+
+def test_verify_server_argv_pins_a_single_slot():
+    """round 1, 2026-09-21: without -np 1, llama-server's default -np -1 ("auto") picked 4
+    parallel slots and reserved 4x8192-token KV cache (about 4.4GB), starving the ~1.14GB
+    mmproj buffer that loads right after and failing verify with a misleading OOM on a card
+    that had over 5GB nominally free moments earlier. maker-server's own launcher always
+    passes -np 1; verify must match the flags the arm is actually served with."""
+    argv = ship.verify_server_argv(Path("/g/model.gguf"), Path("/g/mmproj.gguf"), 8093)
+    assert "-np" in argv
+    assert argv[argv.index("-np") + 1] == "1"
 
 
 # ---------------------------------------------------------------------------
