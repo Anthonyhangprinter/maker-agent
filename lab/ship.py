@@ -1299,8 +1299,19 @@ def cmd_register(args: argparse.Namespace) -> None:
 
     arms_file = Path(args.arms_file)
     data = json.loads(arms_file.read_text())
-    rel = str(dest.relative_to(Path(data["store"])))
-    arm = build_spike_arm(data, args.name, args.adapter or "", rel, quant_type=args.quant_type)
+    try:
+        gguf_path = str(dest.relative_to(Path(data["store"])))
+    except ValueError:
+        # dest is not under arms.json's shared store root: a per-round --store like
+        # ~/lab-scratch/rounds/round1-store (round 1, 2026-09-21 -- the NVMe store had
+        # about 26GB free and each round's GGUF is about 18.7GB, so rounds live on the
+        # root SSD, see lab/README.md's "Compile and train a round" section). Recording
+        # the absolute path here still resolves correctly at load time: pathlib's Path
+        # join discards the left side when the right side is itself absolute
+        # (Path(data["store"]) / "/abs/path" == Path("/abs/path")), which is exactly what
+        # arms.py's load_arms does with this field.
+        gguf_path = str(dest)
+    arm = build_spike_arm(data, args.name, args.adapter or "", gguf_path, quant_type=args.quant_type)
     new_data = register_arm(data, arm, force=args.force)
     arms_file.write_text(json.dumps(new_data, indent=2) + "\n")
     print(f"[ship] register: arm {args.name!r} added to {arms_file}")
