@@ -419,6 +419,37 @@ def test_row_records_whether_the_spec_has_a_reference(monkeypatch):
     assert rc.run_row("a", "cadprompt", spec, None, "oneshot", 60)["has_ref"] is False
 
 
+def test_suite_root_flag_overrides_bench_for_suite_loading(tmp_path, monkeypatch):
+    """A worktree checkout has no suite data of its own (specs.json/refs are gitignored and
+    exist only in the main checkout). --suite-root points suite loading at another tree
+    without touching CARD_DIR, which is fixed at import time from this repo's own path."""
+    import run_card as rc
+    original_bench = rc.BENCH
+    try:
+        suite_dir = tmp_path / "cadprompt"
+        suite_dir.mkdir()
+        (suite_dir / "specs.json").write_text(
+            json.dumps({"benchmarks": [{"id": "a", "spec": "x", "tier": 0}]}))
+        monkeypatch.setattr(rc.arms_mod, "cmd_use", lambda arm, **kw: None)
+        monkeypatch.setattr(rc.arms_mod, "cmd_restore", lambda: None)
+        monkeypatch.setattr(rc.arms_mod, "load_arms", lambda: {"onlyarm": {"name": "onlyarm"}})
+        monkeypatch.setattr(rc, "contamination", lambda specs: [])
+        monkeypatch.setattr(rc, "run_row", lambda arm, suite, spec, crit, mode, timeout, knobs=None: {
+            "arm": arm, "suite": suite, "id": spec["id"], "tier": 0, "ok": True, "gate_hard": 0,
+            "gate_spec": 0, "acc_passed": 0, "acc_total": 0, "band": None, "helper": False,
+            "wall_s": 1.0, "tokens_out": 0, "build_dir": "", "error": None, "stderr_tail": ""})
+        out = tmp_path / "run"
+        monkeypatch.setattr(sys, "argv", ["run_card.py", "--suites", "cadprompt",
+                                          "--suite-root", str(tmp_path), "--out", str(out)])
+        rc.main()
+        rows = [json.loads(l) for l in (out / "rows.jsonl").read_text().splitlines()]
+        assert len(rows) == 1 and rows[0]["id"] == "a"   # loaded from tmp_path, not benchmarks/
+        assert rc.BENCH == tmp_path.resolve()
+        assert rc.CARD_DIR != tmp_path.resolve() / "results" / "card"   # output root unmoved
+    finally:
+        rc.BENCH = original_bench
+
+
 def test_critic_pinned_to_the_coder_model_on_another_url_is_refused():
     """cad_engine routes by model string (`url = CRITIC_URL if model == CRITIC_MODEL else
     LOCAL_CODER_URL`), so this combination moves the whole coder to the critic server."""
