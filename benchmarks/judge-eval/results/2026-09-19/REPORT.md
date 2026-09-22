@@ -1,13 +1,13 @@
 # Judge reliability: qwen3.8-27b scoring known-correct/known-wrong CAD parts
 
-Run id: 2026-09-19. Labelled set: 81 programs (22 correct / 59 wrong by reference-scored Chamfer band or the named fixture verdicts). Rebuilt successfully: 81. Judge calls made: 162 of a possible 162.
+Run id: 2026-09-19. Labelled set: 81 programs (21 correct / 60 wrong by reference-scored Chamfer band or the named fixture verdicts). Rebuilt successfully: 81. Judge calls made: 162 of a possible 162.
 
 ## Headline
 
 | mode | precision(correct) | 95% CI | recall(correct) | wrong caught | abstain rate | median s | median tok |
 |---|---|---|---|---|---|---|---|
-| text | 30.8% | [18.6%, 46.4%] | 54.5% | 11/59 | 33.3% | 88.9 | 4148 |
-| vision | 36.0% | [24.1%, 49.9%] | 81.8% | 19/59 | 9.9% | 62.1 | 2739 |
+| text | 30.8% | [18.6%, 46.4%] | 57.1% | 11/60 | 33.3% | 88.9 | 4148 |
+| vision | 36.0% | [24.1%, 49.9%] | 85.7% | 20/60 | 9.9% | 62.1 | 2739 |
 
 Ground truth: `band == "match"` = CORRECT; built with any other band = WRONG (near_miss/valid/fail all count as wrong here, since the question is exact match, not partial credit); a program that never built is excluded, a crash needs no judge. Three fixture rows (V064, V066 T=0.2, V066 T=0.5) are known-wrong / known-wrong / known-correct by direct inspection of the code, not the card scorer, since they came from a live agreement check outside this card.
 
@@ -17,12 +17,12 @@ Ground truth: `band == "match"` = CORRECT; built with any other band = WRONG (ne
 
 | truth \ verdict | correct | wrong | abstain |
 |---|---|---|---|
-| correct | 12 | 4 | 6 |
-| wrong | 27 | 11 | 21 |
+| correct | 12 | 4 | 5 |
+| wrong | 27 | 11 | 22 |
 
 - Precision of a "correct" verdict: **30.8%** (12/39), Wilson 95% CI [18.6%, 46.4%]
-- Recall of "correct" (of the 22 truly-correct parts, how many it confirmed): **54.5%**
-- Wrong parts caught (of the 59 truly-wrong parts): **11/59** = 18.6%
+- Recall of "correct" (of the 21 truly-correct parts, how many it confirmed): **57.1%**
+- Wrong parts caught (of the 60 truly-wrong parts): **11/60** = 18.3%
 - Abstain rate: 33.3% (27/81)
 - Median seconds/judgement: 88.9
 - Median completion tokens/judgement: 4148
@@ -30,26 +30,26 @@ Ground truth: `band == "match"` = CORRECT; built with any other band = WRONG (ne
 By writer family:
 | writer | n | precision | recall | wrong caught | abstain |
 |---|---|---|---|---|---|
-| gemma | 22 | 30.0% | 75.0% | 3/18 | 40.9% |
+| gemma | 22 | 30.0% | 100.0% | 3/19 | 40.9% |
 | claude | 59 | 31.0% | 50.0% | 8/41 | 30.5% |
 
 By confidence threshold (a "correct" verdict only counts if confidence clears the bar):
 | threshold | n confirmed correct | precision | Wilson 95% CI | recall of correct |
 |---|---|---|---|---|
-| >= 0.6 | 39 | 30.8% | [18.6%, 46.4%] | 54.5% |
-| >= 0.8 | 39 | 30.8% | [18.6%, 46.4%] | 54.5% |
-| >= 0.9 | 35 | 34.3% | [20.8%, 50.8%] | 54.5% |
+| >= 0.6 | 39 | 30.8% | [18.6%, 46.4%] | 57.1% |
+| >= 0.8 | 39 | 30.8% | [18.6%, 46.4%] | 57.1% |
+| >= 0.9 | 35 | 34.3% | [20.8%, 50.8%] | 57.1% |
 
 ## Mode VISION (vision: spec + code + facts + two-panel render)
 
 | truth \ verdict | correct | wrong | abstain |
 |---|---|---|---|
-| correct | 18 | 4 | 0 |
-| wrong | 32 | 19 | 8 |
+| correct | 18 | 3 | 0 |
+| wrong | 32 | 20 | 8 |
 
 - Precision of a "correct" verdict: **36.0%** (18/50), Wilson 95% CI [24.1%, 49.9%]
-- Recall of "correct" (of the 22 truly-correct parts, how many it confirmed): **81.8%**
-- Wrong parts caught (of the 59 truly-wrong parts): **19/59** = 32.2%
+- Recall of "correct" (of the 21 truly-correct parts, how many it confirmed): **85.7%**
+- Wrong parts caught (of the 60 truly-wrong parts): **20/60** = 33.3%
 - Abstain rate: 9.9% (8/81)
 - Median seconds/judgement: 62.1
 - Median completion tokens/judgement: 2739
@@ -57,15 +57,15 @@ By confidence threshold (a "correct" verdict only counts if confidence clears th
 By writer family:
 | writer | n | precision | recall | wrong caught | abstain |
 |---|---|---|---|---|---|
-| gemma | 22 | 30.0% | 75.0% | 9/18 | 9.1% |
+| gemma | 22 | 30.0% | 100.0% | 10/19 | 9.1% |
 | claude | 59 | 37.5% | 83.3% | 10/41 | 10.2% |
 
 By confidence threshold (a "correct" verdict only counts if confidence clears the bar):
 | threshold | n confirmed correct | precision | Wilson 95% CI | recall of correct |
 |---|---|---|---|---|
-| >= 0.6 | 50 | 36.0% | [24.1%, 49.9%] | 81.8% |
-| >= 0.8 | 49 | 36.7% | [24.7%, 50.7%] | 81.8% |
-| >= 0.9 | 41 | 39.0% | [25.7%, 54.3%] | 72.7% |
+| >= 0.6 | 50 | 36.0% | [24.1%, 49.9%] | 85.7% |
+| >= 0.8 | 49 | 36.7% | [24.7%, 50.7%] | 85.7% |
+| >= 0.9 | 41 | 39.0% | [25.7%, 54.3%] | 76.2% |
 
 ## Named cases: V064 and both V066 rows
 
@@ -120,7 +120,7 @@ All other dimensions and features match; the only mismatch is the feed‑through
 {"verdict": "wrong", "confidence": 0.8, "problems": ["Cable feed-through cutout is a vertical slot (cylinder axis along Z) instead of a 12 mm circular through-hole perpendicular to the divider; facts show 0 through-holes and a 17.5 mm circle rather than a clean 12 mm radial bore"]}
 ```
 
-### V066 T=0.5 (CORRECT — cylinder rotated onto the divider's X thickness axis)
+### V066 T=0.5 (WRONG, corrected 2026-09-22 — cylinder rotated onto the divider's X thickness axis as intended, but the floor is 4.5mm where the spec calls for 3mm)
 
 **Mode text:**
 - verdict: `abstain`, confidence: None, problems: None

@@ -13,11 +13,12 @@ Two sources, both read-only:
    judge would actually see), taking the repaired code file when repaired=true and the original
    otherwise. Programs that never built (ok=false) are excluded — a crash needs no judge.
 
-2. Three known-wrong/known-right fixture rows named in the task, from this worktree's
+2. Three known-wrong fixture rows from this worktree's
    tests/fixtures/harvest_agreement_fixtures.json: V064 (WRONG — a lip-cutter that shears the
    whole top off instead of just the rim), V066 T=0.2 (WRONG — a Z-axis cylinder makes a slot,
-   not a round hole through the divider), V066 T=0.5 (CORRECT — the fixed version, cylinder
-   rotated onto the divider's thickness axis).
+   not a round hole through the divider), V066 T=0.5 (WRONG, corrected 2026-09-22 — the
+   cylinder is rotated onto the divider's thickness axis as intended, but the floor measures
+   4.5mm where the 140x90x60mm/3mm-wall spec calls for 3mm, caught by hand audit).
 
 Ground truth: band == "match" -> CORRECT. Built but any other band (valid/near_miss/fail) ->
 WRONG. The three fixture rows carry their verdict directly from the task description (they
@@ -111,7 +112,7 @@ def main():
     fixture_truth = {
         "v064_wrong_sheared_lip": "wrong",
         "v066_t02_wrong_slot": "wrong",
-        "v066_t05_correct_hole": "correct",
+        "v066_t05_floor_4p5mm": "wrong",
     }
     fixture_dir = Path(__file__).resolve().parent / "fixture_code"
     fixture_dir.mkdir(exist_ok=True)

@@ -1129,18 +1129,19 @@
     "temperature": 0.2
   },
   {
-    "program_id": "fixture::v066_t05_correct_hole",
+    "program_id": "fixture::v066_t05_floor_4p5mm",
     "writer": "gemma-4-31b",
     "writer_family": "gemma",
     "suite": "teacher-batch2-fixture",
     "spec_id": "t:teacher-batch2:V066",
     "spec": "a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through",
-    "code_path": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/fixture_code/v066_t05_correct_hole.py",
+    "code_path": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/benchmarks/judge-eval/fixture_code/v066_t05_floor_4p5mm.py",
     "band": null,
-    "truth": "correct",
+    "truth": "wrong",
+    "note": "Label corrected 2026-09-22: the walls list shows a 4.5mm face where the spec asks for 3mm walls (140x90x60mm housing, 3mm walls). Hand audit confirmed by arithmetic that the floor is 4.5mm thick, not 3mm, so the Qwen judge's wrong verdict was right and the fixture's old 'correct' label was wrong.",
     "source": "harvest_agreement_fixtures.json",
     "repaired": false,
-    "fixture_key": "v066_t05_correct_hole",
+    "fixture_key": "v066_t05_floor_4p5mm",
     "fixture_facts": {
       "solids": 1,
       "shells": 1,

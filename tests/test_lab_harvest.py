@@ -425,7 +425,7 @@ def test_signature_v066_two_temperatures_disagree_on_face_counts():
     field signatures_agree checks after solids, so it is the one that actually trips."""
     fx = _load_fixtures()
     sig_a = harvest.signature(fx["v066_t02_wrong_slot"]["facts"], _AGREEMENT_CFG)
-    sig_b = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    sig_b = harvest.signature(fx["v066_t05_floor_4p5mm"]["facts"], _AGREEMENT_CFG)
     assert sig_a is not None and sig_b is not None
     assert sig_a["faces"] == 19 and sig_b["faces"] == 17
     assert sig_a["faces"] != sig_b["faces"]
@@ -438,7 +438,7 @@ def test_signature_v066_agrees_with_itself():
     an identical copy of itself (reflexivity), so the disagreement above is a real
     tolerance/field mismatch, not a bug that makes signatures_agree() always False."""
     fx = _load_fixtures()
-    sig = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    sig = harvest.signature(fx["v066_t05_floor_4p5mm"]["facts"], _AGREEMENT_CFG)
     assert harvest.signatures_agree(sig, dict(sig), _AGREEMENT_CFG)
 
 
@@ -550,7 +550,7 @@ def test_resolve_agreement_v066_real_pair_never_confirms():
     exactly the "split" the brief calls for -- nobody confirmed."""
     fx = _load_fixtures()
     sig_a = harvest.signature(fx["v066_t02_wrong_slot"]["facts"], _AGREEMENT_CFG)
-    sig_b = harvest.signature(fx["v066_t05_correct_hole"]["facts"], _AGREEMENT_CFG)
+    sig_b = harvest.signature(fx["v066_t05_floor_4p5mm"]["facts"], _AGREEMENT_CFG)
     pool = [_pool_item(sig_a, temperature=0.2), _pool_item(sig_b, temperature=0.5)]
     winners, tag = harvest.resolve_agreement(pool, _AGREEMENT_CFG)
     assert winners == []
@@ -3313,7 +3313,7 @@ def test_reference_facts_agree_rejects_the_real_v066_slot_against_the_correct_ho
     """The real case the Chamfer band cannot see: same bbox, same bore list, 0.35 % volume
     apart, a 12x5 slot where the reference has a 12 mm round hole."""
     fx = _load_fixtures()
-    ref = fx["v066_t05_correct_hole"]["facts"]
+    ref = fx["v066_t05_floor_4p5mm"]["facts"]
     ok, why = harvest.reference_facts_agree(fx["v066_t02_wrong_slot"]["facts"], ref)
     assert ok is False and why
     assert harvest.reference_facts_agree(dict(ref), ref) == (True, "")
@@ -3321,7 +3321,7 @@ def test_reference_facts_agree_rejects_the_real_v066_slot_against_the_correct_ho
 
 def test_reference_facts_agree_fails_closed_without_reference_facts():
     fx = _load_fixtures()
-    facts = fx["v066_t05_correct_hole"]["facts"]
+    facts = fx["v066_t05_floor_4p5mm"]["facts"]
     assert harvest.reference_facts_agree(facts, None)[0] is False
     assert harvest.reference_facts_agree(facts, {})[0] is False
     assert harvest.reference_facts_agree({}, facts)[0] is False
@@ -3329,7 +3329,7 @@ def test_reference_facts_agree_fails_closed_without_reference_facts():
 
 def test_reference_facts_agree_tolerates_a_different_planar_face_split_only():
     fx = _load_fixtures()
-    ref = fx["v066_t05_correct_hole"]["facts"]
+    ref = fx["v066_t05_floor_4p5mm"]["facts"]
     other_route = dict(ref, faces=ref["faces"] + 2)          # same geometry, faces split
     assert harvest.reference_facts_agree(other_route, ref)[0] is True
     assert harvest.reference_facts_agree(dict(ref, volume=ref["volume"] * 1.003), ref)[0] is False
@@ -3339,7 +3339,7 @@ def test_reference_facts_agree_tolerates_a_different_planar_face_split_only():
 
 def test_classify_band_match_with_disagreeing_facts_is_not_good(monkeypatch, tmp_path):
     fx = _load_fixtures()
-    ref = fx["v066_t05_correct_hole"]["facts"]
+    ref = fx["v066_t05_floor_4p5mm"]["facts"]
     monkeypatch.setattr(harvest, "score_against_reference",
                         lambda step, stl: {"band": "match", "chamfer_mm": 0.01})
     m_wrong = {"error": None, "facts": fx["v066_t02_wrong_slot"]["facts"],

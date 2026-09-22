@@ -136,7 +136,7 @@
     "ts": "2026-09-19T02:53:59.131932+00:00",
     "unit_id": "2026-09-19T02:45:17.145839+00:00"
   },
-  "v066_t05_correct_hole": {
+  "v066_t05_floor_4p5mm": {
     "id": "p:t:teacher-batch2:V066:564e3df6a103",
     "spec_id": "t:teacher-batch2:V066",
     "spec": "a modular electronics housing 140x90x60mm with 3mm walls, an internal vertical divider 2.5mm thick positioned 60mm from one end creating two unequal compartments, and a 12mm diameter circular cutout in the divider for a cable feed-through",

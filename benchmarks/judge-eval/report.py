@@ -216,7 +216,7 @@ def main():
     fixture_map = {
         "fixture::v064_wrong_sheared_lip": "V064 (WRONG — lip cutter shears the whole top off, not just the rim)",
         "fixture::v066_t02_wrong_slot": "V066 T=0.2 (WRONG — Z-axis cylinder makes a vertical slot, not a round hole through the divider)",
-        "fixture::v066_t05_correct_hole": "V066 T=0.5 (CORRECT — cylinder rotated onto the divider's X thickness axis)",
+        "fixture::v066_t05_floor_4p5mm": "V066 T=0.5 (WRONG, corrected 2026-09-22 — cylinder rotated onto the divider's X thickness axis as intended, but the floor is 4.5mm where the spec calls for 3mm)",
     }
     jmap = {(j["program_id"], j["mode"]): j for j in judgements}
     for pid, label in fixture_map.items():

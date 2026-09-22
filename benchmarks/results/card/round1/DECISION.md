@@ -109,3 +109,11 @@ Mode oneshot, subset phase1, arms `gemma-4-31b-cad-r1`, 127 builds. Started
    provenance than the Phase 2 spike's 353 7B-era pairs.
 
 ## Verdict (owner/controller)
+
+Do not promote. Round 1 is level with stock on match (34.1 % vs 34.9 %, paired flips +2/-2)
+and slightly worse on validity (5.9 % vs 2.4 % invalid, flips +0/-3). Unlike the Phase 2 spike
+it did not damage the model, but about 240 mostly tier 1-2 self-verified pairs at lr 1e-4 for
+2 epochs do not move a 31B model on this card. cad.json stays on the stock gemma-4-31b arm, and
+the round-1 arm is registered for comparison only. The limit is the number of confirmed HARD
+parts the harvest can produce (33 of 281 pairs at tier 3-4, and same-model agreement was 75 %
+wrong there), not the training pipeline.
