@@ -200,6 +200,38 @@
                  font-variant-numeric: tabular-nums; }
   .params .apply { margin-top: 0.55rem; }
   .params .busy { color: var(--warn); font: 0.78rem var(--mono); margin-left: 0.6rem; }
+  .param.readonly { opacity: 0.7; }
+  .param.readonly .pval { color: var(--faint); font-style: italic; }
+  .param .lock { background: none; border: none; color: var(--faint); cursor: pointer;
+                 font-size: 0.85rem; padding: 0 0.2rem; }
+  .param .lock.on { color: var(--accent); }
+  .param .tag { font: 600 0.62rem/1.4 var(--mono); text-transform: uppercase;
+                letter-spacing: 0.06em; padding: 0.05rem 0.35rem; border-radius: 4px;
+                margin-left: 0.35rem; cursor: help; }
+  .param .tag.assumed { color: #6f8fd0; border: 1px solid #6f8fd055; }
+  .param .tag.user { color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+
+  /* ── design assistant: pre-build proposal ── */
+  .assistpick { display: flex; align-items: center; gap: 0.4rem; color: var(--dim);
+                font-size: 0.8rem; }
+  .assistpick select { min-height: 34px; padding: 0.2rem 0.4rem; }
+  .assist { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+            padding: 1rem 1.1rem; margin-top: 0.8rem; }
+  .assist h4 { font: 600 0.72rem/1.6 var(--mono); letter-spacing: 0.14em;
+               text-transform: uppercase; color: var(--faint); margin-bottom: 0.2rem; }
+  .assist .asummary { color: var(--dim); font-size: 0.85rem; margin-bottom: 0.6rem; }
+  .assist .arow { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr 4.4rem;
+                  gap: 0.6rem; align-items: center; font-size: 0.85rem; padding: 0.25rem 0; }
+  .assist .arow label { color: var(--dim); font-family: var(--mono); font-size: 0.8rem;
+                        display: flex; align-items: center; }
+  .assist .arow input[type=range] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+  .assist .arow input[type=range]:disabled { opacity: 0.45; }
+  .assist .arow .aval { font: 600 0.8rem/1 var(--mono); color: var(--ink); text-align: right;
+                        font-variant-numeric: tabular-nums; }
+  .assist .actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; flex-wrap: wrap; }
+  .assist .actions button { min-height: 40px; }
+  .assist .actions .ghostbtn { background: none; border: 1px solid var(--line2);
+                               color: var(--dim); border-radius: 8px; padding: 0 1rem; }
   .chat { margin-top: 0.9rem; border-top: 1px dashed var(--line); padding-top: 0.7rem; }
   .chat .msg { font-size: 0.86rem; margin: 0.25rem 0; color: var(--dim); }
   .chat .msg.user::before { content: "you ▸ "; color: var(--accent); font-family: var(--mono);
@@ -273,10 +305,19 @@
             <img id="thumb" class="thumb" alt="">
             <button id="clearimg" style="display:none" title="Remove image">✕</button>
             <button id="meshmode" title="Mesh mode: sculpted organic 3D instead of parametric CAD">⬡ Mesh</button>
+            <label class="assistpick" title="Turn a vague request into named, editable parameters before building">
+              🧭 Design assistant
+              <select id="assist">
+                <option value="auto" selected>auto — only when vague</option>
+                <option value="always">always</option>
+                <option value="off">off</option>
+              </select>
+            </label>
             <span class="spacer"></span>
             <button class="primary" id="go">Build</button>
           </div>
         </div>
+        <div id="assistPanel" class="assist" hidden></div>
         <details class="dev">
           <summary>Developer</summary>
           <div class="devgrid">
@@ -441,9 +482,7 @@ $("labBtn").onclick = async () => {
   } catch (e) { liftBox.innerHTML = ""; }
 };
 
-$("go").onclick = async () => {
-  const spec = $("spec").value.trim();
-  if (!spec && !$("image").files[0]) return $("spec").focus();
+async function startBuild(spec, parameters) {
   const fd = new FormData();
   fd.append("spec", spec);
   if (!meshMode) {
@@ -452,6 +491,7 @@ $("go").onclick = async () => {
     fd.append("coder", $("coder").value);
     if ($("candidates").value) fd.append("candidates", $("candidates").value);
     fd.append("fewshots", $("fewshots").checked ? "on" : "off");
+    if (parameters && parameters.length) fd.append("parameters", JSON.stringify(parameters));
   }
   if ($("image").files[0]) fd.append("image", $("image").files[0]);
   $("go").disabled = true;
@@ -460,10 +500,103 @@ $("go").onclick = async () => {
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.statusText);
     $("spec").value = ""; $("clearimg").onclick();
+    closeAssistPanel();
     await loadRail();
     openJob(j.job_id);                       // watch the build you just started
   } catch (e) { alert((meshMode ? "Mesh" : "Build") + " request failed: " + e.message); }
   finally { $("go").disabled = false; }
+}
+
+/* ── design assistant: pre-build "Parameters" panel ── */
+const assistPanel = $("assistPanel");
+
+function closeAssistPanel() {
+  assistPanel.hidden = true;
+  assistPanel.innerHTML = "";
+}
+
+function showAssistPanel(spec, proposal) {
+  const rows = (proposal.parameters || []).map((p, i) => {
+    const locked = p.source === "user";
+    const unit = p.unit && p.unit !== "count" ? " " + p.unit : "";
+    const tag = p.source === "user"
+      ? `<span class="tag user" title="the number you typed">user</span>`
+      : `<span class="tag assumed" title="${esc(p.why || "assumed")}">assumed</span>`;
+    return `<div class="arow" data-i="${i}">
+      <label>${esc(p.label)} ${tag}
+        <button class="lock ${locked ? "on" : ""}" type="button"
+                title="${locked ? "locked to what you typed — click to allow editing" : "editable"}"
+                onclick="toggleAssistLock(${i})">${locked ? "🔒" : "🔓"}</button>
+      </label>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step || 1}" value="${p.value}"
+             ${locked ? "disabled" : ""} data-i="${i}"
+             oninput="updateAssistValue(${i}, this.value)">
+      <span class="aval" id="aval-${i}">${p.value}${unit}</span>
+    </div>`;
+  }).join("");
+  assistPanel.dataset.spec = spec;
+  assistPanel.dataset.params = JSON.stringify(proposal.parameters || []);
+  assistPanel.dataset.title = proposal.title || "";
+  assistPanel.dataset.summary = proposal.summary || "";
+  assistPanel.innerHTML = `
+    <h4>Parameters${proposal.title ? " — " + esc(proposal.title) : ""}</h4>
+    ${proposal.summary ? `<div class="asummary">${esc(proposal.summary)}</div>` : ""}
+    ${rows || `<div class="asummary">No parameters to show — build as typed.</div>`}
+    <div class="actions">
+      <button class="primary" type="button" onclick="confirmAssist()">Build with these</button>
+      <button class="ghostbtn" type="button" onclick="skipAssist()">Skip, build as typed</button>
+    </div>`;
+  assistPanel.hidden = false;
+}
+
+function toggleAssistLock(i) {
+  const params = JSON.parse(assistPanel.dataset.params);
+  params[i].source = params[i].source === "user" ? "assumed" : "user";
+  showAssistPanel(assistPanel.dataset.spec,
+    { title: assistPanel.dataset.title, summary: assistPanel.dataset.summary, parameters: params });
+}
+
+function updateAssistValue(i, value) {
+  const params = JSON.parse(assistPanel.dataset.params);
+  const p = params[i];
+  p.value = p.unit === "count" ? parseInt(value, 10) : parseFloat(value);
+  assistPanel.dataset.params = JSON.stringify(params);
+  const unit = p.unit && p.unit !== "count" ? " " + p.unit : "";
+  $("aval-" + i).textContent = p.value + unit;
+}
+
+function confirmAssist() {
+  const spec = assistPanel.dataset.spec;
+  const params = JSON.parse(assistPanel.dataset.params);
+  startBuild(spec, params);
+}
+
+function skipAssist() {
+  const spec = assistPanel.dataset.spec;
+  closeAssistPanel();
+  startBuild(spec);
+}
+
+$("go").onclick = async () => {
+  const spec = $("spec").value.trim();
+  if (!spec && !$("image").files[0]) return $("spec").focus();
+  const mode = $("assist").value;
+  if (!meshMode && spec && mode !== "off") {
+    $("go").disabled = true;
+    try {
+      const r = await fetch("/api/assist", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spec, mode }) });
+      if (r.ok) {
+        const j = await r.json();
+        if (j.proposed) { showAssistPanel(spec, j); $("go").disabled = false; return; }
+      }
+      // 409 (gpu busy), non-proposal, or any other hiccup: fall through to a plain build
+      // rather than blocking the person on a feature that is trying to help them.
+    } catch (e) { /* degrade to plain build */ }
+    $("go").disabled = false;
+  }
+  await startBuild(spec);
 };
 
 /* ── the creation rail ── */
@@ -522,6 +655,7 @@ function newCreation() {
   activeId = null; openJobData = null;
   threadEl.hidden = true; threadEl.innerHTML = "";
   homeEl.hidden = false; labEl.hidden = true;
+  closeAssistPanel();
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
   $("spec").focus();
@@ -531,6 +665,7 @@ async function openJob(id) {
   if (id !== activeId) disposeActive();
   activeId = id;
   homeEl.hidden = true; threadEl.hidden = false; labEl.hidden = true;
+  closeAssistPanel();
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item").forEach(el =>
     el.classList.toggle("active", el.dataset.id === id));
@@ -621,18 +756,34 @@ function render(j) {
          r.instruments.map(esc).join(" · ") + `</div>`;
   if (r.salvaged)
     h += `<div class="fixnote">⟳ auto-salvaged from a script crash</div>`;
-  if (j.status === "done" && r.lang === "openscad" && (r.params || []).length) {
-    const bid = (r.artifacts && r.artifacts.scad || "").split("/")[2] || "";
+  if (j.status === "done" && (r.params || []).length) {
+    const isScad = r.lang === "openscad";
+    const bid = isScad ? (r.artifacts && r.artifacts.scad || "").split("/")[2] || "" : "";
     let pg = "";
-    h += `<div class="params" data-bid="${esc(bid)}"><h4>Parameters — drag &amp; apply, no AI involved</h4>`;
+    h += `<div class="params" data-bid="${esc(bid)}" data-kind="${isScad ? "openscad" : "build123d"}">
+          <h4>Parameters — ${isScad ? "drag &amp; apply" : "edit &amp; rebuild"}, no AI involved</h4>`;
     for (const p of r.params) {
       if (p.name === "$fn") continue;
-      if (p.group && p.group !== pg) { pg = p.group; h += `<div class="pgroup">${esc(pg)}</div>`; }
-      h += `<div class="param"><label title="${esc(p.name)}">${esc(p.name)}</label>
-        <input type="range" min="${p.min}" max="${p.max}" step="${p.step || 1}"
-               value="${p.value}" data-p="${esc(p.name)}"
-               oninput="this.parentElement.querySelector('.pval').textContent = this.value">
-        <span class="pval">${p.value}</span></div>`;
+      if (isScad) {
+        if (p.group && p.group !== pg) { pg = p.group; h += `<div class="pgroup">${esc(pg)}</div>`; }
+        h += `<div class="param"><label title="${esc(p.name)}">${esc(p.name)}</label>
+          <input type="range" min="${p.min}" max="${p.max}" step="${p.step || 1}"
+                 value="${p.value}" data-p="${esc(p.name)}"
+                 oninput="this.parentElement.querySelector('.pval').textContent = this.value">
+          <span class="pval">${p.value}</span></div>`;
+      } else if (p.substitutable) {
+        const unit = p.unit && p.unit !== "count" ? " " + esc(p.unit) : "";
+        h += `<div class="param"><label title="${esc(p.name)}">${esc(p.label || p.name)}</label>
+          <input type="range" min="${p.min}" max="${p.max}" step="${p.step || (p.is_int ? 1 : 0.1)}"
+                 value="${p.value}" data-p="${esc(p.name)}"
+                 oninput="this.parentElement.querySelector('.pval').textContent = this.value + '${unit}'">
+          <span class="pval">${p.value}${unit}</span></div>`;
+      } else {
+        const unit = p.unit && p.unit !== "count" ? " " + esc(p.unit) : "";
+        h += `<div class="param readonly" title="derived: ${esc(p.expr || "")}">
+          <label>${esc(p.label || p.name)}</label><span></span>
+          <span class="pval">${p.value ?? "—"}${unit}</span></div>`;
+      }
     }
     h += `<button class="dl apply" onclick="rescale('${j.id}')">↻ Rebuild with these values</button>
           <span class="busy" id="busy-${j.id}"></span></div>`;
@@ -701,21 +852,30 @@ async function rescale(id) {
   const params = {};
   box.querySelectorAll("input[type=range]").forEach(s => params[s.dataset.p] = s.value);
   const busy = document.getElementById("busy-" + id);
-  busy.textContent = "recompiling…";
+  const isScad = box.dataset.kind === "openscad";
+  busy.textContent = isScad ? "recompiling…" : "rebuilding…";
   try {
     const r = await fetch("/api/rescale", { method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ build_id: box.dataset.bid, params }) });
+      body: JSON.stringify(isScad ? { build_id: box.dataset.bid, params }
+                                   : { job_id: id, params }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.statusText);
-    busy.textContent = j.facts && j.facts.bbox
-      ? `done — ${j.facts.bbox.join("×")} mm, ${j.facts.volume_mm3} mm³` : "done";
-    el.dataset.stl = j.stl + "?t=" + Date.now();
-    const disposer = viewers.get(id);
-    if (disposer) { disposer(); viewers.delete(id); }
-    const holder = document.getElementById("viewer-" + id);
-    if (holder) { holder.innerHTML = ""; holder.style.display = "none"; }
-    preview(id);
+    if (isScad) {
+      busy.textContent = j.facts && j.facts.bbox
+        ? `done — ${j.facts.bbox.join("×")} mm, ${j.facts.volume_mm3} mm³` : "done";
+      el.dataset.stl = j.stl + "?t=" + Date.now();
+      const disposer = viewers.get(id);
+      if (disposer) { disposer(); viewers.delete(id); }
+      const holder = document.getElementById("viewer-" + id);
+      if (holder) { holder.innerHTML = ""; holder.style.display = "none"; }
+      preview(id);
+    } else {
+      // build123d: a full rebuild through the same queue as any build — poll like one.
+      const disposer = viewers.get(id);
+      if (disposer) { disposer(); viewers.delete(id); }
+      track(id);
+    }
   } catch (e) { busy.textContent = "✗ " + e.message; }
 }
 
