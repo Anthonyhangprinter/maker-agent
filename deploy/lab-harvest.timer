@@ -1,13 +1,24 @@
 # deploy/lab-harvest.timer  ->  ~/.config/systemd/user/lab-harvest.timer
 [Unit]
-Description=Run the Phase 3 harvest unit every 30 minutes, night hours only
+Description=Run the Phase 3 harvest unit every 30 minutes (night by default; all-day campaign when lab.harvest.day_allowed=true)
 
 [Timer]
-# Fix round 1 (2026-09-19, H4): restricted to match cad.json's lab.harvest default
-# window (night_start 22:00, night_end 07:00). The timer and lab.harvest.night_window
-# must be changed TOGETHER -- if the owner widens or narrows the config window, these
-# two OnCalendar= lines need the matching edit, or the timer will fire (and immediately
-# no-op via --check-gate) outside the configured hours, or miss hours inside it.
+# Two modes, both gated by lab/harvest_unit.sh's own --check-gate, not just by when this
+# timer fires:
+#   - Night (default): lab.harvest.day_allowed=false in cad.json, the OnCalendar= lines
+#     below match cad.json's lab.harvest window (night_start 22:00, night_end 07:00). The
+#     timer and lab.harvest.night_window must be changed TOGETHER -- if the owner widens
+#     or narrows the config window, these two OnCalendar= lines need the matching edit, or
+#     the timer will fire (and immediately no-op via --check-gate) outside the configured
+#     hours, or miss hours inside it.
+#   - All-day campaign: lab.harvest.day_allowed=true in cad.json makes --check-gate accept
+#     a tick at any hour, but that alone does not make ticks HAPPEN outside 22:00-07:00 --
+#     this timer's own OnCalendar= lines still only fire in the night window. A genuine
+#     24-hour campaign needs the OnCalendar= lines here widened to match (not done by
+#     default, since the harvest is a night job unless the owner deliberately runs a
+#     campaign); until then, day_allowed=true only widens the window a MANUAL
+#     `lab/harvest.py --unit --allow-day` (or an --unit invoked some other way) is allowed
+#     to run in, not this timer's own schedule.
 OnCalendar=*-*-* 22..23:00/30
 OnCalendar=*-*-* 00..06:00/30
 Persistent=false

@@ -7,8 +7,17 @@ import pytest
 
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
+# Scoped to this import only -- a bare os.environ.setdefault here used to leak CAD_BENCH=1
+# for the rest of the pytest session (module-level env writes are never undone), which made
+# tests/test_design_assistant.py's mode tests see CAD_BENCH set and force "off" when they
+# expected "auto"/"always" (caught running the full suite together after the master merge,
+# 2026-09-22). verify_expected() itself never reads CAD_BENCH, so nothing in this file
+# actually needs it kept set past the import line.
+_CAD_BENCH_WAS_SET = "CAD_BENCH" in os.environ
 os.environ.setdefault("CAD_BENCH", "1")
 import cad_engine as engine  # noqa: E402
+if not _CAD_BENCH_WAS_SET:
+    os.environ.pop("CAD_BENCH", None)
 
 
 def _facts(groups):

@@ -142,18 +142,30 @@ def test_compose_spec_passthrough_with_no_parameters():
 # ── mode logic ──────────────────────────────────────────────────────────────────
 
 def test_mode_defaults_to_auto(monkeypatch):
+    # lab/harvest.py (imported by several other test modules, e.g. test_lab_harvest.py) sets
+    # CAD_BENCH=1 at import time and deliberately never unsets it -- correct for that script's
+    # own process lifetime, but it leaks into this shared pytest process regardless of file
+    # collection order (pytest imports every test module before running any test), so this
+    # test must clear it explicitly rather than assume a clean ambient environment (caught
+    # running the full suite together after the master merge, 2026-09-22).
+    monkeypatch.delenv("CAD_BENCH", raising=False)
     monkeypatch.setattr(engine, "_load_config", lambda: {})
     assert da.design_assistant_mode() == "auto"
 
 
 def test_mode_reads_cad_json(monkeypatch):
+    monkeypatch.delenv("CAD_BENCH", raising=False)
     monkeypatch.setattr(engine, "_load_config", lambda: {"cad": {"design_assistant": "always"}})
     assert da.design_assistant_mode() == "always"
 
 
 def test_mode_explicit_request_overrides_config(monkeypatch):
+    # An ambient CAD_BENCH=1 (see test_mode_defaults_to_auto above) would force "off"
+    # regardless of the request, masking a real regression in the override logic.
+    monkeypatch.delenv("CAD_BENCH", raising=False)
     monkeypatch.setattr(engine, "_load_config", lambda: {"cad": {"design_assistant": "always"}})
     assert da.design_assistant_mode("off") == "off"
+    assert da.design_assistant_mode("always") == "always"
 
 
 def test_cad_bench_forces_off_even_when_requested_always(monkeypatch):
@@ -164,6 +176,7 @@ def test_cad_bench_forces_off_even_when_requested_always(monkeypatch):
 
 
 def test_invalid_config_value_falls_back_to_auto(monkeypatch):
+    monkeypatch.delenv("CAD_BENCH", raising=False)
     monkeypatch.setattr(engine, "_load_config", lambda: {"cad": {"design_assistant": "banana"}})
     assert da.design_assistant_mode() == "auto"
 
