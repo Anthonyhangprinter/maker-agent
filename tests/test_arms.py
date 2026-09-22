@@ -447,3 +447,39 @@ def test_use_no_start_still_saves_the_pre_arm_marker(tmp_path, monkeypatch):
     assert (tmp_path / "cad.json.pre-arm").exists()
     assert (tmp_path / "maker.env.pre-arm").exists()
     assert json.loads(cad_json.read_text())["maker"]["alias"] == "arm-x"
+
+
+# ---------------------------------------------------------------------------------------
+# 2026-09-19: owner deleted the losing Phase 0 GGUFs to reclaim disk. Their arms.json
+# entries stay (card results reference them by name) but gain "retired": true so `list`
+# marks them and `use` refuses them instead of failing later with a confusing
+# missing-model_path SystemExit.
+# ---------------------------------------------------------------------------------------
+
+def test_retired_arm_shown_in_list_and_refused_by_use(tmp_path, capsys):
+    src = json.loads((HERE / "benchmarks" / "arms.json").read_text())
+    store = tmp_path / "store"
+    kept = {**src["arms"][0], "skip": False}          # a normal, non-retired arm
+    retired = {
+        "name": "retired-test-arm", "alias": "retired-test-alias", "role": "candidate",
+        "gguf": "retired-test/model.gguf", "mmproj": None, "ctx": 16384, "extra_args": "",
+        "hf": None, "notes": "test fixture",
+        "retired": True,
+        "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/",
+    }
+    arms_json = tmp_path / "arms.json"
+    arms_json.write_text(json.dumps({"store": str(store), "arms": [kept, retired], "critics": []}))
+
+    a = arms.load_arms(arms_json)
+    assert a["retired-test-arm"]["retired"] is True
+    assert a[kept["name"]].get("retired", False) is False   # a kept arm is not flagged
+
+    arms.cmd_list(a)
+    out = capsys.readouterr().out
+    lines = {line.split()[1]: line for line in out.splitlines()}
+    assert lines["retired-test-arm"].startswith("retired")
+    assert not lines[kept["name"]].startswith("retired")
+
+    with pytest.raises(SystemExit, match="retired-test-arm is retired"):
+        arms.cmd_use(a["retired-test-arm"], cad_json=tmp_path / "cad.json", env_path=tmp_path / "maker.env")
+    assert not (tmp_path / "cad.json").exists()   # refused before any write

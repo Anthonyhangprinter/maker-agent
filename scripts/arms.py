@@ -241,8 +241,13 @@ def _wait(url: str, timeout: int) -> None:
 def cmd_list(a: dict) -> None:
     for name, arm in a.items():
         have = Path(arm["model_path"]).exists()
-        mark = "skip" if arm.get("skip") else ("ok " if have else "-- ")
-        print(f"{mark:5s}{name:24s} {arm['role']:9s} {arm['alias']:22s} {arm['gguf']}")
+        if arm.get("retired"):
+            mark = "retired"
+        elif arm.get("skip"):
+            mark = "skip"
+        else:
+            mark = "ok " if have else "-- "
+        print(f"{mark:8s}{name:24s} {arm['role']:9s} {arm['alias']:22s} {arm['gguf']}")
 
 
 def cmd_download(arm: dict) -> None:
@@ -273,6 +278,9 @@ def unit_active(unit: str) -> bool:
 
 
 def cmd_use(arm: dict, start: bool = True, cad_json: Path = CAD_JSON, env_path: Path = ENV_PATH) -> None:
+    if arm.get("retired"):
+        note = arm.get("retired_note", "GGUF no longer on disk")
+        raise SystemExit(f"{arm['name']} is retired ({note}); refusing to use it")
     if not Path(arm["model_path"]).exists():
         raise SystemExit(f"{arm['model_path']} missing; run arms.py download {arm['name']}")
     # Snapshot BEFORE writing the new arm, and regardless of --no-start: this is what

@@ -49,7 +49,9 @@
           "Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf"
         ]
       },
-      "notes": "MoE 3B active, no thinking"
+      "notes": "MoE 3B active, no thinking",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "glm-4.7-flash",
@@ -65,7 +67,9 @@
           "GLM-4.7-Flash-UD-Q4_K_XL.gguf"
         ]
       },
-      "notes": "MoE 3B active; thinking off for the shootout (Phase 1 A/B may turn it on)"
+      "notes": "MoE 3B active; thinking off for the shootout (Phase 1 A/B may turn it on)",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "devstral-small-2",
@@ -82,7 +86,9 @@
           "mmproj-F16.gguf"
         ]
       },
-      "notes": "dense 24B agentic coder"
+      "notes": "dense 24B agentic coder",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "gpt-oss-20b",
@@ -98,7 +104,9 @@
           "gpt-oss-20b-MXFP4.gguf"
         ]
       },
-      "notes": "native MXFP4, reasoning low"
+      "notes": "native MXFP4, reasoning low",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "qwen2.5-coder-7b",
@@ -114,7 +122,9 @@
           "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
         ]
       },
-      "notes": "current fast rung as a llama.cpp arm"
+      "notes": "current fast rung as a llama.cpp arm",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "gemma-4-31b-cad-spike",
@@ -125,7 +135,9 @@
       "ctx": 16384,
       "extra_args": "--chat-template-kwargs {\"enable_thinking\":false}",
       "hf": null,
-      "notes": "Phase 2 QLoRA training spike: gemma-4-31b's base model with a LoRA adapter merged in, quantized plain Q4_K_M with the Unsloth importance matrix (NOT the stock arm's Unsloth UD dynamic quant -- a different recipe, note it when comparing card results). Adapter: unrecorded."
+      "notes": "Phase 2 QLoRA training spike: gemma-4-31b's base model with a LoRA adapter merged in, quantized plain Q4_K_M with the Unsloth importance matrix (NOT the stock arm's Unsloth UD dynamic quant -- a different recipe, note it when comparing card results). Adapter: unrecorded.",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     },
     {
       "name": "gemma-4-31b-cad-r1",
@@ -158,7 +170,9 @@
       "ctx": 8192,
       "port": 8092,
       "vram_gb": 9.5,
-      "notes": "non-Qwen judge/critic candidate, measured 9.2GB in the model lab; 9.5 here is conservative for mmproj + 8k ctx"
+      "notes": "non-Qwen judge/critic candidate, measured 9.2GB in the model lab; 9.5 here is conservative for mmproj + 8k ctx",
+      "retired": true,
+      "retired_note": "GGUF deleted by the owner 2026-09-19; card results kept under benchmarks/results/card/"
     }
   ]
 }
