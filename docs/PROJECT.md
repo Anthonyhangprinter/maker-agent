@@ -1110,3 +1110,58 @@ next.
 - `preflight()` no longer probes Ollama or `/api/tags`: it asserts every rung is `local:`/`cloud/`, hard-probes a separately-hosted critic server, and logs an advisory when the strong rung is cold. `spec_needs_strong_coder()` is a no-op returning True, saving a schema-constrained round trip whose answer was foregone.
 - Dead with them: `_pause_default_server_for()`, `_unload_ollama_guests()`, `_PAUSED_DEFAULT_SERVER`, `_model_size_gb()`, `VRAM_RESIDENT_GB_MAX` and the `OLLAMA_HOST/URL/TAGS` constants (`OLLAMA_TIMEOUT` became `LLM_TIMEOUT`). The resident/maker swap in `_ensure_default_server`/`_resume_default_server` is untouched. The web UI title worker moved from the deleted `qwen3:8b` on `:11434/api/generate` to the resident alias through the gpu-proxy on `:8085` (chat completions, top-level `reasoning_effort: "none"`, `max_tokens` 24), with its request shape split into `webui/titler.py` so it is testable without FastAPI.
 - Verified live on the maker arm: `cad --once --json "a 20mm cube"` converged in 1 turn at `local:gemma-4-31b` (accepted via critic, 20x20x20mm, 1 solid), and an `--image` build converged in 2 turns with the pre-pass returning a full structured analysis at confidence high and caching it. Suite: 343 passed, 1 failed (334 collected on master, 344 here) (`tests/test_n1_offline.py`, pre-existing and identical on master).
+
+---
+
+## 2026-09-19/22: Maker Agent 1.0 campaign, Phases 3-5 — data engine, round 1, release (measured)
+
+Full writeup: `docs/FINDINGS-1.0.md`. Summary here for the running log.
+
+- **Phase 3 (data engine).** Spec bank grown to 2,514 specs (tier 1/2/3/4 = 71/632/1,576/235).
+  The bounded harvest measurement ran Sat 23:07 to Mon 07:00 (61 units, 1,739 candidates, 22.3
+  GPU-hours) and produced 281 gate-verified pairs (reference 101, cross_pass 4, same_pass 176),
+  12.1 pairs/GPU-hour (12.2 before a gate fix, 4.4 during a think-pass scheduler starvation bug,
+  14.0 after the scheduler fix). A hand audit rebuilt 32 sampled pairs on CPU (facts matched the
+  stored numbers in all 32) and found same-model self-agreement wrong 6 of 8 times on tier 3-4
+  (hard) parts, all shared no-op mistakes (a gasket groove and an opening cut inside already-void
+  space, keyways centred on the bore axis, cooling jackets with no water gap, an unmodelled lead
+  screw thread). One of the project's own "known correct" labels (fixture `v066_t05_floor_4p5mm`,
+  previously misnamed) was wrong too, the Qwen judge had called it right. Ruling: train on
+  reference + cross_pass + same_pass tier 1-2 only; same_pass tier 3-4 excluded wholesale.
+  Compiled: 242 train / 21 val rows (11 held-out specs) via `lab/compile.py --round 1`.
+- **Phase 4 (round 1 fine-tune, the only round run).** QLoRA r16, alpha 16, language layers only,
+  lr 1e-4, 2 epochs, max-seq 5120, batch 1 x accum 4. Peak VRAM 21.588 GB, wall time 2h56m17s
+  (122 steps), train loss 0.107, eval loss 0.148 over 6,801 tokens. Ship chain: merge 19.3 min,
+  convert 22.6 min, quantize 21.3 min (Q4_K_M + Unsloth imatrix, 18.69 GB), verify 57.5s (3/3
+  prompts). Card vs stock `gemma-4-31b` on 85 public specs (`phase1` subset, one-shot): invalid
+  5.88% vs 2.35% (flips +0/-3), gate-clean 88.2% vs 89.4%, match 34.12% vs 34.94% (flips +2/-2),
+  median 33.2s/522 tok vs 31.1s/542 tok. **Verdict: do not promote.** Level with stock on match,
+  slightly worse on validity; `cad.json` stays on the stock `gemma-4-31b` arm, `gemma-4-31b-cad-r1`
+  registered for comparison only (role `round1` in `benchmarks/arms.json`). Real bugs the first
+  real run of the round flow found, fixed with tests: ship verify launched with 4 slots (OOM with
+  mmproj, fixed to `-np 1`); `register` crashed for a store outside the NVMe root; `run_card`
+  gained `--suite-root`; `ship.py` venv detection from a worktree needed `--python`.
+- **Phase 5 (release).** Scoped review of the previously-unreviewed commits on `phase3` and the
+  `design-assistant` branch (Highs fixed); merged `claude-sub-compare`, `maker-1.0/phase3`
+  (includes 3a and gate-drain) and `maker-1.0/design-assistant` into `master` in this checkout;
+  full suite green except the pre-existing `tests/test_n1_offline.py`; `docs/FINDINGS-1.0.md` and
+  `README.md` rewritten with final numbers; `benchmarks/arms.json` pruned (Devstral, gpt-oss-20b,
+  Qwen3-Coder-30B-A3B, GLM-4.7-Flash, Qwen2.5-Coder-7B, the `gemma-4-12b` judge and the Phase 2
+  spike marked `retired: true`, their GGUFs deleted from the NVMe store, card results kept);
+  design assistant merged into the main tree (`cad_v5/design_assistant.py`, `/api/assist`,
+  `/api/build` with parameters, build123d live sliders, CADAM-style Parameters panel; lift on
+  vague prompts not yet measured); `git tag -a v1.0`, pushed to `origin` with tags, repo flipped
+  **public** at `github.com/Anthonyhangprinter/maker-agent`. All worktrees removed.
+- **Corrections made at close-out:** `enable_thinking:false` works as a per-request override on
+  the resident server (an earlier note calling it "gone" was wrong); the maker server exposes a
+  per-request thinking-on escalation as `local:<alias>+think`; the "GIFT" label the repo uses for
+  best-of-N sampling and gate hardening is a loose use of the term, arXiv 2603.27448 "GIFT" is an
+  image-to-CAD geometric-feedback bootstrapping paper, not a best-of-N method; a language A/B
+  (build123d vs CadQuery vs OpenSCAD, Gemma and Qwen) held exact match at 10-17.5% in every
+  language, so build123d stays the production language; Qwen-as-judge precision was 31-36%
+  against a 27% base rate, so it is not a reliable confirmer (though it was right about the V066
+  fixture's true floor thickness).
+- **Not done:** the design assistant's lift is unmeasured; fluid mode's web-UI gate is still
+  weaker than the harvest's own gate (porting the fix is a v2 item so benchmark cards stay
+  comparable); the harvest's through-hole text parser misses some phrasings; the pre-existing
+  `tests/test_n1_offline.py` failure is unchanged.

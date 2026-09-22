@@ -43,14 +43,17 @@ cad-builder/
 │                     #   fetch_external.py (public suite loaders)
 ├── benchmarks/       # suites (text-to-cad/, organic/, cadprompt/, cad-arena/, text2cadquery/)
 │                     #   + arms.json (candidate model declarations) + results/ (json + card/)
-├── deploy/           # maker-server launcher + systemd unit (swappable CAD coder arm, see
-│                     #   docs/MAKER-1.0-CAMPAIGN.md 4.2)
-├── webui/            # FastAPI web UI (cad-web.service); Lab view reads the latest benchmark card
+├── deploy/           # maker-server + critic-server launchers/units (swappable CAD coder arm),
+│                     #   lab-harvest.service/.timer (data-engine harvest, disabled by default)
+├── webui/            # FastAPI web UI (cad-web.service); Lab view reads the latest benchmark
+│                     #   card; Design assistant (off/auto/always) proposes editable named
+│                     #   parameters for a vague request before codegen, plus live build123d
+│                     #   sliders after (cad_v5/design_assistant.py, /api/assist)
 ├── tests/            # offline unit/behavioral tests (pytest)
 ├── integration/      # cad-telegram.py — Satine bot SOURCE (deployed: ~/.openclaw/cad-telegram.py
 │                     #   is a symlink to it; restart cad-telegram.service after editing)
-├── docs/             # PROJECT.md (design+results) · ROADMAP.md · DIRECTION.md · BUILDS.md
-│                     #   (build journal) · HANDOFF.md
+├── docs/             # FINDINGS-1.0.md (Maker Agent 1.0 release writeup) · PROJECT.md
+│                     #   (design+results log) · ROADMAP.md · DIRECTION.md · BUILDS.md · HANDOFF.md
 ├── legacy/           # v1-v3 agents, scad-spike/ (M8, rejected), bak-20260627/ — rollback only
 └── SKILL.md          # this file — usage (stays at root: skill convention)
 ```

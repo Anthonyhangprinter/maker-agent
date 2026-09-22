@@ -1,5 +1,10 @@
 # CAD Agent Roadmap — Local-First Text-to-CAD
 
+**Superseded for anything post-Maker Agent 1.0 (released 2026-09-22, tag `v1.0`): the current
+v2 plan (public CAD-code datasets, owner-model/service geometry confirmers, documentation
+retrieval, a cross-model rejector-judge, measuring the design assistant) lives in
+`docs/FINDINGS-1.0.md` section 6. This file is kept for its pre-campaign tracks and history.**
+
 *2026-07-04. Written after the Phase-1 reliability pass (9 commits) and grounded in an external
 survey of established text-to-CAD systems: Zoo's Zookeeper agent, CADCodeVerify (ICLR 2025),
 CADSmith, CADDesigner/ECIP, SeekCAD, and the Text2CAD/CADmium fine-tuning line.*
