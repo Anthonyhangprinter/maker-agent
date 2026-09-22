@@ -1,6 +1,8 @@
 # Maker Agent
 
-**A fully-local text-to-CAD agent: plain-English spec, verified, manufacturable part. Developed on one 24 GB consumer GPU; a 16 GB ship target is the next campaign.**
+**A fully-local text-to-CAD agent: plain-English spec, verified, manufacturable part. Developed on one 24 GB consumer GPU.**
+
+**Version 1.0 (2026-09-22) is a findings release.** The full campaign write-up is [`docs/FINDINGS-1.0.md`](docs/FINDINGS-1.0.md): a seven-model shootout, a measured agent-loop lever set, a local QLoRA pipeline proven on one card, a gate-verified data harvest with confirmation grades, and one fine-tune round that came out level with the stock model. The one-line finding: verified-good hard CAD data, not the model, the language or the training mechanics, is the bottleneck.
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Python](https://img.shields.io/badge/python-3.10+-blue) ![build123d](https://img.shields.io/badge/kernel-build123d%20%2F%20OCCT-orange) ![Local-first](https://img.shields.io/badge/inference-100%25%20local-red)
 
@@ -19,6 +21,13 @@ The project's operating rule is **measure, don't claim**: every capability ships
 | Deterministic gate vs. blind human CAD review | agreement **9/11** after adding interference/assembly checks (was 6/11) | gate overhaul, 2026-07-30 |
 | QLoRA fine-tune (369 verified teacher pairs) honestly evaluated | FT 5/10 vs stock 6/10 → **no-ship; stock model kept its place** | `docs/RUNPOD_RUNBOOK.md`, `logs/ft_*.log` |
 | Strong-rung suite (30B-class coder, 10-part suite) | 6–7/10 converged, 21–22/31 acceptance checks | `benchmarks/results/showcase_30b_full.json` |
+| Base-model shootout, 7 arms x 262 builds on public suites | **Gemma-4-31B** 6 % invalid / 39 matches on CADPrompt vs Qwen3.8-27B 29 % / 22 | `benchmarks/results/card/phase0/` |
+| Agent-loop levers on Gemma (best-of-3, retrieval, thinking, critic) | best-of-3 no lift at 2.4x time; retrieval off hurts; the coder judging its own render beat the small critic 40 % vs 35 % | `benchmarks/results/card/phase1/LIFT.md` |
+| Local QLoRA of a 31B on one 3090 | 21.7 GB peak, 78 s/step, train + merge + quantise + serve with no rented GPU | `benchmarks/results/card/phase2/` |
+| Gate-verified harvest, 30 hours | **281** confirmed pairs at 12.1 per GPU-hour; only 33 hard parts; same-model agreement **6/8 wrong** on hard parts by hand audit | `lab/rounds/round1/AUDIT.md` |
+| Round 1 fine-tune on 242 self-verified pairs | level with stock: match 34.1 % vs 34.9 % (flips +2/-2), invalid 5.9 % vs 2.4 % (flips +0/-3) → **not promoted** | `benchmarks/results/card/round1/DECISION.md` |
+| CAD language A/B, two models, 40 public specs | exact match 10 to 17.5 % in every language; CadQuery 52 % built vs build123d 85 % for Gemma → **stay on build123d** | `benchmarks/lang-ab/results/` |
+| Qwen3.8-27B as a CAD judge, 81 labelled programs | precision of "correct" 31 to 36 % against a 27 % base rate → not a confirmer; sharp as a rejector on dimensioned specs | `benchmarks/judge-eval/results/2026-09-19/REPORT.md` |
 
 ## What a build looks like
 
@@ -56,7 +65,9 @@ Key design decisions, each with its measurement in [`docs/PROJECT.md`](docs/PROJ
 
 ## Quick start
 
-Requires Python 3.10+, a llama.cpp build with `llama-server`, and the build123d stack (`pip install build123d`). Models: one multimodal coder served by llama.cpp, which writes the code and also judges its own render (Gemma-4-31B on the maker server today, or the resident Qwen3.8-27B when the maker block is disabled), plus nomic-embed-text-v1.5 for retrieval via a local embed server. The Maker Agent 1.0 campaign in `docs/MAKER-1.0-CAMPAIGN.md` is choosing and training the coder.
+Requires Python 3.10+, a llama.cpp build with `llama-server`, and the build123d stack (`pip install build123d`). Models: one multimodal coder served by llama.cpp, which writes the code and also judges its own render (Gemma-4-31B on the maker server today, or the resident Qwen3.8-27B when the maker block is disabled), plus nomic-embed-text-v1.5 for retrieval via a local embed server. The Maker Agent 1.0 campaign (`docs/MAKER-1.0-CAMPAIGN.md`, results in `docs/FINDINGS-1.0.md`) chose Gemma-4-31B as the coder and kept the stock weights: the one fine-tune round did not beat them.
+
+The web UI ships a **design assistant** (off / auto / always): a vague request becomes an editable parameter panel before the build, with the user's own numbers locked, and a build123d part gets live sliders afterwards that rebuild without a model call.
 
 ```bash
 git clone https://github.com/Anthonyhangprinter/maker-agent

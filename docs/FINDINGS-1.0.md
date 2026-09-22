@@ -1,18 +1,24 @@
 # Maker Agent 1.0 findings, for Andrew
 
+Status: final, 2026-09-22. Tag v1.0 on master.
+
 ## 1. Summary
 
 Maker Agent 1.0 set out to fine-tune a CAD-coding model on a local RTX 3090: shootout a base
 model, measure which agent-loop levers help it, prove a local QLoRA pipeline end to end, then
-feed it enough verified data to beat the stock base. We built and measured all of that. The
-pipeline works: a 31B QLoRA fine-tune trains, merges, converts and serves on this card with no
-rented compute. It just has nothing good to train on yet. The single most important finding: the
+feed it enough verified data to beat the stock base. We built and measured all of that, and we ran
+the fine-tune. The pipeline works: a 31B QLoRA fine-tune trains, merges, converts and serves on
+this card with no rented compute. Trained on 242 of its own verified parts it came out level with
+the stock model (match 34.1 % vs 34.9 %, paired flips +2/-2) and slightly less valid (5.9 % vs
+2.4 % invalid, flips +0/-3), so it was not promoted. That is a cleaner result than Phase 2, where
+older data made the model worse, but it is not a gain. The single most important finding: the
 bottleneck is not the model, the language, or the training mechanics, it is verified-good CAD
 data. Our best local coder gets fewer than half of hard (tier 3) parts gate-clean on one attempt,
 and even among the ones the gate calls "good," a hand check found roughly a third wrong. A Phase
 2 fine-tune on our older 7B-era pairs made the base model measurably worse, because that data was
-below the model's own quality. Phase 3 spent this week building the harvest that produces better
-data, and measuring how hard that is.
+below the model's own quality. Phase 3 built the harvest that produces
+better data and measured its limit: 281 verified pairs in 22 GPU-hours, but only 33 of them hard
+parts, and the model's own agreement with itself was wrong three times out of four on hard parts.
 
 ## 2. What we built
 
@@ -28,9 +34,11 @@ proxy so family chat gets a "busy until HH:MM" notice instead of a timeout durin
 | Benchmark card | reproduced BenchCAD's published Gemma Code-QA score (0.663 vs 0.664) |
 | Maker server (:8088) | one GPU, conflicts with the resident chat model by design |
 | QLoRA pipeline | 21.7 GB peak VRAM, 78 s/step, 1 h 54 min/epoch over 348 rows |
-| Gate-verified harvest | 2,514-spec bank, 194 good pairs, 10.3 good pairs/GPU-hour |
+| Gate-verified harvest | 2,514-spec bank, 281 good pairs, 12.1 good pairs/GPU-hour over 22.3 GPU-hours |
 | Reference intake | 301 of 414 teacher specs admitted under today's gate |
 | GPU busy doors | human door answers in about 7 ms with an ETA during a unit |
+| Round 1 fine-tune | 242 rows, lr 1e-4, 2 epochs, 2 h 56 min, eval loss 0.148; ship chain 63 min; not promoted |
+| Design assistant | vague request to an editable parameter panel before build, plus live sliders after; shipped, lift not yet measured |
 
 ## 3. Findings
 
@@ -108,13 +116,47 @@ label may need a second look.
 
 ## 5. What is not done
 
-No fine-tuned model has shipped from Phase 3. The harvest stops automatically Monday 07:00; a
-pilot round happens only if reference- or cross-model-confirmed pairs reach 300, and this
-morning's live count is 102 (98 reference plus 4 cross-model), below threshold pending the
-owner's call on extending collection. The by-eye audit deciding which confirmation strengths are
-trainable has not run. Fluid mode still runs the weaker gate above; the harvest's fix has not
-been ported back. None of the phase0/1/2/3 branches, nor the sibling branches (Claude comparison,
-gate fix, design assistant), have merged to master.
+No fine-tuned model is in production: round 1 was trained, shipped and benchmarked and did not
+beat stock, so `cad.json` stays on stock Gemma-4-31B and the round-1 arm is kept for comparison.
+Fluid mode (the web UI's default path) still runs the weaker gate described above; the harvest
+uses its own stricter gate, and the port back is a v2 item because changing the live gate would
+make the benchmark cards non-comparable. The design assistant is deployed but its on/off lift on
+vague requests is unmeasured (about 2 GPU-hours plus a blind pick by the owner). The one
+long-standing test failure (`tests/test_n1_offline.py`) is unchanged. Everything else is merged to
+master and tagged v1.0.
+
+## 5a. Hand audit and round 1
+
+The audit rebuilt 32 sampled pairs on CPU (re-measured geometry matched the stored numbers in all
+32) and read each against its spec with volume arithmetic and section renders.
+
+| Confirmation grade | Wrong / audited |
+|---|---|
+| Matched a Claude-built reference | 0 / 10 |
+| No-think and think samples agreed | 0 / 4 |
+| Two same-pass samples agreed, tiers 1 and 2 | 1 / 10 |
+| Two same-pass samples agreed, tiers 3 and 4 | 6 / 8 |
+
+The six wrong hard parts were all no-op features that a dimensional gate cannot see: a gasket
+groove and an opening cut inside already-empty space, keyways centred on the bore axis so they
+remove no material, two cooling jackets with no water gap, a lead screw whose thread was never
+modelled. In each case both samples shared the mistake, which is the predicted failure of
+same-model agreement. The audit also overturned one of our own labels: the "correct" V066 divider
+part has a 4.5 mm floor where the spec says 3 mm, which the Qwen judge had said and we had not
+believed. Same-pass tier 3-4 pairs were excluded wholesale; the rest compiled to 242 train and 21
+validation rows from 11 held-out specs.
+
+| Round 1 vs stock, 85 public specs, one shot | Stock Gemma-4-31B | Round 1 |
+|---|---|---|
+| Invalid | 2.4 % | 5.9 % (flips +0/-3) |
+| Gate-clean | 89.4 % | 88.2 % |
+| Match vs reference | 34.9 % | 34.1 % (flips +2/-2) |
+| Median time, output tokens | 31 s, 542 | 33 s, 522 |
+
+Confounds are the same as Phase 2's: the round-1 GGUF is Q4_K_M with the Unsloth imatrix while
+stock is UD-Q4_K_XL, the baseline rows are reused from the Phase 1 card, and n is 85 with one
+sample per arm, so the paired flips are the evidence. Full numbers:
+`benchmarks/results/card/round1/DECISION.md`.
 
 ## 6. Version 2 plan
 
@@ -124,10 +166,11 @@ own CAD models, plus scraped or service-generated meshes, as geometry confirmers
 references are used now, since a dimensioned reference is our strongest verifier. Add
 documentation retrieval aimed at the build123d API-misuse failures the A/B surfaced (it will not
 fix spec interpretation, the real ceiling). Explore a cross-model rejector-style judge on fully
-dimensioned specs, where Qwen was sharp despite being unreliable generally. Build a "design
-assistant" that expands a vague request into an editable, parameter-level spec before codegen;
-the literature (Self-planning, ClarifyGPT, TICoder) shows real gains from clarify-before-code in
-code generation generally, but no clean CAD ablation exists, so this would be a new result.
+dimensioned specs, where Qwen was sharp despite being unreliable generally. Measure the design
+assistant shipped in 1.0 (a vague request becomes an editable parameter panel before codegen,
+with the user's own numbers locked): the literature (Self-planning, ClarifyGPT, TICoder) shows
+real gains from clarify-before-code in code generation generally, but no clean CAD ablation
+exists, so an on/off measurement on vague prompts would be a new result.
 
 ## 7. Reproduce
 
@@ -145,18 +188,15 @@ lab/gpu_window.sh python3 benchmarks/lang-ab/lang_ab.py --arms b123d,b123d-nofs,
 cd benchmarks/judge-eval && python3 run_judge.py && python3 report.py
 ```
 
-## Harvest numbers (updated 2026-09-21 01:03 AEST / 2026-09-20 15:03 UTC)
+## Harvest numbers (final, measurement ended 2026-09-21 07:00 AEST)
 
 | metric | value |
 |---|---|
 | Spec bank | 2,514 (tier 1/2/3/4 = 71/632/1,576/235) |
-| Total pairs (all confirm strengths) | 365 |
-| Good pairs (gate-clean, confirmed) | 194 |
-| Good by confirm strength | reference 98, same_pass 92, cross_pass 4 |
-| Good tier 3-4 share | 13.9% |
-| Cumulative yield | 184 good pairs / 17.92 GPU-hours = 10.27/GPU-hour |
-| Last unit yield | 13 good pairs / 0.38 GPU-hours = 33.9/GPU-hour |
-| Reference-or-cross-model confirmed (300-pair training threshold) | 102 |
-| Unconfirmed candidates awaiting a second sample | 74 |
-| Cold specs (no gate-clean candidate yet) | 328 |
-| Timer status | active, budget 20 h/day, stops automatically Mon 2026-09-21 07:00 |
+| Run | Sat 23:07 to Mon 07:00, 61 units, 1,739 candidates, 22.3 GPU-hours |
+| Good pairs (gate-clean and confirmed) | 281 |
+| Good by tier | 97 / 151 / 29 / 4 (tier 3-4 share 11.7 %) |
+| Good by confirmation grade | reference 101, cross-pass 4, same-pass 176 |
+| Yield | 12.1 good pairs per GPU-hour overall; 12.2 before the gate fix, 4.4 during the think-pass starvation, 14.0 after the scheduler fix |
+| Reference pool | 51 of 301 reference specs solved by Sunday night; the pool was spent, so the run was not extended |
+| Left over | 107 unconfirmed candidates, 21 specs with disagreeing samples, 353 cold specs, 3 exhausted |
