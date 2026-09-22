@@ -1,0 +1,64 @@
+{
+  "round": 1,
+  "command": "python3 lab/compile.py --round 1 --strengths reference,cross_pass,same_pass --exclude-ids lab/rounds/round1/exclude_ids.txt --out-dir lab/rounds/round1",
+  "timestamp": "2026-09-20T22:59:31.086069+00:00",
+  "dry_run": false,
+  "strengths": [
+    "cross_pass",
+    "reference",
+    "same_pass"
+  ],
+  "max_per_spec": 2,
+  "val_frac": 0.08,
+  "seed": 1,
+  "current_gate_version": "gv1-2c11a923",
+  "accept_gate_versions": null,
+  "gate_versions_seen": {
+    "gv1-2c11a923": 263
+  },
+  "val_specs_source": "created",
+  "val_specs_file": "/home/theultimatecunt/.openclaw/skills/cad-builder-phase3/lab/state/val_specs.json",
+  "val_specs_count": 11,
+  "counts": {
+    "train": {
+      "total": 242,
+      "by_tier_strength": {
+        "2|reference": 59,
+        "1|reference": 22,
+        "3|reference": 15,
+        "2|same_pass": 76,
+        "1|same_pass": 68,
+        "2|cross_pass": 2
+      }
+    },
+    "val": {
+      "total": 21,
+      "by_tier_strength": {
+        "2|reference": 4,
+        "1|reference": 1,
+        "2|same_pass": 8,
+        "1|same_pass": 6,
+        "3|cross_pass": 2
+      }
+    }
+  },
+  "rows_total_seen": 494,
+  "dropped_total": 231,
+  "dropped_by_reason": {
+    "kind-not-good": 213,
+    "excluded-by-audit": 18
+  },
+  "rows_over_max_seq_5120": {
+    "train": 0,
+    "val": 0
+  },
+  "sha256": {
+    "train.jsonl": "7ec0dd7a98e35b9c195e3c3a726102c2026da1ba084391fc2f631d4f6ca86f78",
+    "val.jsonl": "6768ddc7bfdcfcf75052dae090b7cf15e2b7af87a55edfbd9997a9367c5fcd35"
+  },
+  "template": {
+    "path": "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit/chat_template.jinja",
+    "from_checkpoint": true
+  },
+  "out_dir": "lab/rounds/round1"
+}

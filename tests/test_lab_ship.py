@@ -101,10 +101,22 @@ def test_verify_server_argv():
         "--mmproj", "/g/mmproj.gguf",
         "-ngl", "99",
         "-c", "8192",
+        "-np", "1",
         "--port", "8093",
         "--host", "127.0.0.1",
         "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
+
+
+def test_verify_server_argv_pins_a_single_slot():
+    """round 1, 2026-09-21: without -np 1, llama-server's default -np -1 ("auto") picked 4
+    parallel slots and reserved 4x8192-token KV cache (about 4.4GB), starving the ~1.14GB
+    mmproj buffer that loads right after and failing verify with a misleading OOM on a card
+    that had over 5GB nominally free moments earlier. maker-server's own launcher always
+    passes -np 1; verify must match the flags the arm is actually served with."""
+    argv = ship.verify_server_argv(Path("/g/model.gguf"), Path("/g/mmproj.gguf"), 8093)
+    assert "-np" in argv
+    assert argv[argv.index("-np") + 1] == "1"
 
 
 # ---------------------------------------------------------------------------
@@ -977,6 +989,46 @@ def test_cmd_register_writes_temp_arms_file_and_copies_gguf(tmp_path):
     assert "gemma-4-31b-cad-spike" in names
     new_arm = next(a for a in new_data["arms"] if a["name"] == "gemma-4-31b-cad-spike")
     assert new_arm["gguf"] == "gemma-4-31B-cad-spike/gemma-4-31b-cad-spike-Q4_K_M.gguf"
+
+
+def test_cmd_register_records_an_absolute_path_when_store_is_elsewhere(tmp_path):
+    """Round 1, 2026-09-21: lab/README.md's own documented round command passes a --store
+    outside arms.json's shared store root (the NVMe store had about 26GB free and a round's
+    GGUF is about 18.7GB, so rounds live on the root SSD under ~/lab-scratch/rounds/). That
+    made dest.relative_to(data["store"]) raise ValueError on the very first real round.
+    An absolute path in the "gguf" field still resolves correctly at load time: pathlib
+    discards the left side of a join when the right side is itself absolute, which is
+    exactly what arms.py's load_arms does with this field (store / arm["gguf"])."""
+    gguf = tmp_path / "src" / "gemma-4-31b-cad-r1-Q4_K_M.gguf"
+    gguf.parent.mkdir(parents=True)
+    gguf.write_bytes(b"fake gguf bytes")
+
+    nvme_store = tmp_path / "nvme-store"
+    arms_data = _sample_arms_data()
+    arms_data["store"] = str(nvme_store)
+    arms_file = tmp_path / "arms.json"
+    arms_file.write_text(json.dumps(arms_data, indent=2) + "\n")
+
+    scratch = tmp_path / "scratch"
+    ship.scratch_paths(scratch)["verify_ok"].parent.mkdir(parents=True, exist_ok=True)
+    ship.scratch_paths(scratch)["verify_ok"].write_text(json.dumps({"gguf": str(gguf)}) + "\n")
+
+    round_store = tmp_path / "lab-scratch" / "rounds" / "round1-store"   # NOT under nvme_store
+    args = argparse.Namespace(
+        scratch=str(scratch), gguf=str(gguf), name="gemma-4-31b-cad-r1",
+        adapter="lab-scratch/round1-adapter/adapter", store=str(round_store),
+        arms_file=str(arms_file), quant_type="Q4_K_M", force=False,
+    )
+    ship.cmd_register(args)
+
+    dest = round_store / "gemma-4-31b-cad-r1-Q4_K_M.gguf"
+    assert dest.read_bytes() == b"fake gguf bytes"
+    new_arm = next(a for a in json.loads(arms_file.read_text())["arms"]
+                   if a["name"] == "gemma-4-31b-cad-r1")
+    assert new_arm["gguf"] == str(dest)
+    # load_arms' store / arm["gguf"] must resolve to the real file even though "gguf" is
+    # not a subpath of the arms.json store root.
+    assert nvme_store / new_arm["gguf"] == dest
 
 
 def test_cmd_register_refuses_duplicate_without_force(tmp_path):

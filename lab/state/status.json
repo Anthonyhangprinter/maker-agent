@@ -1,0 +1,113 @@
+{
+  "updated": "2026-09-20T21:02:20.346068+00:00",
+  "specs": {
+    "total": 2514,
+    "by_tier": {
+      "1": 71,
+      "2": 632,
+      "3": 1576,
+      "4": 235
+    }
+  },
+  "pairs": {
+    "total": 494,
+    "by_tier": {
+      "2": 169,
+      "3": 172,
+      "1": 99,
+      "4": 54
+    },
+    "by_source": {
+      "student": 489,
+      "teacher:think": 5
+    },
+    "tier34_share": 0.4575,
+    "good_total": 281,
+    "good_by_tier": {
+      "2": 151,
+      "3": 29,
+      "1": 97,
+      "4": 4
+    },
+    "good_tier34_share": 0.1174,
+    "good_by_confirm_strength": {
+      "reference": 101,
+      "same_pass": 176,
+      "cross_pass": 4
+    }
+  },
+  "ledger": {
+    "attempts": 1739,
+    "unscored": 11,
+    "pass_rate_by_tier": {
+      "3": 0.0312,
+      "2": 0.2566,
+      "1": 0.5109,
+      "4": 0.0255
+    },
+    "pass_rate_by_pass": {
+      "student": 0.1582,
+      "think": 0.0714
+    },
+    "last_unit": "2026-09-20T20:37:09.183974+00:00",
+    "gate_clean_rate_by_tier": {
+      "3": 0.1104,
+      "2": 0.3451,
+      "1": 0.8315,
+      "4": 0.1656
+    },
+    "gate_clean_rate_by_source": {
+      "specgen": 0.7532,
+      "other": 0.1635
+    },
+    "confirmed_rate_by_tier": {
+      "3": 0.0312,
+      "2": 0.2566,
+      "1": 0.5109,
+      "4": 0.0255
+    },
+    "confirmed_rate_by_source": {
+      "specgen": 0.4773,
+      "other": 0.0853
+    }
+  },
+  "yield": {
+    "cumulative": {
+      "good_pairs": 269,
+      "gpu_hours": 22.3104,
+      "good_pairs_per_gpu_hour": 12.0572
+    },
+    "last_unit": {
+      "unit_id": "2026-09-20T20:37:09.183974+00:00",
+      "good_pairs": 8,
+      "gpu_hours": 0.361,
+      "good_pairs_per_gpu_hour": 22.1627
+    }
+  },
+  "think_pass": {
+    "configured": true,
+    "available": true,
+    "eligible_specs": 207,
+    "note": null
+  },
+  "confirmation": {
+    "unconfirmed_candidates": 107,
+    "stale_candidates": 0,
+    "confirmed_by": {
+      "reference": 101,
+      "agreement": 180
+    },
+    "split_specs": 21,
+    "exhausted_specs": 3,
+    "cold_specs": 353
+  },
+  "budget": {
+    "hours_today": 4.84,
+    "hours_per_day": 20,
+    "window": "22:00-07:00",
+    "in_window": false,
+    "day_allowed": true
+  },
+  "nights_completed": 2,
+  "timer_active": true
+}

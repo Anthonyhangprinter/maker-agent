@@ -415,6 +415,8 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True, help="output dir for checkpoints, adapter, and metrics")
     p.add_argument("--rank", type=int, default=16, help="LoRA rank (lora_alpha is set equal to it)")
     p.add_argument("--epochs", type=float, default=1, help="num_train_epochs")
+    p.add_argument("--lr", type=float, default=2e-4,
+                   help="learning rate (2e-4 = the Phase 2 spike; round presets may go lower)")
     p.add_argument("--max-seq", type=int, default=5120,
                     help="rows whose tokenized prompt+completion exceed this are DROPPED, not truncated")
     p.add_argument("--save-steps", type=int, default=25)
@@ -595,7 +597,7 @@ def main(argv: list[str] | None = None) -> None:
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=4,
         num_train_epochs=args.epochs,
-        learning_rate=2e-4,
+        learning_rate=args.lr,
         lr_scheduler_type="linear",
         warmup_steps=5,
         bf16=True,

@@ -419,12 +419,21 @@ def fetch_imatrix_argv(out_dir: Path) -> list[str]:
 
 
 def verify_server_argv(gguf_file: Path, mmproj_file: Path, port: int) -> list[str]:
+    # -np 1: without an explicit slot count llama-server defaults to -np -1 ("auto"), which
+    # picked 4 parallel slots here and reserved KV cache for 4x8192 tokens instead of one --
+    # about 4.4GB, enough to starve the ~1.14GB mmproj buffer that loads right after it and
+    # fail the whole verify with a misleading "out of memory" on a 24GB card that had over
+    # 5GB nominally free moments earlier (round 1, 2026-09-21: reproduced twice, confirmed by
+    # loading the same GGUF standalone with and without --mmproj while polling nvidia-smi).
+    # maker-server's own launcher (~/.local/bin/maker-server) always passes -np 1; verify is
+    # supposed to smoke-test the arm the way it is actually served, so it should match.
     return [
         str(LLAMA_SERVER_BIN),
         "-m", str(gguf_file),
         "--mmproj", str(mmproj_file),
         "-ngl", "99",
         "-c", "8192",
+        "-np", "1",
         "--port", str(port),
         "--host", "127.0.0.1",
         "--chat-template-kwargs", '{"enable_thinking":false}',
@@ -1104,21 +1113,30 @@ def in_gpu_window(env: dict | None = None) -> bool:
     return env.get(GPU_WINDOW_ENV) == "1"
 
 
-def require_gpu_window(args: argparse.Namespace) -> None:
+VERIFY_GPU_WINDOW_HINT = (
+    "verify starts a llama-server on the whole GPU, so it must run inside a GPU window: "
+    "`lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify --gguf <path>` (that "
+    "holds ~/.openclaw/cad-build.lock, evicts the resident and the maker arm, and exports "
+    f"{GPU_WINDOW_ENV}=1). Pass --i-know-the-gpu-is-free only when the GPU is already "
+    "free by hand."
+)
+
+
+def require_gpu_window(args: argparse.Namespace, hint: str = VERIFY_GPU_WINDOW_HINT) -> None:
     """Refuse (SystemExit) to start a GPU server outside a GPU window (fix round 3, finding
     5). verify loads an 18.7GB GGUF at -ngl 99: run bare while the 23GB resident is up on a
     24GB card, it fights the resident for VRAM and takes no build lock, so a CAD frontend can
     start a build on top of it. --i-know-the-gpu-is-free is the manual escape hatch for a
-    human who has already evicted everything by hand."""
+    human who has already evicted everything by hand.
+
+    `hint` is the message the refusal carries, so another GPU-heavy lab entry point can reuse
+    this ONE implementation of the rule (the env marker, the override flag, the SystemExit)
+    and still name its own launch line: lab/specgen.py calls it with its own hint rather than
+    reimplementing the check (Task 2 fix round 4). The default is verify's own message, so
+    ship.py's own callers and tests are unaffected."""
     if getattr(args, "i_know_the_gpu_is_free", False) or in_gpu_window():
         return
-    raise SystemExit(
-        "verify starts a llama-server on the whole GPU, so it must run inside a GPU window: "
-        "`lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify --gguf <path>` (that "
-        "holds ~/.openclaw/cad-build.lock, evicts the resident and the maker arm, and exports "
-        f"{GPU_WINDOW_ENV}=1). Pass --i-know-the-gpu-is-free only when the GPU is already "
-        "free by hand."
-    )
+    raise SystemExit(hint)
 
 
 def _stop_server(proc: subprocess.Popen) -> None:
@@ -1281,8 +1299,19 @@ def cmd_register(args: argparse.Namespace) -> None:
 
     arms_file = Path(args.arms_file)
     data = json.loads(arms_file.read_text())
-    rel = str(dest.relative_to(Path(data["store"])))
-    arm = build_spike_arm(data, args.name, args.adapter or "", rel, quant_type=args.quant_type)
+    try:
+        gguf_path = str(dest.relative_to(Path(data["store"])))
+    except ValueError:
+        # dest is not under arms.json's shared store root: a per-round --store like
+        # ~/lab-scratch/rounds/round1-store (round 1, 2026-09-21 -- the NVMe store had
+        # about 26GB free and each round's GGUF is about 18.7GB, so rounds live on the
+        # root SSD, see lab/README.md's "Compile and train a round" section). Recording
+        # the absolute path here still resolves correctly at load time: pathlib's Path
+        # join discards the left side when the right side is itself absolute
+        # (Path(data["store"]) / "/abs/path" == Path("/abs/path")), which is exactly what
+        # arms.py's load_arms does with this field.
+        gguf_path = str(dest)
+    arm = build_spike_arm(data, args.name, args.adapter or "", gguf_path, quant_type=args.quant_type)
     new_data = register_arm(data, arm, force=args.force)
     arms_file.write_text(json.dumps(new_data, indent=2) + "\n")
     print(f"[ship] register: arm {args.name!r} added to {arms_file}")

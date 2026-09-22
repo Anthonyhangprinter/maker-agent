@@ -1,4 +1,4 @@
-import importlib, json, os, sys
+import importlib, json, logging, os, sys
 
 import pytest
 from pathlib import Path
@@ -18,7 +18,8 @@ def _reload_with(tmp_path, cad_json: dict):
 def test_defaults_point_at_resident(tmp_path):
     cfg = _reload_with(tmp_path, {})
     m = cfg.maker_config()
-    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
+                "arm": None}
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
 
@@ -30,7 +31,7 @@ def test_enabled_maker_rewrites_port_and_alias(tmp_path):
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8088/v1/chat/completions"
     assert cfg.LOCAL_CODER_HEALTH == "http://127.0.0.1:8088/health"
     assert cfg.CODE_MODEL_STRONG == "local:gemma-4-31b"
-    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b", "local:gemma-4-31b+think"]
 
 
 def test_ensure_hook_starts_maker_and_resume_restores(tmp_path, monkeypatch):
@@ -71,7 +72,8 @@ def test_disabled_maker_ignores_a_stale_alias_and_port(tmp_path):
     cfg = _reload_with(tmp_path, {"maker": {"enabled": False, "port": 8088, "alias": "gemma-4-31b",
                                              "arm": "gemma-4-31b"}})
     m = cfg.maker_config()
-    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server"}
+    assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
+                "arm": None}
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
     assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
 
@@ -229,6 +231,360 @@ def test_no_think_is_by_intent_not_by_model_string(tmp_path, monkeypatch):
     assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
 
 
+# ── Task 1b: the think rung (2026-09-19) ───────────────────────────────────────
+
+def _offline_ollama(monkeypatch, cad_engine, response_extra=None):
+    """Common offline plumbing for the think-rung tests below: no systemctl, no health
+    probe, no real network, just a captured request body per call."""
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append(json.loads(req.data.decode()))
+        msg = {"content": "ok"}
+        if response_extra:
+            msg.update(response_extra)
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": msg}],
+             "usage": {"prompt_tokens": 1, "completion_tokens": 1}}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    return captured
+
+
+def test_think_suffix_sends_enable_thinking_true_to_the_same_alias_and_url(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088, "alias": "gemma-4-31b"}})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append((req.full_url, json.loads(req.data.decode())))
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": "ok"}}]}).encode())
+
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+
+    cad_engine._ollama("local:gemma-4-31b", "sys", "user")
+    cad_engine._ollama("local:gemma-4-31b+think", "sys", "user")
+
+    (url_plain, body_plain), (url_think, body_think) = captured
+    assert url_plain == url_think == cfg.LOCAL_CODER_URL
+    assert body_plain["model"] == body_think["model"] == "gemma-4-31b"   # suffix stripped
+    assert "chat_template_kwargs" not in body_plain
+    assert body_think["chat_template_kwargs"] == {"enable_thinking": True}
+    assert body_think["max_tokens"] == cfg.CODE_MAX_TOKENS_THINK
+    assert cfg.CODE_MAX_TOKENS_THINK >= 12000
+
+
+def test_think_keyword_without_a_rung_suffix(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b", "sys", "user", think=True)
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": True}
+    assert captured[-1]["model"] == "qwen3.8-27b"
+
+
+def test_no_think_wins_over_the_think_suffix(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", no_think=True)
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert captured[-1]["model"] == "qwen3.8-27b"
+
+
+def test_no_think_and_think_both_true_raises(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    with pytest.raises(ValueError):
+        cad_engine._ollama("local:qwen3.8-27b", "sys", "user", no_think=True, think=True)
+
+
+def test_images_call_never_sends_true_even_on_the_think_rung(tmp_path, monkeypatch):
+    """The critic (and the image-analysis pre-pass) always pass images=. CRITIC_MODEL never
+    carries "+think" by construction, but this must hold even if a caller somehow reached
+    here with a think-suffixed model and an image, because the critic path must be provably
+    safe, not merely unreachable in today's call graph."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", images=["QUJD"])
+    assert captured[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_schema_call_never_sends_true_even_on_the_think_rung(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    captured = _offline_ollama(monkeypatch, cad_engine)
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", fmt={"type": "object"})
+    assert captured[-1]["chat_template_kwargs"]["enable_thinking"] is False
+
+
+def test_reasoning_content_is_ignored_only_content_is_returned(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    _offline_ollama(monkeypatch, cad_engine,
+                     response_extra={"reasoning_content": "a" * 4439, "content": "result = 1"})
+    out = cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user", think=True)
+    assert out == "result = 1"
+
+
+def test_usage_counts_completion_tokens_on_a_think_call(tmp_path, monkeypatch):
+    """_LAST_USAGE / _USAGE_TOTAL must keep counting completion_tokens on a think call.
+    The server's own usage block already includes reasoning tokens in that count, and
+    _ollama() must not special-case the think rung when banking it."""
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cad_engine, "_wait_health", lambda url, timeout: None)
+
+    def fake_urlopen(req, timeout=None):
+        return _FakeChatResponse(json.dumps(
+            {"choices": [{"message": {"content": "ok"}}],
+             "usage": {"prompt_tokens": 50, "completion_tokens": 1864}}).encode())
+
+    monkeypatch.setattr(cad_engine.urllib.request, "urlopen", fake_urlopen)
+    cad_engine.reset_usage()
+    cad_engine._ollama("local:qwen3.8-27b+think", "sys", "user")
+    assert cad_engine._USAGE_TOTAL["completion_tokens"] == 1864
+    assert cad_engine._LAST_USAGE["completion_tokens"] == 1864
+
+
+def test_code_timeout_uses_the_strong_cap_on_the_think_rung(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {})
+    import cad_engine; importlib.reload(cad_engine)
+    monkeypatch.setattr(cad_engine, "_code_model", lambda: cad_engine.CODE_MODEL_THINK)
+    assert cad_engine._code_timeout() == cfg.CODE_TIMEOUT_STRONG
+
+
+def test_ladder_climbs_from_strong_to_think_then_stops(tmp_path, monkeypatch):
+    # gemma-4-31b's real benchmarks/arms.json entry launches with
+    # enable_thinking:false, so think_rung_available() is True here (fix round 1: the
+    # ladder only offers the think rung where it is a genuinely different request).
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    import cad_engine; importlib.reload(cad_engine)
+    assert cad_engine._next_code_model(cfg.CODE_MODEL_STRONG) == cfg.CODE_MODEL_THINK
+    assert cad_engine._next_code_model(cfg.CODE_MODEL_THINK) is None
+
+
+def test_fast_override_accepts_the_think_form(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "local:some-arm+think")
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.CODE_MODEL_FAST == "local:some-arm+think"
+    monkeypatch.setenv("CAD_CODE_MODEL_FAST", "qwen2.5-coder:7b-instruct-q4_K_M+think")
+    with pytest.raises(RuntimeError, match="not a local: model"):
+        _reload_with(tmp_path, {})
+
+
+# ── Fix round 1: think_rung_available() ─────────────────────────────────────────
+
+def test_think_rung_available_true_for_a_real_thinking_off_arm(tmp_path):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    assert cfg.think_rung_available() is True
+
+
+def test_think_rung_available_false_when_maker_disabled(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.think_rung_available() is False
+    assert cfg.CODE_MODEL_LADDER == [cfg.CODE_MODEL_STRONG]
+
+
+def test_think_rung_available_false_for_an_arm_without_the_thinking_off_flag(tmp_path):
+    # devstral-small-2's real benchmarks/arms.json entry has extra_args="" -- it never
+    # tells the server to launch with thinking off, so a "+think" request would not be
+    # a meaningfully different call from the plain one.
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "devstral-small-2",
+                                            "arm": "devstral-small-2"}})
+    assert cfg.think_rung_available() is False
+    assert cfg.CODE_MODEL_LADDER == [cfg.CODE_MODEL_STRONG]
+
+
+def test_think_rung_available_false_and_no_exception_when_arms_json_unreadable(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    monkeypatch.setattr(cfg, "ARMS_FILE", tmp_path / "does-not-exist.json")
+    assert cfg.think_rung_available() is False
+
+
+def test_think_rung_available_false_and_no_exception_when_arms_json_malformed(tmp_path, monkeypatch):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    bad = tmp_path / "arms.json"
+    bad.write_text("not json")
+    monkeypatch.setattr(cfg, "ARMS_FILE", bad)
+    assert cfg.think_rung_available() is False
+
+
+def test_think_rung_available_false_when_the_arm_is_absent_from_arms_json(tmp_path):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "some-unknown-alias",
+                                            "arm": "some-unknown-arm"}})
+    assert cfg.think_rung_available() is False
+
+
+# ── Task 1b: repair_think config accessor ──────────────────────────────────────
+
+def test_repair_think_defaults_off(tmp_path, monkeypatch):
+    monkeypatch.delenv("CAD_REPAIR_THINK", raising=False)
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.repair_think_enabled() is False
+
+
+def test_repair_think_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("CAD_REPAIR_THINK", "1")
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.repair_think_enabled() is True
+
+
+def test_repair_think_cad_json_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("CAD_REPAIR_THINK", raising=False)
+    cfg = _reload_with(tmp_path, {"repair_think": True})
+    assert cfg.repair_think_enabled() is True
+
+
+# ── lab_config() (Phase 3 Task 2, fix round 1: malformed-block tolerance) ──────
+
+def test_lab_config_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    assert cfg.lab_config() == cfg._LAB_DEFAULTS
+    assert cfg.lab_config() is not cfg._LAB_DEFAULTS   # never hand back the live default dict
+
+
+def test_lab_config_partial_override_keeps_other_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"hours_per_day": 6}}})
+    lc = cfg.lab_config()
+    assert lc["harvest"]["hours_per_day"] == 6
+    assert lc["harvest"]["unit_minutes"] == 25   # untouched default survives (Task 3 ruling: 25)
+    assert lc["harvest"]["day_allowed"] is False   # untouched default survives (Task 3 ruling)
+    assert lc["harvest"]["teacher_passes"] == cfg._LAB_DEFAULTS["harvest"]["teacher_passes"]
+
+
+@pytest.mark.parametrize("bad_value", ["a string", ["a", "list"], 5])
+def test_lab_config_malformed_top_level_falls_back_and_warns(tmp_path, bad_value, caplog):
+    cfg = _reload_with(tmp_path, {"lab": bad_value})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        lc = cfg.lab_config()
+    assert lc == cfg._LAB_DEFAULTS
+    assert any("lab" in r.message and "not an object" in r.message for r in caplog.records)
+
+
+def test_lab_config_malformed_nested_block_falls_back_and_warns(tmp_path, caplog):
+    """A malformed harvest sub-block ({"lab": {"harvest": "oops"}}) must fall back to
+    just the harvest defaults, not silently store a non-dict one level deep."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": "oops"}})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        lc = cfg.lab_config()
+    assert lc["harvest"] == cfg._LAB_DEFAULTS["harvest"]
+    assert any("lab.harvest" in r.message and "not an object" in r.message
+              for r in caplog.records)
+
+
+def test_lab_config_absent_lab_block_is_not_a_warning(tmp_path, caplog):
+    cfg = _reload_with(tmp_path, {})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        cfg.lab_config()
+    assert caplog.records == []
+
+
+def test_lab_config_returns_deep_copies_never_shared_with_the_defaults(tmp_path):
+    """Fix round 2: a caller mutating a nested value in the dict lab_config() returns
+    (a list append, an in-place key overwrite) must never corrupt the module-level
+    _LAB_DEFAULTS -- this module is imported by the live engine and, per the plan, is
+    called repeatedly from long-lived processes (the harvest unit, the web UI)."""
+    cfg = _reload_with(tmp_path, {})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["temps"].append(999)
+    lc1["harvest"]["unit_minutes"] = 999999
+    lc1["harvest"]["teacher_passes"].append("some-new-pass")
+
+    assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert cfg._LAB_DEFAULTS["harvest"]["unit_minutes"] == 25
+    assert cfg._LAB_DEFAULTS["harvest"]["teacher_passes"] == ["think"]
+
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert lc2["harvest"]["unit_minutes"] == 25
+    assert lc2 == cfg._LAB_DEFAULTS
+    assert lc2 is not cfg._LAB_DEFAULTS
+    assert lc2["harvest"] is not cfg._LAB_DEFAULTS["harvest"]
+
+
+def test_lab_config_partial_override_also_returns_deep_copies(tmp_path):
+    """The same guarantee holds on the merge path (a real override present), not just
+    the all-defaults fallback path -- both branches of _sanitize_against_defaults
+    deepcopy before returning."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"hours_per_day": 6}}})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["temps"].append(999)
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["temps"] == [0.2, 0.5, 0.8]
+    assert cfg._LAB_DEFAULTS["harvest"]["temps"] == [0.2, 0.5, 0.8]
+
+
+def test_lab_config_new_task_3c_keys_have_the_documented_defaults(tmp_path):
+    cfg = _reload_with(tmp_path, {})
+    h = cfg.lab_config()["harvest"]
+    assert h["probe_candidates"] == 2
+    assert h["salvage"] is False
+    assert h["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert h["seed"] == 1
+
+
+# ── lab_config() tier_weights (Task 3c: wrong shapes must fall back, never raise) ──
+_BAD_TIER_WEIGHTS = [
+    ("a list", ["1", "2", "3", "4"]),
+    ("a string", "1,2,3,4"),
+    ("all negative", {"1": -1, "2": -3, "3": -4, "4": -1}),
+    ("one negative weight", {"1": 1, "2": -3, "3": 4, "4": 1}),
+    ("zero-sum", {"1": 0, "2": 0, "3": 0, "4": 0}),
+    ("empty dict", {}),
+    ("non-numeric value", {"1": "a lot", "2": 3, "3": 4, "4": 1}),
+]
+
+
+@pytest.mark.parametrize("label,bad", _BAD_TIER_WEIGHTS, ids=[b[0] for b in _BAD_TIER_WEIGHTS])
+def test_lab_config_tier_weights_wrong_shape_falls_back_to_the_default(tmp_path, label, bad):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": bad}}})
+    assert cfg.lab_config()["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+
+
+def test_lab_config_tier_weights_negative_values_log_a_warning(tmp_path, caplog):
+    """A real dict of the right TYPE but invalid VALUES (unlike a list/string, which the
+    generic "not a dict" fallback above already warns about on its own path) is caught
+    by `_valid_tier_weights` specifically -- this is the case that needs its own warning."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": {"1": 1, "2": -3,
+                                                                       "3": 4, "4": 1}}}})
+    with caplog.at_level(logging.WARNING, logger="cad_v5"):
+        h = cfg.lab_config()["harvest"]
+    assert h["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert any("tier_weights" in r.message for r in caplog.records)
+
+
+def test_lab_config_tier_weights_partial_positive_dict_is_kept_as_is(tmp_path):
+    """A partial but internally-valid override (missing tiers, all non-negative, a
+    positive sum) is not "wrong shape" -- it merges over the defaults like any other
+    lab.harvest key, never silently discarded."""
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": {"1": 5}}}})
+    h = cfg.lab_config()["harvest"]
+    assert h["tier_weights"] == {"1": 5, "2": 3, "3": 4, "4": 1}
+
+
+def test_lab_config_tier_weights_never_raises_and_stays_a_deep_copy(tmp_path):
+    cfg = _reload_with(tmp_path, {"lab": {"harvest": {"tier_weights": "oops"}}})
+    lc1 = cfg.lab_config()
+    lc1["harvest"]["tier_weights"]["1"] = 999
+    lc2 = cfg.lab_config()
+    assert lc2["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+    assert cfg._LAB_DEFAULTS["harvest"]["tier_weights"] == {"1": 1, "2": 3, "3": 4, "4": 1}
+
+
 class _FakeHealthResponse:
     def __enter__(self):
         return self
@@ -253,14 +609,16 @@ def teardown_module(module):
 
 # ── Ollama retirement (2026-09-19) ─────────────────────────────────────────────
 
-def test_ladder_is_one_local_rung(tmp_path, monkeypatch):
+def test_ladder_is_two_local_rungs(tmp_path, monkeypatch):
     """The 7B fast rung lived on Ollama. With Ollama off the box the local ladder is the
-    strong rung alone, and CODE_MODEL_FAST keeps its name pointing at it so importers
-    (fluid_gen, gift_sample, pinned benchmark legs) still resolve something real."""
+    strong rung, then the SAME arm thinking on (Task 1b, 2026-09-19, no second server), and
+    CODE_MODEL_FAST keeps its name pointing at the strong rung so importers (fluid_gen,
+    gift_sample, pinned benchmark legs) still resolve something real."""
     monkeypatch.delenv("CAD_CODE_MODEL_FAST", raising=False)
     cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
                                             "alias": "gemma-4-31b"}})
-    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b"]
+    assert cfg.CODE_MODEL_LADDER == ["local:gemma-4-31b", "local:gemma-4-31b+think"]
+    assert cfg.CODE_MODEL_THINK == "local:gemma-4-31b+think"
     assert cfg.CODE_MODEL_FAST == cfg.CODE_MODEL_DEFAULT == cfg.CODE_MODEL_STRONG
     assert "ollama" not in cfg.CODE_MODEL_FAST.lower()
 
@@ -346,3 +704,65 @@ def test_vision_prepass_rides_the_local_rung_with_an_image_part(tmp_path, monkey
     monkeypatch.setattr(cad_engine.urllib.request, "urlopen",
                         lambda *a, **k: pytest.fail("cached analysis must not re-call"))
     assert cad_engine.analyze_reference_image(str(photo)) == analysis
+
+
+# ── Fix round 2: valid JSON of the WRONG SHAPE must degrade, never raise ─────────
+# A review reproduced uncaught AttributeErrors here. The ladder is computed at import
+# time, so an exception would break `import cad_v5.config` for every entry point.
+_WRONG_SHAPES = [
+    ("arms is a string",            {"arms": "a-string"}),
+    ("arms is a dict",              {"arms": {"foo": "bar"}}),
+    ("arms holds a non-dict",       {"arms": ["not-a-dict"]}),
+    ("extra_args is a number",      {"arms": [{"name": "gemma-4-31b", "extra_args": 12345}]}),
+    ("extra_args is a list",        {"arms": [{"name": "gemma-4-31b", "extra_args": ["x"]}]}),
+    ("top level is a list",         [1, 2, 3]),
+    ("top level is null",           None),
+    ("arms key missing",            {"critics": []}),
+    ("arm name is not a string",    {"arms": [{"name": 7, "extra_args": ""}]}),
+]
+
+
+@pytest.mark.parametrize("label,doc", _WRONG_SHAPES, ids=[w[0] for w in _WRONG_SHAPES])
+def test_think_rung_available_never_raises_on_wrong_shaped_arms_json(tmp_path, monkeypatch, label, doc):
+    cfg = _reload_with(tmp_path, {"maker": {"enabled": True, "port": 8088,
+                                            "alias": "gemma-4-31b", "arm": "gemma-4-31b"}})
+    bad = tmp_path / "arms.json"
+    bad.write_text(json.dumps(doc))
+    monkeypatch.setattr(cfg, "ARMS_FILE", bad)
+    assert cfg.think_rung_available() is False
+
+
+@pytest.mark.parametrize("label,doc", _WRONG_SHAPES, ids=[w[0] for w in _WRONG_SHAPES])
+def test_import_survives_a_wrong_shaped_arms_json(tmp_path, label, doc):
+    """The real failure mode: the bad file is there BEFORE import. A fresh interpreter must
+    import cad_v5.config cleanly and fall back to a one-rung ladder."""
+    import subprocess, sys
+    cad = tmp_path / "cad.json"
+    cad.write_text(json.dumps({"maker": {"enabled": True, "port": 8088,
+                                         "alias": "gemma-4-31b", "arm": "gemma-4-31b"}}))
+    bad = tmp_path / "arms.json"
+    bad.write_text(json.dumps(doc))
+    env = {**os.environ, "CAD_CONFIG_FILE": str(cad), "CAD_ARMS_FILE": str(bad)}
+    repo = str(Path(__file__).resolve().parents[1])
+    r = subprocess.run([sys.executable, "-c",
+                        "import cad_v5.config as c; print(len(c.CODE_MODEL_LADDER), c.think_rung_available())"],
+                       cwd=repo, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert r.stdout.strip() == "1 False"
+
+
+def test_import_with_the_real_shape_still_gives_two_rungs(tmp_path):
+    import subprocess, sys
+    cad = tmp_path / "cad.json"
+    cad.write_text(json.dumps({"maker": {"enabled": True, "port": 8088,
+                                         "alias": "gemma-4-31b", "arm": "gemma-4-31b"}}))
+    good = tmp_path / "arms.json"
+    good.write_text(json.dumps({"arms": [{"name": "gemma-4-31b",
+                                          "extra_args": '--chat-template-kwargs {"enable_thinking": false}'}]}))
+    env = {**os.environ, "CAD_CONFIG_FILE": str(cad), "CAD_ARMS_FILE": str(good)}
+    repo = str(Path(__file__).resolve().parents[1])
+    r = subprocess.run([sys.executable, "-c",
+                        "import cad_v5.config as c; print(len(c.CODE_MODEL_LADDER), c.think_rung_available())"],
+                       cwd=repo, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert r.stdout.strip() == "2 True"

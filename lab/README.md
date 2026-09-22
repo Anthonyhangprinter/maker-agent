@@ -48,9 +48,9 @@ lab/.venv/bin/python -c "import torch; print(torch.cuda.is_available(), torch.ve
 ## gpu_window.sh
 
 One bounded GPU job with the resident (`qwen38-server`) and the CAD maker arm (`maker-server`)
-evicted for its duration, restoring whichever one was actually active before the job started.
-It holds the same machine-wide flock (`~/.openclaw/cad-build.lock`) every CAD frontend uses, so a
-training run and a CAD build can never contend for the GPU at once.
+evicted for its duration, always restoring the RESIDENT afterwards. It holds the same
+machine-wide flock (`~/.openclaw/cad-build.lock`) every CAD frontend uses, so a training run and
+a CAD build can never contend for the GPU at once.
 
 Usage:
 
@@ -66,44 +66,82 @@ lab/gpu_window.sh nvidia-smi --query-gpu=memory.used --format=csv
 
 What it does, in order:
 
-1. Opens the lock file in APPEND mode and takes the lock (`flock -w 3600`, i.e. queues up to 1h
-   rather than erroring immediately). Only once the lock is held does it truncate the file and
-   write its own `{"pid", "child_pid", "frontend": "lab", "spec", "started"}` holder line, so a
-   lab job queueing behind another frontend never wipes that frontend's holder line (it used to:
-   `exec 9>` truncates at open time, before `flock` returns).
-2. Records whether `maker-server` was active before touching anything (`MAKER_WAS`).
+1. Opens the lock file in APPEND mode and takes the lock (`flock -w ${GPU_WINDOW_LOCK_WAIT_SEC:-3600}`,
+   i.e. queues up to 1h by default rather than erroring immediately). Only once the lock is held
+   does it truncate the file and write its own
+   `{"pid", "child_pid", "pgid", "frontend": "lab", "spec", "started"}` holder line, so a lab job
+   queueing behind another frontend never wipes that frontend's holder line (it used to:
+   `exec 9>` truncates at open time, before `flock` returns). If the lock never comes free it
+   exits **75** (`EX_TEMPFAIL`) and touches no service at all.
+2. Records whether `maker-server` was active before touching anything (`MAKER_WAS`), for the log
+   line only.
 3. Stops both `maker-server` and `qwen38-server`, then polls `nvidia-smi` for up to 60s
    (30 x 2s) for VRAM to drop under 1500 MiB before proceeding; exits 4 if it never drops.
-4. Runs the given command as a BACKGROUND child, with `CAD_GPU_WINDOW=1` exported for it and
-   under `timeout --signal=TERM --kill-after=60 ${GPU_WINDOW_MAX_SEC:-36000}` (a 10h dead-man
-   cap, the same idea as `maker-server.service`'s `RuntimeMaxSec`), then rewrites the holder
-   line with the child's PID and `wait`s on it. The child's exit code is this script's exit
-   code.
-5. On `SIGINT`/`SIGTERM`: kills the child first (TERM, then KILL after 20s) and only then runs
-   the EXIT trap. This ordering is the whole point of the background child: with a foreground
-   job, bash runs the EXIT trap on signal while the job is still live, so the resident (about
-   23GB) was started on top of a running training job (21.7GB peak) and one of them died of a
-   CUDA OOM.
-6. On exit (success, failure, or handled signal, via `trap ... EXIT`): if `maker-server` was
-   active at entry, restarts only `maker-server` (its unit `Conflicts=qwen38-server.service`, so
-   systemd stops the resident as a side effect); otherwise restarts `qwen38-server`. The two
-   units are never started together, matching the `Conflicts=` declared between them.
+4. Runs the given command as a BACKGROUND child in its OWN process group (`set -m`, so the
+   group's PGID is the child's PID), with `CAD_GPU_WINDOW=1` and `PYTHONUTF8=1` exported for it,
+   with the build lock fd closed for it (`9>&-`), and under
+   `timeout --signal=TERM --kill-after=${GPU_WINDOW_GRACE_SEC:-180} ${GPU_WINDOW_MAX_SEC:-36000}`
+   (a 10h dead-man cap, the same idea as `maker-server.service`'s `RuntimeMaxSec`), then rewrites
+   the holder line with the child's PID and PGID and `wait`s on it. The child's exit code is this
+   script's exit code.
+5. On `SIGINT`/`SIGTERM`: signals the job's whole PROCESS GROUP first (TERM, then KILL after
+   `GPU_WINDOW_GRACE_SEC`, default 180s) and only then runs the EXIT trap. Two things matter
+   here. The background child is what makes the ordering possible at all: with a foreground job,
+   bash runs the EXIT trap on signal while the job is still live, so the resident (about 23GB)
+   was started on top of a running training job (21.7GB peak) and one of them died of a CUDA
+   OOM. And the signal goes to the group, not to the PID, because the PID is `timeout`: killing
+   it alone left the real job running as an orphan, still on the GPU and still holding the build
+   lock through the inherited fd 9, while the trap started the resident on top of it.
+   `timeout` is deliberately not given `--foreground`, so its own expiry signal also goes to the
+   whole group and reaches grandchildren.
+6. On exit (success, failure, or handled signal, via `trap ... EXIT`): stops `maker-server` and
+   starts `qwen38-server`, ALWAYS. The maker arm is per-build, never a resting state, so a stray
+   maker at entry used to make this trap restart the maker after the job's own bookend had
+   correctly restored the resident, leaving the household with no chat model.
+   `GPU_WINDOW_RESTORE=maker` is the escape hatch for a caller that really wants the maker arm
+   left running; nothing uses it today. A second `SIGTERM` arriving during the restore is
+   ignored, so it cannot abandon it half way.
 
-Exit codes: `3` = build lock busy for over an hour, `4` = VRAM did not clear after eviction,
-`124` = the job hit the wall-clock cap, `130`/`143` = interrupted/terminated, anything else =
-the job's own exit code.
+Knobs (all optional, defaults in brackets):
+
+| Env var | Default | What it does |
+|---|---|---|
+| `GPU_WINDOW_MAX_SEC` | 36000 | wall-clock cap for the job |
+| `GPU_WINDOW_GRACE_SEC` | 180 | TERM to KILL grace, and `timeout --kill-after` |
+| `GPU_WINDOW_LOCK_WAIT_SEC` | 3600 | how long to queue for the build lock before exiting 75 |
+| `GPU_WINDOW_RESTORE` | resident | `maker` restores the maker arm instead of the resident |
+| `GPU_WINDOW_SYSTEMCTL` / `GPU_WINDOW_NVIDIA_SMI` | `systemctl` / `nvidia-smi` | test seams |
+| `CAD_BUILD_LOCK_FILE` | `~/.openclaw/cad-build.lock` | the same var `cad_v5/config.py` honours |
+
+The grace default is 180s because that is what a real job needs: a build step in flight can take
+about 120s to return before the job even sees its abort flag, and the job's own bookend then
+cold-loads the resident (25-40s). `lab/harvest_unit.sh` sets `GPU_WINDOW_LOCK_WAIT_SEC=120`, so a
+timer tick that would merely queue skips instead (exit 75, declared `SuccessExitStatus=` in
+`deploy/lab-harvest.service`) rather than being killed by that unit's own `RuntimeMaxSec`.
+
+Exit codes: `75` = build lock busy for the whole wait (a skip, nothing was touched), `4` = VRAM
+did not clear after eviction, `124` = the job hit the wall-clock cap (`137` when the job ignored
+that TERM and the group-wide KILL took `timeout` down with it), `130`/`143` =
+interrupted/terminated, anything else = the job's own exit code.
+
+Tests: `tests/test_gpu_window.py` drives the real script against stub `systemctl`/`nvidia-smi`
+binaries and a temp lock file, including the stubborn-child, grandchild, grace, restore-target,
+lock-contention and child-environment cases.
 
 ### The SIGKILL limitation (read this before using kill -9)
 
-`SIGKILL` (`kill -9`) cannot be trapped by any shell, so killing the wrapper that way skips
-everything above: the child keeps running on the GPU, and because it inherits fd 9 the build
-lock stays held by that orphan. `health-watch.sh` treats a held build lock as a deliberate
-eviction, so it will not restore the resident either, and the box then sits with no resident
-until someone intervenes. That is why the holder line carries the child's PID:
+`SIGKILL` (`kill -9`) cannot be trapped by any shell, so killing the WRAPPER that way still skips
+the restore, and the JOB SURVIVES and keeps the GPU. The job no longer holds the build lock
+(its fd is closed), so the lock is released with the wrapper; `health-watch.sh` then sees a
+free lock with no maker-server active, calls it a real failure and restarts the resident ON
+TOP of the orphaned job within about 5 minutes. So after a `kill -9` of the wrapper, kill the
+job's group yourself first; the group is named in the holder line. Under the harvest unit,
+`ExecStopPost=` starts the resident after systemd has SIGKILLed the whole cgroup, which is safe.
+Stop the window with TERM, never KILL:
 
 ```bash
-cat ~/.openclaw/cad-build.lock     # {"pid": ..., "child_pid": 12345, ...}
-kill 12345                         # then, if needed: systemctl --user start qwen38-server
+cat ~/.openclaw/cad-build.lock     # {"pid": ..., "child_pid": 12345, "pgid": 12345, ...}
+kill -TERM -- -12345               # then, if needed: systemctl --user start qwen38-server
 ```
 
 Send `SIGTERM` (plain `kill`, or Ctrl-C in the foreground) instead: that path is handled.
@@ -226,3 +264,196 @@ Notes that matter:
   62GB file.
 - **`register` refuses without a passing `~/lab-scratch/verify.ok`** (`--force` overrides), the
   same gate `clean` has always had.
+
+## Spec generation (Phase 3, `lab/specgen.py`)
+
+`lab/specgen.py` writes new CAD part specs by prompting the maker arm, family by family, until
+the spec bank has enough rows at enough tier 3-4 share. It is a one-time, multi-hour,
+unattended job, and like `ship.py verify` it **refuses to run outside a GPU window**: it
+switches the maker arm with `scripts/arms.py use <arm>` and then talks to it, so without the
+window's build lock it would take the GPU out from under any CAD build, benchmark card or lab
+job already running. `--i-know-the-gpu-is-free` is the manual override, same name and meaning
+as `verify`'s.
+
+The only supported launch, from a script file (not pasted into a shell), with a fresh log every
+time:
+
+```bash
+setsid nohup lab/gpu_window.sh python3 lab/specgen.py \
+    --total 2500 --target-tier34 0.45 \
+    > ~/lab-scratch/specgen-$(date +%Y%m%d-%H%M).log 2>&1 &
+```
+
+The smoke shape is the same wrapper with one batch:
+
+```bash
+lab/gpu_window.sh python3 lab/specgen.py --once --group plate --n 20
+```
+
+- **While it runs, every CAD build on the box waits on the build lock** ("waiting for GPU"), so
+  run it at night. The window holds `~/.openclaw/cad-build.lock` for the whole run.
+- **Bounds:** `--max-hours` (default 4) is checked between batches; `GPU_WINDOW_MAX_SEC`
+  (default 10h) is the window's own dead-man cap. `run_total`'s circuit breakers (3 consecutive
+  failed model calls, 8 consecutive zero-accept batches) stop a sick run sooner.
+- **To stop it, send ONE SIGTERM to the `gpu_window.sh` process** (`kill <pid>`, never `-9`).
+  The window TERMs specgen's whole process group first; specgen stops on that one signal, runs
+  its `arms.py restore` bookend (it has `GPU_WINDOW_GRACE_SEC`, 180s by default, to do it), and
+  only then does the window restore the box. A second SIGTERM during that cleanup is ignored on
+  purpose, by both.
+- **Recovery check after any hard kill:**
+
+  ```bash
+  ls ~/.openclaw/cad.json.pre-arm ~/.openclaw/maker.env.pre-arm
+  python3 scripts/arms.py restore    # only if either file exists
+  ```
+
+  A healthy-looking `qwen38-server` says nothing about whether `cad.json` still points at the
+  run's arm, so run the check even then.
+- **The double restore is harmless.** specgen's own bookend restores the pre-run `maker` block
+  and starts the resident; the window's EXIT trap then does its own restore, which is a no-op
+  stop of an already-stopped maker plus a start of an already-running resident. Since Task 3a
+  the window's restore always targets the resident, so the two can no longer disagree (they
+  used to: a stray maker at entry made the window restart the maker over specgen's resident).
+
+## Teacher reference geometry (Phase 3 Task 3d1, `lab/teacher_refs.py`)
+
+The harvest confirms a candidate as a training pair either by agreement between two samples
+of the local model, or by matching a REFERENCE geometry (`reference_stl` on a bank row,
+scored by `geom_bands.score_against_reference`) -- the stronger of the two. Only
+owner-supplied references existed until now. `lab/teacher_refs.py` promotes the 414
+`source: "teacher-suite"` bank rows' own August solves as references: `~/.openclaw/
+cad-sftpairs.jsonl` already holds accepted build123d code for most of them (`source`
+"teacher" or "teacher-human-accepted"), written by a stronger teacher model back when the
+gate was weaker. That code is used ONLY as geometry to check the local model's own code
+against -- it never becomes training text.
+
+```bash
+python3 lab/specbank.py import-teacher-refs --dry-run                # counts only, writes nothing
+python3 lab/specbank.py import-teacher-refs --limit 10                # a real, bounded run
+python3 lab/specbank.py import-teacher-refs                           # the full remaining set
+python3 lab/specbank.py stats                                         # now reports with_reference
+```
+
+CPU only, no model calls, no service starts/stops: `cad_engine._ollama` is patched to raise
+on import, and every part is built/inspected through `cad_engine.run_step`/`run_inspect`
+(local subprocesses) plus a fresh child interpreter for build123d's STEP->STL conversion and
+for `lab/harvest.py`'s `strict_envelope_check` (a separate process per call, deliberately,
+so a bad moment in a file being edited elsewhere never takes the whole run down -- see the
+module docstring). Each matched teacher solve is RE-BUILT and RE-GATED under TODAY's rules
+(the engine's deterministic gate plus the strict envelope check); several suites clean in
+August now fail on the same numeric mismatches the gate was hardened to catch since, and
+those are reported, never admitted. Up to 3 candidates build in parallel
+(`--workers`, clamped to 3). Admitted rows gain `reference_stl` (cached at
+`lab/state/refs/<key[:16]>.stl`, git-ignored), `reference_source: "teacher-claude"`,
+`reference_facts` (solids/faces/volume/bbox/bores/hole_groups) and `reference_added`.
+Owner references always win and a second run is a no-op: any row that already carries
+`reference_stl` is left alone. A full run writes `lab/state/teacher_refs_report.json`
+(git-ignored) with counts by tier/suite for every stage (read, rejected by review, matched,
+crashed, failed-gate, admitted) plus the non-admitted list with reasons.
+
+`specbank.apply_reference_updates` is the bank-mutation half: it takes the SAME flock
+`add_items`/`import_teacher`/`import_references` already use, rewrites the file in place
+(never via a temp-file + rename -- a rename would swap the path to a new inode while a
+concurrent appender already blocked on this lock still holds an fd to the old one, so its
+write would succeed and still be lost forever once orphaned), and leaves every row it does
+not touch byte-identical to how it was written.
+
+## Compile and train a round (Phase 3 Task 4, `lab/compile.py` + `lab/round1.sh`)
+
+`lab/compile.py` turns `lab/state/pairs.jsonl` (the harvest's verified pairs) into a
+round: it selects rows by `kind=="good"`, `turn=="first"` (a salvage turn never trains),
+an effective `confirm_strength` (after `lab/state/upgrades.jsonl`) in `--strengths`, not
+listed in `--exclude-ids`, and a `gate_version` that is either today's or explicitly
+accepted; dedups by AST-normalised code fingerprint and caps at `--max-per-spec` per
+spec, preferring the strongest evidence; splits surviving specs into train/val by a
+FROZEN, spec-level, tier-stratified assignment (`--val-specs-file`, default
+`lab/state/val_specs.json` -- read and reused verbatim once it exists, so round 2 stays
+comparable to round 1; a copy also lands in `--out-dir` for this round's own record);
+and renders every surviving pair through `lab.data.render_pairs`, the SAME function
+`lab/data.py` itself uses, so a row's spec and prompt shape are contamination-checked
+against the exact same card-suite sets and rendered through the exact same checkpoint
+template `lab/data.py` would use -- there is no separate, hand-rolled rendering path
+here. `spec_id`/`tier`/`confirm_strength`/`pair_id`/`source` ride alongside the rendered
+`prompt`/`completion`/`id`/`kind` for provenance; `lab/train.py`'s own `load_rows` only
+ever reads `prompt` and `completion`, so the extra keys are inert to it.
+
+```bash
+# 1. Compile round 1 (dry run first: prints data_meta, writes nothing)
+python3 lab/compile.py --round 1 --strengths reference,cross_pass \
+    --out-dir lab/rounds/round1 --dry-run
+python3 lab/compile.py --round 1 --strengths reference,cross_pass \
+    --out-dir lab/rounds/round1
+# writes lab/rounds/round1/{train.jsonl, val.jsonl, val_specs.json, data_meta.json}
+```
+
+Two real dry runs against the live bank on this branch (2026-09-20, harvest still
+running so `rows_total_seen` will differ on a later re-run):
+
+| strengths | train rows | val rows | held-out specs |
+|---|---|---|---|
+| `reference,cross_pass` | 93 | 9 | 5 |
+| `reference,cross_pass,same_pass` | 185 | 15 | 8 |
+
+`same_pass` evidence is the weaker kind (agreement within one sampling pass, not across
+a student/think pass split -- see `lab/harvest.py`'s own `confirm_strength` docstring),
+so start a round on `reference,cross_pass` and widen to `same_pass` only once round 1's
+card result is in.
+
+```bash
+# 2. Train (GPU, inside a window) -- a GENTLER preset than the Phase 2 spike (see
+#    lab/round1.sh's own header comment for the one preset knob it could not apply:
+#    lab/train.py hardcodes learning_rate=2e-4 with no --lr flag)
+lab/round1.sh
+# adapter lands at ~/lab-scratch/round1-adapter-<timestamp>/adapter (printed at launch)
+```
+
+```bash
+# 3. Ship the adapter as a GGUF arm. Per the 2026-09-19 disk decision (NVMe has about
+#    26GB free, and each round's GGUF is about 18.7GB): round outputs go to the root
+#    SSD under ~/lab-scratch/rounds/, not lab/ship.py's own NVMe DEFAULT_STORE_DIR
+#    (that default is the Phase 2 spike arm's own store, not a shared one).
+ADAPTER=~/lab-scratch/round1-adapter-<timestamp>/adapter   # from step 2's printed path
+lab/.venv/bin/python lab/ship.py all --adapter "$ADAPTER" \
+    --model-name gemma-4-31b-cad-round1 \
+    --quant-out ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf
+# ship.py all stops after quantize on purpose (verify needs a human at the GPU,
+# register touches the shared benchmarks/arms.json, clean is destructive)
+lab/gpu_window.sh lab/.venv/bin/python lab/ship.py verify \
+    --gguf ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf
+lab/.venv/bin/python lab/ship.py register \
+    --gguf ~/lab-scratch/rounds/round1/gemma-4-31b-cad-round1-Q4_K_M.gguf \
+    --name gemma-4-31b-cad-round1 --adapter "$ADAPTER" \
+    --store ~/lab-scratch/rounds/round1-store
+```
+
+```bash
+# 4. Card the new arm on the SAME subset/flags the Phase 2 card used (restated from
+#    benchmarks/results/card/phase2/card.json's own meta: mode oneshot, subset phase1 --
+#    DECISION.md's prose names the same two knobs but the exact invocation lives in that
+#    run's meta). scripts/run_card.py switches arms itself per --arms entry (via
+#    scripts/arms.py's own cmd_use) and restores the resident when it finishes, so this
+#    does not need a separate arms.py call first; `scripts/arms.py use <arm>` is only
+#    for pointing the maker server at the new arm for an interactive spot-check outside
+#    a card run (restore it afterward: `scripts/arms.py restore`).
+python3 scripts/run_card.py --arms gemma-4-31b-cad-round1 --subset phase1 --mode oneshot \
+    --out benchmarks/results/card/round1
+
+# 5. Lift vs the stock arm, like-for-like on the public suites (the Phase 2 card reused
+#    its baseline rows from the Phase 1 card the same way; round1's card above only
+#    needs to add the new arm's own rows for lift_report to diff against).
+python3 scripts/lift_report.py benchmarks/results/card/round1 --baseline gemma-4-31b
+```
+
+Ship rule (`benchmarks/results/card/phase2/DECISION.md`, section 4): promote an arm only
+when its card beats the stock arm on the public suites (invalid ratio first, then match
+share) with the paired flips column in its favour -- exactly the rule that failed the
+Phase 2 spike. `~/.openclaw/cad.json`'s `maker` block stays pointed at the stock
+`gemma-4-31b` arm until round 1's card actually clears that bar.
+
+**Known gap:** `lab/train.py`'s `SFTConfig` hardcodes `learning_rate=2e-4`
+(`lab/train.py:598`) with no CLI flag to change it. The intended round 1 preset wanted a
+gentler `1e-4` for this smaller, self-generated set; `lab/round1.sh` cannot apply that
+one knob without editing the frozen trainer, so it trains at 2e-4 and prints that gap at
+launch. Every other spike knob is unchanged (r16 / alpha 16 / language layers only /
+batch 1 x accum 4 / max-seq 5120 / adamw_8bit / bf16); round 1 only raises `--epochs` to
+2 (the spike used 1) since round 1's own set is much smaller than the spike's 353 rows.

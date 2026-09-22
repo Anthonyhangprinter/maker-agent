@@ -65,8 +65,7 @@ def test_cmd_use_restores_resident_if_maker_never_healthy(tmp_path, monkeypatch)
             returncode = 0
         return _R()
 
-    monkeypatch.setattr(arms, "apply_arm", lambda a: None)      # no real cad.json/maker.env writes
-    monkeypatch.setattr(arms, "disable_maker", lambda: None)    # cmd_restore's first call
+    monkeypatch.setattr(arms, "apply_arm", lambda *a, **kw: None)  # no real cad.json/maker.env writes
     monkeypatch.setattr(arms.subprocess, "run", fake_run)
 
     wait_calls = {"n": 0}
@@ -83,9 +82,14 @@ def test_cmd_use_restores_resident_if_maker_never_healthy(tmp_path, monkeypatch)
     model = tmp_path / "fake.gguf"
     model.write_text("x")
     arm = {"name": "fake-arm", "alias": "fake-alias", "model_path": str(model)}
+    # Real tmp cad.json/maker.env: apply_arm is stubbed out above, but _save_pre_arm and
+    # the cmd_restore recovery path below are NOT, so this must never fall back to the
+    # module's real ~/.openclaw defaults.
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
 
     with pytest.raises(SystemExit):
-        arms.cmd_use(arm)
+        arms.cmd_use(arm, cad_json=cad_json, env_path=env_path)
 
     assert wait_calls["n"] == 2   # cmd_use's own wait, then cmd_restore's wait
     cmds = [" ".join(c) for c in calls]
@@ -175,11 +179,34 @@ def test_render_critic_env_keys_and_quoting():
         assert v.startswith("'") and v.endswith("'"), f"{k} value is not single-quoted: {v!r}"
 
 
+def _tmp_critics(tmp_path):
+    """The real critic definitions (name/alias/ctx/port/vram_gb), resolved against a
+    throwaway tmp store with small dummy files in place of the real GGUFs.
+
+    Tests must never depend on the real model files under arms.json's "store"
+    (/mnt/nvme-apps/LinuxModels): they can be moved, archived to the HDD, or simply
+    absent on a box that hasn't downloaded them, and none of that should fail a unit
+    test. Only the JSON shape (paths, names, sizes-in-GB) is real."""
+    real = json.loads((HERE / "benchmarks" / "arms.json").read_text())
+    store = tmp_path / "store"
+    arms_json = tmp_path / "arms.json"
+    arms_json.write_text(json.dumps({"store": str(store), "critics": real["critics"]}))
+    critics = arms.load_critics(arms_json)
+    for critic in critics.values():
+        for key in ("model_path", "mmproj_path"):
+            p = critic.get(key)
+            if not p:
+                continue
+            Path(p).parent.mkdir(parents=True, exist_ok=True)
+            Path(p).write_bytes(b"dummy")
+    return critics
+
+
 def test_cmd_critic_use_refuses_when_vram_low(tmp_path, monkeypatch):
     """The whole point of Task 4: a critic must not be started when it cannot fit beside
     whatever else is already on the GPU. free_vram_gb() patched low must exit(2) and make
     no systemctl call and no env write."""
-    critic = arms.load_critics()["gemma-4-12b"]
+    critic = _tmp_critics(tmp_path)["gemma-4-12b"]
     monkeypatch.setattr(arms, "free_vram_gb", lambda: 1.0)
     calls: list[list[str]] = []
     monkeypatch.setattr(arms.subprocess, "run",
@@ -193,7 +220,7 @@ def test_cmd_critic_use_refuses_when_vram_low(tmp_path, monkeypatch):
 
 
 def test_cmd_critic_use_proceeds_when_vram_high(tmp_path, monkeypatch, capsys):
-    critic = arms.load_critics()["minicpm-v-4.6"]
+    critic = _tmp_critics(tmp_path)["minicpm-v-4.6"]
     monkeypatch.setattr(arms, "free_vram_gb", lambda: 20.0)
     calls: list[list[str]] = []
 
@@ -222,10 +249,10 @@ def test_cmd_critic_off_stops_the_unit(monkeypatch):
 
 def test_cmd_use_recovery_does_not_mask_the_original_failure(tmp_path, monkeypatch, capsys):
     """M8: a restore that itself fails must not become the only error anyone sees."""
-    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms, "apply_arm", lambda *a, **kw: None)
     monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
 
-    def failing_restore():
+    def failing_restore(*a, **kw):
         raise RuntimeError("resident unhealthy too")
 
     monkeypatch.setattr(arms, "cmd_restore", failing_restore)
@@ -235,21 +262,26 @@ def test_cmd_use_recovery_does_not_mask_the_original_failure(tmp_path, monkeypat
 
     monkeypatch.setattr(arms, "_wait", dead_wait)
     model = tmp_path / "fake.gguf"; model.write_text("x")
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
     with pytest.raises(SystemExit, match="maker never healthy"):
-        arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+        arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)},
+                     cad_json=cad_json, env_path=env_path)
     assert "resident unhealthy too" in capsys.readouterr().err
 
 
-def test_cmd_restore_stops_the_critic_before_starting_the_resident(monkeypatch):
+def test_cmd_restore_stops_the_critic_before_starting_the_resident(tmp_path, monkeypatch):
     """The resident wants ~23 GB of the 24 GB card. A critic left over from a card run is
     the difference between the resident loading and the resident OOMing, so restore must
     stop it, and stop it BEFORE the resident is started."""
     calls = []
-    monkeypatch.setattr(arms, "disable_maker", lambda: None)
     monkeypatch.setattr(arms.subprocess, "run",
                         lambda cmd, **kw: calls.append(cmd) or type("R", (), {"returncode": 0})())
     monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
-    arms.cmd_restore()
+    # Fresh tmp cad.json/maker.env with no pre-arm markers: exercises the plain-disable
+    # branch (today's behaviour), same as it always has, off tmp paths instead of the
+    # module's real ~/.openclaw defaults.
+    arms.cmd_restore(cad_json=tmp_path / "cad.json", env_path=tmp_path / "maker.env")
     units = [(c[2], c[3]) for c in calls]
     assert ("stop", "critic-server") in units
     assert units.index(("stop", "critic-server")) < units.index(("start", "qwen38-server"))
@@ -257,22 +289,24 @@ def test_cmd_restore_stops_the_critic_before_starting_the_resident(monkeypatch):
 
 def test_cmd_use_warns_when_the_critic_is_holding_vram(tmp_path, monkeypatch, capsys):
     model = tmp_path / "m.gguf"; model.write_text("x")
-    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms, "apply_arm", lambda *a, **kw: None)
     monkeypatch.setattr(arms, "unit_active", lambda unit: unit == "critic-server")
     monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
     monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
-    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)},
+                 cad_json=tmp_path / "cad.json", env_path=tmp_path / "maker.env")
     err = capsys.readouterr().err
     assert "critic-server is active" in err and "critic off" in err
 
 
 def test_cmd_use_is_silent_when_no_critic_is_running(tmp_path, monkeypatch, capsys):
     model = tmp_path / "m.gguf"; model.write_text("x")
-    monkeypatch.setattr(arms, "apply_arm", lambda a: None)
+    monkeypatch.setattr(arms, "apply_arm", lambda *a, **kw: None)
     monkeypatch.setattr(arms, "unit_active", lambda unit: False)
     monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
     monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
-    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)})
+    arms.cmd_use({"name": "fake", "alias": "fake", "model_path": str(model)},
+                 cad_json=tmp_path / "cad.json", env_path=tmp_path / "maker.env")
     assert "critic-server" not in capsys.readouterr().err
 
 
@@ -288,3 +322,128 @@ def test_unit_active_never_raises(monkeypatch):
     monkeypatch.setattr(arms.subprocess, "run",
                         lambda *a, **kw: type("R", (), {"stdout": "inactive\n"})())
     assert arms.unit_active("critic-server") is False
+
+
+# ---------------------------------------------------------------------------------------
+# Task 1 (Phase 3): restore re-applies the pre-run maker block + maker.env, not just
+# maker.enabled=false. The Phase 2 card trap: cad.json said gemma-4-31b while maker.env
+# still pointed at the spike GGUF, because restore only ever touched cad.json.
+# ---------------------------------------------------------------------------------------
+
+def _fake_arm(tmp_path, name: str) -> dict:
+    model = tmp_path / f"{name}.gguf"
+    model.write_text("x")
+    return {"name": name, "alias": name, "model_path": str(model), "mmproj_path": "",
+            "ctx": 16384, "extra_args": ""}
+
+
+def test_use_then_restore_leaves_cad_json_and_maker_env_byte_identical(tmp_path, monkeypatch):
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
+    original_cfg = {"code_model": "pinned",
+                     "maker": {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "arm": "resident"}}
+    cad_json.write_text(json.dumps(original_cfg, indent=2) + "\n")
+    original_env = "MODEL='/old/model.gguf'\nALIAS='old-alias'\n"
+    env_path.write_text(original_env)
+
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+
+    arms.cmd_use(_fake_arm(tmp_path, "new-arm"), cad_json=cad_json, env_path=env_path)
+    assert json.loads(cad_json.read_text())["maker"]["alias"] == "new-arm"
+    assert "new-arm" in env_path.read_text()
+
+    arms.cmd_restore(cad_json=cad_json, env_path=env_path)
+    assert json.loads(cad_json.read_text()) == original_cfg
+    assert env_path.read_text() == original_env
+    assert not (tmp_path / "cad.json.pre-arm").exists()
+    assert not (tmp_path / "maker.env.pre-arm").exists()
+
+
+def test_restore_without_markers_disables_maker_and_leaves_env_untouched(tmp_path, monkeypatch, capsys):
+    cad_json = tmp_path / "cad.json"
+    cad_json.write_text(json.dumps({"maker": {"enabled": True, "port": 8088,
+                                               "alias": "some-arm", "arm": "some-arm"}}))
+    env_path = tmp_path / "maker.env"
+    env_path.write_text("ALIAS='some-arm'\n")
+
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+
+    arms.cmd_restore(cad_json=cad_json, env_path=env_path)
+    cfg = json.loads(cad_json.read_text())
+    assert cfg["maker"]["enabled"] is False
+    assert cfg["maker"]["alias"] == "some-arm"            # today's behaviour: left as-is
+    assert env_path.read_text() == "ALIAS='some-arm'\n"   # untouched: no marker existed
+    assert "maker disabled" in capsys.readouterr().out
+
+
+def test_restore_disable_flag_ignores_and_clears_the_marker(tmp_path, monkeypatch, capsys):
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
+    original_cfg = {"maker": {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "arm": "resident"}}
+    cad_json.write_text(json.dumps(original_cfg))
+    env_path.write_text("ALIAS='old'\n")
+
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+
+    arms.cmd_use(_fake_arm(tmp_path, "new-arm"), cad_json=cad_json, env_path=env_path)
+    pre_cad = tmp_path / "cad.json.pre-arm"
+    pre_env = tmp_path / "maker.env.pre-arm"
+    assert pre_cad.exists() and pre_env.exists()
+
+    arms.cmd_restore(cad_json=cad_json, env_path=env_path, disable=True)
+    cfg = json.loads(cad_json.read_text())
+    assert cfg["maker"]["enabled"] is False
+    assert cfg["maker"]["alias"] == "new-arm"    # NOT rolled back: --disable ignores the marker
+    assert not pre_cad.exists() and not pre_env.exists()
+    assert "maker disabled" in capsys.readouterr().out
+
+
+def test_nested_use_keeps_the_outermost_pre_arm_state(tmp_path, monkeypatch):
+    """scripts/run_card.py calls cmd_use once per arm without restoring in between, so the
+    FIRST call's snapshot is the one that matters -- it is the state from before the whole
+    card run, and later calls in the same run must not clobber it."""
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
+    original_cfg = {"maker": {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "arm": "resident"}}
+    cad_json.write_text(json.dumps(original_cfg))
+    env_path.write_text("ALIAS='resident-shim'\n")
+
+    monkeypatch.setattr(arms.subprocess, "run", lambda cmd, **kw: type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(arms, "_wait", lambda url, timeout: None)
+
+    arms.cmd_use(_fake_arm(tmp_path, "arm-a"), cad_json=cad_json, env_path=env_path)
+    arms.cmd_use(_fake_arm(tmp_path, "arm-b"), cad_json=cad_json, env_path=env_path)
+    assert json.loads(cad_json.read_text())["maker"]["alias"] == "arm-b"
+
+    saved = json.loads((tmp_path / "cad.json.pre-arm").read_text())
+    assert saved["maker"] == original_cfg["maker"]   # still the ORIGINAL, not arm-a's
+
+    arms.cmd_restore(cad_json=cad_json, env_path=env_path)
+    assert json.loads(cad_json.read_text()) == original_cfg
+    assert env_path.read_text() == "ALIAS='resident-shim'\n"
+
+
+def test_use_no_start_still_saves_the_pre_arm_marker(tmp_path, monkeypatch):
+    """`use --no-start` must follow the same marker rule as a normal use: it still writes
+    the pre-arm snapshot (and touches no systemctl unit)."""
+    cad_json = tmp_path / "cad.json"
+    env_path = tmp_path / "maker.env"
+    original_cfg = {"maker": {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "arm": "resident"}}
+    cad_json.write_text(json.dumps(original_cfg))
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(arms.subprocess, "run",
+                        lambda cmd, **kw: calls.append(list(cmd)) or type("R", (), {"returncode": 0})())
+
+    def must_not_be_called(url, timeout):
+        raise AssertionError("no-start must not wait on the maker health endpoint")
+    monkeypatch.setattr(arms, "_wait", must_not_be_called)
+
+    arms.cmd_use(_fake_arm(tmp_path, "arm-x"), start=False, cad_json=cad_json, env_path=env_path)
+    assert calls == []   # --no-start touches no systemctl unit at all
+    assert (tmp_path / "cad.json.pre-arm").exists()
+    assert (tmp_path / "maker.env.pre-arm").exists()
+    assert json.loads(cad_json.read_text())["maker"]["alias"] == "arm-x"

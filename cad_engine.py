@@ -85,6 +85,7 @@ CAD_VIEWER_PORT = int(os.environ.get("CAD_VIEWER_PORT", "4178"))  # browser CAD 
 from cad_v5.config import (  # noqa: F401
     use_brief as _cfg_use_brief,        # noqa: E402
     BRIEF_MODEL, CODE_MODEL_FAST, CODE_MODEL_STRONG, CODE_MODEL_LADDER,
+    CODE_MODEL_THINK, THINK_SUFFIX, CODE_MAX_TOKENS_THINK, think_rung_available,
     CODE_MODEL_DEFAULT, CRITIC_MODEL,
     LLM_TIMEOUT, CODE_TIMEOUT, CRITIC_TIMEOUT,
     MAX_TURNS, ESCALATE_AFTER, N1_RETRIES, BUILD_TIMEOUT, STEP_TIMEOUT, RENDER_TIMEOUT, STL_TIMEOUT,
@@ -104,8 +105,12 @@ def _code_timeout() -> int:
     in) on its first call of a build, so it gets the long cap; the 600s default killed every
     call of the 2026-07-17 strong A/B before first token. Since the fast rung was retired
     (2026-09-19) only a pinned cad.code_model can land on the short cap. The old
-    Ollama /api/tags weights-size lookup went with it: there is no tags API to ask."""
-    return CODE_TIMEOUT_STRONG if _code_model() == CODE_MODEL_STRONG else CODE_TIMEOUT
+    Ollama /api/tags weights-size lookup went with it: there is no tags API to ask.
+    The think rung (CODE_MODEL_THINK) rides the same long cap: it is the same server as
+    CODE_MODEL_STRONG, plus a reasoning preamble on top, so it can only need MORE time,
+    never less (Task 1b, 2026-09-19)."""
+    return (CODE_TIMEOUT_STRONG if _code_model() in (CODE_MODEL_STRONG, CODE_MODEL_THINK)
+            else CODE_TIMEOUT)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -223,12 +228,12 @@ _MAKER_STARTED = False
 
 def _default_server_active() -> bool:
     r = subprocess.run(["systemctl", "--user", "is-active", _QWEN36_UNIT],
-                       capture_output=True, text=True)
+                       capture_output=True, encoding="utf-8", errors="replace")
     return r.stdout.strip() == "active"
 
 def _maker_server_active() -> bool:
     r = subprocess.run(["systemctl", "--user", "is-active", _MAKER_UNIT],
-                       capture_output=True, text=True)
+                       capture_output=True, encoding="utf-8", errors="replace")
     return r.stdout.strip() == "active"
 
 def _resume_default_server() -> None:
@@ -463,15 +468,31 @@ def _tg_token() -> str:
 
 def _ollama(model: str, system: str, prompt: str,
             timeout: int = LLM_TIMEOUT, images: Optional[list[str]] = None,
-            temperature: Optional[float] = None, fmt=None, no_think: bool = False) -> str:
+            temperature: Optional[float] = None, fmt=None, no_think: bool = False,
+            think: bool = False) -> str:
     """One chat call. The name is historical: Ollama was retired from this agent on
     2026-09-19 and every model string must now be "local:<alias>" (an llama.cpp server —
-    the maker arm on :8088 or the resident on :8086) or "cloud/<model>" (the paid rung).
+    the maker arm on :8088 or the resident on :8086), "local:<alias>+think" (the SAME
+    server, one request with thinking switched on), or "cloud/<model>" (the paid rung).
     A bare Ollama tag raises rather than falling back, per the no-Ollama user rule.
     The name is kept because several modules and scripts import it.
 
     fmt: "json" or a JSON-schema dict — llama.cpp enforces the output grammar server-side
-    via response_format."""
+    via response_format.
+
+    think: request enable_thinking=true WITHOUT a "+think" rung string (Task 1b, 2026-09-19:
+    the Phase 3 harvest's teacher pass wants this without threading a rung name through).
+    A "+think" suffix on `model` has the same effect; either way is fine, both compose.
+    no_think ALWAYS wins over both (mutually exclusive with think, raises otherwise), because
+    a caller that explicitly asked for no thinking (a schema call, a utility call) must never
+    be silently overridden by a stray rung string. A caller passing think=True directly
+    (rather than via a "+think" rung string) is responsible for checking
+    cad_v5.config.think_rung_available() itself first, fix round 1, 2026-09-19: this
+    function only warns on the suffix form, since that is the one the escalation ladder
+    and a pinned cad.json code_model can produce without the caller choosing it turn by
+    turn."""
+    if no_think and think:
+        raise ValueError("_ollama: no_think and think are mutually exclusive")
     if model.startswith(CLOUD_PREFIX):
         # The paid rung rides the same seam every local call uses — nothing upstream
         # knows or cares which provider answered. fmt is ignored (cloud rung = coder only).
@@ -482,6 +503,29 @@ def _ollama(model: str, system: str, prompt: str,
         # output arrives in reasoning_content, which we drop — only content is the answer.
         # Images ride as OpenAI content parts (the server carries the mmproj since
         # 2026-08-15) — that is what lets the critic run on this rung for A/B evals.
+        alias = model[len(LOCAL_PREFIX):]
+        want_think = think
+        if alias.endswith(THINK_SUFFIX):
+            # The "+think" rung is a request-shape suffix, not a real model name: the
+            # server was never launched with an alias carrying it (maker.env's ALIAS has
+            # no suffix), so it must never reach the "model" field below. Stripping it
+            # here is the ONE place in the engine that resolves it: every other server
+            # lookup (maker_config(), _ensure_default_server(), _maker_server_active(),
+            # preflight's health probe) already targets the server by cad.json's `maker`
+            # block, never by parsing this string, so they need no change at all.
+            alias = alias[:-len(THINK_SUFFIX)]
+            want_think = True
+            if not think_rung_available():
+                # Reached only via an explicit --coder / pinned cad.json code_model naming
+                # a "+think" rung by hand (the ladder itself never offers this rung unless
+                # think_rung_available() already agreed it does something -- see
+                # cad_v5/config.py CODE_MODEL_LADDER). Harmless per the fix-round-1
+                # measurement (the resident echoes an unrecognised enable_thinking kwarg
+                # rather than erroring), so this proceeds rather than raising.
+                log.warning("[v5] %r was requested but think_rung_available() is False "
+                           "(maker disabled, or the active arm's extra_args do not use "
+                           "enable_thinking) -- sending it anyway; it will not change "
+                           "the reply on this server.", model)
         _ensure_default_server()
         if images:
             user_content = [{"type": "text", "text": prompt}] + [
@@ -491,14 +535,24 @@ def _ollama(model: str, system: str, prompt: str,
         else:
             user_content = prompt
         body = {
-            "model": model[len(LOCAL_PREFIX):],
+            "model": alias,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user_content}],
             **({"temperature": temperature} if temperature is not None else {}),
         }
+        if want_think:
+            # Measured 2026-09-19: a request carrying enable_thinking=true on a server
+            # launched with it false produced 1,864 completion tokens (4,439 chars of
+            # reasoning) in 67s, against 127 tokens/5s without it; max_tokens must cover
+            # reasoning PLUS the code that follows it, not just the code.
+            body["chat_template_kwargs"] = {"enable_thinking": True}
+            body["max_tokens"] = CODE_MAX_TOKENS_THINK
         if images and not fmt:
             # A visual critique is a judgment, not code — at 12 tok/s a thinking
-            # preamble adds minutes per turn for no measured gain.
+            # preamble adds minutes per turn for no measured gain. This is also the
+            # critic's guard against ever inheriting +think: CRITIC_MODEL never carries
+            # the suffix, but every critic call also passes images, so this branch would
+            # force thinking off regardless.
             body["chat_template_kwargs"] = {"enable_thinking": False}
         if fmt:
             # Schema-constrained calls (triage/ambiguity): enforce the grammar server-side
@@ -512,12 +566,16 @@ def _ollama(model: str, system: str, prompt: str,
             # (CODE_MODEL_STRONG) and must keep the server's default reasoning_effort
             # (the maker arm's own thinking setting included) — only a genuine utility
             # call (brief/patch/lesson/questions/describe/refine) passes no_think=True.
-            # Merge rather than overwrite so this composes with the fmt/images branches.
+            # This is also what makes no_think WIN over a "+think" rung string or an
+            # explicit think=True: it is applied last, unconditionally, after every
+            # other branch above (including the want_think branch) has had its say.
             body["chat_template_kwargs"] = {**body.get("chat_template_kwargs", {}),
                                             "enable_thinking": False}
         # Critic calls (keyed on model, not on images — images are just today's only
         # critic use) ride CRITIC_URL, which defaults to LOCAL_CODER_URL so a critic
-        # pinned to the coder model is unaffected.
+        # pinned to the coder model is unaffected. Compared against the ORIGINAL `model`
+        # string (not the stripped `alias`): CRITIC_MODEL never carries "+think" by
+        # construction (cad_v5/config.py), so this equality is unaffected either way.
         url = CRITIC_URL if model == CRITIC_MODEL else LOCAL_CODER_URL
         req = urllib.request.Request(
             url, data=json.dumps(body).encode(),
@@ -530,6 +588,8 @@ def _ollama(model: str, system: str, prompt: str,
             _USAGE_TOTAL["prompt_tokens"] += int(_LAST_USAGE.get("prompt_tokens") or 0)
             _USAGE_TOTAL["completion_tokens"] += int(_LAST_USAGE.get("completion_tokens") or 0)
         _USAGE_TOTAL["calls"] += 1
+        # reasoning_content (the think rung's preamble) is deliberately ignored here:
+        # only `content` is the answer, thinking or not, exactly as before this rung existed.
         return (resp["choices"][0]["message"].get("content") or "").strip()
     raise RuntimeError(
         f"Ollama is retired; model tags must be local:<alias> (got {model!r}). "
@@ -1838,7 +1898,7 @@ def run_step(code: str, work_dir: Path) -> tuple[Path, str]:
 
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "step"), str(src), str(step)],
-        capture_output=True, text=True, timeout=STEP_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STEP_TIMEOUT,
     )
     output = result.stdout + result.stderr
     if result.returncode != 0 or not step.exists():
@@ -1848,7 +1908,7 @@ def run_step(code: str, work_dir: Path) -> tuple[Path, str]:
 def run_inspect(step_path: Path) -> dict:
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "inspect"), str(step_path)],
-        capture_output=True, text=True, timeout=INSPECT_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=INSPECT_TIMEOUT,
     )
     output   = result.stdout + result.stderr
     valid    = result.returncode == 0
@@ -1863,7 +1923,7 @@ def run_diff(old_step: Path, new_step: Path) -> str:
     try:
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "inspect"), str(new_step), "--diff", str(old_step)],
-            capture_output=True, text=True, timeout=INSPECT_TIMEOUT,
+            capture_output=True, encoding="utf-8", errors="replace", timeout=INSPECT_TIMEOUT,
         )
         out = (result.stdout or "").strip()
         return "\n".join(ln for ln in out.splitlines() if ln.startswith(("Δ", "DIFF")))
@@ -1951,6 +2011,22 @@ _SPEC_HOLES_RE = re.compile(r"(an?|one|two|three|four|five|six|\d+)\s+(\d+(?:\.\
                             r"(?:\w+\s+){0,2}?(?:through[- ]?)?(?:holes?|bores?)", re.I)
 _HOLE_COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
                      "five": 5, "six": 6}
+# A DISTRIBUTIVE count is a multiplier, not a total: "a 14mm hole at each end" is two holes,
+# "bosses each with a 3mm hole" is one per boss. Read as a total it made the overcount check
+# veto every CORRECT part for such a spec (found in the 2026-09-20 harvest: a tie plate with
+# a hole at each end and a plate with a hole at each corner, rejected on every sample). The
+# true total is not recoverable from the text alone, so the overcount check skips these.
+_HOLES_DISTRIB_AFTER_RE = re.compile(
+    r"^\s*(?:(?:drilled|located|positioned|placed|centred|centered)\s+)?"
+    r"(?:at|in|on|near|through|into|per)\s+(?:each|every|both|all)\b", re.I)
+_HOLES_DISTRIB_BEFORE_RE = re.compile(
+    r"\b(?:each|every|both)\s+(?:(?:is|are)\s+)?(?:with|having|has|have|drilled\s+with|"
+    r"bored\s+with|carrying|containing|gets?)\s+$", re.I)
+
+
+def _hole_count_is_distributive(spec: str, m) -> bool:
+    return bool(_HOLES_DISTRIB_AFTER_RE.search(spec[m.end():m.end() + 45])
+                or _HOLES_DISTRIB_BEFORE_RE.search(spec[max(0, m.start() - 40):m.start()]))
 
 # Nouns that mark a dimension as belonging to a FEATURE rather than the part's envelope.
 # "a 3mm wide groove" / "standoffs 8mm across" / "a chamfer 3mm deep" are all satisfied
@@ -2322,6 +2398,8 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # (five Ø10 where one was asked). Undercounts stay with the min_holes/through advisories.
     hgroups = facts.get("hole_groups") or []
     for m in _SPEC_HOLES_RE.finditer(spec or ""):
+        if _hole_count_is_distributive(spec, m):
+            continue
         n_want = _HOLE_COUNT_WORDS.get(m.group(1).lower()) or int(m.group(1))
         d_want = float(m.group(2))
         n_got = sum(g["n"] for g in hgroups
@@ -2531,7 +2609,7 @@ def run_render(step_path: Path, work_dir: Path, section: bool = False) -> Path:
     cmd = [sys.executable, str(SCRIPTS_DIR / "render"), str(step_path), str(png)]
     if section:
         cmd.append("--section")   # add a 3rd cut-through panel for hollow/internal parts
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=RENDER_TIMEOUT)
+    result = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=RENDER_TIMEOUT)
     if result.returncode != 0 or not png.exists():
         raise RuntimeError(result.stdout + result.stderr)
     return png
@@ -2540,7 +2618,7 @@ def run_stl(step_path: Path, out_path: Path) -> Path:
     """Export STEP → watertight binary STL (sliceable for printing). Returns the STL path."""
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "stl"), str(step_path), str(out_path)],
-        capture_output=True, text=True, timeout=STL_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STL_TIMEOUT,
     )
     if result.returncode != 0 or not out_path.exists():
         raise RuntimeError(result.stdout + result.stderr)
@@ -2551,7 +2629,7 @@ def run_dxf(step_path: Path, out_path: Path) -> tuple[Path, str]:
     applicable flat face — caller treats that as 'not a sheet part', not a hard error."""
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "dxf"), str(step_path), str(out_path)],
-        capture_output=True, text=True, timeout=STL_TIMEOUT,
+        capture_output=True, encoding="utf-8", errors="replace", timeout=STL_TIMEOUT,
     )
     out = result.stdout + result.stderr
     if result.returncode != 0 or not out_path.exists():

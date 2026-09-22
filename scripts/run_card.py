@@ -245,7 +245,8 @@ def build_once(spec: str, mode: str, timeout: int, knobs: Knobs | None = None) -
     cmd += knobs.argv()
     t0 = time.time()
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=HERE, env=env)
+        p = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                          timeout=timeout, cwd=HERE, env=env)
         wall = time.time() - t0
         last = [l for l in p.stdout.splitlines() if l.startswith("{")]
         return (json.loads(last[-1]) if last else {"ok": False, "error": f"rc={p.returncode} no json"}), wall, p.stderr[-800:]
@@ -488,7 +489,18 @@ def main() -> None:
     ap.add_argument("--rescore", default="", metavar="DIR",
                     help="recompute acceptance/bands for an existing run dir from rows.jsonl and "
                          "rewrite its card; builds nothing, touches no GPU")
+    ap.add_argument("--suite-root", default="", metavar="DIR",
+                    help="read suite specs/refs (specs.json, acceptance.json, reference_stl "
+                         "files) from this directory instead of this repo's own benchmarks/ "
+                         "-- for a worktree checkout that has no suite data of its own (the "
+                         "public suites' specs.json/refs are gitignored and exist only in the "
+                         "main checkout). Output (results/card/...) is unaffected: CARD_DIR is "
+                         "fixed at import time from this repo's own path, not from BENCH.")
     ns = ap.parse_args()
+
+    if ns.suite_root:
+        global BENCH
+        BENCH = Path(ns.suite_root).resolve()
 
     if ns.rescore:
         print(rescore(Path(ns.rescore)))

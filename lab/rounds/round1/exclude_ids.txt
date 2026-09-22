@@ -1,0 +1,20 @@
+p:t:teacher-batch2:V072:7f9dbe6ae9b7 # gasket groove is a no-op (footprint entirely inside the cavity, groove absent)
+p:t:teacher-batch2:V072:f164de291e48 # sibling, identical signature (same faces/volume/bores as the audited row) -> same groove no-op
+p:t:teacher-batch2:V191:6c5e76e455dd # keyway box lies entirely inside the bore radius, no-op (faces=8, no keyway)
+p:t:teacher-batch2:V191:b4b0f8bdb86b # sibling, identical signature -> same keyway no-op
+p:t:teacher-complex:C10:2d9b5167ff2e # square thread on screw+nut entirely unmodeled (code comment admits the approximation)
+p:t:teacher-complex:C10:51edc41069e9 # sibling, identical signature -> same missing-thread defect
+p:t:teacher-complex:C11:8f55a85093fc # keyway shifted along the wrong axis (Z not radial), stays inside the bore, no-op (faces=7, no keyway)
+p:t:teacher-complex:C11:344537105a2b # sibling, identical signature -> same keyway no-op
+p:t:teacher-hard:H006:fcce66e02599 # 92mm bore never modeled, merges with the water gap into one Ø102 void; walls=[5.0], no liner
+p:t:teacher-hard:H006:7e356ffc7704 # sibling, same bores_sorted=[10,102,112] -> same missing-bore/gap defect
+p:t:teacher-hard:H018:f9bf24fabe97 # "liner" re-fills the water gap it was meant to leave void; walls=[11.0], single solid wall
+p:t:teacher-hard:H018:e7b2c257440f # sibling, identical signature -> same filled-gap defect
+p:g:specgen:f3f0d21d74c3446a:9fe4ffd462dd # top already fully open by construction; the stated 50x20mm opening cutter is a no-op
+p:g:specgen:f3f0d21d74c3446a:4d46792cfce8 # sibling, identical signature -> same no-op opening defect
+
+# RULING 2026-09-21: every same_pass tier 3-4 pair is excluded (audit: 6 of 8 wrong)
+p:t:teacher-batch2:V137:eaf21608ac49  # same_pass tier 3-4, excluded wholesale by ruling
+p:t:teacher-batch2:V137:8362c8bea48b  # same_pass tier 3-4, excluded wholesale by ruling
+p:t:teacher-pilot:P22:aa58c8095cd5  # same_pass tier 3-4, excluded wholesale by ruling
+p:t:teacher-pilot:P22:b041ebcb47eb  # same_pass tier 3-4, excluded wholesale by ruling

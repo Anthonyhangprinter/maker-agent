@@ -181,7 +181,25 @@ def _suite_specs_by_suite() -> dict[str, list[str]]:
     for suite in CARD_SUITES:
         f = HERE / "benchmarks" / suite / "specs.json"
         if f.exists():
-            data = json.loads(f.read_text())
+            # encoding="utf-8" (Task 3 fix round 1, found via a real --unit smoke under
+            # the harvest's own environment): benchmarks/text-to-cad/specs.json's own
+            # "source" field carries a real, un-escaped em dash, and Path.read_text()
+            # with no explicit encoding defaults to locale.getpreferredencoding(). Fix
+            # round 1 blamed lab/gpu_window.sh's own C/POSIX launch environment for that
+            # -- WRONG (fix round 2 correction): the harvest process starts in whatever
+            # locale its caller has, but OpenCascade's Mesher().write() (called at the
+            # end of every fluid_gen._materialize -- i.e. every build in the harvest's
+            # execute/inspect loop) resets the PROCESS locale to C as a side effect, so
+            # locale.getpreferredencoding() resolves to ASCII from the harvest's SECOND
+            # candidate onward regardless of what environment it was launched in. That
+            # raised UnicodeDecodeError on every subsequent call here, which was being
+            # caught by lab/harvest.py's fail-closed contamination check (L1) and
+            # silently refusing EVERY spec it examined from that point on, since the
+            # failure looks identical to "computation could not be trusted" from the
+            # caller's side. The robust fix is PYTHONUTF8=1 (set for the GPU window and
+            # the harvest unit separately); explicit encoding="utf-8" here is the belt,
+            # not the actual guard against this specific mechanism.
+            data = json.loads(f.read_text(encoding="utf-8"))
             if isinstance(data, dict):   # text-to-cad wraps the list in {"benchmarks": [...]}
                 data = data.get("benchmarks", [])
             out[suite] = [b["spec"] for b in data]
