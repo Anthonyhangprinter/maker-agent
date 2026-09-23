@@ -7,8 +7,11 @@ mocked stand-in. Run: python3 -m pytest tests/test_fluid_rescale.py -q
 """
 import importlib.util
 import json
+import os
 import shutil
+import subprocess
 import sys
+import textwrap
 from argparse import Namespace
 from pathlib import Path
 
@@ -92,3 +95,80 @@ def test_rescale_that_fails_to_build_restores_the_previous_version(tmp_path):
     assert "restored the previous version" in bad["error"]
     assert (d / "build_source.py").read_bytes() == before_src
     assert (d / "build.step").read_bytes() == before_step
+
+
+def test_materialize_round_trips_a_unicode_degree_symbol_under_an_ascii_locale(tmp_path):
+    """Regression test (Required fix #4, 2026-09-24). scripts/fluid_gen.py's _materialize()
+    used to write build_source.py via Path.write_text(code) with no explicit encoding --
+    exactly the bug lab/harvest.py's own _store_system already hit and fixed (see its
+    docstring): "writing it via Path.write_text() with no explicit encoding raised
+    UnicodeEncodeError under PYTHONUTF8=0 in a C/POSIX locale". OCCT/OCP native code is
+    documented (CLAUDE.md's "process trap") to reset a build process's live locale to C the
+    same way; either path lands the caller in a C/ASCII-preferred-encoding process, and any
+    code containing 'Ø' (a real "Ø20mm bore" request) then raised. This test reproduces the
+    ASCII-locale condition directly with the same harness test_engine_locale.py already
+    established (env vars, not a live OCCT flip, which is the reliable way to force it),
+    then drives the REAL _materialize() (real build123d, no mocks) with Ø in both the code
+    and the spec."""
+    unicode_code = "from build123d import *\nresult = Box(10, 10, 10)\n# a Ø20mm bore on the centre axis\n"
+
+    # The child script goes to a FILE, not a `python3 -c "..."` argv string: under the
+    # forced ASCII locale below, the interpreter cannot even decode a non-ASCII command
+    # LINE (a separate, earlier failure mode than the one this test targets). A .py file is
+    # read by Python's own source-decoding (UTF-8 by default, PEP 3120), which is
+    # independent of the process locale, so 'Ø' survives the trip to the child regardless.
+    #
+    # engine.run_step is stubbed out: it shells out to scripts/step, which does its OWN
+    # unrelated (and, as of this branch, still unfixed -- out of scope: only fluid_gen.py
+    # and lab/harvest.py were in scope for this pass) unencoded Path.write_text of the same
+    # code. Stubbing it isolates the one write this test is actually about: _materialize's
+    # OWN `(build_dir / "build_source.py").write_text(code, encoding="utf-8")` at the top
+    # of the function, which runs (and, before this fix, could raise) before run_step is
+    # ever called.
+    child_src = HERE / "tests" / "fixtures" / "_ascii_locale_materialize_child.py"
+    child_src.write_text(textwrap.dedent(f"""
+        import json, locale, sys
+        from pathlib import Path
+        sys.path.insert(0, {str(HERE)!r})
+        sys.path.insert(0, {str(HERE / "scripts")!r})
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "fluid_gen", {str(HERE / "scripts" / "fluid_gen.py")!r})
+        fg = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = fg
+        spec.loader.exec_module(fg)
+
+        d = Path({str(tmp_path / "build2")!r})
+        d.mkdir(parents=True, exist_ok=True)
+        fg.engine.run_step = lambda code, build_dir: (build_dir / "build.step", "")
+
+        out = {{"preferred_encoding": locale.getpreferredencoding(False)}}
+        m = fg._materialize({unicode_code!r}, d, {"a plate with a Ø20mm hole"!r})
+        out["error"] = m["error"]
+        out["written"] = (d / "build_source.py").read_text(encoding="utf-8")
+        print(json.dumps(out))
+        """), encoding="utf-8")
+
+    env = dict(os.environ)
+    env.update({
+        "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C",
+        "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0",
+    })
+    try:
+        result = subprocess.run(
+            [sys.executable, str(child_src)],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=120, env=env,
+        )
+    finally:
+        child_src.unlink(missing_ok=True)
+    assert result.returncode == 0, (
+        f"child crashed (rc={result.returncode}):\nstdout={result.stdout}\nstderr={result.stderr}"
+    )
+    lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
+    assert lines, f"child produced no output; stderr:\n{result.stderr}"
+    payload = json.loads(lines[-1])
+    assert payload["preferred_encoding"].upper() in ("ANSI_X3.4-1968", "ASCII", "US-ASCII"), (
+        f"harness failed to force an ASCII child locale: {payload}"
+    )
+    assert payload["error"] is None, f"_materialize raised under an ASCII locale: {payload}"
+    assert "Ø" in payload["written"]

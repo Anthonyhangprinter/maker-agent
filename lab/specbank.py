@@ -282,18 +282,35 @@ def _materialize_reference_stl(folder: Path, step_file: Path, stl_file: Path,
     same conversion the band scorer itself uses). Cached at lab/state/refs/<key>.stl so
     a rerun of import-references never reconverts an already-materialised part.
     build123d is only imported here, lazily, so a bank/stats/import-teacher run with no
-    reference folders never needs it on the path."""
+    reference folders never needs it on the path.
+
+    2026-09-24 calibration fix: when a model.step is available (regardless of which
+    branch materialised the .stl above), also cache its ANALYTIC solid volume next to the
+    STL via geom_bands.write_reference_volume_sidecar. A mesh reconverted from STEP can be
+    non-watertight at a fine feature (confirmed on air-engine-piston: a drill-point apex)
+    even though the solid itself is perfectly valid, which makes the mesh-based volume
+    check fail for a reason that has nothing to do with any candidate scored against it.
+    Best-effort: a missing/failed sidecar just means the scorer falls back to the old
+    mesh-based volume, exactly as before this fix."""
     REFS_DIR.mkdir(parents=True, exist_ok=True)
     dest = REFS_DIR / f"{key[:16]}.stl"
     if dest.exists():
         return str(dest)
     try:
+        sys.path.insert(0, str(HERE / "scripts"))
+        import geom_bands  # noqa: PLC0415 -- lazy, build123d-heavy
         if stl_file.exists():
             shutil.copyfile(stl_file, dest)
         else:
-            sys.path.insert(0, str(HERE / "scripts"))
-            import geom_bands  # noqa: PLC0415 -- lazy, build123d-heavy
             geom_bands.step_to_stl(step_file, dest)
+        if step_file.exists():
+            try:
+                geom_bands.write_reference_volume_sidecar(step_file, dest)
+            except Exception as e:
+                # Best-effort only -- the STL itself materialised fine, so this reference
+                # is still usable, just without the analytic-volume accuracy improvement.
+                print(f"WARNING: could not cache analytic volume for {folder.name}: {e}",
+                      file=sys.stderr)
         return str(dest)
     except Exception as e:
         print(f"WARNING: could not materialise reference STL for {folder.name}: {e}",

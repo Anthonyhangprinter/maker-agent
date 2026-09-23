@@ -267,6 +267,46 @@ def test_classify_silver_takes_priority_over_near_miss_band(monkeypatch, tmp_pat
     assert verdict == "silver"
 
 
+def test_classify_owner_reference_match_overrides_gate_spec(monkeypatch, tmp_path):
+    """Required fix #3, 2026-09-24: the exact air-engine-flywheel regression. The band
+    against an owner reference is "match" (measured geometry, ground truth) but a
+    [spec]-tagged TEXT finding misread a hole-depth number as an axis extent -- the old
+    code demoted this to "silver" via the same rule that (correctly) demotes a genuine
+    text/geometry mismatch on a non-reference build. band=="match" with a reference present
+    must win instead."""
+    monkeypatch.setattr(harvest, "score_against_reference", lambda *a, **k: {"band": "match"})
+    m = _clean_m(gate_spec=[
+        "[spec] the request says '8.5mm deep' but no axis of the part measures 8.5mm"])
+    verdict, band_info = harvest._classify(m, "ref.stl", tmp_path)
+    assert verdict == "good"
+    assert band_info["band"] == "match"
+
+
+def test_classify_gate_spec_still_demotes_when_reference_band_is_not_match(monkeypatch, tmp_path):
+    """The override in the test above is narrowly scoped to band=="match" -- a gate_spec
+    finding on an owner-reference build that only reached "valid" or "near_miss" (not
+    confirmed-identical geometry) must still fall to silver exactly as before."""
+    monkeypatch.setattr(harvest, "score_against_reference", lambda *a, **k: {"band": "valid"})
+    verdict, _ = harvest._classify(_clean_m(gate_spec=["[spec] wrong"]), "ref.stl", tmp_path)
+    assert verdict == "silver"
+
+
+def test_classify_gate_hard_still_blocks_an_owner_reference_match(monkeypatch, tmp_path):
+    """The owner-reference override only ever waives gate_spec (text-check) findings --
+    gate_hard (structural integrity: unfused bodies, holes that didn't cut, interference)
+    must keep blocking unconditionally, even against a "match" band."""
+    monkeypatch.setattr(harvest, "score_against_reference", lambda *a, **k: {"band": "match"})
+    m = _clean_m(gate_hard=["no solid produced"])
+    verdict, _ = harvest._classify(m, "ref.stl", tmp_path)
+    assert verdict != "good"
+
+
+def test_is_good_owner_ref_match_ignores_gate_spec_directly():
+    assert harvest._is_good(True, [], ["[spec] wrong"], "match", owner_ref_match=True) is True
+    assert harvest._is_good(True, ["hard fail"], [], "match", owner_ref_match=True) is False
+    assert harvest._is_good(True, [], ["[spec] wrong"], "valid", owner_ref_match=True) is False
+
+
 def test_classify_unscored_when_reference_scoring_raises(monkeypatch, tmp_path):
     """Task 3 rulings: "Any exception inside scoring/classification = unscored, never
     good." score_against_reference itself never raises per its own contract, but

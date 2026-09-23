@@ -80,7 +80,7 @@ def _materialize(code: str, build_dir: Path, spec: str = "") -> dict:
     expected-field derivable without a brief (deterministic from spec text)."""
     out = {"facts": {}, "instruments": [], "gate_hard": [], "gate_spec": [],
            "gate_adv": [], "error": None}
-    (build_dir / "build_source.py").write_text(code)
+    (build_dir / "build_source.py").write_text(code, encoding="utf-8")
     try:
         step, _ = engine.run_step(code, build_dir)
         target = build_dir / "build.step"
@@ -285,7 +285,7 @@ def cmd_build(a) -> dict:
     meta = {"spec": spec, "user_spec": a.spec or "", "coder": a.coder, "history": []}
     if expansion:
         meta["assumptions"] = expansion["assumptions"]
-    (build_dir / "fluid.json").write_text(json.dumps(meta))
+    (build_dir / "fluid.json").write_text(json.dumps(meta), encoding="utf-8")
     # Helper builds are correct by construction — a 7B "repair" of a bd_warehouse call
     # could only degrade it, so gate findings there are display-only.
     m = _materialize_with_salvage(spec, code, build_dir, gate_repair=not helper)
@@ -313,11 +313,12 @@ def cmd_revise(a) -> dict:
     meta_f = build_dir / "fluid.json"
     if not src.is_file():
         return {"ok": False, "error": "no build_source.py in that build dir"}
-    meta = json.loads(meta_f.read_text()) if meta_f.is_file() else {"spec": "", "history": []}
+    meta = json.loads(meta_f.read_text(encoding="utf-8")) if meta_f.is_file() \
+        else {"spec": "", "history": []}
     _model_for(a.coder or meta.get("coder", "fast"))
     engine.reset_usage()      # per-revise token count
     t0 = time.monotonic()
-    code = src.read_text()
+    code = src.read_text(encoding="utf-8")
     state = ""
     try:
         insp = engine.run_inspect(build_dir / "build.step")
@@ -338,7 +339,7 @@ def cmd_revise(a) -> dict:
     meta.setdefault("history", []).append(
         {"feedback": a.feedback, "ts": datetime.now(timezone.utc).isoformat(),
          "ok": m["error"] is None})
-    meta_f.write_text(json.dumps(meta))
+    meta_f.write_text(json.dumps(meta), encoding="utf-8")
     extra = {"build_dir": str(build_dir), "turns": len(meta["history"]) + 1}
     if not m["error"]:
         try:

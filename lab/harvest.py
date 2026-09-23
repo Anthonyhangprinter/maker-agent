@@ -43,6 +43,12 @@ Verdict table (spec-derived contamination is already handled at bank-admission t
 see lab/specbank.py -- and re-checked here fail-closed before any pair is written, L1):
   ok, gate_hard==0, gate_spec==0, band in (None, "match")  -> pair, kind "good"
   ok, gate_hard==0, gate_spec>0                            -> silver review row, not a pair
+  EXCEPT: an owner-reference row whose band is "match" (measured geometry against ground
+    truth) is "good" even with gate_spec>0 -- a [spec] TEXT finding is a heuristic re-
+    reading of the prompt against the measured facts and can misattribute a number (fix
+    round 4, 2026-09-24: air-engine-flywheel matched its reference exactly but was held to
+    silver by a hole-depth number the check misread as an axis extent). gate_hard still
+    blocks unconditionally either way -- see _is_good.
   reference present (owner-reference bank rows only, none exist on disk as of 2026-09-19)
     and band == "near_miss"                                -> pair, kind "fail"
   the candidate ran but could not be measured/gated (inspect invalid/raised, or a
@@ -1582,7 +1588,21 @@ def _execute_with_salvage(spec: str, code: str, build_dir: Path, prompt_info: di
 # Verdicts, ledger/pair/review row construction
 # ---------------------------------------------------------------------------
 
-def _is_good(ok: bool, gate_hard: list, gate_spec: list, band: Optional[str]) -> bool:
+def _is_good(ok: bool, gate_hard: list, gate_spec: list, band: Optional[str],
+            owner_ref_match: bool = False) -> bool:
+    """owner_ref_match=True (Required fix #3, 2026-09-24): an owner-reference band "match"
+    is measured geometry against ground truth, not a model's self-report -- it outranks a
+    [spec]-tagged TEXT finding (gate_spec), which is only a heuristic re-reading of the
+    prompt's own numbers against the measured facts and can be wrong about what a number
+    refers to. Confirmed case: air-engine-flywheel matched its owner reference exactly
+    (volume within 15 mm3) but was held to silver by "the request says '8.5mm deep' but no
+    axis of the part measures 8.5mm" -- that 8.5mm is a HOLE DEPTH, not meant to be an
+    overall axis extent, so the finding itself was a false positive, and the geometry is
+    already ground truth regardless. gate_hard (structural integrity: unfused bodies, holes
+    that didn't cut, interference) still blocks unconditionally -- only gate_spec is
+    overridden, and only when the band the override is trusting is actually "match"."""
+    if owner_ref_match:
+        return bool(ok) and not gate_hard and band == "match"
     return bool(ok) and not gate_hard and not gate_spec and band in (None, "match")
 
 
@@ -1660,7 +1680,12 @@ def _classify(m: dict, reference_stl: Optional[str], build_dir: Path,
     band = band_info.get("band")
     gate_hard = m.get("gate_hard") or []
     gate_spec = m.get("gate_spec") or []
-    if _is_good(ok, gate_hard, gate_spec, band):
+    # Required fix #3 (2026-09-24): reference_stl here means an owner-reference row (see
+    # this module's own "Verdict table" docstring) -- ground truth geometry, not a model's
+    # self-report. A "match" band against it is not something a [spec] text finding should
+    # be able to veto; see _is_good's docstring for the confirmed flywheel case this fixes.
+    owner_ref_match = bool(reference_stl) and band == "match"
+    if _is_good(ok, gate_hard, gate_spec, band, owner_ref_match=owner_ref_match):
         return "good", band_info
     if not gate_hard and gate_spec:
         return "silver", band_info
