@@ -492,6 +492,11 @@ Rules:
 - Every number must come from the measurement JSON -- do not invent or round away a stated
   dimension, but you may use ordinary shop rounding (e.g. 39.98mm to "40mm") when the
   measurement is clearly a rounding artefact of the build, not a real dimension.
+- Describe ONLY features that are present in the measurements. NEVER mention a feature that is
+  absent (no "no chamfers", no "no fillets", no "without any holes", no "just a plain X with no
+  Y") -- if the "holes" list is empty, do not talk about holes at all; if "chamfers" is empty,
+  do not use the word "chamfer" anywhere. Silence on a feature means it is absent; only say a
+  feature is missing by never bringing it up.
 - No commentary, no headings, no bullet points, no restating that this is a "spec" -- just the
   request text itself, 2-6 sentences.
 """
@@ -515,6 +520,18 @@ def _usage_row(resp: dict) -> dict:
 
 def run_seed(seed: dict, model: str, out_dir: Path, since_ts: datetime, budget: float,
              state: dict) -> dict:
+    """Thin timing wrapper around _run_seed_body: records total wall-clock seconds for the
+    WHOLE seed (every API call plus every CPU build/gate/measure/render step) on the row,
+    regardless of which of _run_seed_body's several early-return points fired. A BudgetStop
+    raised inside is deliberately NOT caught here -- it must still propagate to the caller."""
+    t0 = time.monotonic()
+    row = _run_seed_body(seed, model, out_dir, since_ts, budget, state)
+    row["seed_wall_s"] = round(time.monotonic() - t0, 1)
+    return row
+
+
+def _run_seed_body(seed: dict, model: str, out_dir: Path, since_ts: datetime, budget: float,
+                   state: dict) -> dict:
     sid, tier, idea = seed["id"], seed["tier"], seed["idea"]
     part_dir = out_dir / "builds" / sid
     part_dir.mkdir(parents=True, exist_ok=True)

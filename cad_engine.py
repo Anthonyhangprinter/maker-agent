@@ -2109,6 +2109,39 @@ def _spec_mentions_count(spec: str, n: int) -> bool:
     return any(v == n and re.search(rf"\b{w}\b", spec or "", re.I)
                for w, v in _COUNT_WORDS.items())
 
+# A spec that explicitly says "no chamfers" or "fillet-free" must never be read as REQUESTING
+# a chamfer/fillet/thread — several gate checks below fire purely on "does this word appear in
+# the spec", and a bare `re.search` cannot tell a request from its negation (found live,
+# 2026-09-24: "No chamfers, fillets, or other features are required" tripped the chamfer
+# check on an otherwise-exact rebuild). Deliberately simple and whole-clause: split the spec
+# on sentence-ish boundaries, and a negator word ANYWHERE in the same clause as the feature
+# word negates every feature mention in that clause — "no chamfers, fillets, or other
+# features" negates BOTH nouns at once, which is exactly the phrasing that motivated this.
+_NEGATOR_RE = re.compile(r"\b(no|not|without|never|excludes?|excluding|omit(?:s|ted)?)\b", re.I)
+_CLAUSE_SPLIT_RE = re.compile(r"[.;!?]|--|—|–")
+
+
+def _feature_requested(spec: str, word_pattern: str) -> bool:
+    """True if `word_pattern` (a bare `re.search` fragment for one feature, e.g. r"\\bchamfer"
+    or an alternation like r"thread|groove|tooth") is requested somewhere in `spec` in a
+    clause that is NOT negated. A clause is negated when it contains a negator word/phrase
+    (see _NEGATOR_RE) anywhere in it, or the matched word is itself suffixed "-free"/"-less"
+    ("chamfer-free", "threadless"). Errs toward under-flagging (a genuinely negated request
+    elsewhere in a long clause may still slip past) rather than over-flagging — a missed
+    negation only means a check runs that didn't strictly need to; a missed request never
+    silently drops a real feature request, since the check this guards only downgrades/adds
+    an advisory, it never REMOVES the underlying structural measurement."""
+    for clause in _CLAUSE_SPLIT_RE.split(spec or ""):
+        if not re.search(word_pattern, clause, re.I):
+            continue
+        if re.search(rf"(?:{word_pattern})\w*[-\s]?(?:free|less)\b", clause, re.I):
+            continue
+        if _NEGATOR_RE.search(clause):
+            continue
+        return True
+    return False
+
+
 _SPEC_WALL_RE = re.compile(r"wall|shell|thick|hollow|open[ -]?top", re.I)
 _SPEC_PARTCOUNT_RE = re.compile(
     r"\b(two|three|four|five|six|2|3|4|5|6)\s+(?:part|piece|separate|distinct|solid)", re.I)
@@ -2271,8 +2304,8 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # reads perfectly (C05, 2026-07-30 — worm volume was exactly a plain cylinder's).
     for p in (facts.get("parts") or []):
         if isinstance(p, dict) and (p.get("faces") or 0) and p["faces"] <= 3 \
-                and re.search(r"thread|groove|tooth|teeth|knurl|flute|spline|vane|fin",
-                              spec or "", re.I):
+                and _feature_requested(spec or "",
+                                       r"thread|groove|tooth|teeth|knurl|flute|spline|vane|fin"):
             soft.append(
                 f"part '{p.get('label')}' has only {p['faces']} faces — that is a bare "
                 f"primitive, so the thread/teeth/grooves the request asks for are NOT in the "
@@ -2474,7 +2507,7 @@ def verify_expected(facts: dict, expected: dict, spec: str = "") -> tuple[list[s
     # Chamfer presence — a chamfer on a circular edge leaves a CONICAL face, so cone_faces==0
     # with a spec-requested chamfer means it silently failed (the classic try/except-pass drop).
     # Advisory: chamfers on straight edges leave planes, not cones, so absence isn't proof there.
-    if (re.search(r"\bchamfer", spec or "", re.I) and facts.get("cone_faces", -1) == 0):
+    if (_feature_requested(spec or "", r"\bchamfer") and facts.get("cone_faces", -1) == 0):
         soft.append(
             "[spec] the spec asks for a chamfer but no conical face was measured — the chamfer likely "
             "failed silently. Select the edge explicitly (e.g. the top outer circular edge: "
