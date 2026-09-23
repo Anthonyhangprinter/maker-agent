@@ -9,13 +9,15 @@ volume / bbox, RANSAC+ICP aligned — orientation-free), so the bands are transl
 metric space:
 
   match      all strict checks pass (bbox 1mm, volume 2%, chamfer 1mm, hausdorff95 1mm) --
-             the reference side of the volume check uses an authoritative STEP-solid volume
-             when one is cached (see analytic_volume_from_step / write_reference_volume_
-             sidecar) instead of the reference MESH's volume, because a mesh re-tessellated
-             from STEP can be non-watertight at a fine feature (a drill-point apex, a small
-             fillet) even though the solid itself is perfectly valid -- trimesh's mesh-based
-             volume check then fails for a reason that has nothing to do with the candidate
-             (calibration finding, 2026-09-24: air-engine-piston and air-engine-cylinder)
+             the reference side of the volume check CAN use an authoritative STEP-solid
+             volume when one is cached (see analytic_volume_from_step / write_reference_
+             volume_sidecar) instead of the reference MESH's volume, because a mesh
+             re-tessellated from STEP can be non-watertight at a fine feature (a
+             drill-point apex, a small fillet) even though the solid itself is perfectly
+             valid. This only helps references materialised AFTER this fix landed (the
+             sidecar is written once, at `lab/specbank.py import-references` time) --
+             see the KNOWN DISAGREEMENTS paragraph below for air-engine-piston, whose
+             already-cached reference predates it and has no sidecar yet.
   valid      watertight single solid, chamfer <= VALID_CHAMFER_MM, volume within VALID_VOL_PCT
              -> GIFT-REJECT band: a correct-but-differently-written part, worth keeping as an
                 extra (spec, code) SFT pair
@@ -31,19 +33,47 @@ metric space:
   fail       everything else (including geometry that does not execute/tessellate)
 
 Calibrated 2026-09-24 against 24 owner FreeCAD-overlay labels (18 Opus 5.5 + 6 Gemma
-harvest-round-1 builds, benchmarks/results/card/opus55-pilot-2026-09-23/human_verdicts*.json)
--- see that folder for the label files and docs/FINDINGS-1.0.md's calibration note for the
-full before/after table. Two things a single global chamfer/volume threshold could NOT do,
-confirmed by measurement, not assumed: (1) separate "identical bbox, wrong hole pattern"
-(air-engine-base-plate, still wrongly near_miss after this pass) from "correct shape, one
-feature moved" (air-engine-upright/bush-housing, still wrongly valid) -- no metric here is
-local enough to see a small missing/misplaced feature on a big part; occasionally left
-unresolved on purpose rather than adding a per-part rule. (2) use one relative bbox tolerance
-that both excludes air-engine-end-plate/cad-exam-3d-part (grossly wrong dimensions marked
-near_miss before this fix) AND keeps air-engine-crank-pin (25mm vs the reference's 20mm, a
-25% miss the owner still calls near_miss) -- NEAR_MISS_BBOX_ABS_MM=5.0/REL_FRAC=0.10 is the
-widest reasonable per-axis tolerance that still excludes both bad cases; crank-pin clears it
-only by a coincidence of exactly matching numbers, not a rule built around it.
+harvest-round-1 builds, benchmarks/results/card/opus55-pilot-2026-09-23/human_verdicts*.json,
+measured via scripts/calibrate_bands.py) -- see that folder for the label files. Measured
+agreement: 13/24 before this pass -> 17/24 after (Opus 9/18 -> 11/18, Gemma 4/6 -> 6/6).
+
+KNOWN, DOCUMENTED DISAGREEMENTS left unresolved rather than adding a per-part rule (the
+anti-overfitting rule: 24 labels is small, and a threshold that moves exactly one example
+is tuning, not a general rule):
+  - air-engine-base-plate (owner: fail, scorer: near_miss) and air-engine-upright /
+    air-engine-bush-housing (owner: near_miss, scorer: valid): identical or near-identical
+    bbox and a small average chamfer either way -- a wrong hole pattern or one moved feature
+    on a big part is invisible to a whole-shape chamfer/bbox/volume metric at this scale; no
+    check here is local enough to see it.
+  - air-engine-spring (owner: near_miss, scorer: fail): a thin coiled wire whose small total
+    volume makes even a physically small missing feature (the unmodelled variable-pitch
+    closed ends) a large volume PERCENTAGE (57%). Raising NEAR_MISS_VOL_PCT to admit it was
+    tried and reverted (git history, 2026-09-24) once measurement showed it was the only one
+    of 24 labels that constant's value actually changed.
+  - air-engine-pivot-rod and air-engine-piston (owner: match, scorer: near_miss / valid):
+    both candidates' own STEP->STL re-tessellation (step_to_stl, called fresh on every
+    score, not the original build's own STL export) is non-watertight at a fine feature --
+    pivot-rod fails the strict open3d watertight check outright; piston's candidate mesh
+    fails cadqueryeval's internal trimesh watertightness check inside check_volume, which
+    checks the CANDIDATE before the reference and stops there, so volume_passed is False
+    regardless of the reference-volume-sidecar fix above. Confirmed by running
+    perform_geometry_checks() directly and reading every sub-check (2026-09-24): watertight
+    (candidate, open3d)=True, single_component=True, bbox_accurate=True, chamfer_passed=True
+    (0.107mm), hausdorff_passed=True, volume_passed=False, error "Generated mesh not
+    watertight for volume". Not fixed: would mean weakening the candidate's own
+    watertightness/volume requirement, which is explicitly out of scope ("fix the
+    reference, not the candidate check").
+  - air-engine-cylinder (owner: match, scorer: valid): chamfer sits right at cadqueryeval's
+    strict 1.0mm "match" threshold (measured 0.9-1.7mm across repeated runs) with real
+    run-to-run RANSAC registration variance -- a registration-stability issue in the
+    external cadqueryeval checker, not this module.
+
+One relative bbox tolerance had to both exclude air-engine-end-plate/cad-exam-3d-part
+(grossly wrong dimensions marked near_miss before this fix) AND keep air-engine-crank-pin
+(25mm vs the reference's 20mm, a 25% miss the owner still calls near_miss) --
+NEAR_MISS_BBOX_ABS_MM=5.0/REL_FRAC=0.10 is the widest reasonable per-axis tolerance that
+still excludes both bad cases; crank-pin clears it only by a coincidence of exactly
+matching numbers, not a rule built around it.
 
 Usage:
   python3 scripts/geom_bands.py <candidate.step|.stl> <reference.stl> [--components N]
@@ -74,13 +104,16 @@ MATCH_VOLUME_PCT = _mod.DEFAULT_VOLUME_THRESHOLD_PERCENT  # 2.0 -- the strict "m
 VALID_CHAMFER_MM    = 2.5
 VALID_VOL_PCT       = 10.0
 NEAR_MISS_DIAG_FRAC = 0.08
-# Raised 50 -> 60 (2026-09-24): air-engine-spring is a thin coiled wire whose total volume is
-# small, so a proportionally large percentage swing (57%) comes from a physically small
-# absolute feature (the unmodelled variable-pitch closed ends) -- the owner still calls this
-# near_miss. A volume-percent cap this loose only matters for parts the bbox+single-solid
-# gates below don't already exclude; it is not, by itself, a reliable "is this the right
-# part" signal for solid/flat parts (see the base-plate note above), so it stays permissive.
-NEAR_MISS_VOL_PCT   = 60.0
+# Tried raising 50 -> 60 (2026-09-24) to admit air-engine-spring (a thin coiled wire where
+# a physically small absolute feature -- the unmodelled variable-pitch closed ends -- swings
+# volume% by 57%, which the owner still calls near_miss). Reverted: measured against all 24
+# labels, spring was the ONLY row the change touched (every other near_miss/valid case in
+# the set sits either under 50% or is already excluded by chamfer/bbox/single-solid
+# regardless of this constant) -- a threshold justified by exactly one example is the
+# per-part tuning the anti-overfitting rule forbids, not a general rule. air-engine-spring
+# is left as a KNOWN, documented disagreement (owner: near_miss, scorer: fail) rather than
+# widening this constant for it alone.
+NEAR_MISS_VOL_PCT   = 50.0
 # New 2026-09-24 (Required fix #1): per-axis bounding-box tolerance for near_miss, whichever
 # of the absolute floor or the relative fraction is looser. 5mm / 10% is the widest tolerance
 # that still excludes every known "wrong-size" near_miss false positive (air-engine-end-plate,

@@ -30,6 +30,15 @@ def _minimal_brief():
 
 
 def _patch_common(monkeypatch, tmp_path, load_config_result):
+    # Required fix (2026-09-24): build() takes a real fcntl.flock on BUILD_LOCK_FILE before
+    # any of the mocks below ever run (_acquire_build_lock, called at the top of build()).
+    # cad_engine binds BUILD_LOCK_FILE from cad_v5.config at IMPORT time to the real,
+    # machine-wide ~/.openclaw/cad-build.lock -- this test never touched that binding, so
+    # a run here could block for real (and did: it hung for the full length of a live
+    # harvest run holding that exact lock) instead of exercising the escalation ladder.
+    # Point it at a private tmp_path file instead, same pattern test_lab_harvest.py and
+    # test_gpu_window.py already use for the same lock.
+    monkeypatch.setattr(v4, "BUILD_LOCK_FILE", tmp_path / "cad-build.lock")
     monkeypatch.setattr(v4, "preflight", lambda: None)
     monkeypatch.setattr(v4, "_load_config", lambda: load_config_result)
     monkeypatch.setattr(v4, "build_brief", lambda spec: _minimal_brief())
