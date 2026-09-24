@@ -19,10 +19,21 @@ script reverses the direction:
   5. BLIND REBUILD -- a FRESH call (no design context) gets only that spec plus the SAME
                production code prompt and writes code. Built, gated, and scored against the
                design's own STEP-derived reference geometry (geom_bands.score_against_reference).
-               The pair (spec, blind-rebuild code) is kept ONLY if band == "match" and the
-               rebuild's gate is clean (no gate_hard, no [spec] findings). This makes every
-               kept pair verified by construction, against a reference the teacher itself
-               produced -- no human and no second model in the loop.
+               The pair (spec, blind-rebuild code) is kept ONLY if band == "match", the
+               rebuild's gate is clean (no gate_hard, no [spec] findings), AND the rebuild's
+               own measured feature counts (holes, shafts, fillets, chamfers) match the
+               design's, each within measure_part.compare_features's tolerance. This makes
+               every kept pair verified by construction, against a reference the teacher
+               itself produced -- no human and no second model in the loop.
+
+               The feature-count check (added 2026-09-24) exists because band=="match" is a
+               volume/chamfer-distance score, and a small-volume feature can be dropped
+               entirely without moving it much: cf13/cf14/cf44 (opus pilot) were kept with
+               their outer-corner fillets completely missing, because the SPEC never
+               mentioned fillets the design had, and a geometrically-faithful blind rebuild
+               then correctly built what the spec asked for -- an unfilleted part. Two
+               independent fixes: the SPEC prompt now says never to describe an absent
+               feature (root cause), and this feature-count check is the safety net.
 
 Everything CPU-only: never touches ~/.openclaw/cad-build.lock, the GPU, systemd units, or the
 main checkout's lab/state/ (this script writes only under benchmarks/results/card/). The OCCT
@@ -34,6 +45,9 @@ Usage:
     python3 -X utf8 lab/teacher_codefirst.py --model claude-sonnet-5 --budget 0.60 --limit 2
     python3 -X utf8 lab/teacher_codefirst.py --model claude-opus-5-5 --budget 6.00
     python3 -X utf8 lab/teacher_codefirst.py --model claude-sonnet-5 --budget 3.00 --batch
+    # scale run seed bank (lab/gen_seeds_scale.py writes lab/teacher_seeds_scale.jsonl):
+    python3 -X utf8 lab/teacher_codefirst.py --model claude-opus-5-5 --budget 0 --batch \\
+        --dry-run --seeds-file lab/teacher_seeds_scale.jsonl
 """
 from __future__ import annotations
 
@@ -194,8 +208,9 @@ def check_contamination(text: str) -> Optional[str]:
     return None
 
 
-def guard_seeds() -> None:
-    clashes = [s for s in SEEDS if check_contamination(s["idea"])]
+def guard_seeds(seed_list: Optional[list[dict]] = None) -> None:
+    clashes = [s for s in (seed_list if seed_list is not None else SEEDS)
+              if check_contamination(s["idea"])]
     if clashes:
         print("CONTAMINATION GUARD TRIPPED -- these seeds collide with an eval suite:",
               file=sys.stderr)
@@ -204,12 +219,32 @@ def guard_seeds() -> None:
         sys.exit(2)
 
 
+def load_seeds_file(path: Path) -> list[dict]:
+    rows = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            rows.append(json.loads(line))
+    return rows
+
+
 # ── API key: read into process env only, never print/write ────────────────────────────────
 def _load_api_key() -> str:
+    """Prefer an already-exported process env var (never write one, only read); otherwise
+    fall back to openclaw.json's env block, in either the schema this was first written
+    against (env.ANTHROPIC_API_KEY, flat) or the nested env.vars.ANTHROPIC_API_KEY schema
+    openclaw.json was migrated to on 2026-09-24 -- cad_engine._cloud_key resolves the SAME
+    two schema shapes for its own cloud rung, so this mirrors that rather than inventing a
+    third convention."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return os.environ["ANTHROPIC_API_KEY"]
     cfg = json.loads((Path.home() / ".openclaw" / "openclaw.json").read_text(encoding="utf-8"))
-    key = cfg.get("env", {}).get("ANTHROPIC_API_KEY", "")
+    env = cfg.get("env", {})
+    key = env.get("ANTHROPIC_API_KEY") or env.get("vars", {}).get("ANTHROPIC_API_KEY", "")
     if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY not found in openclaw.json env block")
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY not found in the process environment or in openclaw.json's "
+            "env block (checked both env.ANTHROPIC_API_KEY and env.vars.ANTHROPIC_API_KEY)")
     return key
 
 
@@ -437,17 +472,29 @@ def design_accept(gate: dict) -> tuple[bool, str]:
     return True, ""
 
 
-def keep_pair(band: Optional[str], gate: dict) -> bool:
-    """The blind-rebuild pair is kept ONLY if it matches the reference geometry AND its own
-    gate is clean (no gate_hard, no [spec] contradiction). A near-miss render, or a build
-    that happens to match geometry but trips a [spec] check, is not verified-good data."""
+def keep_pair(band: Optional[str], gate: dict, design_measurements: dict,
+             rebuild_measurements: dict) -> tuple[bool, list[str]]:
+    """The blind-rebuild pair is kept ONLY if ALL THREE hold: it matches the reference
+    geometry (band == "match"), its own gate is clean (no gate_hard, no [spec]
+    contradiction), AND its measured feature counts match the design's (holes, shafts,
+    fillets, chamfers -- same count, radii within measure_part.compare_features's default
+    tolerance). Returns (kept, feature_mismatch_reasons); reasons is [] whenever band/gate
+    already decided the answer (compare_features is only run once both of those pass).
+
+    The third check exists because a tiny-volume feature (a set of corner fillets) can be
+    dropped entirely and still land inside band=="match"'s chamfer-distance/volume-diff
+    thresholds -- real incident, 2026-09-24: cf13/cf14/cf44 were kept as "match" with their
+    outer-corner fillets completely missing. Two independent fixes went in for that: the SPEC
+    prompt now says never to describe an absent feature (the root cause -- the spec never
+    asked for the fillets a correct rebuild then correctly omitted), and this feature-count
+    check is the safety net for whatever still slips past the prompt fix."""
     if band != "match":
-        return False
+        return False, []
     if gate.get("error") or gate.get("unscored_reason"):
-        return False
+        return False, []
     if gate.get("gate_hard") or gate.get("gate_spec"):
-        return False
-    return True
+        return False, []
+    return measure_part.compare_features(design_measurements, rebuild_measurements)
 
 
 # ── multi-view render ───────────────────────────────────────────────────────────────────
@@ -633,17 +680,36 @@ def _run_seed_body(seed: dict, model: str, out_dir: Path, since_ts: datetime, bu
     row["score"] = score
     row["band"] = score.get("band")
 
-    kept = keep_pair(score.get("band"), gate2)
+    # Measure the rebuild too -- band=="match" is a volume/chamfer-distance score and can
+    # pass a rebuild that silently dropped a tiny-volume feature (see keep_pair's docstring).
+    try:
+        rebuild_measurements = measure_part.measure(rebuild_step)
+    except Exception as e:
+        row.update(outcome="rebuild-measure-failed", reason=str(e)[:300], kept=False)
+        return row
+    (part_dir / "rebuild_measurements.json").write_text(
+        json.dumps(rebuild_measurements, indent=2), encoding="utf-8")
+
+    kept, feature_problems = keep_pair(score.get("band"), gate2, measurements,
+                                       rebuild_measurements)
     row["kept"] = kept
+    row["feature_check"] = feature_problems
     if not kept:
-        row["outcome"] = "rebuild-mismatch" if score.get("band") != "match" else "rebuild-gate-dirty"
+        if score.get("band") != "match":
+            row["outcome"] = "rebuild-mismatch"
+        elif gate2.get("gate_hard") or gate2.get("gate_spec") or gate2.get("error") \
+                or gate2.get("unscored_reason"):
+            row["outcome"] = "rebuild-gate-dirty"
+        else:
+            row["outcome"] = "rebuild-feature-mismatch"
         return row
 
     row["outcome"] = "kept"
     pair = {"id": sid, "tier": tier, "model": model, "idea": idea, "spec": spec_text,
            "code": rebuild_code, "design_code": design_code, "band": score.get("band"),
            "chamfer_mm": score.get("chamfer_mm"), "volume_diff_pct": score.get("volume_diff_pct"),
-           "measurements": measurements, "timestamp": _now()}
+           "measurements": measurements, "rebuild_measurements": rebuild_measurements,
+           "timestamp": _now()}
     with (out_dir / "pairs.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(pair, default=str) + "\n")
     return row
@@ -817,22 +883,126 @@ def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: d
                             band="fail")
             continue
         score = geom_bands.score_against_reference(rebuild_step, measured[sid]["ref_stl"])
-        kept = keep_pair(score.get("band"), gate2)
+        try:
+            rebuild_measurements = measure_part.measure(rebuild_step)
+        except Exception as e:
+            rows[sid].update(id=sid, tier=seed["tier"], idea=seed["idea"], model=model,
+                            ts=_now(), outcome="rebuild-measure-failed", reason=str(e)[:300],
+                            kept=False)
+            continue
+        (part_dir / "rebuild_measurements.json").write_text(
+            json.dumps(rebuild_measurements, indent=2), encoding="utf-8")
+        kept, feature_problems = keep_pair(score.get("band"), gate2,
+                                           measured[sid]["measurements"], rebuild_measurements)
+        if kept:
+            outcome = "kept"
+        elif score.get("band") != "match":
+            outcome = "rebuild-mismatch"
+        elif gate2.get("gate_hard") or gate2.get("gate_spec") or gate2.get("error") \
+                or gate2.get("unscored_reason"):
+            outcome = "rebuild-gate-dirty"
+        else:
+            outcome = "rebuild-feature-mismatch"
         rows[sid].update(id=sid, tier=seed["tier"], idea=seed["idea"], model=model, ts=_now(),
                         score=score, band=score.get("band"), kept=kept,
-                        outcome="kept" if kept else (
-                            "rebuild-mismatch" if score.get("band") != "match"
-                            else "rebuild-gate-dirty"))
+                        feature_check=feature_problems, outcome=outcome)
         if kept:
             pair = {"id": sid, "tier": seed["tier"], "model": model, "idea": seed["idea"],
                    "spec": spec_text, "code": rebuild_code,
                    "design_code": measured[sid]["design_code"], "band": score.get("band"),
                    "chamfer_mm": score.get("chamfer_mm"), "volume_diff_pct": score.get("volume_diff_pct"),
-                   "measurements": measured[sid]["measurements"], "timestamp": _now()}
+                   "measurements": measured[sid]["measurements"],
+                   "rebuild_measurements": rebuild_measurements, "timestamp": _now()}
             with (out_dir / "pairs.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps(pair, default=str) + "\n")
 
     return rows
+
+
+# ── batch dry-run: build the design-stage requests, estimate the 3-stage cost, submit NOTHING
+BATCH_DISCOUNT = 0.5  # Anthropic Message Batches API: 50% of synchronous list price
+
+
+def batch_price(model: str) -> tuple[float, float]:
+    pin, pout = MODEL_PRICES[model]
+    return pin * BATCH_DISCOUNT, pout * BATCH_DISCOUNT
+
+
+# Fallback avg tokens/call per stage when a model has no completed pilot history yet --
+# roughly what was actually measured across the 2026-09-24 sonnet/opus pilot runs, so a
+# dry-run against a brand-new model still gives an order-of-magnitude estimate rather than
+# an error.
+_STAGE_FALLBACK_TOKENS = {"design_call": (5200, 220), "spec_call": (2300, 130),
+                          "rebuild_call": (5300, 220)}
+
+
+def measured_call_stats(model: str) -> dict[str, dict]:
+    """Average input/output tokens per call stage (design_call/spec_call/rebuild_call),
+    measured from THIS model's own completed results.jsonl under
+    benchmarks/results/card/codefirst-pilot-2026-09-24/<model>/ -- "the pilot's measured
+    tokens per call". Falls back to _STAGE_FALLBACK_TOKENS per stage when that model has no
+    history yet (never silently returns zero)."""
+    sums = {"design_call": [0, 0, 0], "spec_call": [0, 0, 0], "rebuild_call": [0, 0, 0]}
+    results_path = OUT_ROOT / model / "results.jsonl"
+    if results_path.exists():
+        for line in results_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            for stage in sums:
+                c = r.get(stage)
+                if isinstance(c, dict) and c.get("tokens_in") is not None:
+                    sums[stage][0] += c["tokens_in"]
+                    sums[stage][1] += c["tokens_out"]
+                    sums[stage][2] += 1
+    stats: dict[str, dict] = {}
+    for stage, (tin, tout, n) in sums.items():
+        if n:
+            stats[stage] = {"avg_in": tin / n, "avg_out": tout / n, "n": n}
+        else:
+            fin, fout = _STAGE_FALLBACK_TOKENS[stage]
+            stats[stage] = {"avg_in": float(fin), "avg_out": float(fout), "n": 0}
+    return stats
+
+
+def dry_run_batch(model: str, seeds: list[dict]) -> int:
+    """Build the DESIGN-stage batch requests for every non-contaminated seed (the only stage
+    buildable without first running the CPU build/measure/spec pipeline on real results --
+    stages 2/3 depend on stage 1's output) and print the exact request count, PLUS an
+    estimated cost for the full 3-stage pipeline at Batch API pricing using this model's
+    measured avg tokens/call from its completed pilot run. Makes zero API calls: no batch is
+    ever created, `client()` is never even touched (capture_codegen_prompt only stubs
+    engine._ollama, a local no-op)."""
+    live = [s for s in seeds if not check_contamination(s["idea"])]
+    requests = [_batch_request(s["id"], model, p["system"], p["prompt"])
+               for s in live for p in [capture_codegen_prompt(s["idea"])]]
+
+    stats = measured_call_stats(model)
+    pin, pout = batch_price(model)
+    per_seed_cost = sum((s["avg_in"] * pin + s["avg_out"] * pout) / 1_000_000
+                        for s in stats.values())
+    total_cost = per_seed_cost * len(live)
+
+    print(f"[batch dry-run] model={model}  seeds given={len(seeds)}  "
+         f"live (non-contaminated)={len(live)}")
+    print(f"[batch dry-run] DESIGN-stage batch requests built: {len(requests)} "
+         f"(stages 2/3 need stage 1's real output, so only design's request shape is "
+         f"built here; their token stats below are still measured/estimated for costing)")
+    for stage in ("design_call", "spec_call", "rebuild_call"):
+        s = stats[stage]
+        src = f"measured over {s['n']} calls" if s["n"] else "fallback (no history for this model)"
+        print(f"  {stage:12s} avg_in={s['avg_in']:.0f}tok avg_out={s['avg_out']:.0f}tok  ({src})")
+    lin, lout = MODEL_PRICES[model]
+    print(f"[batch dry-run] batch price for {model}: ${pin:.2f} in / ${pout:.2f} out per "
+         f"MTok ({int(BATCH_DISCOUNT*100)}% of list ${lin:.2f} in / ${lout:.2f} out)")
+    print(f"[batch dry-run] estimated cost per seed (3 stages): ${per_seed_cost:.4f}")
+    print(f"[batch dry-run] estimated TOTAL for {len(live)} seeds: ${total_cost:.4f}")
+    print("[batch dry-run] NO API calls made, no batch submitted, $0.00 spent.")
+    return 0
 
 
 # ── main ─────────────────────────────────────────────────────────────────────────────────
@@ -843,26 +1013,38 @@ def main() -> int:
     ap.add_argument("--budget", type=float, required=True,
                     help="hard USD cap for this run, checked against the shared ledger "
                          "before every call")
-    ap.add_argument("--limit", type=int, default=0, help="max seeds to attempt (0 = all 50)")
+    ap.add_argument("--limit", type=int, default=0, help="max seeds to attempt (0 = all)")
     ap.add_argument("--only", default="", help="comma-separated seed ids")
+    ap.add_argument("--seeds-file", default="",
+                    help="JSONL of {id,tier,idea} rows to use instead of the built-in "
+                         "50-seed pilot bank (e.g. lab/teacher_seeds_scale.jsonl)")
     ap.add_argument("--batch", action="store_true",
                     help="use the Message Batches API for each of the 3 call stages "
                          "instead of one synchronous call per seed")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="with --batch: build the design-stage batch requests and print an "
+                         "estimated 3-stage cost at Batch API pricing, then exit -- makes "
+                         "NO API calls and submits no batch")
     a = ap.parse_args()
 
-    guard_seeds()
+    seeds = load_seeds_file(a.seeds_file) if a.seeds_file else SEEDS
+    guard_seeds(seeds)
 
-    out_dir = OUT_ROOT / a.model
-    acquire_single_instance_lock(out_dir)
-    for sub in ("builds",):
-        (out_dir / sub).mkdir(parents=True, exist_ok=True)
-
-    seeds = SEEDS
     if a.only:
         want = {s.strip() for s in a.only.split(",")}
         seeds = [s for s in seeds if s["id"] in want]
     if a.limit:
         seeds = seeds[:a.limit]
+
+    if a.batch and a.dry_run:
+        # No lock, no output dir, no done_ids filtering: a dry run reads (never writes) the
+        # given seed list plus whatever completed results already exist on disk, purely to
+        # measure historical avg tokens/call for the cost estimate.
+        return dry_run_batch(a.model, seeds)
+
+    out_dir = OUT_ROOT / a.model
+    acquire_single_instance_lock(out_dir)
+    (out_dir / "builds").mkdir(parents=True, exist_ok=True)
 
     since_ts = datetime.now(timezone.utc)
     state = {"total_usd": 0.0, "calls": 0, "max_call_usd": 0.0}

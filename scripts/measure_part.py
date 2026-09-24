@@ -54,18 +54,35 @@ def measure(step_path: Path) -> dict:
     thin_axis = int(np.argmin(dims))
     in_plane_axes = [i for i in range(3) if i != thin_axis]
 
-    raw = []
-    fillets = []
+    # Cylindrical faces are classified by TWO independent, physically obvious signals:
+    #   arc span   -- a FULL circle (~360 deg) is a hole/bore (concave) or shaft/boss (convex);
+    #                 a PARTIAL arc (a straight prismatic edge rounded off, e.g.
+    #                 fillet(edges().filter_by(Axis.Z))) is an edge fillet, not a hole at all.
+    #   convexity  -- already computed below (face normal vs the outward radial direction).
+    # This replaces an earlier "own_coverage" heuristic that tried to infer the same thing
+    # from face AREA vs a hypothetical full-circle area and, in doing so, silently DROPPED
+    # every partial-arc fillet face outright (found live, 2026-09-24: cf13/cf14/cf44 lost
+    # their outer-corner fillets -- design_code had fillet() calls, measurements.json showed
+    # zero fillets, so the spec never mentioned them and a geometrically-faithful blind
+    # rebuild correctly left them out; the tiny volume delta let it through as band "match").
+    # A fillet on a CURVED edge (not a straight prismatic one) instead leaves a TORUS face --
+    # handled separately below, unchanged.
+    FULL_ARC_TOL_DEG = 3.0     # within this of 360 deg counts as a full circle
+    MIN_FACE_AREA_MM2 = 0.02  # drop near-zero-area tessellation/seam slivers, either kind
+
+    raw = []          # full-arc cylindrical faces -> holes/shafts (grouped by axis+position)
+    fillet_raw = []   # partial-arc cylindrical faces + TORUS faces -> fillets (grouped by radius)
     chamfers = []
     for f in faces:
+        if f.area < MIN_FACE_AREA_MM2:
+            continue
         gt = str(f.geom_type)
         if gt == "GeomType.TORUS":
             surf = BRepAdaptor_Surface(f.wrapped)
             try:
                 torus = surf.Torus()
-                fillets.append({"minor_radius_mm": round(float(torus.MinorRadius()), 3),
-                                 "major_radius_mm": round(float(torus.MajorRadius()), 3),
-                                 "area_mm2": round(float(f.area), 3)})
+                fillet_raw.append({"radius": float(torus.MinorRadius()), "convex": True,
+                                   "area": float(f.area), "kind": "corner blend (torus)"})
             except Exception:
                 pass
             continue
@@ -104,21 +121,47 @@ def measure(step_path: Path) -> dict:
         nvec = np.array([n.X, n.Y, n.Z])
         convex = bool(np.dot(nvec, radial_outward) > 0)
 
+        u0, u1 = surf.FirstUParameter(), surf.LastUParameter()
+        span_deg = float(np.degrees(abs(u1 - u0)))
+        is_full_circle = span_deg >= (360.0 - FULL_ARC_TOL_DEG)
+
+        if not is_full_circle:
+            fillet_raw.append({
+                "radius": r, "convex": convex, "area": float(f.area),
+                "kind": "edge fillet" if convex else "internal fillet/round",
+            })
+            continue
+
         fv = f.vertices()
         fp = np.array([[v.X, v.Y, v.Z] for v in fv], dtype=float) if fv else cpt.reshape(1, 3)
 
         d_key = d if d[np.argmax(np.abs(d))] >= 0 else -d
         perp = loc - np.dot(loc, d_key) * d_key
 
-        own_t = np.dot(fp - loc, d)
-        own_span = float(own_t.max() - own_t.min())
-        own_full_area = 3.141592653589793 * (r * 2) * max(own_span, 1e-6)
-        own_coverage = float(f.area) / own_full_area if own_full_area > 1e-9 else 1.0
-
         raw.append({"radius": r, "diameter": round(r * 2, 3), "convex": convex,
-                    "d": d_key, "perp": perp, "fp": fp, "area": float(f.area),
-                    "own_coverage": own_coverage})
+                    "d": d_key, "perp": perp, "fp": fp, "area": float(f.area)})
 
+    # ── fillets: group by (kind bucket, radius) -- position doesn't matter, count does ────
+    fillets = []
+    fillet_groups: list[dict] = []
+    for rf in fillet_raw:
+        placed = False
+        for g in fillet_groups:
+            if g["kind"] == rf["kind"] and abs(g["radius"] - rf["radius"]) < 0.1:
+                g["radius"] = (g["radius"] * g["count"] + rf["radius"]) / (g["count"] + 1)
+                g["count"] += 1
+                g["area"] += rf["area"]
+                placed = True
+                break
+        if not placed:
+            fillet_groups.append({"radius": rf["radius"], "count": 1, "area": rf["area"],
+                                  "kind": rf["kind"]})
+    for g in fillet_groups:
+        fillets.append({"radius_mm": round(g["radius"], 3), "count": g["count"],
+                        "kind": g["kind"], "area_mm2": round(g["area"], 3)})
+    fillets.sort(key=lambda g: -g["radius_mm"])
+
+    # ── holes/shafts: only full-arc faces reach here now, grouped by axis + position ───────
     groups = []
     for rf in raw:
         placed = False
@@ -129,12 +172,11 @@ def measure(step_path: Path) -> dict:
             if same_d and same_perp and same_dia:
                 g["fp"] = np.vstack([g["fp"], rf["fp"]])
                 g["area"] += rf["area"]
-                g["max_own_coverage"] = max(g["max_own_coverage"], rf["own_coverage"])
                 g["members"] += 1
                 placed = True
                 break
         if not placed:
-            groups.append({**rf, "members": 1, "max_own_coverage": rf["own_coverage"]})
+            groups.append({**rf, "members": 1})
 
     holes, shafts = [], []
     for g in groups:
@@ -148,8 +190,6 @@ def measure(step_path: Path) -> dict:
         margin_lo = t_lo - t_solid_lo
         margin_hi = t_solid_hi - t_hi
         span = t_hi - t_lo
-        if g["max_own_coverage"] < 0.30:
-            continue  # fillet/blend sliver, not a real hole/shaft
 
         entry_pt = g["perp"] + t_lo * g["d"]
         exit_pt = g["perp"] + t_hi * g["d"]
@@ -229,6 +269,55 @@ def write_reference_volume_sidecar(step_path: Path, ref_stl: Path, sidecar_json:
     sidecar_json.parent.mkdir(parents=True, exist_ok=True)
     sidecar_json.write_text(json.dumps(sidecar, indent=2), encoding="utf-8")
     return sidecar
+
+
+def _flat_radii(measurements: dict, list_key: str, radius_key: str) -> list[float]:
+    """Expand a feature list into one radius/diameter value per physical instance -- a
+    grouped entry (fillets carry `count`) becomes `count` copies of its radius, so two
+    measurements that group the SAME features slightly differently (e.g. one run's 4
+    identical fillets in one group vs another's 2+2 split by floating-point radius drift)
+    still compare as equal flat multisets rather than by how many groups each has."""
+    out: list[float] = []
+    for e in (measurements.get(list_key) or []):
+        v = e.get(radius_key)
+        if v is None:
+            continue
+        n = int(e.get("count", 1) or 1)
+        out.extend([float(v)] * n)
+    return sorted(out)
+
+
+def compare_features(design: dict, rebuild: dict, radius_tol_mm: float = 0.2) -> tuple[bool, list[str]]:
+    """True (+ []) only when `rebuild`'s measured feature counts match `design`'s exactly --
+    same number of holes, shafts, fillets and chamfers, each within `radius_tol_mm` (holes/
+    shafts compared as diameters, so 2x that tolerance). Otherwise False + one message per
+    mismatched feature type.
+
+    Purely a function of two measure()-shaped dicts; never builds or gates anything itself.
+    Exists because band=="match" (a volume/chamfer-distance score) can pass a rebuild that
+    silently dropped a small feature -- a handful of corner fillets barely move total volume.
+    Real incident, 2026-09-24: cf13/cf14/cf44 were kept as "match" with their outer-corner
+    fillets missing entirely, because the SPEC never mentioned them (see the fillet-detection
+    fix above and the SPEC-prompt fix in lab/teacher_codefirst.py) -- this is the second,
+    independent check that would have caught it even if a spec omission slipped through."""
+    problems: list[str] = []
+
+    def _check(list_key: str, radius_key: str, tol: float, label: str) -> None:
+        d = _flat_radii(design, list_key, radius_key)
+        r = _flat_radii(rebuild, list_key, radius_key)
+        if len(d) != len(r):
+            problems.append(f"{label} count differs: design={len(d)} rebuild={len(r)}")
+            return
+        for dv, rv in zip(d, r):
+            if abs(dv - rv) > tol:
+                problems.append(f"{label} size mismatch: design={dv:g} rebuild={rv:g} "
+                               f"(tol {tol:g}mm)")
+
+    _check("holes", "diameter_mm", 2 * radius_tol_mm, "holes")
+    _check("shafts", "diameter_mm", 2 * radius_tol_mm, "shafts")
+    _check("fillets", "radius_mm", radius_tol_mm, "fillets")
+    _check("chamfers", "ref_radius_mm", radius_tol_mm, "chamfers")
+    return (not problems), problems
 
 
 def main() -> None:

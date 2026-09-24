@@ -73,6 +73,46 @@ def blind_hole_step(tmp_path) -> Path:
     return step
 
 
+# 2026-09-24 fillet-detection fix: a box with its 4 VERTICAL (straight, prismatic) edges
+# filleted -- exactly cf13/cf14/cf44's failure mode (measure_part.py used to silently drop
+# these as "fillet/blend slivers" instead of reporting them at all).
+BOX_WITH_VERTICAL_EDGE_FILLETS = (
+    "from build123d import *\n"
+    "with BuildPart() as bp:\n"
+    "    Box(40, 30, 10)\n"
+    "    fillet(bp.edges().filter_by(Axis.Z), radius=3)\n"
+    "result = bp.part\n"
+)
+
+# An L-notch cut into a box, then its ONE concave (interior) vertical edge filleted -- the
+# other classification cell: partial arc + CONCAVE = internal fillet/round, not a hole.
+BOX_WITH_INTERNAL_CONCAVE_FILLET = (
+    "from build123d import *\n"
+    "with BuildPart() as bp:\n"
+    "    Box(40, 30, 10)\n"
+    "    with Locations((10, 7.5, 0)):\n"
+    "        Box(20, 15, 10, mode=Mode.SUBTRACT)\n"
+    "    fillet(bp.edges().filter_by(Axis.Z), radius=2)\n"
+    "result = bp.part\n"
+)
+
+
+@pytest.fixture()
+def vertical_fillets_step(tmp_path) -> Path:
+    work = tmp_path / "work3"
+    work.mkdir(parents=True, exist_ok=True)
+    step, _log = cad_engine.run_step(BOX_WITH_VERTICAL_EDGE_FILLETS, work)
+    return step
+
+
+@pytest.fixture()
+def internal_concave_fillet_step(tmp_path) -> Path:
+    work = tmp_path / "work4"
+    work.mkdir(parents=True, exist_ok=True)
+    step, _log = cad_engine.run_step(BOX_WITH_INTERNAL_CONCAVE_FILLET, work)
+    return step
+
+
 # ── scripts/measure_part.py ─────────────────────────────────────────────────────────────────
 def test_measure_box_with_through_hole(through_hole_step):
     m = measure_part.measure(through_hole_step)
@@ -124,6 +164,81 @@ def test_write_reference_volume_sidecar(through_hole_step, tmp_path):
     assert sidecar == on_disk
 
 
+def test_measure_box_with_vertical_edge_fillets_reports_4_fillets(vertical_fillets_step):
+    """The exact case that caught cf13/cf14/cf44: fillet(edges().filter_by(Axis.Z)) on a box
+    leaves 4 CYLINDRICAL (not torus) faces, each a 90 deg partial arc -- must be reported as
+    4 grouped fillets of the requested radius, and must NOT be counted as holes."""
+    m = measure_part.measure(vertical_fillets_step)
+    assert m["n_solids"] == 1
+    assert m["holes"] == []
+    assert m["shafts"] == []
+    assert len(m["fillets"]) == 1, m["fillets"]  # one group: same radius, same kind
+    group = m["fillets"][0]
+    assert group["count"] == 4
+    assert group["radius_mm"] == pytest.approx(3.0, abs=0.05)
+    assert group["kind"] == "edge fillet"
+
+
+def test_measure_plate_with_through_hole_reports_zero_fillets(through_hole_step):
+    m = measure_part.measure(through_hole_step)
+    assert len(m["holes"]) == 1
+    assert m["fillets"] == []
+    assert m["chamfers"] == []
+
+
+def test_measure_internal_concave_fillet_not_a_hole(internal_concave_fillet_step):
+    m = measure_part.measure(internal_concave_fillet_step)
+    # 5 outer/notch-corner CONVEX fillets + 1 concave (reflex) corner of the L-notch itself
+    fillet_kinds = {g["kind"]: g["count"] for g in m["fillets"]}
+    assert fillet_kinds.get("internal fillet/round") == 1, m["fillets"]
+    assert fillet_kinds.get("edge fillet") == 5, m["fillets"]
+    assert m["holes"] == []
+    assert m["shafts"] == []
+
+
+# ── compare_features (lab/teacher_codefirst.py's tightened keep rule) ──────────────────────
+def test_compare_features_true_when_identical():
+    design = {"holes": [{"diameter_mm": 15.0}], "shafts": [],
+              "fillets": [{"radius_mm": 3.0, "count": 4}], "chamfers": []}
+    rebuild = {"holes": [{"diameter_mm": 15.05}], "shafts": [],
+               "fillets": [{"radius_mm": 2.95, "count": 4}], "chamfers": []}
+    ok, problems = measure_part.compare_features(design, rebuild)
+    assert ok is True
+    assert problems == []
+
+
+def test_compare_features_catches_dropped_fillets():
+    """The cf13/cf14/cf44 case: the design has 4 corner fillets, the rebuild has none."""
+    design = {"holes": [], "shafts": [], "fillets": [{"radius_mm": 3.0, "count": 4}],
+              "chamfers": []}
+    rebuild = {"holes": [], "shafts": [], "fillets": [], "chamfers": []}
+    ok, problems = measure_part.compare_features(design, rebuild)
+    assert ok is False
+    assert any("fillets count differs" in p for p in problems)
+
+
+def test_compare_features_catches_radius_drift_beyond_tolerance():
+    design = {"holes": [], "shafts": [], "fillets": [{"radius_mm": 3.0, "count": 1}],
+              "chamfers": []}
+    rebuild = {"holes": [], "shafts": [], "fillets": [{"radius_mm": 3.5, "count": 1}],
+               "chamfers": []}
+    ok, problems = measure_part.compare_features(design, rebuild, radius_tol_mm=0.2)
+    assert ok is False
+    assert any("fillets size mismatch" in p for p in problems)
+
+
+def test_compare_features_tolerates_differently_grouped_same_multiset():
+    """Design groups 4 identical fillets in one entry; rebuild's floating-point radii split
+    into two groups of 2 -- still the same 4 physical fillets, must compare equal."""
+    design = {"holes": [], "shafts": [], "fillets": [{"radius_mm": 3.0, "count": 4}],
+              "chamfers": []}
+    rebuild = {"holes": [], "shafts": [],
+               "fillets": [{"radius_mm": 2.96, "count": 2}, {"radius_mm": 3.04, "count": 2}],
+               "chamfers": []}
+    ok, problems = measure_part.compare_features(design, rebuild)
+    assert ok is True, problems
+
+
 # ── keep/reject rule (lab/teacher_codefirst.py) -- no API calls, no builds ─────────────────
 def test_design_accept_ok():
     gate = {"error": None, "unscored_reason": None, "gate_hard": [], "facts": {"solids": 1}}
@@ -147,23 +262,40 @@ def test_design_accept_rejects(gate, expect_substr):
     assert expect_substr in reason
 
 
-def test_keep_pair_true_only_on_match_and_clean_gate():
-    clean_gate = {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}
-    assert tc.keep_pair("match", clean_gate) is True
+CLEAN_GATE = {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}
+SAME_MEASUREMENTS = {"holes": [{"diameter_mm": 15.0}], "shafts": [], "fillets": [], "chamfers": []}
+
+
+def test_keep_pair_true_only_on_match_and_clean_gate_and_same_features():
+    kept, problems = tc.keep_pair("match", CLEAN_GATE, SAME_MEASUREMENTS, SAME_MEASUREMENTS)
+    assert kept is True
+    assert problems == []
 
 
 @pytest.mark.parametrize("band,gate", [
-    ("valid", {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}),
-    ("near_miss", {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}),
-    ("fail", {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}),
-    (None, {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": []}),
+    ("valid", CLEAN_GATE),
+    ("near_miss", CLEAN_GATE),
+    ("fail", CLEAN_GATE),
+    (None, CLEAN_GATE),
     ("match", {"error": "crashed", "unscored_reason": None, "gate_hard": [], "gate_spec": []}),
     ("match", {"error": None, "unscored_reason": "x", "gate_hard": [], "gate_spec": []}),
     ("match", {"error": None, "unscored_reason": None, "gate_hard": ["bad"], "gate_spec": []}),
     ("match", {"error": None, "unscored_reason": None, "gate_hard": [], "gate_spec": ["[spec] no"]}),
 ])
-def test_keep_pair_false(band, gate):
-    assert tc.keep_pair(band, gate) is False
+def test_keep_pair_false_on_band_or_gate(band, gate):
+    kept, _problems = tc.keep_pair(band, gate, SAME_MEASUREMENTS, SAME_MEASUREMENTS)
+    assert kept is False
+
+
+def test_keep_pair_false_when_a_feature_is_missing_from_the_rebuild():
+    """The cf13/cf14/cf44 regression test: band == "match" and the gate is clean, but the
+    rebuild dropped the design's 4 corner fillets entirely -- must not be kept."""
+    design_m = {"holes": [], "shafts": [], "fillets": [{"radius_mm": 3.0, "count": 4}],
+               "chamfers": []}
+    rebuild_m = {"holes": [], "shafts": [], "fillets": [], "chamfers": []}
+    kept, problems = tc.keep_pair("match", CLEAN_GATE, design_m, rebuild_m)
+    assert kept is False
+    assert any("fillets count differs" in p for p in problems)
 
 
 # ── model call-shape rules (pure, no network) ───────────────────────────────────────────────
