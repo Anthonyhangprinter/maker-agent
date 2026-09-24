@@ -379,3 +379,48 @@ def test_budget_check_noop_when_budget_is_zero():
     from datetime import datetime, timezone
     state = {"total_usd": 999.0, "calls": 1, "max_call_usd": 999.0}
     tc.budget_check("claude-sonnet-5", datetime.now(timezone.utc), 0.0, state)  # must not raise
+
+
+def test_budget_check_per_call_estimate_override_avoids_worst_case_blowup():
+    """The bug this guards: with reserve_calls=800 and the old "assume every call hits
+    MAX_TOKENS at synchronous list price" fallback, the pre-flight estimate alone was
+    hundreds of dollars -- enough to refuse to start a batch whose REAL cost was a fraction
+    of that. per_call_estimate_usd must be used INSTEAD of that formula when given."""
+    from datetime import datetime, timezone
+    state = {"total_usd": 0.0, "calls": 0, "max_call_usd": 0.0}
+    # a small, realistic per-call estimate x 800 requests must fit a modest budget
+    tc.budget_check("claude-opus-5-5", datetime.now(timezone.utc), 48.0, state,
+                    reserve_calls=800, per_call_estimate_usd=0.02)  # must not raise
+    # the SAME reserve_calls with no override uses the old worst-case formula and must blow
+    # straight through that same budget
+    with pytest.raises(tc.BudgetStop):
+        tc.budget_check("claude-opus-5-5", datetime.now(timezone.utc), 48.0, state,
+                        reserve_calls=800)
+
+
+def test_estimate_batch_call_cost_uses_batch_pricing_not_synchronous():
+    """Batch price is half of list (BATCH_DISCOUNT); the estimate must use it, not the full
+    synchronous MODEL_PRICES rate, or every batch pre-flight check would be needlessly (2x)
+    more conservative than the real bill."""
+    est = tc.estimate_batch_call_cost("claude-opus-5-5", "design")
+    pin, pout = tc.batch_price("claude-opus-5-5")
+    sync_pin, sync_pout = tc.MODEL_PRICES["claude-opus-5-5"]
+    assert pin == pytest.approx(sync_pin / 2)
+    assert pout == pytest.approx(sync_pout / 2)
+    assert est > 0
+
+
+def test_record_spend_batch_true_uses_half_the_synchronous_cost(monkeypatch, tmp_path):
+    monkeypatch.setattr(tc, "SPEND_LEDGER", tmp_path / "spend.jsonl")  # never touch the real ledger
+
+    class _Usage:
+        input_tokens = 1000
+        output_tokens = 1000
+        cache_read_input_tokens = 0
+        cache_creation_input_tokens = 0
+
+    state_sync = {"total_usd": 0.0, "calls": 0, "max_call_usd": 0.0}
+    state_batch = {"total_usd": 0.0, "calls": 0, "max_call_usd": 0.0}
+    m1 = tc.record_spend("claude-opus-5-5", _Usage(), 0.0, state_sync, batch=False)
+    m2 = tc.record_spend("claude-opus-5-5", _Usage(), 0.0, state_batch, batch=True)
+    assert m2["cost"] == pytest.approx(m1["cost"] * tc.BATCH_DISCOUNT)

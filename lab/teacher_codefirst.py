@@ -322,19 +322,28 @@ def ledger_spend_so_far(model: str, since_ts: datetime) -> tuple[float, int]:
 
 
 def budget_check(model: str, since_ts: datetime, budget: float, state: dict,
-                  reserve_calls: int = 1) -> None:
+                  reserve_calls: int = 1, per_call_estimate_usd: Optional[float] = None) -> None:
     """Re-syncs against the shared ledger every time (protects against a second writer
     that slipped past the lock, or a concurrent run of the same model) and refuses the
     NEXT call before it is sent if it would breach `budget`. `reserve_calls` lets a batch
     submission reserve headroom for every request in the batch at once, since a batch
-    cannot be stopped mid-way once created."""
+    cannot be stopped mid-way once created.
+
+    `per_call_estimate_usd`, when given, REPLACES the default "no history yet" worst-case
+    formula (which assumes every call hits the full MAX_TOKENS output ceiling at synchronous
+    list price -- multiplied by a few hundred `reserve_calls` in batch mode, that worst case
+    is wildly unrepresentative and would refuse to even start a batch whose REAL measured
+    cost is a fraction of it). Still gets the same 20% safety margin. Batch callers pass a
+    measured-average, batch-priced estimate (see estimate_batch_call_cost)."""
     if not budget:
         return
     ledger_total, ledger_n = ledger_spend_so_far(model, since_ts)
     if ledger_total > state["total_usd"]:
         state["total_usd"] = ledger_total
         state["calls"] = max(state["calls"], ledger_n)
-    if state["calls"] == 0:
+    if per_call_estimate_usd is not None:
+        per_call = per_call_estimate_usd * 1.2
+    elif state["calls"] == 0:
         pin, pout = MODEL_PRICES[model]
         per_call = MAX_TOKENS * pout / 1_000_000 + 15000 * pin / 1_000_000
     else:
@@ -347,8 +356,13 @@ def budget_check(model: str, since_ts: datetime, budget: float, state: dict,
             f"({reserve_calls} call(s)), budget ${budget:.2f}")
 
 
-def record_spend(model: str, usage, wall_s: float, state: dict) -> dict:
-    pin, pout = MODEL_PRICES[model]
+def record_spend(model: str, usage, wall_s: float, state: dict, batch: bool = False) -> dict:
+    """batch=True meters at Batch API pricing (batch_price(), 50% of list) -- what Anthropic
+    actually bills for a batch call. batch=False (the synchronous path) meters at the full
+    synchronous MODEL_PRICES rate, which IS what synchronous calls actually cost. Recorded
+    spend should always match the real invoice; conservatism belongs in the PRE-FLIGHT
+    estimate (budget_check), not in mis-recording what already happened."""
+    pin, pout = batch_price(model) if batch else MODEL_PRICES[model]
     tin = int(getattr(usage, "input_tokens", 0) or 0)
     tout = int(getattr(usage, "output_tokens", 0) or 0)
     cread = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
@@ -358,7 +372,7 @@ def record_spend(model: str, usage, wall_s: float, state: dict) -> dict:
     state["calls"] += 1
     state["max_call_usd"] = max(state["max_call_usd"], cost)
     row = {"ts": datetime.now(timezone.utc).isoformat(), "model": model,
-           "in": tin, "out": tout, "usd": round(cost, 6)}
+           "in": tin, "out": tout, "usd": round(cost, 6), "batch": batch}
     try:
         SPEND_LEDGER.parent.mkdir(parents=True, exist_ok=True)
         with SPEND_LEDGER.open("a", encoding="utf-8") as f:
@@ -452,12 +466,14 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
     """requests: list of (custom_id, system, content). Submits ALL of them as one Batch,
     polls processing_status until "ended", then reads results keyed by custom_id (never by
     position -- the Batches API makes no ordering guarantee on `results`). A batch cannot be
-    partially cancelled once cost is committed, so the WHOLE batch's worst-case cost is
-    checked against the budget BEFORE it is created (reserve_calls=len(requests)) -- skipped
-    entirely when resuming an already-created batch (see _find_resumable_batch). Batch
-    pricing is roughly half of synchronous pricing in practice; this deliberately still
-    meters at the synchronous MODEL_PRICES rate so the budget cap stays conservative rather
-    than under-counting a real bill.
+    partially cancelled once cost is committed, so the WHOLE batch's cost is checked against
+    the budget BEFORE it is created (reserve_calls=len(requests), at a per-call estimate from
+    estimate_batch_call_cost -- this model's own measured avg tokens/call for THIS stage, at
+    real Batch API pricing, not the synchronous path's worst-case-every-call-hits-MAX_TOKENS
+    formula, which multiplied by a few hundred reserve_calls would refuse to start almost any
+    real-sized batch). Skipped entirely when resuming an already-created batch (see
+    _find_resumable_batch). Actual spend is recorded at Batch pricing too (record_spend's
+    batch=True) -- the real bill, not an inflated synchronous-rate guess.
 
     `out_dir`/`stage` identify this stage's batch in out_dir/batch_ids.jsonl: every batch id
     is recorded there IMMEDIATELY after creation, before polling ever starts, so the id is on
@@ -469,7 +485,9 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
         print(f"[batch] {stage}: resuming existing batch {batch_id} from batch_ids.jsonl "
              f"({len(custom_ids)} requests) -- NOT resubmitting")
     else:
-        budget_check(model, since_ts, budget, state, reserve_calls=len(requests))
+        per_call_est = estimate_batch_call_cost(model, stage)
+        budget_check(model, since_ts, budget, state, reserve_calls=len(requests),
+                    per_call_estimate_usd=per_call_est)
         batch = client().messages.batches.create(
             requests=[_batch_request(cid, model, sysprompt, content)
                       for cid, sysprompt, content in requests])
@@ -493,7 +511,7 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
                         "in": 0, "out": 0, "cost": 0.0, "wall_s": 0.0}
             continue
         msg = entry.result.message
-        meter = record_spend(model, msg.usage, 0.0, state)
+        meter = record_spend(model, msg.usage, 0.0, state, batch=True)
         text = "".join(c.text for c in msg.content if getattr(c, "type", "") == "text")
         out[cid] = {"text": text, "stop_reason": msg.stop_reason, **meter}
     print(f"[batch] {stage}: results read for {len(out)}/{len(custom_ids)} requests")
@@ -1036,6 +1054,23 @@ def measured_call_stats(model: str) -> dict[str, dict]:
             fin, fout = _STAGE_FALLBACK_TOKENS[stage]
             stats[stage] = {"avg_in": float(fin), "avg_out": float(fout), "n": 0}
     return stats
+
+
+def estimate_batch_call_cost(model: str, stage: str) -> float:
+    """Realistic per-request cost for ONE of `stage`'s ("design"/"spec"/"rebuild") batch
+    requests, at Batch API pricing, using this model's own measured avg tokens/call for that
+    stage (see measured_call_stats -- reads from the historical pilot run's results.jsonl
+    regardless of where THIS run writes its own output, since that's the only real data
+    available before a single request of a fresh run has actually completed). Falls back to
+    _STAGE_FALLBACK_TOKENS when there's no history yet for this model. This is what
+    run_batch_stage reserves budget against BEFORE creating a batch -- multiplying the
+    synchronous path's worst-case-every-call-hits-MAX_TOKENS estimate by a few hundred
+    `reserve_calls` would refuse to start almost any real-sized batch even when its true cost
+    is a small fraction of that worst case."""
+    stats = measured_call_stats(model)
+    s = stats.get(f"{stage}_call") or stats["design_call"]
+    pin, pout = batch_price(model)
+    return (s["avg_in"] * pin + s["avg_out"] * pout) / 1_000_000
 
 
 def dry_run_batch(model: str, seeds: list[dict]) -> int:
