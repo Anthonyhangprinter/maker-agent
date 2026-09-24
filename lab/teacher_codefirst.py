@@ -228,24 +228,41 @@ def load_seeds_file(path: Path) -> list[dict]:
     return rows
 
 
-# ── API key: read into process env only, never print/write ────────────────────────────────
+# ── API key: read into process env only, NEVER print/log/write it anywhere ────────────────
+CAD_TEACHER_KEY_FILE = Path.home() / ".openclaw" / "cad-teacher.key"
+
+
 def _load_api_key() -> str:
-    """Prefer an already-exported process env var (never write one, only read); otherwise
-    fall back to openclaw.json's env block, in either the schema this was first written
-    against (env.ANTHROPIC_API_KEY, flat) or the nested env.vars.ANTHROPIC_API_KEY schema
-    openclaw.json was migrated to on 2026-09-24 -- cad_engine._cloud_key resolves the SAME
-    two schema shapes for its own cloud rung, so this mirrors that rather than inventing a
-    third convention."""
+    """Never prints, logs, or writes the key -- only ever returns it in memory for the
+    Anthropic client to use. Priority:
+      1. an already-exported process env var (the launch pattern this script's own usage
+         examples use, e.g. `ANTHROPIC_API_KEY="$(cat ~/.openclaw/cad-teacher.key)" python3
+         ...`) -- never written here, only read;
+      2. ~/.openclaw/cad-teacher.key (chmod 600), the current canonical location (2026-09-24
+         onward) -- read-only, this function never writes to it;
+      3. openclaw.json's env block, in either schema shape (env.ANTHROPIC_API_KEY flat, or
+         the nested env.vars.ANTHROPIC_API_KEY openclaw.json was migrated to for a while) --
+         legacy fallback, kept in case either ever has it again; cad_engine._cloud_key
+         resolves the same two schema shapes for its own cloud rung.
+    Raises with a clear "checked X, Y, Z" message rather than a bare KeyError when none of
+    the three has it -- the 2026-09-24 incident (the key vanished from openclaw.json
+    mid-session with no clear error) is exactly the failure this exists to make loud."""
     if os.environ.get("ANTHROPIC_API_KEY"):
         return os.environ["ANTHROPIC_API_KEY"]
-    cfg = json.loads((Path.home() / ".openclaw" / "openclaw.json").read_text(encoding="utf-8"))
-    env = cfg.get("env", {})
-    key = env.get("ANTHROPIC_API_KEY") or env.get("vars", {}).get("ANTHROPIC_API_KEY", "")
-    if not key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not found in the process environment or in openclaw.json's "
-            "env block (checked both env.ANTHROPIC_API_KEY and env.vars.ANTHROPIC_API_KEY)")
-    return key
+    if CAD_TEACHER_KEY_FILE.exists():
+        key = CAD_TEACHER_KEY_FILE.read_text(encoding="utf-8").strip()
+        if key:
+            return key
+    cfg_path = Path.home() / ".openclaw" / "openclaw.json"
+    if cfg_path.exists():
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        env = cfg.get("env", {})
+        key = env.get("ANTHROPIC_API_KEY") or env.get("vars", {}).get("ANTHROPIC_API_KEY", "")
+        if key:
+            return key
+    raise RuntimeError(
+        "ANTHROPIC_API_KEY not found in the process environment, "
+        f"{CAD_TEACHER_KEY_FILE}, or openclaw.json's env block")
 
 
 _client: Optional["anthropic.Anthropic"] = None
@@ -394,31 +411,82 @@ def _batch_request(custom_id: str, model: str, system: str, content) -> dict:
                        **_call_kwargs(model)}}
 
 
+def _batch_ids_file(out_dir: Path) -> Path:
+    return out_dir / "batch_ids.jsonl"
+
+
+def _record_batch_id(out_dir: Path, stage: str, batch_id: str, custom_ids: list[str]) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    row = {"stage": stage, "batch_id": batch_id, "custom_ids": custom_ids,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    with _batch_ids_file(out_dir).open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def _find_resumable_batch(out_dir: Path, stage: str, custom_ids: list[str]) -> Optional[str]:
+    """A previously-recorded batch_id for this EXACT stage + set of custom_ids, if
+    out_dir/batch_ids.jsonl already has one (written by an earlier run of this same process,
+    or a crashed one) -- lets a restarted run pick the same batch back up instead of
+    submitting an identical set of requests again. Anthropic bills at batch CREATION, not at
+    result-read time, so re-reading an already-created batch's results costs nothing extra;
+    this is what keeps a crash between submission and result-read from paying twice."""
+    f = _batch_ids_file(out_dir)
+    if not f.exists():
+        return None
+    want = set(custom_ids)
+    for line in f.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        if row.get("stage") == stage and set(row.get("custom_ids") or []) == want:
+            return row.get("batch_id")
+    return None
+
+
 def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_ts: datetime,
-                     budget: float, state: dict) -> dict[str, dict]:
+                     budget: float, state: dict, out_dir: Path, stage: str) -> dict[str, dict]:
     """requests: list of (custom_id, system, content). Submits ALL of them as one Batch,
     polls processing_status until "ended", then reads results keyed by custom_id (never by
     position -- the Batches API makes no ordering guarantee on `results`). A batch cannot be
     partially cancelled once cost is committed, so the WHOLE batch's worst-case cost is
-    checked against the budget BEFORE it is created (reserve_calls=len(requests)). Batch
+    checked against the budget BEFORE it is created (reserve_calls=len(requests)) -- skipped
+    entirely when resuming an already-created batch (see _find_resumable_batch). Batch
     pricing is roughly half of synchronous pricing in practice; this deliberately still
     meters at the synchronous MODEL_PRICES rate so the budget cap stays conservative rather
-    than under-counting a real bill."""
-    budget_check(model, since_ts, budget, state, reserve_calls=len(requests))
-    batch = client().messages.batches.create(
-        requests=[_batch_request(cid, model, sysprompt, content)
-                  for cid, sysprompt, content in requests])
+    than under-counting a real bill.
+
+    `out_dir`/`stage` identify this stage's batch in out_dir/batch_ids.jsonl: every batch id
+    is recorded there IMMEDIATELY after creation, before polling ever starts, so the id is on
+    disk even if the process dies mid-poll."""
+    custom_ids = [cid for cid, _, _ in requests]
+    existing = _find_resumable_batch(out_dir, stage, custom_ids)
+    if existing:
+        batch_id = existing
+        print(f"[batch] {stage}: resuming existing batch {batch_id} from batch_ids.jsonl "
+             f"({len(custom_ids)} requests) -- NOT resubmitting")
+    else:
+        budget_check(model, since_ts, budget, state, reserve_calls=len(requests))
+        batch = client().messages.batches.create(
+            requests=[_batch_request(cid, model, sysprompt, content)
+                      for cid, sysprompt, content in requests])
+        batch_id = batch.id
+        _record_batch_id(out_dir, stage, batch_id, custom_ids)
+        print(f"[batch] {stage}: submitted batch {batch_id} ({len(custom_ids)} requests)")
     deadline = time.monotonic() + BATCH_MAX_WAIT_S
     while True:
-        b = client().messages.batches.retrieve(batch.id)
+        b = client().messages.batches.retrieve(batch_id)
         if b.processing_status == "ended":
             break
         if time.monotonic() > deadline:
-            raise RuntimeError(f"batch {batch.id} did not end within {BATCH_MAX_WAIT_S}s "
+            raise RuntimeError(f"batch {batch_id} did not end within {BATCH_MAX_WAIT_S}s "
                                 f"(status={b.processing_status})")
         time.sleep(BATCH_POLL_S)
     out: dict[str, dict] = {}
-    for entry in client().messages.batches.results(batch.id):
+    for entry in client().messages.batches.results(batch_id):
         cid = entry.custom_id
         if entry.result.type != "succeeded":
             out[cid] = {"text": "", "stop_reason": f"batch-{entry.result.type}",
@@ -428,6 +496,7 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
         meter = record_spend(model, msg.usage, 0.0, state)
         text = "".join(c.text for c in msg.content if getattr(c, "type", "") == "text")
         out[cid] = {"text": text, "stop_reason": msg.stop_reason, **meter}
+    print(f"[batch] {stage}: results read for {len(out)}/{len(custom_ids)} requests")
     return out
 
 
@@ -771,7 +840,7 @@ def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: d
             json.dumps({"seed": live[sid]["idea"], **p}, indent=2), encoding="utf-8")
     design_results = run_batch_stage(
         model, [(sid, p["system"], p["prompt"]) for sid, p in design_prompts.items()],
-        since_ts, budget, state)
+        since_ts, budget, state, out_dir, "design")
 
     measured = {}   # sid -> {"measurements":..., "ref_stl":..., "views_png":..., "part_dir":...}
     for sid, seed in list(live.items()):
@@ -829,7 +898,7 @@ def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: d
         if m["views_png"] is not None:
             content.append(_image_block(m["views_png"]))
         spec_reqs.append((sid, _SPEC_SYSTEM, content))
-    spec_results = run_batch_stage(model, spec_reqs, since_ts, budget, state)
+    spec_results = run_batch_stage(model, spec_reqs, since_ts, budget, state, out_dir, "spec")
 
     specced = {}
     for sid in list(live):
@@ -857,7 +926,7 @@ def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: d
             json.dumps({"spec": specced[sid], **p}, indent=2), encoding="utf-8")
     rebuild_results = run_batch_stage(
         model, [(sid, p["system"], p["prompt"]) for sid, p in rebuild_prompts.items()],
-        since_ts, budget, state)
+        since_ts, budget, state, out_dir, "rebuild")
 
     for sid, spec_text in specced.items():
         seed = live[sid]
@@ -1018,6 +1087,11 @@ def main() -> int:
     ap.add_argument("--seeds-file", default="",
                     help="JSONL of {id,tier,idea} rows to use instead of the built-in "
                          "50-seed pilot bank (e.g. lab/teacher_seeds_scale.jsonl)")
+    ap.add_argument("--out-root", default="",
+                    help="write results under <this>/<model>/ instead of the default "
+                         "benchmarks/results/card/codefirst-pilot-2026-09-24/<model>/ -- "
+                         "use a fresh dir for a run against a different seed bank (e.g. "
+                         "benchmarks/results/card/codefirst-scale-2026-09-25)")
     ap.add_argument("--batch", action="store_true",
                     help="use the Message Batches API for each of the 3 call stages "
                          "instead of one synchronous call per seed")
@@ -1042,7 +1116,8 @@ def main() -> int:
         # measure historical avg tokens/call for the cost estimate.
         return dry_run_batch(a.model, seeds)
 
-    out_dir = OUT_ROOT / a.model
+    out_root = Path(a.out_root) if a.out_root else OUT_ROOT
+    out_dir = out_root / a.model
     acquire_single_instance_lock(out_dir)
     (out_dir / "builds").mkdir(parents=True, exist_ok=True)
 

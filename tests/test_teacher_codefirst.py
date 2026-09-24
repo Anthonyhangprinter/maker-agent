@@ -317,6 +317,39 @@ def test_call_kwargs_rejects_unknown_model():
         tc._call_kwargs("claude-haiku-4-5")
 
 
+# ── batch id resumability (no API calls -- pure file I/O) ──────────────────────────────────
+def test_find_resumable_batch_none_when_no_file(tmp_path):
+    assert tc._find_resumable_batch(tmp_path, "design", ["cf01", "cf02"]) is None
+
+
+def test_record_then_find_resumable_batch(tmp_path):
+    tc._record_batch_id(tmp_path, "design", "batch_abc123", ["cf01", "cf02"])
+    found = tc._find_resumable_batch(tmp_path, "design", ["cf01", "cf02"])
+    assert found == "batch_abc123"
+    # order of custom_ids must not matter -- it's a SET match
+    found2 = tc._find_resumable_batch(tmp_path, "design", ["cf02", "cf01"])
+    assert found2 == "batch_abc123"
+
+
+def test_find_resumable_batch_none_for_different_stage_or_ids(tmp_path):
+    tc._record_batch_id(tmp_path, "design", "batch_abc123", ["cf01", "cf02"])
+    assert tc._find_resumable_batch(tmp_path, "spec", ["cf01", "cf02"]) is None
+    assert tc._find_resumable_batch(tmp_path, "design", ["cf01", "cf03"]) is None
+
+
+def test_load_api_key_prefers_process_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-from-env")
+    assert tc._load_api_key() == "sk-from-env"
+
+
+def test_load_api_key_falls_back_to_cad_teacher_key_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    key_file = tmp_path / "cad-teacher.key"
+    key_file.write_text("sk-from-file\n", encoding="utf-8")
+    monkeypatch.setattr(tc, "CAD_TEACHER_KEY_FILE", key_file)
+    assert tc._load_api_key() == "sk-from-file"
+
+
 # ── seed bank sanity ─────────────────────────────────────────────────────────────────────
 def test_seed_bank_is_50_unique_ids_with_valid_tiers():
     assert len(tc.SEEDS) == 50
