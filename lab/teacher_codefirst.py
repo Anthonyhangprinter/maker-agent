@@ -825,12 +825,59 @@ def done_ids(out_dir: Path, model: str) -> set:
     return done
 
 
+# ── rebuild-stage priority subset (2026-09-25, batch 2 incident): a batch cannot be
+# partially submitted, so when the REBUILD stage's full population would breach what's left
+# of the budget, the only way to still ship SOME rebuild data is to submit a smaller,
+# deliberately chosen subset instead of the whole thing. `priority_key` ranks fail-bucket
+# seeds first (bucket "fail" in the id->family sidecar lab/gen_seeds_batch2.py writes), then
+# construction-bucket seeds by tier descending (harder first), then everything else
+# (typically "control") last -- the same ordering the owner asked for when batch 2's rebuild
+# stage first hit this. `select_rebuild_subset` walks `specced` in that order and takes the
+# longest PREFIX whose cumulative estimated cost (same per-request estimate + 1.2x margin
+# budget_check itself uses) stays under `max_usd` -- never a random or arbitrary sample.
+def _rebuild_priority_key(sid: str, tier: int, priority_map: dict[str, str] | None,
+                          order: dict[str, int]) -> tuple:
+    bucket = "unknown"
+    if priority_map is not None:
+        fam = priority_map.get(sid, "")
+        bucket = fam.split(":", 1)[0] if fam else "unknown"
+    return (order.get(bucket, order.get("unknown", 9)), -tier, sid)
+
+
+def select_rebuild_subset(specced: dict[str, str], live: dict[str, dict], model: str,
+                          priority_map: dict[str, str] | None, max_usd: float
+                          ) -> tuple[dict[str, str], int, float]:
+    """Returns (trimmed specced dict, n_excluded, estimated_usd_of_included). max_usd<=0
+    means no cap -- returns `specced` unchanged. Ordering: fail bucket first, then
+    construction by tier descending, then everything else (control) last; ids missing from
+    `priority_map` sort after every recognised bucket. The caller (run_batch_pipeline) is
+    responsible for giving every excluded id a terminal "rebuild-skipped-budget-priority" row
+    -- this function only picks the subset, it does not touch `rows` or write anything."""
+    if max_usd <= 0 or not specced:
+        return specced, 0, 0.0
+    order = {"fail": 0, "construction": 1, "control": 2, "unknown": 3}
+    per_request = estimate_batch_call_cost(model, "rebuild") * 1.2  # same margin budget_check applies
+    ordered = sorted(specced.keys(),
+                     key=lambda sid: _rebuild_priority_key(sid, live[sid].get("tier", 0),
+                                                           priority_map, order))
+    kept: dict[str, str] = {}
+    running = 0.0
+    for sid in ordered:
+        nxt = running + per_request
+        if nxt > max_usd:
+            break
+        kept[sid] = specced[sid]
+        running = nxt
+    return kept, len(specced) - len(kept), running
+
+
 # ── batch pipeline (--batch): the SAME 5 steps, but each call stage is submitted as one
 # Batch across every surviving seed instead of one synchronous call per seed. The CPU-only
 # work in between (build/gate/measure/render/score) stays per-item and sequential -- there is
 # nothing to batch there, it never touches the API. ─────────────────────────────────────────
 def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: datetime,
-                       budget: float, state: dict) -> dict[str, dict]:
+                       budget: float, state: dict, priority_map: dict[str, str] | None = None,
+                       rebuild_max_usd: float = 0.0) -> dict[str, dict]:
     rows: dict[str, dict] = {}
 
     def _reject(sid: str, seed: dict, outcome: str, reason: str = "", **extra) -> None:
@@ -938,6 +985,21 @@ def run_batch_pipeline(seeds: list[dict], model: str, out_dir: Path, since_ts: d
         specced[sid] = spec_text
 
     # ── Stage C: BLIND REBUILD batch ────────────────────────────────────────────────────
+    if rebuild_max_usd > 0:
+        specced_full = specced
+        specced, n_excluded, est_included = select_rebuild_subset(
+            specced_full, live, model, priority_map, rebuild_max_usd)
+        excluded_ids = [sid for sid in specced_full if sid not in specced]
+        print(f"[codefirst] rebuild priority subset: {len(specced)} included "
+             f"(est ${est_included:.4f}, cap ${rebuild_max_usd:.2f}), {len(excluded_ids)} "
+             f"excluded this run (design+spec already paid for and cached; a future run "
+             f"against a NEW out-dir could redo just these with the same cached design/spec "
+             f"batches -- writing a terminal row here does mark them done_ids()-done for THIS "
+             f"out-dir, which is fine since no further resume of this out-dir is planned)")
+        for sid in excluded_ids:
+            _reject(sid, live[sid], "rebuild-skipped-budget-priority",
+                   f"excluded by rebuild priority subset (cap ${rebuild_max_usd:.2f}); "
+                   f"design_call/spec_call above are real, already-billed work")
     rebuild_prompts = {sid: capture_codegen_prompt(spec_text) for sid, spec_text in specced.items()}
     for sid, p in rebuild_prompts.items():
         (measured[sid]["part_dir"] / "rebuild_prompt.json").write_text(
@@ -1134,6 +1196,26 @@ def main() -> int:
                     help="with --batch: build the design-stage batch requests and print an "
                          "estimated 3-stage cost at Batch API pricing, then exit -- makes "
                          "NO API calls and submits no batch")
+    ap.add_argument("--rebuild-max-usd", type=float, default=0.0,
+                    help="with --batch: cap the REBUILD stage (stage C) to a PRIORITISED "
+                         "SUBSET of the seeds that made it through design+spec, sized so the "
+                         "subset's own estimated cost (same per-request estimate + 1.2x "
+                         "margin budget_check uses) stays under this many USD, instead of "
+                         "submitting every surviving seed. Use this to resume a run that hit "
+                         "BudgetStop before the rebuild stage without re-submitting the "
+                         "design/spec batches (those are resumed for free from "
+                         "out_dir/batch_ids.jsonl as long as --seeds-file gives the exact "
+                         "same seed set as the run that created them). 0 (default) = no cap, "
+                         "submit every surviving seed as before. See --priority-families for "
+                         "how the subset is ordered.")
+    ap.add_argument("--priority-families", default="",
+                    help="path to an id->\"bucket:name[:idx]\" JSON sidecar (e.g. "
+                         "lab/teacher_seeds_batch2_families.json, written by "
+                         "gen_seeds_batch2.py) used ONLY to order --rebuild-max-usd's "
+                         "priority subset: bucket \"fail\" first, then \"construction\" by "
+                         "tier descending, then everything else (typically \"control\") last. "
+                         "Without this, --rebuild-max-usd still works but only orders by "
+                         "tier descending (no bucket priority).")
     a = ap.parse_args()
 
     seeds = load_seeds_file(a.seeds_file) if a.seeds_file else SEEDS
@@ -1170,8 +1252,13 @@ def main() -> int:
         # The whole batch's worst-case cost is checked ONCE up front per stage (see
         # run_batch_stage's own budget_check with reserve_calls=len(requests)) -- a batch
         # cannot be stopped mid-way once created, so there is no per-seed BudgetStop here.
+        priority_map = None
+        if a.priority_families:
+            priority_map = json.loads(Path(a.priority_families).read_text(encoding="utf-8"))
         try:
-            rows = run_batch_pipeline(seeds, a.model, out_dir, since_ts, a.budget, state)
+            rows = run_batch_pipeline(seeds, a.model, out_dir, since_ts, a.budget, state,
+                                      priority_map=priority_map,
+                                      rebuild_max_usd=a.rebuild_max_usd)
         except BudgetStop as e:
             print(f"\n[codefirst] BUDGET STOP before batch submission: {e}")
             return 0
