@@ -13,6 +13,11 @@ benchmarks/cadprompt/*
 benchmarks/text2cadquery/*
 !benchmarks/cadprompt/README.md
 !benchmarks/text2cadquery/README.md
+# owner-refs: materialised on demand from ~/CAD/references by lab/eval_round.py's
+# materialize_owner_refs_suite(), same "gitignored, regenerated locally" convention as the
+# two public suites above -- not a reproducibility record, just a local suite cache.
+benchmarks/owner-refs/*
+!benchmarks/owner-refs/README.md
 benchmarks/external/benchcad/BenchCAD-main/
 lab/.venv/
 lab/runs/
