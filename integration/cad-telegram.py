@@ -492,7 +492,21 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None
         # Restore the old subprocess.run path's broad catch: anything other than a
         # timeout (e.g. an OSError off a broken pipe) is a build failure to report with
         # the specific "Build failed: {err}" text, not left to propagate up into
-        # worker()'s generic "Something went wrong" catch-all.
+        # worker()'s generic "Something went wrong" catch-all. Fix round 2 (re-review):
+        # subprocess.run() itself kills the child on ANY exception out of communicate(),
+        # not just a timeout, before returning — this branch must do the same, or a build
+        # that hit e.g. an OSError here would leave the child (and its GPU build lock)
+        # running untracked for up to the rest of `timeout`.
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
         return None, str(e), False
     t_out.join(timeout=5)
     t_err.join(timeout=5)

@@ -235,3 +235,49 @@ def test_rescale_queues_a_pending_rescale_turn(tmp_path):
     r = client.post("/api/rescale", json={"job_id": "job1", "params": {"wall_mm": 3, "$bad name": 1}})
     assert r.status_code == 200
     assert r.json() == {"ok": True, "job_id": "job1"}
+
+
+# ── Fix round 2 (GPU-busy re-review): _run_build's non-timeout exception cleanup ────
+
+def test_run_build_non_timeout_exception_kills_and_reaps_the_child(monkeypatch):
+    """_run_build had the identical gap as integration/cad-telegram.py's run_v5_build:
+    a proc.wait() failure that isn't a timeout had no except branch at all here, so it
+    propagated into _worker()'s outer catch-all — which also never kills/reaps the child
+    or joins the pump threads. A build subprocess (holding the machine-wide GPU build
+    lock) could be left running untracked. Calls _run_build directly, bypassing the
+    queue/worker thread, so the fix can be asserted synchronously."""
+    class _BrokenPipeProc:
+        def __init__(self):
+            self.stderr = iter(["waiting for build lock"])
+            self.stdout = _FakeStdout("{}")
+            self._raised_once = False
+            self.kill_calls = 0
+            self.wait_after_kill_calls = 0
+
+        def wait(self, timeout=None):
+            if not self._raised_once:
+                self._raised_once = True
+                raise OSError("broken pipe")
+            self.wait_after_kill_calls += 1
+            return 0
+
+        def kill(self):
+            self.kill_calls += 1
+
+    holder = {}
+
+    def fake_popen(*a, **kw):
+        p = _BrokenPipeProc()
+        holder["proc"] = p
+        return p
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    job = {"id": "cleanup-test", "status": "queued", "spec": "a cube", "coder": "auto",
+          "image": None, "log": [], "created_at": 0.0, "result": {}}
+    app._run_build(job)
+
+    proc = holder["proc"]
+    assert proc.kill_calls == 1                # proc.kill() was called from the except branch
+    assert proc.wait_after_kill_calls == 1      # the best-effort reap ran after the kill
+    assert job["status"] == "error"
+    assert job["error"] == "broken pipe"

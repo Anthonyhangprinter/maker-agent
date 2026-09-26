@@ -189,6 +189,7 @@ class _FakeProc:
         self.stderr = iter(stderr_lines)
         self.stdout = _FakeStdout(stdout_text)
         self._delay = delay
+        self.kill_calls = 0       # fix round 2: cleanup-on-exception coverage records this
 
     def wait(self, timeout=None):
         if self._delay:
@@ -196,7 +197,7 @@ class _FakeProc:
         return 0
 
     def kill(self):
-        pass
+        self.kill_calls += 1
 
 
 def test_run_v5_build_fires_on_started_after_waiting_for_lock(monkeypatch):
@@ -262,6 +263,83 @@ def test_run_v5_build_returns_error_string_on_a_non_timeout_exception(monkeypatc
     assert result is None
     assert err == "broken pipe"
     assert timed_out_waiting is False
+
+
+def test_run_v5_build_non_timeout_exception_kills_and_reaps_the_child(monkeypatch):
+    """Fix round 2 (re-review): the broad except-Exception branch had been skipping
+    proc.kill()/reap/thread-joins entirely, unlike every other exit path in this
+    function — a build subprocess (holding the machine-wide GPU build lock) could be left
+    running untracked. `wait()` raises once (the failure this branch handles), then
+    succeeds on the reap retry, mirroring a real transient OSError."""
+    holder = {}
+
+    class _BrokenPipeProc(_FakeProc):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self._raised_once = False
+            self.wait_after_kill_calls = 0
+            holder["proc"] = self
+
+        def wait(self, timeout=None):
+            if not self._raised_once:
+                self._raised_once = True
+                raise OSError("broken pipe")
+            self.wait_after_kill_calls += 1
+            return 0
+
+    monkeypatch.setattr(ct.subprocess, "Popen",
+                        lambda *a, **kw: _BrokenPipeProc(["waiting for build lock"], "{}"))
+    result, err, timed_out_waiting = ct.run_v5_build("a gear", "auto")
+    assert result is None
+    assert err == "broken pipe"
+    proc = holder["proc"]
+    assert proc.kill_calls == 1                # proc.kill() was called from the except branch
+    assert proc.wait_after_kill_calls == 1      # the best-effort reap ran after the kill
+    # The function returning at all (rather than the test hanging) is itself proof the
+    # stdout/stderr pump threads were joined instead of left dangling — both threads read
+    # from finite fake iterators, so a missing join would still return fast here, but a
+    # real dangling thread against a live pipe is exactly what the real-subprocess tests
+    # above independently exercise (they'd hang past pytest's own defaults if join() were
+    # missing on a still-open real pipe).
+
+
+def test_run_v5_build_real_subprocess_non_timeout_exception_kills_the_child(monkeypatch):
+    """The fake-based test above proves kill()/reap/join are CALLED; this one proves they
+    actually terminate a REAL child process left holding open pipes — a real dangling
+    child from a missing kill would otherwise keep running (and keep the GPU build lock)
+    after run_v5_build returns."""
+    child = (
+        "import sys, time\n"
+        "sys.stderr.write('waiting for build lock\\n'); sys.stderr.flush()\n"
+        "time.sleep(30)\n"
+    )
+    real_popen = subprocess.Popen        # the real class, grabbed BEFORE any patching
+    real_wait = real_popen.wait          # its real .wait, likewise
+    procs = []
+    call_count = {"n": 0}
+
+    def flaky_wait(self, timeout=None):
+        # Patched onto the REAL Popen class (not onto the `subprocess.Popen` name, which
+        # `_popen` below shadows), so real instances still resolve `.wait` to this.
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise OSError("simulated broken pipe")
+        return real_wait(self, timeout=timeout)
+
+    def _popen(cmd, **kwargs):
+        kwargs.pop("cwd", None)
+        p = real_popen([sys.executable, "-c", child], **kwargs)
+        procs.append(p)
+        return p
+
+    monkeypatch.setattr(ct.subprocess, "Popen", _popen)   # what run_v5_build calls
+    monkeypatch.setattr(real_popen, "wait", flaky_wait)    # what the real instance resolves
+    result, err, timed_out_waiting = ct.run_v5_build("a gear", "auto")
+    assert result is None
+    assert err == "simulated broken pipe"
+    assert len(procs) == 1
+    # The real child must be gone (killed + reaped), not left sleeping for its full 30s.
+    assert procs[0].poll() is not None
 
 
 def test_run_v5_build_on_started_exception_never_propagates(monkeypatch):

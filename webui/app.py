@@ -499,6 +499,24 @@ def _run_build(job: dict):
         t_err.join(timeout=5)
         job["status"], job["error"] = "error", "build timed out"
         return
+    except Exception as e:
+        # Fix round 2 (re-review): _worker()'s own outer except Exception would otherwise
+        # catch this and set job["status"]/job["error"], but it never kills/reaps the
+        # child or joins these threads — a non-timeout proc.wait() failure (e.g. an OSError
+        # off a broken pipe) would leave the build subprocess (and the machine-wide GPU
+        # build lock it holds) running untracked. Mirrors run_v5_build's identical fix.
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+        job["status"], job["error"] = "error", str(e)
+        return
     t_out.join(timeout=5)
     t_err.join(timeout=5)
     stdout = "".join(stdout_chunks)
