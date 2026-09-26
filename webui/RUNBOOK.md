@@ -66,3 +66,21 @@ tailscale serve status     # verify: 8443 → proxy http://127.0.0.1:8090
   completion (with render photo). Localhost + owner logins stay silent. Friends get access
   via Tailscale **node sharing** (admin console → machine → Share); optionally scope
   `autogroup:shared` to port 8443 in the tailnet ACL so shared users can't reach LibreChat.
+
+## GPU-busy banner (2026-09-26)
+
+`/api/gpu` reads the shared GPU state service at `http://127.0.0.1:8093/state` (served by
+`gpu-notice.service` from `~/.openclaw/gpu/gpustate.py`, which probes `:8086/health` and the
+`~/.openclaw/cad-build.lock` flock directly) and surfaces `state` (`ok`/`busy`/`down`),
+`holder`, `label`, `since_hhmm`, `progress`, and `message` as a banner in the web UI. The call
+**fails open**: if `:8093` itself is unreachable, the page renders with no banner rather than
+blocking the UI, since a broken status check should never stop someone from queuing a build.
+
+Satine (the Telegram frontend) reads the same `/state` endpoint independently: it gives an
+instant queued notice the moment a request lands behind a busy GPU, then a separate "build
+starting" ping once the lock is actually acquired, so a user waiting on Telegram is never left
+guessing whether their message was seen.
+
+Test without touching the GPU: `python3 ~/.openclaw/gpu/gpustate.py simulate busy --minutes 10
+--holder someone` (or `simulate down`), confirm the banner and Satine's notice both pick it up,
+then `python3 ~/.openclaw/gpu/gpustate.py simulate off` to clear it.
