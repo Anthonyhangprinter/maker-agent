@@ -477,13 +477,25 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
 
     `out_dir`/`stage` identify this stage's batch in out_dir/batch_ids.jsonl: every batch id
     is recorded there IMMEDIATELY after creation, before polling ever starts, so the id is on
-    disk even if the process dies mid-poll."""
+    disk even if the process dies mid-poll.
+
+    LEDGER BUG FIXED 2026-09-26: Anthropic bills a Batch once, at creation -- reading its
+    results again later is free. But record_spend used to run on EVERY results-read
+    unconditionally, including a RESUMED read of an already-billed batch, so every resumed
+    run silently appended a full duplicate of that batch's real cost into the shared ledger
+    (~/.openclaw/cad-cloud-spend.jsonl) even though Anthropic never charged it twice. Caught
+    on batch 2: 3 separate resumed runs of the same design(580)+spec(562) batches left 3
+    near-identical $13.08/$7.54 clusters in the ledger instead of 1 -- a real risk for any
+    future budget_check that re-syncs from it. Fix: only a batch THIS call itself created
+    gets its results metered (`already_billed=False`); a resumed batch's results are still
+    read (for the real text) but never re-recorded."""
     custom_ids = [cid for cid, _, _ in requests]
     existing = _find_resumable_batch(out_dir, stage, custom_ids)
+    already_billed = bool(existing)
     if existing:
         batch_id = existing
         print(f"[batch] {stage}: resuming existing batch {batch_id} from batch_ids.jsonl "
-             f"({len(custom_ids)} requests) -- NOT resubmitting")
+             f"({len(custom_ids)} requests) -- NOT resubmitting, NOT re-metered")
     else:
         per_call_est = estimate_batch_call_cost(model, stage)
         budget_check(model, since_ts, budget, state, reserve_calls=len(requests),
@@ -511,7 +523,14 @@ def run_batch_stage(model: str, requests: list[tuple[str, str, object]], since_t
                         "in": 0, "out": 0, "cost": 0.0, "wall_s": 0.0}
             continue
         msg = entry.result.message
-        meter = record_spend(model, msg.usage, 0.0, state, batch=True)
+        if already_billed:
+            # already paid for at creation time in an earlier run -- read the real text,
+            # but do NOT touch state["total_usd"] or append another row to the shared ledger.
+            tin = int(getattr(msg.usage, "input_tokens", 0) or 0)
+            tout = int(getattr(msg.usage, "output_tokens", 0) or 0)
+            meter = {"in": tin, "out": tout, "cost": 0.0, "wall_s": 0.0}
+        else:
+            meter = record_spend(model, msg.usage, 0.0, state, batch=True)
         text = "".join(c.text for c in msg.content if getattr(c, "type", "") == "text")
         out[cid] = {"text": text, "stop_reason": msg.stop_reason, **meter}
     print(f"[batch] {stage}: results read for {len(out)}/{len(custom_ids)} requests")
