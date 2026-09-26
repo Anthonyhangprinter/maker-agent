@@ -36,6 +36,13 @@
   .wordmark::before { content: "▞ "; color: var(--faint); }
   aside .sub { color: var(--faint); font: 0.66rem/1.6 var(--mono); letter-spacing: 0.1em;
                text-transform: uppercase; }
+  #gpuBanner { margin-top: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 8px;
+               font: 0.72rem/1.4 var(--mono); color: var(--warn);
+               border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+               background: color-mix(in srgb, var(--warn) 10%, transparent); }
+  #gpuBanner.down { color: var(--bad);
+               border-color: color-mix(in srgb, var(--bad) 40%, transparent);
+               background: color-mix(in srgb, var(--bad) 10%, transparent); }
   #newbtn { width: 100%; margin-top: 0.9rem; background: transparent; color: var(--ink);
             border: 1px solid var(--line2); border-radius: 999px; padding: 0.5rem 0.9rem;
             font: inherit; font-size: 0.9rem; cursor: pointer; min-height: 40px;
@@ -284,6 +291,7 @@
     <div class="top">
       <span class="wordmark">MAKER&nbsp;AGENT</span>
       <span class="sub">local cad · hp-z2 · rtx3090</span>
+      <div id="gpuBanner" hidden></div>
       <button id="newbtn">+ New Creation</button>
       <button id="labBtn" class="ghost" type="button">Lab</button>
     </div>
@@ -385,6 +393,7 @@ const threadEl = $("thread"), homeEl = $("home"), listEl = $("list"), labEl = $(
 const tracked = new Map(), viewers = new Map();
 let activeId = null;          // the one creation mounted in the DOM
 let openJobData = null;       // its last payload — version strip reads artifacts from here
+let gpuState = { state: "ok" };   // last /api/gpu poll (see DESIGN-gpu-busy.md); fails open
 
 $("image").onchange = () => {
   const f = $("image").files[0];
@@ -684,13 +693,26 @@ async function openJob(id) {
 const STATUS_LABEL = { queued: "queued", running: "building", waiting_gpu: "waiting for gpu",
   done: "done", error: "failed", needs_clarification: "needs answers" };
 
+// While a job is waiting on the build lock AND the shared GPU state says busy/down, show
+// who actually has the GPU instead of the generic "waiting for gpu" — same wording as the
+// Satine/Bridge surfaces reading the same /state (DESIGN-gpu-busy.md).
+function statusLabel(status) {
+  if (status === "waiting_gpu" && gpuState.state !== "ok" && gpuState.label) {
+    let s = `waiting for GPU: ${gpuState.label} since ${gpuState.since_hhmm || "?"}`;
+    if (gpuState.progress && Number.isFinite(gpuState.progress.pct))
+      s += ` · ${gpuState.progress.pct}%`;
+    return s;
+  }
+  return STATUS_LABEL[status] || status;
+}
+
 function render(j) {
   if (j.id !== activeId) return;              // a background poll for a closed thread
   openJobData = j;
   const r = j.result || {}, a = r.artifacts || {};
   const turns = j.turns || [];
   let h = `<div class="threadhead"><h2>${esc(j.title || j.spec || "Creation")}</h2>
-             <span class="pill ${j.status}">${STATUS_LABEL[j.status] || j.status}</span>`;
+             <span class="pill ${j.status}">${esc(statusLabel(j.status))}</span>`;
   if (j.kind === "mesh") h += ` <span class="pill kind">mesh</span>`;
   if (j.user && j.user !== "local")
     h += ` <span class="pill kind" title="submitted over the tailnet">${esc(j.user)}</span>`;
@@ -946,6 +968,27 @@ function track(id) {
   }, 2000);
   tracked.set(id, timer);
 }
+
+async function pollGpu() {
+  try {
+    gpuState = await (await fetch("/api/gpu")).json();
+  } catch (e) {
+    gpuState = { state: "ok" };            // fail open — never show a stale/wrong banner
+  }
+  const banner = $("gpuBanner");
+  if (!gpuState || gpuState.state === "ok" || !gpuState.message) {
+    banner.hidden = true;
+  } else {
+    banner.hidden = false;
+    banner.textContent = gpuState.message;
+    banner.classList.toggle("down", gpuState.state === "down");
+  }
+  // Keep an open "waiting for GPU" pill's holder/since/pct text current between job polls.
+  if (openJobData && openJobData.status === "waiting_gpu") render(openJobData);
+}
+
+pollGpu();
+setInterval(pollGpu, 15000);
 
 loadRail();
 setInterval(loadRail, 20000);     // catches titles + other devices' builds

@@ -74,9 +74,18 @@ def load_config() -> dict:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 # Strong rung: the "local:" prefix routes it through the OpenAI-schema branch in
-# cad_engine._ollama(), against the resident :8086, or the maker server when cad.json
-# maker.enabled (the engine is the evictor, so its health probe must see backend truth —
-# the :8085 gpu-proxy would happily queue it).
+# cad_engine._ollama(), against the resident (behind the gpu-proxy on :8085) or the
+# maker server when cad.json maker.enabled. The health probe still targets the raw
+# backend :8086 directly (LOCAL_CODER_HEALTH) — _ensure_default_server()/_wait_health()
+# are the evictor and need backend truth fast (the :8085 gpu-proxy would happily hold
+# the connection open for up to 40 min instead of failing fast while the resident is
+# still starting). GPU-busy fix (2026-09-26, DESIGN-gpu-busy.md #8 "latent bypass"):
+# the actual chat-completions calls (LOCAL_CODER_URL, every codegen/critique/utility
+# request during a build) now ride the same :8085 agent door as every other agent
+# caller (Morai/Hermes) when maker is disabled, instead of hitting :8086 directly —
+# a build in flight while the resident is briefly down now waits it out gracefully
+# through the proxy's hold-and-retry, rather than erroring with connection-refused.
+# The maker-enabled case is untouched: maker-server is not behind the proxy at all.
 # The always-there resident (qwen38-server.service on :8086, behind the gpu-proxy on :8085).
 # Single-sourced here because the web UI's title worker needs the alias too, and the CAD
 # rungs cannot name it once a maker arm is enabled.
@@ -86,8 +95,9 @@ RESIDENT_PROXY_URL = "http://127.0.0.1:8085/v1/chat/completions"
 def maker_config() -> dict:
     """The optional swappable CAD coder server ("maker" block in cad.json).
 
-    Disabled (default): the strong rung is the resident on :8086.
-    Enabled: the strong rung is `maker-server` on `port`, serving `alias`.
+    Disabled (default): the strong rung is the resident, chat-completions calls ride
+    the gpu-proxy agent door :8085, health checks the raw backend :8086 directly.
+    Enabled: the strong rung is `maker-server` on `port`, serving `alias`, no proxy.
 
     A stale `alias` left behind by `scripts/arms.py restore` (which only flips `enabled`
     to false) must NOT keep routing strong-rung calls at a model the resident does not
@@ -116,7 +126,11 @@ def maker_config() -> dict:
 _MAKER = maker_config()
 CODE_MODEL_STRONG  = "local:" + _MAKER["alias"]
 LOCAL_CODER_PORT   = _MAKER["port"]
-LOCAL_CODER_URL    = f"http://127.0.0.1:{LOCAL_CODER_PORT}/v1/chat/completions"
+# Chat-completions target: the gpu-proxy agent door when the strong rung IS the
+# resident (maker disabled — see the comment above), else the maker-server port
+# directly (it has no proxy in front of it). Health always targets the raw port.
+LOCAL_CODER_URL    = (RESIDENT_PROXY_URL if not _MAKER["enabled"]
+                     else f"http://127.0.0.1:{LOCAL_CODER_PORT}/v1/chat/completions")
 LOCAL_CODER_HEALTH = f"http://127.0.0.1:{LOCAL_CODER_PORT}/health"
 # Utility-call model (brief/patch/lesson/questions/describe/refine — never the coder itself):
 # was the Ollama qwen3:8b, deleted 2026-09-12 when Ollama started being retired. Riding

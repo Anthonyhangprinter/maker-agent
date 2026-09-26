@@ -44,6 +44,9 @@ ONSHAPE_URL_RE = re.compile(
     r"https://cad\.onshape\.com/documents/[a-f0-9]+/w/[a-f0-9]+/e/[a-f0-9]+",
     re.IGNORECASE,
 )
+# The engine logs this exact line while blocked behind another frontend's build lock
+# (cad_engine.py's _acquire_build_lock) — used to detect when OUR build actually starts.
+_WAIT_RE = re.compile(r"waiting for build lock")
 
 CONFIG_FILE   = os.path.expanduser("~/.openclaw/openclaw.json")
 OFFSET_FILE   = os.path.expanduser("~/.openclaw/telegram/update-offset-cad.json")
@@ -67,6 +70,41 @@ NEW_BUILD_TRIGGERS = {
     "make", "build", "create", "design", "model", "generate",
     "draw", "fabricate", "produce", "construct",
 }
+
+# GPU-busy graceful handling (~/.openclaw/gpu/DESIGN-gpu-busy.md #6): the notice server's
+# /state is the single source of truth for "is the home GPU busy", polled by every surface.
+GPU_STATE_URL = os.environ.get("GPU_STATE_URL", "http://127.0.0.1:8093/state")
+GPU_STATE_TIMEOUT_S = 2
+
+
+def _fetch_gpu_state() -> dict:
+    """GET the shared GPU-busy state. ANY failure (connection refused, timeout, bad JSON,
+    missing/wrong-shaped keys) fails OPEN to "ok" — a hiccup in the state service must never
+    block an enqueue, crash the poll loop, or make Satine claim the GPU is busy when it does
+    not actually know."""
+    try:
+        with urllib.request.urlopen(GPU_STATE_URL, timeout=GPU_STATE_TIMEOUT_S) as r:
+            data = json.loads(r.read())
+        if isinstance(data, dict) and data.get("state") in ("ok", "busy", "down"):
+            return data
+    except Exception:
+        pass
+    return {"state": "ok"}
+
+
+def _gpu_busy_notice(state: dict) -> str:
+    """Enqueue-time notice when the GPU is busy with something other than a Satine build.
+    Pure string function — testable without a network call or a Telegram token."""
+    label = state.get("label") or "another job"
+    since = state.get("since_hhmm")
+    when = f" since {since}" if since else ""
+    return f"GPU busy with {label}{when}. You're queued, I'll message you when your build starts."
+
+
+def _gpu_timeout_notice(state: dict) -> str:
+    """Timeout message when the build never got past waiting for the GPU."""
+    label = state.get("label") or "another job"
+    return f"Build timed out while the GPU was busy with {label}."
 
 
 # ── Config ─────────────────────────────────────────────────────────────────────
@@ -308,7 +346,15 @@ def journal_remove(job_id):
 
 def enqueue(token, job: dict, journaled: bool = False):
     if not journaled:
+        # GPU-busy check BEFORE journal_add so a crash/restart replay of this exact job
+        # (main()'s pending-journal loop) still knows whether the "you're queued" notice
+        # already went out, and dispatch() still fires the "starting now" ping later.
+        state = _fetch_gpu_state()
+        if state.get("state") != "ok" and state.get("holder") not in (None, "telegram"):
+            job["gpu_notice_sent"] = True
         journal_add(job)
+        if job.get("gpu_notice_sent"):
+            send(token, job["chat_id"], _gpu_busy_notice(state))
     waiting = _jobs.qsize() + (1 if _current_job is not None else 0)
     _jobs.put(job)
     if waiting:
@@ -342,7 +388,7 @@ def run_agent(args, timeout=60):
         return "", str(e), 1
 
 
-def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None):
+def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None):
     """Build via the v5 --json entry: stdout is exactly one JSON line (B7 contract) —
     no more scraping the human output for the first '{' and hoping.
 
@@ -352,27 +398,86 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None):
     (handle_build/handle_refine below) surfaces those questions and remembers the spec so
     the user's next plain message can answer them.
 
-    image: optional reference-photo path forwarded as --image (image-conditioned build)."""
+    image: optional reference-photo path forwarded as --image (image-conditioned build).
+
+    on_started: optional zero-arg callback, fired exactly once — the moment the engine's
+    stderr shows the build has actually started (left "waiting for build lock", or never
+    had to wait at all). Lets the caller ping "your build is starting now" only once the
+    GPU is genuinely free, mirroring webui/app.py's own _WAIT_RE-driven status tracking.
+
+    Returns (result_dict_or_None, error_str, timed_out_while_waiting). The third field is
+    True only when the timeout fired while still blocked on the build lock — the GPU was
+    busy with someone else the whole time — so the caller can name the holder instead of
+    showing a generic "Build timed out."
+
+    Runs via Popen (not subprocess.run) so stderr can be streamed live for the wait/start
+    detection above. encoding="utf-8", errors="replace" — never text=True — per the
+    "process trap" lesson (a build123d/OCP subprocess can reset the locale to C and mis-
+    decode otherwise)."""
     cmd = [sys.executable, "-m", "cad_v5", spec, "--once", "--json", "--ask",
            "--coder", coder, "--target", "onshape"]
     if image:
         cmd += ["--image", image]
     env = {**os.environ, "CAD_FRONTEND": "telegram"}   # shows up in the build-lock holder info
+    waiting = False
+    started_fired = False
+    log_lines = []
+
+    def _fire_started():
+        nonlocal started_fired
+        if not started_fired:
+            started_fired = True
+            if on_started:
+                try:
+                    on_started()
+                except Exception as e:
+                    print(f"[telegram] on_started callback failed: {e}", flush=True)
+
+    def _pump_stderr(proc):
+        nonlocal waiting
+        for line in proc.stderr:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            log_lines.append(line)
+            if _WAIT_RE.search(line):
+                waiting = True
+            elif waiting:
+                _fire_started()
+
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env,
-                              cwd=os.path.expanduser("~/.openclaw/skills/cad-builder"))
-    except subprocess.TimeoutExpired:
-        return None, "Build timed out."
+        proc = subprocess.Popen(cmd, cwd=os.path.expanduser("~/.openclaw/skills/cad-builder"),
+                                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                encoding="utf-8", errors="replace")
     except Exception as e:
-        return None, str(e)
-    for line in reversed(proc.stdout.strip().splitlines()):
+        return None, str(e), False
+
+    t = threading.Thread(target=_pump_stderr, args=(proc,), daemon=True)
+    t.start()
+    try:
+        stdout, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        t.join(timeout=5)
+        return None, "Build timed out.", waiting
+    t.join(timeout=5)
+    if not started_fired:
+        _fire_started()      # never waited at all — still tell the caller the build ran
+    # The process exited (successfully or not) — whatever it was doing, it was not sitting
+    # in a timeout while waiting for the lock, so the third field is False either way; only
+    # the subprocess.TimeoutExpired branch above ever reports True.
+    for line in reversed((stdout or "").strip().splitlines()):
         line = line.strip()
         if line.startswith("{"):
             try:
-                return json.loads(line), ""
+                return json.loads(line), "", False
             except Exception:
                 break
-    return None, (proc.stderr or proc.stdout or "no output").strip()[-1500:]
+    return None, ("\n".join(log_lines) or stdout or "no output").strip()[-1500:], False
 
 
 # ── Build result parser ────────────────────────────────────────────────────────
@@ -406,7 +511,8 @@ def send_clarification(token, chat_id, spec: str, result: dict) -> None:
     set_pending_clarification(chat_id, result.get("spec") or spec)
 
 
-def handle_build(token, chat_id, spec, sessions: dict, image: str | None = None):
+def handle_build(token, chat_id, spec, sessions: dict, image: str | None = None,
+                 notify_start: bool = False):
     coder, spec = extract_coder(spec)
     if not spec.strip() and not image:
         send(token, chat_id, "Usage: /build <spec>  e.g. /build spur gear 20T — or just send "
@@ -426,9 +532,16 @@ def handle_build(token, chat_id, spec, sessions: dict, image: str | None = None)
         send(token, chat_id, f"Building straight from your image{note} — I'll read the shape "
                              f"and pick sensible sizes (reply with real dimensions any time). "
                              f"This may take a few minutes…")
-    result, err = run_v5_build(spec, coder, image=image)
+    # Only ping "starting now" if we already told this chat it was queued behind a busy GPU
+    # (enqueue()'s notice) — an ordinary build that never had to wait gets no extra chatter.
+    on_started = ((lambda: send(token, chat_id, "Your build is starting now."))
+                  if notify_start else None)
+    result, err, timed_out_waiting = run_v5_build(spec, coder, image=image, on_started=on_started)
     if not result:
-        send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
+        if timed_out_waiting:
+            send(token, chat_id, _gpu_timeout_notice(_fetch_gpu_state()))
+        else:
+            send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
         return
     if result.get("needs_clarification"):
         send_clarification(token, chat_id, spec, result)
@@ -450,12 +563,13 @@ def handle_build(token, chat_id, spec, sessions: dict, image: str | None = None)
          "or /rate 1-5 when you're happy.")
 
 
-def handle_refine(token, chat_id, feedback: str, sessions: dict, image: str | None = None):
+def handle_refine(token, chat_id, feedback: str, sessions: dict, image: str | None = None,
+                  notify_start: bool = False):
     coder, feedback = extract_coder(feedback)
     session = get_session(sessions, chat_id)
     if not session:
         # Session expired — treat as new build
-        handle_build(token, chat_id, feedback, sessions, image=image)
+        handle_build(token, chat_id, feedback, sessions, image=image, notify_start=notify_start)
         return
 
     original = session["original_spec"]
@@ -478,9 +592,14 @@ def handle_refine(token, chat_id, feedback: str, sessions: dict, image: str | No
 
     note = "" if coder == "auto" else f"  (forcing {coder} coder)"
     send(token, chat_id, f"Looking at revised: {revised}{note}\nThis may take a few minutes (it iterates and self-checks)…")
-    result, err = run_v5_build(revised, coder, image=image)
+    on_started = ((lambda: send(token, chat_id, "Your build is starting now."))
+                  if notify_start else None)
+    result, err, timed_out_waiting = run_v5_build(revised, coder, image=image, on_started=on_started)
     if not result:
-        send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
+        if timed_out_waiting:
+            send(token, chat_id, _gpu_timeout_notice(_fetch_gpu_state()))
+        else:
+            send(token, chat_id, f"Build failed:\n{err[-MAX_MSG_LEN:]}")
         return
     if result.get("needs_clarification"):
         send_clarification(token, chat_id, revised, result)
@@ -647,6 +766,9 @@ def dispatch(token, job: dict, sessions: dict):
     sees the session that build creates."""
     chat_id, text = job["chat_id"], job["text"]
     image = job.get("image")   # reference photo attached to THIS message (journal-replay safe)
+    # Set by enqueue() when it warned this chat the GPU was busy with someone else — only
+    # then does the eventual build get the "your build is starting now" ping.
+    notify_start = bool(job.get("gpu_notice_sent"))
     if job["kind"] == "plan":
         handle_plan(token, chat_id, text)
         return
@@ -660,7 +782,7 @@ def dispatch(token, job: dict, sessions: dict):
             clear_pending_clarification(chat_id)
             if not is_new_build(text) and not ONSHAPE_URL_RE.search(text):
                 handle_build(token, chat_id, f"{pending_spec} — {text}".strip(), sessions,
-                             image=image)
+                             image=image, notify_start=notify_start)
                 return
 
     url_match = ONSHAPE_URL_RE.search(text)
@@ -669,11 +791,11 @@ def dispatch(token, job: dict, sessions: dict):
         extra = (text[:url_match.start()].strip() + " " + text[url_match.end():].strip()).strip()
         handle_inspect(token, chat_id, url, extra, sessions)
     elif job["kind"] == "build":
-        handle_build(token, chat_id, text, sessions, image=image)
+        handle_build(token, chat_id, text, sessions, image=image, notify_start=notify_start)
     elif get_session(sessions, chat_id) and not is_new_build(text):
-        handle_refine(token, chat_id, text, sessions, image=image)
+        handle_refine(token, chat_id, text, sessions, image=image, notify_start=notify_start)
     else:
-        handle_build(token, chat_id, text, sessions, image=image)
+        handle_build(token, chat_id, text, sessions, image=image, notify_start=notify_start)
 
 
 def worker(token, sessions: dict):

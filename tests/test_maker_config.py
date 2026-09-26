@@ -20,7 +20,12 @@ def test_defaults_point_at_resident(tmp_path):
     m = cfg.maker_config()
     assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
                 "arm": None}
-    assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
+    # GPU-busy fix (2026-09-26): chat-completions for the resident ride the gpu-proxy
+    # agent door (:8085), same as every other agent caller, so a build in flight while
+    # the resident is briefly down waits it out instead of erroring. Health still
+    # probes the raw backend (:8086) directly for fast eviction/startup truth.
+    assert cfg.LOCAL_CODER_URL == cfg.RESIDENT_PROXY_URL == "http://127.0.0.1:8085/v1/chat/completions"
+    assert cfg.LOCAL_CODER_HEALTH == "http://127.0.0.1:8086/health"
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
 
 
@@ -75,7 +80,8 @@ def test_disabled_maker_ignores_a_stale_alias_and_port(tmp_path):
     assert m == {"enabled": False, "port": 8086, "alias": "qwen3.8-27b", "unit": "qwen38-server",
                 "arm": None}
     assert cfg.CODE_MODEL_STRONG == "local:qwen3.8-27b"
-    assert cfg.LOCAL_CODER_URL == "http://127.0.0.1:8086/v1/chat/completions"
+    assert cfg.LOCAL_CODER_URL == cfg.RESIDENT_PROXY_URL == "http://127.0.0.1:8085/v1/chat/completions"
+    assert cfg.LOCAL_CODER_HEALTH == "http://127.0.0.1:8086/health"
 
 
 def test_keep_maker_falls_through_to_start_when_probe_fails(tmp_path, monkeypatch):

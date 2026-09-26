@@ -68,6 +68,11 @@ ASSIST_TIMEOUT = 330                    # one schema-constrained LLM call (LLM_T
 LOG_TAIL    = 40
 ARTIFACT_EXTS = {".step", ".stl", ".dxf", ".png", ".py", ".jpg", ".scad"}
 CODERS = {"auto", "fast", "strong"}
+# GPU-busy banner (~/.openclaw/gpu/DESIGN-gpu-busy.md): the notice server's /state is the
+# single source of truth for "is the home GPU busy" across every surface. Env-overridable
+# for tests, like the rest of this stack's state-service URLs.
+GPU_STATE_URL = os.environ.get("GPU_STATE_URL", "http://127.0.0.1:8093/state")
+GPU_STATE_TIMEOUT_S = 2
 # Title worker config + request shape live in webui/titler.py (importable without FastAPI,
 # so the request shape is testable): the resident through the gpu-proxy on :8085 since the
 # Ollama qwen3:8b call was retired 2026-09-19.
@@ -169,6 +174,21 @@ _title_ping = threading.Event()
 
 _WAIT_RE = re.compile(r"waiting for build lock")
 
+
+def _fetch_gpu_state() -> dict:
+    """GET the shared GPU-busy state (notice_server.py :8093 /state, gpu/gpustate.py). ANY
+    failure (connection refused, timeout, bad JSON, missing/wrong-shaped keys) fails OPEN to
+    "ok" — a hiccup in the state service must never block a page load, the title worker, or
+    make this app claim the GPU is busy when it does not actually know."""
+    try:
+        with urllib.request.urlopen(GPU_STATE_URL, timeout=GPU_STATE_TIMEOUT_S) as r:
+            data = json.loads(r.read())
+        if isinstance(data, dict) and data.get("state") in ("ok", "busy", "down"):
+            return data
+    except Exception:
+        pass
+    return {"state": "ok"}
+
 # ── History persistence ────────────────────────────────────────────────────────
 # The page's creation rail is only useful if it outlives a restart, so the job store is
 # mirrored to one JSON file. The live `log` deque is progress, not history — it is not
@@ -258,7 +278,13 @@ def _title_gave_up(job: dict, why: str):
 def _title_worker():
     """Names finished creations, but only while nothing is building — a build owns the card
     (the resident is evicted for the maker arm), so a title call must never contend with one.
-    Re-checks every 2 minutes, which also covers titles skipped because the box was busy."""
+    Re-checks every 2 minutes, which also covers titles skipped because the box was busy.
+
+    Also skips while the shared GPU state (_fetch_gpu_state) is not "ok" — the resident may
+    be evicted by something outside this app entirely (a lab job, another frontend's maker
+    build), and a title call in that window would either 180s-timeout against a stopped
+    resident or contend for VRAM once it comes back. The fallback (truncated-spec) title
+    stays in place meanwhile; the next wake retries."""
     while True:
         _title_ping.wait(timeout=120)
         _title_ping.clear()
@@ -267,6 +293,8 @@ def _title_worker():
                        if not j.get("titled")
                        and j["status"] in ("done", "error", "needs_clarification")
                        and (j.get("spec") or "").strip()]
+        if pending and _fetch_gpu_state().get("state") != "ok":
+            continue                            # GPU busy elsewhere — try again next wake
         done_any = False
         for job in pending:
             if _gpu_busy.is_set() or not (_queue.empty() and _mesh_queue.empty()):
@@ -893,6 +921,13 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 @app.get("/healthz")
 def healthz():
     return JSONResponse({"ok": True, "queue": _queue.qsize()})
+
+
+@app.get("/api/gpu")
+def api_gpu():
+    """Polled by the page every 15 s for the GPU-busy banner (see DESIGN-gpu-busy.md).
+    Fails open to {"state": "ok"} on any error — see _fetch_gpu_state()."""
+    return JSONResponse(_fetch_gpu_state())
 
 
 _load()                                  # history first, then the workers that mutate it
