@@ -1,0 +1,5 @@
+A clevis yoke with a 65 × 36 × 90mm overall envelope, built on a 65 × 36mm rectangular base block 12mm thick. On the underside of the base, centred, add a 36mm diameter cylindrical shank 30mm long. Rising from the top of the base, add two parallel 10mm-thick arms at the 65mm ends, leaving a 45mm-wide slot between them. Each arm stands 48mm above the base, and its top is fully rounded with 18mm radius fillets across the 36mm width.
+
+Bore an 18mm diameter hole up the shank axis from the shank's bottom face to a depth of 42mm. This passes through the shank and base and opens into the floor of the slot.
+
+Drill a 10mm diameter cross hole through both arms along the 65mm direction. Place it on the centreline of the 36mm width, 18mm below the top of the arms, concentric with the rounded ends.

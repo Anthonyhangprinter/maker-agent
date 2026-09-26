@@ -1,0 +1,1 @@
+A 65 x 65 x 10 mm square base plate carrying a 28 mm diameter cylindrical post centred on its top face. The post rises 85 mm above the plate, for an overall height of 95 mm. Blend the post into the top face of the plate with an 11 mm radius fillet all around its base, so the straight cylindrical section of the post begins 21 mm above the underside of the plate.
