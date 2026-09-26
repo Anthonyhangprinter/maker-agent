@@ -123,6 +123,44 @@ def maker_config() -> dict:
     }
 
 
+def model_identity(code_model: str) -> dict:
+    """Self-describing model identity for one build/turn — the web UI's per-creation and
+    per-turn "model chip" (owner request, 2026-09-27: past builds used different arms, and
+    a revise turn today rides whatever `cad.json`'s maker block currently names, which can
+    differ from the arm that built the original). Reads maker_config() fresh (not the
+    import-time `_MAKER` snapshot below) so this stays right if the maker arm was swapped
+    mid-session (`scripts/arms.py use <arm>`).
+
+    `code_model` is the resolved rung string a build/revise/rescale actually called
+    (`cad_engine._code_model()`, e.g. "local:gemma-4-31b", "local:qwen3.8-27b+think",
+    "cloud/claude-sonnet-5") — parsed directly rather than re-derived from maker_config()
+    alone, so a manual override (CAD_CODE_MODEL_FAST) or the "+think" escalation rung still
+    shows up correctly even if it does not match the currently configured maker alias.
+    """
+    mk = maker_config()
+    label, maker_arm = code_model, None
+    if code_model.startswith("cloud/"):
+        label = f"{code_model[len('cloud/'):]} (cloud)"
+    elif code_model.startswith("local:"):
+        alias = code_model[len("local:"):]
+        base_alias = alias[:-len(THINK_SUFFIX)] if alias.endswith(THINK_SUFFIX) else alias
+        thinking = alias.endswith(THINK_SUFFIX)
+        if mk["enabled"] and base_alias == mk["alias"]:
+            maker_arm = mk["arm"]
+            label = f"{maker_arm or base_alias} (maker)"
+        elif base_alias == RESIDENT_ALIAS:
+            label = f"{base_alias} (resident)"
+        else:
+            # An alias that matches neither the currently configured maker arm nor the
+            # resident (e.g. cad.json's maker block moved on since this ran) — still show
+            # the raw alias rather than guess a role for it.
+            label = base_alias
+        if thinking:
+            label += " +think"
+    return {"code_model": code_model, "maker_enabled": bool(mk["enabled"]),
+            "maker_arm": maker_arm, "engine_version": VERSION, "label": label}
+
+
 _MAKER = maker_config()
 CODE_MODEL_STRONG  = "local:" + _MAKER["alias"]
 LOCAL_CODER_PORT   = _MAKER["port"]
