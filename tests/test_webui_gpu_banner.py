@@ -113,3 +113,14 @@ def test_api_gpu_route_passes_through_busy(monkeypatch):
     r = client.get("/api/gpu")
     assert r.status_code == 200
     assert r.json() == payload
+
+
+def test_banner_js_prefers_message_retry_over_message():
+    """M2: the CAD web banner shows the state service's "try again" sentence
+    (message_retry), falling back to message when the field is absent."""
+    from pathlib import Path
+    html = (Path(app.__file__).resolve().parent / "static" / "index.html").read_text(encoding="utf-8")
+    start = html.index("async function pollGpu()")
+    body = html[start:html.index("pollGpu();", start)]
+    assert "gpuState.message_retry || gpuState.message" in body
+    assert "banner.textContent = gpuText" in body

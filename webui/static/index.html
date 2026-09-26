@@ -976,11 +976,14 @@ async function pollGpu() {
     gpuState = { state: "ok" };            // fail open — never show a stale/wrong banner
   }
   const banner = $("gpuBanner");
-  if (!gpuState || gpuState.state === "ok" || !gpuState.message) {
+  // A build here does not resume on its own, so prefer the "try again" wording
+  // (message_retry) and fall back to the shared message.
+  const gpuText = gpuState && (gpuState.message_retry || gpuState.message);
+  if (!gpuState || gpuState.state === "ok" || !gpuText) {
     banner.hidden = true;
   } else {
     banner.hidden = false;
-    banner.textContent = gpuState.message;
+    banner.textContent = gpuText;
     banner.classList.toggle("down", gpuState.state === "down");
   }
   // Keep an open "waiting for GPU" pill's holder/since/pct text current between job polls.
