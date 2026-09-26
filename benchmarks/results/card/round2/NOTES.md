@@ -1,0 +1,83 @@
+# Maker Agent round 2: running notes (2026-09-23 to 26)
+
+## Data
+| Source | Pairs | Stock Gemma solves | Hard (Gemma fails) | Spend |
+|---|---|---|---|---|
+| Owner references (18 SolidWorks parts) | held out, eval only | 1/18 first try | - | - |
+| Opus 5.5 pilot (code-first) | 31 | - | - | $4.78 |
+| Batch 1 (800 seeds, Batch API) | 443 | 81% | 90 | $39.41 |
+| Batch 2 (600 seeds, Gemma-fail + 3D families) | 201 | 62% | 76 | $33.09 |
+| **Total** | **673** | 76% | **166** | ~$77 |
+
+Method: teacher designs a part as build123d code, it is built and measured, a spec is written
+from the measurements, a blind rebuild from that spec alone must match (band=match, clean gate,
+equal hole/fillet/chamfer counts). Verified by construction.
+
+## Owner review (FreeCAD overlays)
+- Batch 1 pilot: 8 reviewed, all sensible; 3 missing corner fillets -> measurer fixed, keep rule tightened.
+- Batch 1 scale: 12 reviewed, 11 good (ratchet pawl missed a corner cut; accepted as tolerable).
+- Batch 2: 15 reviewed, 15 good.
+- Scorer calibrated to owner labels on the 18 references: agreement 13/24 -> 17/24.
+
+## Findings
+- Specs that under-determine the part were the root problem: Opus 5.5 7/18 vs Gemma 1/18 on the
+  owner parts once specs were fully determined (the earlier "teacher not worth it" was an artefact).
+- Stock Gemma already solves most teacher data; the value is in the misses (hard-example mining).
+- Gemma's misses are mostly crashes (112), and over half are mechanical: `.z` vs `.Z` (~31),
+  missing helper imports (~31), wrong helper signatures (~15).
+
+## Next (in progress)
+1. Engine fixes: API-casing normaliser + helper auto-import + build123d API docs retrieval, each
+   A/B-measured on Gemma's 166 hard pairs.
+2. Round 2 fine-tune on the 673 pairs (hard ones weighted up), prompts matching the fixed engine.
+3. Ship/no-ship vs stock on public 85 + owner 18 (held out). Rule: beat stock by more than
+   paired-flip noise with no validity regression.
+
+## Engine fixes, measured 2026-09-26 (commit 76f8cda, no training)
+| Set | Stock | + normalise | + normalise + API docs |
+|---|---|---|---|
+| 166 pairs stock Gemma failed | 0 match+valid (112 crash) | 87 | **101** (22 crash) |
+| 60 random pairs stock solved | 60 | 52 | 56 (re-sampling noise; 0 of 561 solved codes are changed by the patch) |
+- Offline replay of the 112 crashes: 63 now match/valid with the normaliser alone, 0 regressions on 561 non-crash builds.
+- API docs vs none: paired flips +42/-24 (sign test p~0.04), ~200-270 extra prompt tokens when it fires.
+- Found: one pair (cfb20363) hung the gate 40+ min on a 54 MB STL; needs a scorer timeout.
+- Consequence: the ship test must compare fine-tune+fixes vs stock+fixes (the fixes are credited separately).
+
+## Owner review, batch 3 (2026-09-26)
+- 15 pairs across 15 families reviewed in FreeCAD: owner verdict "these are tough, nice work" (all accepted).
+- Future families requested: bearings and similar multi-body/standard mechanical components (assemblies; the gate already supports multi-part via bd_warehouse).
+- Verified examples are being added to the web UI as an Examples gallery (inspiration + demo to peers).
+
+## Step 1: fixed-engine Gemma baseline, full live pool (2026-09-27)
+
+Owner approved training on the full verified set (35 sampled pairs reviewed, all good) --
+no `--approved-ids` gate this round. Live pool grew since this file's "Data" table above (a
+batch-2 budget-priority rebuild kept 41 more pairs mid-run, and batch 3's 443 pairs are
+counted here for the first time): **1,164 kept pairs** across scale (443) + pilot (29) +
+batch2 (241) + batch2/pilot (8) + batch3 (443). Ran `lab/gemma_baseline.py` with fixes ON
+(defaults: `CAD_NORMALISE=1 CAD_API_REF=1`, commit 76f8cda) over every pair, reusing 226
+rows already baselined this way (`~/lab-scratch/normalise-2026-09-26/step4.jsonl`) plus 938
+new ones -- `benchmarks/results/card/round2/gemma_fixed_baseline.jsonl` (gitignored,
+per-build artefacts too, ~446MB of build dirs). Zero `score_timeout` crashes this run (the
+new hard scorer timeout from step 0 never fired -- no pathological mesh in this batch).
+
+| | match+valid | / n | % |
+|---|---|---|---|
+| **Overall** | 965 | 1164 | 82.9% |
+| tier 1 | 153 | 153 | 100.0% |
+| tier 2 | 463 | 546 | 84.8% |
+| tier 3 | 270 | 341 | 79.2% |
+| tier 4 | 79 | 124 | 63.7% |
+| codefirst-scale-2026-09-25 | 400 | 443 | 90.3% |
+| codefirst-pilot-2026-09-24 | 23 | 29 | 79.3% |
+| codefirst-batch2-2026-09-25 | 195 | 241 | 80.9% |
+| codefirst-batch2-2026-09-25/pilot | 3 | 8 | 37.5% |
+| codefirst-batch3-2026-09-26 | 344 | 443 | 77.7% |
+
+Bands overall: match 853, valid 112, near_miss 134, fail 17, crash 48. The 199 rows NOT
+match/valid (near_miss + fail + crash) are round 2's oversampling target (3x weighting, see
+`lab/compile_codefirst.py`'s `oversample()`). Tier confirms the expected gradient (tier 1
+trivially solved, tier 4 the genuine hard tail) -- consistent with the fixes already having
+closed most of the EASY misses (mechanical crashes) the pre-fix 2026-09-26 measurement
+found, leaving geometry-level near-misses as the dominant remaining failure mode on tiers
+3-4.

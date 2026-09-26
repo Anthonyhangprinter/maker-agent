@@ -29,11 +29,11 @@ practice: round 1's rows and round 2's rows are framed identically at the string
 
 Reusable knobs (added for the round 2 prep, not round 1):
   --oversample-gemma-fail N   duplicate (N total copies, N>=1) any TRAIN row whose
-                               gemma_baseline band is present and != "match" (stock Gemma
-                               did not solve it). Never applied to val rows -- an eval
-                               split must stay one row per spec. A row with NO
-                               gemma_baseline entry at all (not yet baselined) is left at
-                               1x: "unknown" is not "failed".
+                               gemma_baseline band is present and NOT in ("match", "valid")
+                               (stock Gemma did not build a correct part). Never applied to
+                               val rows -- an eval split must stay one row per spec. A row
+                               with NO gemma_baseline entry at all (not yet baselined) is
+                               left at 1x: "unknown" is not "failed".
   --exclude-gemma-match-tier1 drop tier-1 rows stock Gemma already matched outright, before
                                the split -- the easy, already-solved slice.
   --approved-ids FILE          JSON file, either {"approved_ids": [...]} or a bare list of
@@ -142,10 +142,24 @@ def _assert_user_template_matches_production() -> None:
 
 
 def _build_user_message(spec: str) -> str:
-    """Mirrors cad_engine.generate_code_raw's prompt (no notes: none of the codefirst pairs
-    carry any), verbatim except the trailing whitespace/blank-line layout, which matches
-    exactly. See _assert_user_template_matches_production for the drift guard."""
-    return f"{_USER_TEMPLATE_CANARY}\n{spec}\n\nWrite the build123d code:"
+    """Mirrors cad_engine.generate_code_raw's prompt byte-for-byte, INCLUDING the Notes
+    block (round 2 change, 2026-09-26): the codefirst pairs themselves carry no notes (they
+    are teacher-authored, never sampled through the engine), but production always computes
+    retrieval_notes_for(spec) before codegen -- few-shots, learned pitfalls, and (since
+    commit 76f8cda) the introspected API reference. Omitting that block here would train on
+    a prompt shape serving never sends. Notes are recomputed HERE, at compile time, against
+    the CURRENT retrieval corpora (cad-examples.jsonl/cad-lessons.jsonl/b123d/api_ref.json)
+    -- exactly what a live request for this spec would see today, which is the whole point
+    of matching train prompts to serve prompts. retrieval_notes_for only calls the
+    embed-server (nomic-embed, CPU) and static JSON lookups, never the code model, so this
+    is safe under this script's _raise_on_model_call patch. See
+    _assert_user_template_matches_production for the drift guard on the rest of the
+    template."""
+    notes = engine.retrieval_notes_for(spec, use_fewshots=True)
+    notes_str = "\n".join(f"- {n}" for n in notes)
+    return (f"{_USER_TEMPLATE_CANARY}\n{spec}\n\n"
+           + (f"Notes:\n{notes_str}\n\n" if notes_str else "")
+           + "Write the build123d code:")
 
 
 # ---------------------------------------------------------------------------
@@ -351,16 +365,21 @@ def render_split(rows: list[dict], *, tmp_dir: Path, tag: str, keys, slugs, temp
 
 def oversample(rows: list[dict], factor: int) -> list[dict]:
     """factor total copies (factor=1: no-op) of every row whose gemma_band is present and
-    != "match". A row with gemma_band None (never baselined) is left at 1x. Duplicate rows
-    get a "-dupN" suffix on their rendered id so train.jsonl ids stay unique; every other
-    field (prompt/completion/pair_id/...) is identical to the original, which is exactly
-    the point -- the trainer sees the same (spec, code) pair `factor` times."""
+    NOT in ("match", "valid") -- round 2's weighting rule (2026-09-26 task brief): a fixed-
+    engine Gemma sample that is band=="valid" already built a correct part (just not byte-
+    identical to the teacher's own code), so it is not "hard" and stays at 1x same as a
+    "match"; only near_miss/fail/crash rows -- genuinely hard for the stock coder -- get
+    oversampled. A row with gemma_band None (never baselined) is also left at 1x: "unknown"
+    is not "failed". Duplicate rows get a "-dupN" suffix on their rendered id so train.jsonl
+    ids stay unique; every other field (prompt/completion/pair_id/...) is identical to the
+    original, which is exactly the point -- the trainer sees the same (spec, code) pair
+    `factor` times."""
     if factor <= 1:
         return rows
     out: list[dict] = []
     for row in rows:
         gband = row.get("_gemma_band")
-        n = factor if (gband and gband != "match") else 1
+        n = factor if (gband and gband not in ("match", "valid")) else 1
         for i in range(n):
             copy = dict(row)
             if i > 0:
