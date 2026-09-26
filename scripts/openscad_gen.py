@@ -29,6 +29,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 import cad_engine as engine  # noqa: E402
+from cad_v5.config import model_identity  # noqa: E402
 
 OPENSCAD = str(Path.home() / ".local" / "bin" / "OpenSCAD.AppImage")
 BUILDS_DIR = Path.home() / ".openclaw" / "cad-builds"
@@ -170,6 +171,7 @@ def cmd_revise(a) -> dict:
             ok, err = compile_scad(scad, stl)
     return {"ok": ok, "lang": "openscad", "converged": ok, "mode": "fluid",
             "accepted_via": "compile" if ok else None, "code_model": model,
+            "model": model_identity(engine.CLOUD_PREFIX + model),
             "build_dir": str(build_dir), "params": parse_params(new_code),
             "facts": stl_facts(stl) if ok else {},
             "error": None if ok else (err or "compile failed")[-300:],
@@ -225,7 +227,8 @@ def main() -> int:
     result = {
         "ok": ok, "lang": "openscad", "converged": ok,
         "accepted_via": "compile+mesh-facts" if ok else None,
-        "code_model": model, "turns": turn if code else 0,
+        "code_model": model, "model": model_identity(engine.CLOUD_PREFIX + model),
+        "turns": turn if code else 0,
         "build_dir": str(build_dir), "params": parse_params(code) if code else [],
         "facts": facts, "error": None if ok else (err or "no compile"),
         "build_time_s": round(time.monotonic() - t0, 1),

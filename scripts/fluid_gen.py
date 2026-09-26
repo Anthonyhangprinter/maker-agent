@@ -40,8 +40,8 @@ HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 import cad_engine as engine  # noqa: E402
 from cad_v5.diagnose import diagnose  # noqa: E402
-from cad_v5.config import (first_turn_candidates, load_config,  # noqa: E402
-                          repair_think_enabled, think_rung_available)
+from cad_v5.config import (VERSION, first_turn_candidates, load_config,  # noqa: E402
+                          model_identity, repair_think_enabled, think_rung_available)
 from cad_v5.design_assistant import (extract_build123d_params,  # noqa: E402
                                      substitute_build123d_params)
 
@@ -200,9 +200,16 @@ def _materialize_with_salvage(spec: str, code: str, build_dir: Path,
     return m
 
 
-def _result(m: dict, extra: dict, t0: float, helper: bool = False) -> dict:
+_RESCALE_MODEL = {"code_model": None, "maker_enabled": None, "maker_arm": None,
+                  "engine_version": VERSION, "label": "parameter rescale (no LLM)"}
+
+
+def _result(m: dict, extra: dict, t0: float, helper: bool = False,
+            model: Optional[dict] = None) -> dict:
+    code_model = engine._code_model()
     res = {"ok": m["error"] is None, "mode": "fluid", "helper": bool(helper),
-           "code_model": engine._code_model(), "facts": m["facts"],
+           "code_model": code_model, "model": model or model_identity(code_model),
+           "facts": m["facts"],
            "instruments": m["instruments"][:6],
            "gate_hard": m["gate_hard"], "gate_spec": m["gate_spec"],
            "gate_adv": m["gate_adv"][:6],
@@ -282,7 +289,11 @@ def cmd_build(a) -> dict:
                 base64.b64decode(engine._prep_image_b64(Path(a.image))))
         except Exception:
             pass
-    meta = {"spec": spec, "user_spec": a.spec or "", "coder": a.coder, "history": []}
+    meta = {"spec": spec, "user_spec": a.spec or "", "coder": a.coder, "history": [],
+            # Self-describing artefact (owner request, 2026-09-27): which arm/resident
+            # actually built THIS turn, independent of whatever cad.json's maker block
+            # says later — see cad_v5.config.model_identity.
+            "model": model_identity(engine._code_model())}
     if expansion:
         meta["assumptions"] = expansion["assumptions"]
     (build_dir / "fluid.json").write_text(json.dumps(meta), encoding="utf-8")
@@ -336,9 +347,14 @@ def cmd_revise(a) -> dict:
         f"\nRevision: {h['feedback']}" for h in meta.get("history", [])) \
         + f"\nRevision: {a.feedback}"
     m = _materialize_with_salvage(gate_text, new_code, build_dir, gate_repair=False)
+    turn_model = model_identity(engine._code_model())
     meta.setdefault("history", []).append(
         {"feedback": a.feedback, "ts": datetime.now(timezone.utc).isoformat(),
-         "ok": m["error"] is None})
+         "ok": m["error"] is None, "model": turn_model})
+    # The build dir's OWN identity tracks whatever most recently built it (a revise on an
+    # old build dir today uses today's model, per the same owner rule as above) — the
+    # original build's model stays visible per-turn in history[i]["model"].
+    meta["model"] = turn_model
     meta_f.write_text(json.dumps(meta), encoding="utf-8")
     extra = {"build_dir": str(build_dir), "turns": len(meta["history"]) + 1}
     if not m["error"]:
@@ -394,12 +410,12 @@ def cmd_rescale(a) -> dict:
         return {"ok": False, "mode": "fluid", "rescaled": False,
                 "error": "rescale failed to build — restored the previous version: "
                          + m["error"],
-                "build_dir": str(build_dir),
+                "build_dir": str(build_dir), "model": _RESCALE_MODEL,
                 "params": extract_build123d_params(code),
                 "build_time_s": round(time.monotonic() - t0, 1)}
     extra = {"build_dir": str(build_dir), "rescaled": True,
              "params": extract_build123d_params(new_code)}
-    return _result(m, extra, t0)
+    return _result(m, extra, t0, model=_RESCALE_MODEL)
 
 
 def main() -> int:
