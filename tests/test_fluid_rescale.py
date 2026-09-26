@@ -81,6 +81,26 @@ def test_rescale_zero_llm(tmp_path, monkeypatch):
     assert res["ok"] is True
 
 
+def test_rescale_model_chip_says_no_llm_not_the_active_rung(tmp_path):
+    """A rescale is pure AST substitution (see the module docstring above) — its result
+    must never claim credit for whichever CAD coder happens to be configured right now,
+    since no model call happened. See fluid_gen._RESCALE_MODEL / model_identity()."""
+    d = _build_dir(tmp_path, "build123d_simple_plate.py", "a plate")
+    res = fg.cmd_rescale(Namespace(build_dir=str(d), params=json.dumps({"plate_size": 70})))
+    assert res["ok"] is True
+    assert res["model"] == fg._RESCALE_MODEL
+    assert res["model"]["code_model"] is None
+    assert "no LLM" in res["model"]["label"]
+
+
+def test_rescale_failure_path_also_reports_the_no_llm_model_chip(tmp_path):
+    d = _build_dir(tmp_path, "build123d_simple_plate.py", "a plate")
+    fg.cmd_rescale(Namespace(build_dir=str(d), params=json.dumps({"plate_size": 60})))
+    bad = fg.cmd_rescale(Namespace(build_dir=str(d), params=json.dumps({"plate_size": -5})))
+    assert bad["ok"] is False
+    assert bad["model"] == fg._RESCALE_MODEL
+
+
 def test_rescale_that_fails_to_build_restores_the_previous_version(tmp_path):
     d = _build_dir(tmp_path, "build123d_simple_plate.py", "a plate")
     # First, a good rescale establishes a known-good build.step/.png/.stl to restore to.
