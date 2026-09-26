@@ -360,6 +360,35 @@ def _title_worker():
             _persist()
 
 
+
+# ── Model identity chip ──────────────────────────────────────────────────────────
+# Owner request (2026-09-27): past builds used different CAD coders (Phase 0 shootout arms,
+# the round1 fine-tune, the resident when maker is disabled, …), and a revise turn today
+# rides whatever cad.json's maker block currently names — which can differ from the arm
+# that built the original. Every creation/turn needs to say plainly which model built it.
+# cad_v5.config.model_identity() is the single source of truth for the build123d/openscad
+# path (fluid_gen.py / openscad_gen.py write it into result["model"]); mesh jobs have no
+# code model at all, only a provider, so they get their own small label here.
+_MESH_PROVIDER_LABELS = {"triposr-local": "TripoSR", "meshy": "Meshy"}
+
+
+def _mesh_model_chip(result: dict) -> dict:
+    provider = (result or {}).get("provider")
+    name = _MESH_PROVIDER_LABELS.get(provider, provider or "unknown provider")
+    return {"code_model": None, "maker_arm": None, "engine_version": None,
+            "label": f"{name} (mesh)"}
+
+
+def _job_model_chip(job: dict):
+    """The model-identity dict for a job's CURRENT (latest) version, or None before a
+    result exists yet. Mesh jobs derive their chip from `provider`; every other job kind
+    already carries a ready-made `model` dict on its result (see model_identity())."""
+    result = job.get("result") or {}
+    if job.get("kind") == "mesh":
+        return _mesh_model_chip(result) if result else None
+    return result.get("model")
+
+
 def _turns_public(job: dict) -> list:
     """Past versions of this creation, newest snapshot last. Each revise overwrites the
     build dir in place, so the previous version is copied to turn<N>.* before it goes."""
@@ -368,6 +397,7 @@ def _turns_public(job: dict) -> list:
     out = []
     for t in job.get("turns", []):
         out.append({"n": t["n"], "ts": t.get("ts"), "note": t.get("note", ""),
+                    "model": t.get("model"),
                     "artifacts": {k: f"/artifacts/{bid}/{v}"
                                   for k, v in (t.get("files") or {}).items()}})
     return out
@@ -385,6 +415,7 @@ def _job_public(job: dict) -> dict:
         "result": job.get("result"), "error": job.get("error"),
         "chat": job.get("chat", []),
         "turns": _turns_public(job),
+        "model": _job_model_chip(job),         # current version's model chip
         "parameters": job.get("parameters"),   # the accepted design-assistant proposal, if any
         "created_at": job["created_at"], "updated_at": job.get("updated_at", job["created_at"]),
     }
@@ -392,12 +423,13 @@ def _job_public(job: dict) -> dict:
 
 def _job_light(job: dict) -> dict:
     """Sidebar row. Deliberately excludes `result` — the rail must stay cheap no matter how
-    many creations exist; the full payload is fetched only for the open thread."""
+    many creations exist; the full payload is fetched only for the open thread. `model` is
+    the one field pulled out of `result` anyway — it is the whole point of the rail chip."""
     return {
         "id": job["id"], "title": job.get("title") or _fallback_title(job),
         "spec": job["spec"], "status": job["status"], "kind": job.get("kind", "cad"),
         "has_image": bool(job["image"]), "turns": len(job.get("turns", [])),
-        "user": job.get("user", "local"),
+        "user": job.get("user", "local"), "model": _job_model_chip(job),
         "created_at": job["created_at"], "updated_at": job.get("updated_at", job["created_at"]),
     }
 
@@ -434,7 +466,11 @@ def _worker():
 
 
 def _snapshot_turn(job: dict, prev_dir: str, note: str):
-    """A revise rewrites the build dir in place, so copy the current version aside first."""
+    """A revise rewrites the build dir in place, so copy the current version aside first.
+    The model that BUILT the version being archived is whatever the job's result already
+    says right now (about to be overwritten by the new turn's result) — captured here so
+    each past turn keeps saying what actually built it, even after a later turn (or a
+    cad.json maker-arm swap) changes the model going forward."""
     d = Path(prev_dir)
     n = len(job.setdefault("turns", [])) + 1
     files = {}
@@ -449,7 +485,8 @@ def _snapshot_turn(job: dict, prev_dir: str, note: str):
         except Exception:
             pass
     if files:
-        job["turns"].append({"n": n, "ts": time.time(), "note": note[:200], "files": files})
+        job["turns"].append({"n": n, "ts": time.time(), "note": note[:200], "files": files,
+                             "model": (job.get("result") or {}).get("model")})
 
 
 def _run_build(job: dict):
@@ -617,7 +654,7 @@ def _ensure_render(result: dict):
 def _result_public(result: dict) -> dict:
     """Strip the result to what the page needs, with artifact paths rewritten to URLs."""
     out = {k: result.get(k) for k in
-           ("ok", "converged", "accepted_via", "code_model", "turns", "build_time_s",
+           ("ok", "converged", "accepted_via", "code_model", "model", "turns", "build_time_s",
             "last_critique", "warning", "image_analysis", "image_only", "lang", "params",
             "needs_clarification", "questions", "spec", "error",
             # gates-on fluid mode (2026-08-11): severity-preserved findings + expansion rung

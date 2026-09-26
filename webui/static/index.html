@@ -160,6 +160,16 @@
   .pill.error { color: var(--bad); }
   .pill.needs_clarification { color: #8fb0f0; }
   .pill.kind { background: #2a2010; color: var(--accent2); }
+  /* Model-identity chip: which coder/arm actually built this creation/turn (owner request,
+     2026-09-27 — past builds used different arms, and today's cad.json maker arm can differ
+     from the one that built an old creation). Deliberately plain (not a status colour) so it
+     never competes with the s-done/s-error signal. .inferred marks a value reconstructed from
+     the build date/journal rather than read straight off a recorded field. */
+  .pill.model { text-transform: none; letter-spacing: 0; font-weight: 500;
+                background: #171b1f; color: var(--dim); border: 1px solid var(--line2); }
+  .pill.model.inferred { border-style: dashed; }
+  .item .when .pill.model { padding: 0 0.4rem; font-size: 0.64rem; margin-left: 0.35rem;
+                             vertical-align: 1px; }
 
   .log { background: var(--panel2); border-radius: 8px; padding: 0.6rem 0.8rem; margin-top: 0.8rem;
          font: 12px/1.45 var(--mono); color: #93a0ab; max-height: 190px;
@@ -721,6 +731,15 @@ $("go").onclick = async () => {
   await startBuild(spec);
 };
 
+/* Model-identity chip markup — which coder built this creation/turn (see model_identity()
+   in cad_v5/config.py). `m` may be null/undefined (job still queued, or a legacy row from
+   before this feature) — always render nothing rather than a blank pill. */
+function modelChip(m) {
+  if (!m || !m.label) return "";
+  const title = m.code_model ? ` title="${esc(m.code_model)}"` : "";
+  return `<span class="pill model${m.inferred ? " inferred" : ""}"${title}>${esc(m.label)}</span>`;
+}
+
 /* ── the creation rail ── */
 function ago(ts) {
   const s = Math.max(0, Date.now() / 1000 - (ts || 0));
@@ -747,7 +766,7 @@ async function loadRail() {
             title="${esc(j.spec || "image-only build")}">
       <span class="dot"></span>
       <span class="t">${esc(j.title || j.spec || "image-only build")}</span>
-      <span class="when">${ago(j.updated_at)}${j.turns ? " · v" + (j.turns + 1) : ""}${j.has_image ? " · 📷" : ""}</span>
+      <span class="when">${ago(j.updated_at)}${j.turns ? " · v" + (j.turns + 1) : ""}${j.has_image ? " · 📷" : ""}${modelChip(j.model)}</span>
       <span class="del" title="Delete this creation"
             onclick="event.stopPropagation();delJob('${j.id}')">✕</span>
     </button>`).join("");
@@ -836,6 +855,7 @@ function render(j) {
   if (j.kind === "mesh") h += ` <span class="pill kind">mesh</span>`;
   if (j.user && j.user !== "local")
     h += ` <span class="pill kind" title="submitted over the tailnet">${esc(j.user)}</span>`;
+  h += ` ${modelChip(j.model)}`;
   if (j.spec) h += `<span class="spec">${esc(j.spec)}${j.has_image ? " · 📷 image-conditioned" : ""}</span>`;
   else if (j.has_image) h += `<span class="spec">📷 image-only build</span>`;
   h += `</div><div class="job s-${j.status}${j.kind === "mesh" ? " mesh" : ""}" id="job-${j.id}">`;
@@ -852,13 +872,20 @@ function render(j) {
   h += `<div class="viewer" id="viewer-${j.id}"></div>`;
   if (turns.length) {
     h += `<div class="versions">` + turns.map(t =>
-      `<button onclick="showVersion('${j.id}',${t.n})" title="${esc(t.note)}">
+      `<button onclick="showVersion('${j.id}',${t.n})"
+               title="${esc(t.note)}${t.model ? ' — ' + t.model.label : ''}">
          ${t.artifacts.render ? `<img src="${t.artifacts.render}" alt="v${t.n}">`
                               : `<img alt="" style="height:56px;background:#222">`}
          <span class="vlabel">v${t.n}</span></button>`).join("") +
       `<button class="on" onclick="showVersion('${j.id}',0)"><img src="${a.render || ""}" alt="current">
          <span class="vlabel">now</span></button></div>
        <div class="vnote" id="vnote-${j.id}">${turns.length + 1} versions · click to look back</div>`;
+  }
+  // If the model that built the CURRENT version differs from the one that built the very
+  // first turn, say so plainly — a revise today can ride a different arm than the original
+  // build did (cad.json's maker arm can change between them).
+  if (turns.length && turns[0].model && r.model && turns[0].model.label !== r.model.label) {
+    h += `<div class="meta">continued on ${esc(r.model.label)}, originally ${esc(turns[0].model.label)}</div>`;
   }
   if (j.status === "done") {
     const dl = ["step", "stl", "dxf", "glb", "obj", "source", "reference"]
@@ -962,11 +989,17 @@ function showVersion(id, n) {
   const arts = t ? t.artifacts : cur;
   if (arts.render) img.src = arts.render;
   if (!note) return;
-  if (!t) { note.textContent = `current version · ${turns.length + 1} in total`; return; }
+  const total = turns.length + 1;
+  if (!t) {
+    const m = (openJobData.result || {}).model;
+    note.innerHTML = `Turn ${total} ${m ? modelChip(m) : ""} · current version · ${total} in total`;
+    return;
+  }
   const links = ["step", "stl", "source"].filter(k => arts[k])
     .map(k => `<a href="${arts[k]}" download style="color:var(--accent)">${k.toUpperCase()}</a>`)
     .join(" · ");
-  note.innerHTML = `v${n} — built from “${esc(t.note || "the original spec")}”`
+  note.innerHTML = `Turn ${n} ${t.model ? modelChip(t.model) : ""}`
+    + ` — built from “${esc(t.note || "the original spec")}”`
     + (links ? ` · ${links}` : "");
 }
 
