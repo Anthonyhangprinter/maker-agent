@@ -101,6 +101,8 @@ CARD_ROOT = HERE / "benchmarks" / "results" / "card"
 INPUT_PAIR_FILES = [
     CARD_ROOT / "codefirst-scale-2026-09-25" / "claude-opus-5-5" / "pairs.jsonl",
     CARD_ROOT / "codefirst-pilot-2026-09-24" / "claude-opus-5-5" / "pairs.jsonl",
+    CARD_ROOT / "codefirst-batch2-2026-09-25" / "claude-opus-5-5" / "pairs.jsonl",
+    CARD_ROOT / "codefirst-batch2-2026-09-25" / "pilot" / "claude-opus-5-5" / "pairs.jsonl",
 ]
 OUT_DIR = CARD_ROOT / "codefirst-scale-2026-09-25"
 OUT_JSONL = OUT_DIR / "gemma_baseline.jsonl"
