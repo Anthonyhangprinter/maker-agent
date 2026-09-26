@@ -72,6 +72,14 @@ try:
     import cad_retrieval
 except Exception:
     cad_retrieval = None
+try:
+    import code_normalise as _code_normalise
+except Exception:
+    _code_normalise = None
+try:
+    import api_ref as _api_ref
+except Exception:
+    _api_ref = None
 B123D_DIR     = _HERE / "b123d"
 STEP_OUT      = _OPENCLAW / "cad-last-build.step"   # persisted so a failed upload is recoverable
 STL_OUT       = _OPENCLAW / "cad-last-build.stl"    # always exported alongside STEP — sliceable for printing
@@ -1698,6 +1706,14 @@ def _patch_code(code: str, wants: frozenset = frozenset()) -> str:
     if re.search(r"\bmath\.\w+", code) and \
             not re.search(r"^\s*import\s+math\b", code, re.M):
         code = "import math\n" + code
+    # Spelling/import normalisation (2026-09-26, code_normalise.py): Vector .x -> .X,
+    # `.center.z` -> `.center().Z`, missing b123d helper / bare math imports, helper
+    # keywords missing their `_mm` suffix. Only rewrites the interpreter would otherwise
+    # reject; never a design change. CAD_NORMALISE=0 turns it off (A/B measurement).
+    if _code_normalise is not None and os.environ.get("CAD_NORMALISE", "1") != "0":
+        code, fixes = _code_normalise.normalise_api_spelling(code)
+        if fixes:
+            log.info("[v5] Normalised code spelling: %s", "; ".join(sorted(set(fixes))))
     return _fix_feature_guards(code, wants)
 
 def _wanted_edge_features(text: str) -> frozenset:
@@ -3004,6 +3020,19 @@ def inject_retrieval_notes(brief: dict, spec: str,
             "PITFALLS to avoid (learned from past builds of similar parts):\n"
             + "\n".join(f"- {l}" for l in lessons)]
         log.info("[v5] Injected %d learned pitfall(s).", len(lessons))
+
+    # Stage C (2026-09-26): exact API signatures for the calls THIS spec is likely to need
+    # (api_ref.py; entries introspected from the installed build123d + b123d helpers into
+    # b123d/api_ref.json). Documentation, not retrieval of answers, so it is independent of
+    # use_fewshots; CAD_API_REF=0 turns it off for A/B measurement.
+    if _api_ref is not None and os.environ.get("CAD_API_REF", "1") != "0":
+        try:
+            ref = _api_ref.api_reference_note(spec, [fs.get("code", "") for fs in fewshots])
+        except Exception as e:
+            log.warning("[v5] API reference selection failed (%s), skipped.", e)
+            ref = ""
+        if ref:
+            brief["notes"] = brief.get("notes", []) + [ref]
     return fewshots, lessons
 
 

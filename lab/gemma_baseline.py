@@ -235,7 +235,28 @@ def build_and_gate(code: str, build_dir: Path, spec: str) -> dict:
 # Per-pair pipeline
 # ---------------------------------------------------------------------------
 
-def run_pair(pair: dict, arm: str) -> dict:
+def _count_tokens(text: str) -> Optional[int]:
+    """Token count of `text` under the ACTIVE maker arm's own tokenizer (llama.cpp
+    /tokenize on the maker port). None when the server does not answer -- a measurement
+    aid only, never allowed to fail a pair."""
+    if not text:
+        return 0
+    try:
+        import urllib.request
+        from cad_v5.config import maker_config
+        port = maker_config().get("port", 8088)
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/tokenize",
+            data=json.dumps({"content": text}).encode("utf-8"),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return len(json.loads(r.read().decode("utf-8")).get("tokens", []))
+    except Exception:
+        return None
+
+
+def run_pair(pair: dict, arm: str, build_root: Optional[Path] = None,
+             measure_tokens: bool = False) -> dict:
     """band is one of match/valid/near_miss/fail (geom_bands.score_against_reference's own
     bands) or "crash" (codegen raised, the build itself crashed, or no build.step was ever
     produced -- three distinct failure points, folded into one band because none of them
@@ -256,6 +277,10 @@ def run_pair(pair: dict, arm: str) -> dict:
         return row
 
     notes = engine.retrieval_notes_for(spec, use_fewshots=True)
+    if measure_tokens:
+        api_notes = [n for n in notes if n.startswith("API REFERENCE")]
+        row["notes_tokens"] = _count_tokens("\n".join(f"- {n}" for n in notes))
+        row["api_ref_tokens"] = _count_tokens("\n".join(f"- {n}" for n in api_notes))
     try:
         code = engine.generate_code_raw(spec, notes, temperature=TEMPERATURE)
     except Exception as e:
@@ -263,7 +288,7 @@ def run_pair(pair: dict, arm: str) -> dict:
                   seconds=round(time.monotonic() - t0, 1))
         return row
 
-    build_dir = BUILD_ROOT / sid
+    build_dir = (build_root or BUILD_ROOT) / sid
     try:
         gate = build_and_gate(code, build_dir, spec)
     except Exception as e:
@@ -301,6 +326,17 @@ def main() -> int:
     ap.add_argument("--arm", default=None,
                     help="maker arm for this run (default: cad.json's maker block, i.e. "
                         "the stock gemma-4-31b arm)")
+    ap.add_argument("--ids-file", default=None,
+                    help="only process pairs whose id is listed in this file (one per line); "
+                        "used to re-measure a subset, e.g. the baseline's non-solved pairs")
+    ap.add_argument("--out-jsonl", default=None,
+                    help="write rows here instead of the baseline's gemma_baseline.jsonl "
+                        "(resumable against THIS file)")
+    ap.add_argument("--build-root", default=None,
+                    help="per-pair build dirs go here instead of gemma_baseline_builds/")
+    ap.add_argument("--measure-tokens", action="store_true",
+                    help="record the Notes block's and the API reference's token counts "
+                        "under the active arm's tokenizer (llama.cpp /tokenize)")
     ap.add_argument("--i-know-the-gpu-is-free", action="store_true",
                     help="run outside a GPU window (only when the GPU was freed by hand)")
     a = ap.parse_args()
@@ -318,10 +354,22 @@ def main() -> int:
     print(f"gemma_baseline: loaded {len(pairs)} pairs from "
          f"{sum(1 for f in INPUT_PAIR_FILES if f.exists())} input file(s)", file=sys.stderr)
 
+    out_jsonl = Path(os.path.expanduser(a.out_jsonl)) if a.out_jsonl else OUT_JSONL
+    build_root = Path(os.path.expanduser(a.build_root)) if a.build_root else None
+    if a.ids_file:
+        wanted = [ln.strip() for ln in Path(os.path.expanduser(a.ids_file)).read_text(
+            encoding="utf-8").splitlines() if ln.strip()]
+        by_id = {p["id"]: p for p in pairs}
+        missing = [i for i in wanted if i not in by_id]
+        if missing:
+            print(f"gemma_baseline: {len(missing)} id(s) in --ids-file not found, e.g. "
+                 f"{missing[:3]}", file=sys.stderr)
+        pairs = [by_id[i] for i in wanted if i in by_id]
+
     rc = 0
     try:
         with arm_window(a.arm) as resolved_arm:
-            already = done_ids(OUT_JSONL)
+            already = done_ids(out_jsonl)
             todo = [p for p in pairs if p["id"] not in already]
             if a.limit is not None:
                 todo = todo[:a.limit]
@@ -330,8 +378,9 @@ def main() -> int:
             for i, pair in enumerate(todo, 1):
                 if abort_requested():
                     raise SpecgenAborted("aborted by signal before processing next pair")
-                row = run_pair(pair, resolved_arm)
-                append_row(OUT_JSONL, row)
+                row = run_pair(pair, resolved_arm, build_root=build_root,
+                               measure_tokens=a.measure_tokens)
+                append_row(out_jsonl, row)
                 print(f"[{i}/{len(todo)}] {row['id']} tier={row.get('tier')} "
                      f"band={row.get('band')} {row.get('seconds')}s "
                      f"{row.get('error') or ''}", file=sys.stderr)
