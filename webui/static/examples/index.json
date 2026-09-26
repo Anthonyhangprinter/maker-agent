@@ -1,0 +1,338 @@
+[
+  {
+    "id": "cfb20004",
+    "title": "Bearing End Cap",
+    "tier": 2,
+    "family": "flange",
+    "difficulty": "starter",
+    "spec": "Please make a 65mm diameter circular flange disc, 12mm thick, with a 16mm diameter through bore on its centre axis. Add five 4.5mm diameter through holes, equally spaced at 72\u00b0 on a 52mm diameter bolt circle concentric with the bore. Place the first hole on the +X axis, 26mm from centre, and the remaining four at 72\u00b0, 144\u00b0, 216\u00b0 and 288\u00b0 from it.",
+    "dims_mm": [
+      65.0,
+      65.0,
+      12.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20004"
+  },
+  {
+    "id": "cfb30037",
+    "title": "Bored Mounting Plate",
+    "tier": 2,
+    "family": "flange",
+    "difficulty": "starter",
+    "spec": "Please make a 115 x 95 x 10 mm flat rectangular plate, and take all hole positions from the plate centre. Put a 38 mm diameter through hole at the centre. Add five 8 mm diameter through holes, equally spaced at 72\u00b0 on a 70 mm diameter bolt circle concentric with the central bore. Place the first of these on the long (115 mm) centreline, 35 mm from centre toward one short edge, which puts it 92.5 mm from the opposite short edge.",
+    "dims_mm": [
+      115.0,
+      95.0,
+      10.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30037"
+  },
+  {
+    "id": "cfb30217",
+    "title": "U-Bracket",
+    "tier": 2,
+    "family": "bracket",
+    "difficulty": "starter",
+    "spec": "Please make a U-shaped clevis bracket with an overall envelope of 45mm wide (X) x 25mm deep (Y) x 55mm tall (Z), formed from 6mm-thick stock throughout. It should have a 6mm-thick base spanning the full 45 x 25mm footprint and two 6mm-thick upright walls rising the full 55mm height at each X end, leaving a 33mm-wide open slot between them. Drill a single 6mm diameter through hole along the X axis through both uprights on a common axis. Place the hole centred in the 25mm depth and 27.5mm up from the bottom face, at the mid-height of the part.",
+    "dims_mm": [
+      45.0,
+      25.0,
+      55.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30217"
+  },
+  {
+    "id": "cfb20176",
+    "title": "Cable-Clamp Saddle Bracket",
+    "tier": 2,
+    "family": "bracket",
+    "difficulty": "starter",
+    "spec": "Please make a pillow-block saddle with an 84mm-long by 25mm-deep base flange, 5mm thick. Centre a 44mm-wide raised block on the flange's length, running the full 25mm depth and bringing the overall height to 27mm above the flange underside. Cut a semicircular cradle of 17mm radius (34mm diameter) into the top of the block, with its axis running along the 25mm depth at the top face and centred on the part's length. This puts the bottom of the cradle 10mm above the flange underside. Drill two 6mm holes 5mm deep up from the underside of the flange, so they pass fully through its 5mm thickness. Place them on the mid-depth centreline at 33mm either side of the part centre (9mm in from each end).",
+    "dims_mm": [
+      84.0,
+      25.0,
+      27.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20176"
+  },
+  {
+    "id": "cfb20289",
+    "title": "L-Bracket",
+    "tier": 3,
+    "family": "bracket",
+    "difficulty": "intermediate",
+    "spec": "An L-bracket built on a 100 x 70 x 6 mm base plate, with a 6 mm thick upright wall rising flush with one 70 mm end edge to an overall height of 60 mm. The wall is 50 mm wide, centred on the plate's 70 mm width, and extends 54 mm above the top face of the base. Bore a 10 mm diameter hole through the wall on its centreline, 30 mm above the underside of the base, with an 18 mm diameter counterbore 3 mm deep from the outer face. Drill two 5 mm diameter holes through the 6 mm base plate, each 65 mm from the outer face of the wall and 13 mm in from either long edge, giving 44 mm spacing between them.",
+    "dims_mm": [
+      100.0,
+      70.0,
+      60.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20289"
+  },
+  {
+    "id": "cfb20387",
+    "title": "Boxed Mounting Bracket",
+    "tier": 3,
+    "family": "bracket",
+    "difficulty": "intermediate",
+    "spec": "Please make a 60x60x40mm (X by Y by Z) open-bottom rectangular box shell, centred on its own origin. It should have a closed top at Z=+20 and four side walls, with every wall 4mm thick and the Z=-20 face left fully open onto a 52x52x36mm internal cavity. Drill a 13mm diameter hole 4mm deep through the top wall at its centre (30mm from both the X and Y edges), breaking into the cavity. In the +X side wall, drill two 9mm diameter holes 4mm deep through the wall, both at mid-height (Z=0) and spaced at Y=+15mm and Y=-15mm from centre (30mm apart). In the -Y side wall, drill one 7mm diameter hole 4mm deep through the wall, centred at X=0 and Z=0.",
+    "dims_mm": [
+      60.0,
+      60.0,
+      40.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20387"
+  },
+  {
+    "id": "cfb20296",
+    "title": "Junction Block",
+    "tier": 4,
+    "family": "housing",
+    "difficulty": "advanced",
+    "spec": "A rectangular block 85mm in X by 90mm in Y by 75mm tall in Z, with a 23mm diameter through-bore running vertically along the Z axis at the centre of the top face. A 21mm diameter through-bore runs the full 85mm X length, centred in the Y and Z directions so that it intersects the vertical bore at the block's centre. An 8mm diameter through-hole runs the full 90mm Y depth, parallel to the Y axis. Its axis sits 28mm from the block centre toward the +X face, which puts it 14.5mm from the +X face. It is also 22mm below the mid-height, 15.5mm above the bottom face.",
+    "dims_mm": [
+      85.0,
+      90.0,
+      75.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20296"
+  },
+  {
+    "id": "cfb20320",
+    "title": "Bearing Housing",
+    "tier": 4,
+    "family": "housing",
+    "difficulty": "advanced",
+    "spec": "A solid cylindrical bushing, 100mm OD and 80mm long, with a concentric stepped bore on its axis. From the top end face, counterbore a 49mm diameter pocket to a depth of 25mm, leaving a flat annular shoulder 15mm above the mid-length. From the bottom end face, bore a 29mm diameter hole 55mm deep so that it breaks through into the floor of the 49mm counterbore, forming one continuous stepped passage the full 80mm length. Leave all edges sharp, with the outside diameter plain along its full length.",
+    "dims_mm": [
+      100.0,
+      100.0,
+      80.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20320"
+  },
+  {
+    "id": "cfb20332",
+    "title": "Ribbed Hub",
+    "tier": 3,
+    "family": "housing",
+    "difficulty": "intermediate",
+    "spec": "A 60mm diameter disc, 10mm thick, with an 18mm diameter blind bore on the central axis entering from the bottom face to a depth of 9.2mm, leaving a 0.8mm web below the top face. Break the bore's edge with a 45\u00b0 chamfer at the 18mm bore diameter. Machine eight sector-shaped pockets into the top face, equally spaced around the bore, leaving eight radial spokes between the hub and the outer rim. Blend each pocket with 27mm radius internal fillets (eight places) and 14mm radius edge fillets (eight places). Pocket depth is not dimensioned here and should be set so that the finished solid volume is approximately 18,165 mm\u00b3.",
+    "dims_mm": [
+      60.0,
+      60.0,
+      10.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20332"
+  },
+  {
+    "id": "cfb20290",
+    "title": "Hub with Raised Boss",
+    "tier": 4,
+    "family": "housing",
+    "difficulty": "advanced",
+    "spec": "A flanged disc, a 130mm diameter flange 12mm thick, with a concentric 45mm diameter boss standing 10mm proud of the top face, for 22mm overall height. Drill ten 5mm holes fully through the 12mm flange, equally spaced at 36\u00b0 on a 90mm diameter bolt circle concentric with the disc. Place one hole on the +X axis at 45mm from centre.",
+    "dims_mm": [
+      130.0,
+      130.0,
+      22.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20290"
+  },
+  {
+    "id": "cfb20311",
+    "title": "Heat Sink Base",
+    "tier": 3,
+    "family": "heat_sink",
+    "difficulty": "intermediate",
+    "spec": "A 65 x 85 x 21mm finned heatsink block, machined from a single solid. It has a 65 x 85mm base plate 6mm thick, with six straight parallel fins rising 15mm from its top face for the 21mm overall height. Each fin is 2.5mm thick and runs the full 85mm length along Y. Space the fins on a 12.5mm pitch across the 65mm width, with the two outer fins flush with the long side faces of the base and 10mm gaps between adjacent fins. All edges are left sharp.",
+    "dims_mm": [
+      65.0,
+      85.0,
+      21.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20311"
+  },
+  {
+    "id": "cfb20515",
+    "title": "Stepped Turned Shaft",
+    "tier": 3,
+    "family": "turned_shaft",
+    "difficulty": "intermediate",
+    "spec": "Please make a solid stepped shaft, 170mm long overall, turned on a single common axis from a round bar with an envelope of 42mm diameter. Starting from the large end face, turn a 42mm diameter base section 55mm long. Follow it with a 16mm diameter relief neck 3mm long. Finish with a 19mm diameter pin section 112mm long that runs to the opposite end face. All shoulders and both end faces are square to the axis, and the part is a single solid with no bore.",
+    "dims_mm": [
+      42.0,
+      42.0,
+      170.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20515"
+  },
+  {
+    "id": "cfb20307",
+    "title": "Pipe Bend",
+    "tier": 3,
+    "family": "pipe",
+    "difficulty": "intermediate",
+    "spec": "Please make a curved tube elbow that fits a 51.5 x 53.9 x 18 mm envelope, with the 18 mm dimension along Z. The tube is 18 mm OD (a 9 mm radius toroidal outer surface) and has a concentric 12 mm diameter bore (a 6 mm radius toroidal inner surface), giving a 3 mm wall. It is swept in the XY plane about a 45 mm centreline bend radius through approximately 86\u00b0, giving a centreline arc length of about 67.5 mm. Both ends are flat annular faces cut square to the swept path. The finished solid should have a volume of about 9549 mm\u00b3.",
+    "dims_mm": [
+      51.489,
+      53.868,
+      18.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20307"
+  },
+  {
+    "id": "cfs0508",
+    "title": "Pipe Flange",
+    "tier": 3,
+    "family": "flange",
+    "difficulty": "intermediate",
+    "spec": "A raised-face slip-on style flange: a 130mm OD disc, 14mm thick, with a concentric 90mm OD raised face standing 3.5mm proud of one side, for an overall height of 17.5mm. Bore a 65mm diameter hole on the centre axis, through the full 17.5mm height. Drill eight 11mm holes through the 14mm flange thickness on a 110mm bolt circle concentric with the bore, equally spaced at 45\u00b0. Place the first pair of holes on one in-plane axis at 10mm in from the outer edge, so the holes sit outside the raised face.",
+    "dims_mm": [
+      130.0,
+      130.0,
+      17.5
+    ],
+    "source": "codefirst-scale-2026-09-25/claude-opus-5-5/cfs0508"
+  },
+  {
+    "id": "cfb30109",
+    "title": "Pipe Coupling Collar",
+    "tier": 2,
+    "family": "pipe",
+    "difficulty": "starter",
+    "spec": "A split ring (C-ring) 27mm thick along Z, with a 58mm outside diameter (29mm outer radius) centred on the origin. Bore it concentrically through its full 27mm thickness to 21mm diameter (10.5mm inner radius), leaving an 18.5mm radial wall. Cut a single 3mm-wide radial slot through the full 27mm thickness, centred on the +X axis, running from the bore out through the outer wall to split the ring. The flat slot faces sit 1.5mm either side of the X axis.",
+    "dims_mm": [
+      57.961,
+      58.0,
+      27.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30109"
+  },
+  {
+    "id": "cfb20363",
+    "title": "Grip Sleeve",
+    "tier": 3,
+    "family": "misc",
+    "difficulty": "intermediate",
+    "spec": "A 32mm OD cylindrical sleeve, 60mm long, with an 11mm diameter through bore running concentric along its full length. Wrap the 32mm OD (16mm radius) outer surface with a single raised helical bead of rounded profile that makes roughly two full turns from one end face to the other. The bead should stand 1.2mm proud of the OD, bringing the overall envelope to 34.4 x 34.4 x 60mm.",
+    "dims_mm": [
+      34.4,
+      34.4,
+      60.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20363"
+  },
+  {
+    "id": "cfb20007",
+    "title": "Eccentric Cam Plate",
+    "tier": 3,
+    "family": "cam",
+    "difficulty": "intermediate",
+    "spec": "A 125mm diameter disc, 10mm thick, with two through holes on a single diameter line through the disc centre. Place a 22mm diameter through hole with its centre 12mm from the disc centre along that line. Place a 10mm diameter through hole on the opposite side of centre, 50mm from the disc centre, which leaves 12.5mm between its centre and the outer edge.",
+    "dims_mm": [
+      125.0,
+      125.0,
+      10.0
+    ],
+    "source": "codefirst-batch2-2026-09-25/claude-opus-5-5/cfb20007"
+  },
+  {
+    "id": "cfb30291",
+    "title": "Multi-Lobe Cam Plate",
+    "tier": 4,
+    "family": "cam",
+    "difficulty": "advanced",
+    "spec": "Please make a 9mm thick three-lobed cam plate with an overall in-plane envelope of 103.15 x 107.73mm, cut as a single piece. Put a 14mm diameter through bore at the datum centre of the plate. Shape the outline as a smoothly blended, continuously curved trilobe with three lobes spaced at 120\u00b0. One lobe tip sits 57.5mm from the bore centre along +X, and the outline extends 45.65mm from the bore centre in the \u2212X direction and 53.87mm either side of the bore centre in Y. Aim for a finished volume of approximately 74,110 mm\u00b3 to confirm the lobe profile.",
+    "dims_mm": [
+      103.147,
+      107.732,
+      9.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30291"
+  },
+  {
+    "id": "cfb30327",
+    "title": "Spur Gear",
+    "tier": 3,
+    "family": "gear",
+    "difficulty": "intermediate",
+    "spec": "A straight spur gear with a 28mm outside diameter and a 26mm face width along Z, running from Z=0 to Z=26mm, with its teeth cut straight and full-length across the entire face. Bore it through along the gear axis with a 12mm diameter (6mm radius) central bore, concentric with the outside diameter. Cut a single rectangular keyway through the full 26mm length on the +X side of the bore, about 4mm wide and centred on the X axis. Machine the gear from a single solid piece to a finished volume of approximately 10,510mm\u00b3.",
+    "dims_mm": [
+      28.0,
+      27.874,
+      26.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30327"
+  },
+  {
+    "id": "cfs0446",
+    "title": "Spur Gear (Fine Pitch)",
+    "tier": 3,
+    "family": "gear",
+    "difficulty": "intermediate",
+    "spec": "A 17-tooth spur gear, module 2.5 (42.5mm pitch diameter), with a 47.5mm tip diameter and a 14mm face width. The gear axis runs through the thickness, and one tooth is centred on the +X direction. Bore a 10mm diameter hole straight through the full 14mm width, concentric with the gear centre.",
+    "dims_mm": [
+      47.236,
+      47.423,
+      14.0
+    ],
+    "source": "codefirst-scale-2026-09-25/claude-opus-5-5/cfs0446"
+  },
+  {
+    "id": "cfb30401",
+    "title": "Universal-Joint Yoke",
+    "tier": 4,
+    "family": "yoke",
+    "difficulty": "advanced",
+    "spec": "A clevis yoke with a 65 \u00d7 36 \u00d7 90mm overall envelope, built on a 65 \u00d7 36mm rectangular base block 12mm thick. On the underside of the base, centred, add a 36mm diameter cylindrical shank 30mm long. Rising from the top of the base, add two parallel 10mm-thick arms at the 65mm ends, leaving a 45mm-wide slot between them. Each arm stands 48mm above the base, and its top is fully rounded with 18mm radius fillets across the 36mm width.\n\nBore an 18mm diameter hole up the shank axis from the shank's bottom face to a depth of 42mm. This passes through the shank and base and opens into the floor of the slot.\n\nDrill a 10mm diameter cross hole through both arms along the 65mm direction. Place it on the centreline of the 36mm width, 18mm below the top of the arms, concentric with the rounded ends.",
+    "dims_mm": [
+      65.0,
+      36.0,
+      90.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30401"
+  },
+  {
+    "id": "cfb30181",
+    "title": "Filleted Boss Junction",
+    "tier": 3,
+    "family": "misc",
+    "difficulty": "intermediate",
+    "spec": "A 65 x 65 x 10 mm square base plate carrying a 28 mm diameter cylindrical post centred on its top face. The post rises 85 mm above the plate, for an overall height of 95 mm. Blend the post into the top face of the plate with an 11 mm radius fillet all around its base, so the straight cylindrical section of the post begins 21 mm above the underside of the plate.",
+    "dims_mm": [
+      65.0,
+      65.0,
+      95.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30181"
+  },
+  {
+    "id": "cfb30382",
+    "title": "Ratchet Pawl Plate",
+    "tier": 3,
+    "family": "mechanism",
+    "difficulty": "intermediate",
+    "spec": "An 80x47x5mm flat plate, with thickness along Z and the 80mm length along X. The outline is a rectangle with its upper-right corner cut off by a diagonal. The long lower edge has an open trapezoidal notch toward its right end, with angled flanks and a flat bottom, leaving a narrow foot along the right end. Drill one 11mm through hole 12mm in from the left short edge, centred on the 47mm width. Round the profile corners with 1mm radii: seven external corners and the two internal corners at the bottom of the notch.",
+    "dims_mm": [
+      80.0,
+      47.0,
+      5.0
+    ],
+    "source": "codefirst-batch3-2026-09-26/claude-opus-5-5/cfb30382"
+  },
+  {
+    "id": "cfs0481",
+    "title": "Perforated Disc",
+    "tier": 3,
+    "family": "panel",
+    "difficulty": "intermediate",
+    "spec": "A 100mm diameter circular disc, 5mm thick, with 19 through-holes of 4mm diameter arranged in a hexagonal close-packed pattern on an 18mm pitch, centred on the disc centre. The centre row runs along the X axis through the disc centre and holds five holes at X = \u221236, \u221218, 0, 18 and 36mm. At Y = \u00b115.588mm there are two rows of four holes each, at X = \u221227, \u22129, 9 and 27mm. At Y = \u00b131.177mm there are two rows of three holes each, at X = \u221218, 0 and 18mm. Together the rows form a two-ring hexagon of holes around the central hole.",
+    "dims_mm": [
+      100.0,
+      100.0,
+      5.0
+    ],
+    "source": "codefirst-scale-2026-09-25/claude-opus-5-5/cfs0481"
+  }
+]

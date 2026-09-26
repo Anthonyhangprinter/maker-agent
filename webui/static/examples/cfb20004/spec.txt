@@ -1,0 +1,1 @@
+Please make a 65mm diameter circular flange disc, 12mm thick, with a 16mm diameter through bore on its centre axis. Add five 4.5mm diameter through holes, equally spaced at 72° on a 52mm diameter bolt circle concentric with the bore. Place the first hole on the +X axis, 26mm from centre, and the remaining four at 72°, 144°, 216° and 288° from it.

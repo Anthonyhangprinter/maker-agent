@@ -84,3 +84,19 @@ guessing whether their message was seen.
 Test without touching the GPU: `python3 ~/.openclaw/gpu/gpustate.py simulate busy --minutes 10
 --holder someone` (or `simulate down`), confirm the banner and Satine's notice both pick it up,
 then `python3 ~/.openclaw/gpu/gpustate.py simulate off` to clear it.
+
+## Examples gallery (2026-09-26)
+
+an "Examples" rail button shows 24
+  curated, owner-reviewed parts (`static/examples/index.json` + one `static/examples/<id>/`
+  dir each holding `spec.txt`, `render.png`, `part.step`, ~9.1 MB total), pure static assets
+  served by the existing `/static` mount, no new backend route. Sourced from the owner-approved
+  codefirst batch2/batch3/scale review rounds (gate-verified `band: match` pairs), picked for
+  family diversity (gears, cams, yoke, flanges, brackets, pipe bend, heat sink, turned shaft,
+  housings) with a mix of starter (tier 2) through advanced (tier 3-4) parts. No 3D viewer for
+  these: the page's three.js viewer only loads STL/GLB, and adding a STEP loader would be a
+  heavy new dependency, so the static isometric `render.png` is the visual and STEP is a plain
+  download link. Clicking a card opens a detail view with the render, spec text, dims, and a
+  "Use this as a prompt" button that fills the request textarea — it never builds on its own,
+  the user is still the one who presses Build. Test: `tests/test_webui_examples.py` (index
+  shape, every id's files present, static route serves them, family coverage).

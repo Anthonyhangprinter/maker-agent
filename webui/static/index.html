@@ -259,6 +259,24 @@
   .fixnote { color: var(--faint); font: 0.72rem/1.5 var(--mono); font-style: italic; margin-top: 0.25rem; }
   .footnote { color: var(--faint); font-size: 0.76rem; margin-top: 1.6rem; text-align: center; }
 
+  /* ── examples gallery: curated verified parts, browse then borrow the spec ── */
+  .exgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.8rem; margin-top: 1rem; }
+  .excard { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+            overflow: hidden; cursor: pointer; text-align: left; padding: 0; min-height: 0;
+            display: block; transition: border-color 0.15s; }
+  .excard:hover { border-color: var(--accent); }
+  .excard img { width: 100%; height: 110px; object-fit: cover; display: block; background: #fff; }
+  .excard .exbody { padding: 0.5rem 0.6rem 0.6rem; }
+  .excard .extitle { font-size: 0.86rem; font-weight: 600; overflow: hidden;
+                     text-overflow: ellipsis; white-space: nowrap; }
+  .excard .expills { margin-top: 0.35rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .exdetail .exback { margin-bottom: 0.9rem; }
+  .exdetail .exrender { background: #fff; cursor: default; }
+  .exdetail .exspec { background: var(--panel2); border-radius: 8px; padding: 0.7rem 0.85rem;
+                      font: 13px/1.55 var(--mono); color: var(--dim); margin-top: 0.9rem;
+                      white-space: pre-wrap; }
+
   /* ── mobile: the rail becomes a drawer ── */
   @media (max-width: 820px) {
     .app { grid-template-columns: 1fr; }
@@ -293,6 +311,7 @@
       <span class="sub">local cad · hp-z2 · rtx3090</span>
       <div id="gpuBanner" hidden></div>
       <button id="newbtn">+ New Creation</button>
+      <button id="examplesBtn" class="ghost" type="button">Examples</button>
       <button id="labBtn" class="ghost" type="button">Lab</button>
     </div>
     <div class="railhead">Creations</div>
@@ -379,6 +398,15 @@
         <div id="labBenchcad"></div>
         <div id="labLift"></div>
       </section>
+
+      <!-- state 4: examples gallery -->
+      <section id="examples" hidden>
+        <header><h2>Examples</h2><p class="muted">24 owner-reviewed parts, gate-verified builds
+          from the CAD engine. Click one for the render and spec, then "Use this as a prompt" to
+          drop it into the request box. It stays editable and does not build on its own.</p></header>
+        <div id="exGrid" class="exgrid"><p class="muted">Loading examples…</p></div>
+        <div id="exDetail" class="exdetail" hidden></div>
+      </section>
     </div>
   </main>
 </div>
@@ -390,6 +418,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const threadEl = $("thread"), homeEl = $("home"), listEl = $("list"), labEl = $("lab");
+const examplesEl = $("examples");
 const tracked = new Map(), viewers = new Map();
 let activeId = null;          // the one creation mounted in the DOM
 let openJobData = null;       // its last payload — version strip reads artifacts from here
@@ -421,11 +450,12 @@ $("meshmode").onclick = () => {
 
 $("drawer").onclick = () => document.body.classList.toggle("railopen");
 $("newbtn").onclick = () => newCreation();
+$("examplesBtn").onclick = () => showExamples();
 
 $("labBtn").onclick = async () => {
   disposeActive();
   activeId = null; openJobData = null;
-  homeEl.hidden = true; threadEl.hidden = true; labEl.hidden = false;
+  homeEl.hidden = true; threadEl.hidden = true; labEl.hidden = false; examplesEl.hidden = true;
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
   const box = $("labCard");
@@ -490,6 +520,78 @@ $("labBtn").onclick = async () => {
     }
   } catch (e) { liftBox.innerHTML = ""; }
 };
+
+/* ── examples gallery: browse verified parts, borrow a spec, never auto-builds ── */
+let exData = null;
+
+async function showExamples() {
+  disposeActive();
+  activeId = null; openJobData = null;
+  homeEl.hidden = true; threadEl.hidden = true; labEl.hidden = true; examplesEl.hidden = false;
+  document.body.classList.remove("railopen");
+  document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
+  $("exDetail").hidden = true; $("exDetail").innerHTML = "";
+  const grid = $("exGrid");
+  grid.style.display = "grid";
+  if (!exData) {
+    try {
+      const r = await fetch("/static/examples/index.json");
+      if (!r.ok) throw new Error(r.statusText);
+      exData = await r.json();
+    } catch (e) {
+      grid.innerHTML = `<p class="muted">Couldn't load examples: ${esc(e.message)}</p>`;
+      return;
+    }
+  }
+  grid.innerHTML = exData.map(x => `
+    <button class="excard" onclick="openExample('${x.id}')" title="${esc(x.title)}">
+      <img src="/static/examples/${x.id}/render.png" alt="${esc(x.title)}" loading="lazy">
+      <div class="exbody">
+        <div class="extitle">${esc(x.title)}</div>
+        <div class="expills">
+          <span class="pill">${esc(x.difficulty)}</span>
+          <span class="pill kind">${esc(x.family)}</span>
+        </div>
+      </div>
+    </button>`).join("");
+}
+
+function openExample(id) {
+  const x = exData && exData.find(e => e.id === id);
+  if (!x) return;
+  $("exGrid").style.display = "none";
+  const box = $("exDetail");
+  const dims = (x.dims_mm || []).map(v => Math.round(v * 10) / 10).join(" × ");
+  box.hidden = false;
+  box.innerHTML = `
+    <button class="ghost exback" type="button" onclick="backToExamples()">← all examples</button>
+    <div class="job">
+      <div class="threadhead"><h2>${esc(x.title)}</h2>
+        <span class="pill">${esc(x.difficulty)}</span>
+        <span class="pill kind">${esc(x.family)}</span>
+        <span class="spec">tier ${x.tier}${dims ? " · " + esc(dims) + " mm bbox" : ""}</span>
+      </div>
+      <img class="render exrender" src="/static/examples/${x.id}/render.png" alt="${esc(x.title)}">
+      <div class="exspec">${esc(x.spec)}</div>
+      <div class="downloads">
+        <button class="primary" type="button" onclick="useExample('${x.id}')">Use this as a prompt</button>
+        <a href="/static/examples/${x.id}/part.step" download>STEP</a>
+      </div>
+    </div>`;
+}
+
+function backToExamples() {
+  $("exDetail").hidden = true; $("exDetail").innerHTML = "";
+  $("exGrid").style.display = "grid";
+}
+
+function useExample(id) {
+  const x = exData && exData.find(e => e.id === id);
+  if (!x) return;
+  newCreation();
+  $("spec").value = x.spec;
+  $("spec").focus();
+}
 
 async function startBuild(spec, parameters) {
   const fd = new FormData();
@@ -663,7 +765,7 @@ function newCreation() {
   disposeActive();
   activeId = null; openJobData = null;
   threadEl.hidden = true; threadEl.innerHTML = "";
-  homeEl.hidden = false; labEl.hidden = true;
+  homeEl.hidden = false; labEl.hidden = true; examplesEl.hidden = true;
   closeAssistPanel();
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item.active").forEach(el => el.classList.remove("active"));
@@ -673,7 +775,7 @@ function newCreation() {
 async function openJob(id) {
   if (id !== activeId) disposeActive();
   activeId = id;
-  homeEl.hidden = true; threadEl.hidden = false; labEl.hidden = true;
+  homeEl.hidden = true; threadEl.hidden = false; labEl.hidden = true; examplesEl.hidden = true;
   closeAssistPanel();
   document.body.classList.remove("railopen");
   document.querySelectorAll(".item").forEach(el =>

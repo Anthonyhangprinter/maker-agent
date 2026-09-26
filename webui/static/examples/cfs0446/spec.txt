@@ -1,0 +1,1 @@
+A 17-tooth spur gear, module 2.5 (42.5mm pitch diameter), with a 47.5mm tip diameter and a 14mm face width. The gear axis runs through the thickness, and one tooth is centred on the +X direction. Bore a 10mm diameter hole straight through the full 14mm width, concentric with the gear centre.

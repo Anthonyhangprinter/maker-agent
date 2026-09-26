@@ -1,0 +1,1 @@
+A flanged disc, a 130mm diameter flange 12mm thick, with a concentric 45mm diameter boss standing 10mm proud of the top face, for 22mm overall height. Drill ten 5mm holes fully through the 12mm flange, equally spaced at 36° on a 90mm diameter bolt circle concentric with the disc. Place one hole on the +X axis at 45mm from centre.
