@@ -60,8 +60,13 @@ except Exception as _e:                                        # pragma: no cove
 STATIC_DIR  = Path(__file__).resolve().parent / "static"
 BUILDS_DIR  = (Path.home() / ".openclaw" / "cad-builds").resolve()
 UPLOADS_DIR = Path.home() / ".openclaw" / "cad-web" / "uploads"
-SESSIONS_FILE = Path.home() / ".openclaw" / "cad-web" / "sessions.json"
+# The owner's real creation history. Env-overridable so tests (which `import app` directly
+# and exercise real endpoints — see _persist's docstring for the 2026-09-26 incident this
+# guards against) never point at it: set CAD_WEB_SESSIONS_FILE before importing this module.
+SESSIONS_FILE = Path(os.environ.get(
+    "CAD_WEB_SESSIONS_FILE", str(Path.home() / ".openclaw" / "cad-web" / "sessions.json")))
 MAX_SESSIONS = 200                      # matches the engine's KEEP_BUILDS artifact rotation
+SESSIONS_BACKUPS_KEPT = 7                # one rotated backup per day, see _rotate_backup
 MAX_UPLOAD  = 10 * 1024 * 1024          # 10 MB
 BUILD_TIMEOUT = 2 * 1860                # engine budget + a full lock wait (matches Satine)
 ASSIST_TIMEOUT = 330                    # one schema-constrained LLM call (LLM_TIMEOUT=300) + slack
@@ -197,12 +202,62 @@ def _fetch_gpu_state() -> dict:
 _PERSIST_SKIP = {"log", "pending_chat", "pending_rescale", "guest"}
 
 
-def _persist():
+def _rotate_backup():
+    """One timestamped copy of the CURRENT on-disk file per calendar day, kept for
+    SESSIONS_BACKUPS_KEPT days. Cheap to call on every _persist(): the day-stamped name
+    makes it a no-op once today's copy already exists. This is on top of, not instead of,
+    the anti-clobber guard in _persist() below — belt and suspenders after the 2026-09-26
+    incident wiped the file with no backup at all."""
+    if not SESSIONS_FILE.is_file():
+        return
+    day = time.strftime("%Y%m%d")
+    bak = SESSIONS_FILE.with_name(f"{SESSIONS_FILE.name}.bak-{day}")
+    if not bak.exists():
+        try:
+            bak.write_bytes(SESSIONS_FILE.read_bytes())
+        except Exception as e:
+            print(f"[history] backup failed — {type(e).__name__}: {e}", flush=True)
+    try:
+        baks = sorted(SESSIONS_FILE.parent.glob(f"{SESSIONS_FILE.name}.bak-*"))
+        for old in baks[:-SESSIONS_BACKUPS_KEPT]:
+            old.unlink()
+    except Exception as e:
+        print(f"[history] backup prune failed — {type(e).__name__}: {e}", flush=True)
+
+
+def _persist(allow_empty: bool = False):
+    """Mirror `_jobs` to SESSIONS_FILE (the page's history rail survives a restart).
+
+    2026-09-26 incident: a test module that `import app`s this file directly (sharing the
+    SAME process-global `_jobs` dict and background worker threads as every other test
+    module in the same pytest run) cleared `_jobs` in a per-test setup fixture while a
+    real, still-running worker thread's `finally:` block called this function — the two
+    raced, and _persist() caught `_jobs` empty at that instant and atomically overwrote
+    the owner's real ~200-row history with `[]`. No test had asked to delete anything.
+
+    Two independent guards now: (1) SESSIONS_FILE is env-overridable (see its definition)
+    so tests never point at the real file in the first place; (2) even so, this function
+    refuses to replace a NON-EMPTY on-disk file with an empty row list unless the caller
+    explicitly says a deletion just happened (`allow_empty=True`, set only by
+    api_delete_job's own persist call) — belt and suspenders against the same race
+    happening some other way in the future.
+    """
     try:
         with _jobs_lock:
             jobs = sorted(_jobs.values(), key=lambda j: j["created_at"])[-MAX_SESSIONS:]
             rows = [{k: v for k, v in j.items() if k not in _PERSIST_SKIP} for j in jobs]
+        if not rows and not allow_empty and SESSIONS_FILE.is_file():
+            try:
+                existing = json.loads(SESSIONS_FILE.read_text())
+            except Exception:
+                existing = None
+            if isinstance(existing, list) and existing:
+                print(f"[history] refusing to overwrite {len(existing)} existing row(s) "
+                      f"with an empty store (no delete was requested) — not saved",
+                      flush=True)
+                return
         SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _rotate_backup()
         tmp = SESSIONS_FILE.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(rows))
         os.replace(tmp, SESSIONS_FILE)
@@ -941,7 +996,8 @@ def api_delete_job(job_id: str):
         if job["status"] in ("queued", "running", "waiting_gpu"):
             raise HTTPException(409, "can't delete a creation while it is building")
         _jobs.pop(job_id, None)
-    _persist()
+        now_empty = not _jobs
+    _persist(allow_empty=now_empty)
     return {"ok": True}
 
 
