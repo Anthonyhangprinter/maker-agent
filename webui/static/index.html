@@ -422,6 +422,7 @@ const examplesEl = $("examples");
 const tracked = new Map(), viewers = new Map();
 let activeId = null;          // the one creation mounted in the DOM
 let openJobData = null;       // its last payload — version strip reads artifacts from here
+let exActiveId = null;        // the one example detail mounted in the DOM (its own 3D viewer)
 let gpuState = { state: "ok" };   // last /api/gpu poll (see DESIGN-gpu-busy.md); fails open
 
 $("image").onchange = () => {
@@ -559,28 +560,38 @@ async function showExamples() {
 function openExample(id) {
   const x = exData && exData.find(e => e.id === id);
   if (!x) return;
+  disposeActive();               // free any previously-open example's WebGL context
+  exActiveId = id;
   $("exGrid").style.display = "none";
   const box = $("exDetail");
   const dims = (x.dims_mm || []).map(v => Math.round(v * 10) / 10).join(" × ");
   box.hidden = false;
+  // Same viewer component as a creation thread (`preview()` / `#viewer-<id>` / the
+  // `data-stl` attribute on `#job-<id>`) — just a distinct "ex-<id>" namespace so it
+  // never collides with a real creation's job id.
   box.innerHTML = `
     <button class="ghost exback" type="button" onclick="backToExamples()">← all examples</button>
-    <div class="job">
+    <div class="job" id="job-ex-${x.id}" data-stl="/static/examples/${x.id}/part.stl">
       <div class="threadhead"><h2>${esc(x.title)}</h2>
         <span class="pill">${esc(x.difficulty)}</span>
         <span class="pill kind">${esc(x.family)}</span>
         <span class="spec">tier ${x.tier}${dims ? " · " + esc(dims) + " mm bbox" : ""}</span>
       </div>
-      <img class="render exrender" src="/static/examples/${x.id}/render.png" alt="${esc(x.title)}">
+      <img class="render exrender" id="render-ex-${x.id}" src="/static/examples/${x.id}/render.png"
+           alt="${esc(x.title)}" onclick="preview('ex-${x.id}')" title="click for 3D preview">
+      <div class="viewer" id="viewer-ex-${x.id}"></div>
       <div class="exspec">${esc(x.spec)}</div>
       <div class="downloads">
+        <button class="dl" onclick="preview('ex-${x.id}')">⟳ 3D preview</button>
         <button class="primary" type="button" onclick="useExample('${x.id}')">Use this as a prompt</button>
         <a href="/static/examples/${x.id}/part.step" download>STEP</a>
+        <a href="/static/examples/${x.id}/part.stl" download>STL</a>
       </div>
     </div>`;
 }
 
 function backToExamples() {
+  disposeActive();               // free the open example's WebGL context, if any
   $("exDetail").hidden = true; $("exDetail").innerHTML = "";
   $("exGrid").style.display = "grid";
 }
@@ -754,11 +765,18 @@ async function delJob(id) {
   } catch (e) { alert("Delete failed: " + e.message); }
 }
 
-/* ── open / close a creation ── */
+/* ── open / close a creation (or an example detail — same viewer component,
+   see `preview()`) ── */
 function disposeActive() {
-  if (!activeId) return;
-  const d = viewers.get(activeId);
-  if (d) { d(); viewers.delete(activeId); }   // free the WebGL context before unmounting
+  if (activeId) {
+    const d = viewers.get(activeId);
+    if (d) { d(); viewers.delete(activeId); }   // free the WebGL context before unmounting
+  }
+  if (exActiveId) {
+    const d = viewers.get("ex-" + exActiveId);
+    if (d) { d(); viewers.delete("ex-" + exActiveId); }
+    exActiveId = null;
+  }
 }
 
 function newCreation() {

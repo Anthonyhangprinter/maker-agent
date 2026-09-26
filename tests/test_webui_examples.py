@@ -53,6 +53,20 @@ def test_every_row_ships_render_and_step_on_disk():
         assert (d / "spec.txt").is_file(), row["id"]
 
 
+MAX_STL_BYTES = 2 * 1024 * 1024   # "~2 MB" budget per example, so the 3D viewer stays snappy
+
+
+def test_every_row_ships_a_part_stl_under_the_size_budget():
+    # The example detail view uses the SAME three.js viewer as a creation thread, which
+    # only knows how to load STL/GLB — every example needs its own part.stl alongside
+    # part.step for that to work.
+    for row in _load_index():
+        stl = EXAMPLES_DIR / row["id"] / "part.stl"
+        assert stl.is_file(), row["id"]
+        assert 0 < stl.stat().st_size <= MAX_STL_BYTES, \
+            f"{row['id']}: {stl.stat().st_size} bytes over the {MAX_STL_BYTES} budget"
+
+
 def test_spec_txt_matches_the_index_entry():
     for row in _load_index():
         on_disk = (EXAMPLES_DIR / row["id"] / "spec.txt").read_text().strip()
@@ -77,6 +91,16 @@ def test_static_route_serves_a_render_and_a_step_for_every_id():
         assert png.headers["content-type"].startswith("image/")
         step = client.get(f"/static/examples/{rid}/part.step")
         assert step.status_code == 200, rid
+
+
+def test_static_route_serves_a_part_stl_for_every_id():
+    # The same /static mount the page's three.js viewer fetches part.stl from.
+    rows = client.get("/static/examples/index.json").json()
+    for row in rows:
+        rid = row["id"]
+        stl = client.get(f"/static/examples/{rid}/part.stl")
+        assert stl.status_code == 200, rid
+        assert len(stl.content) <= MAX_STL_BYTES, rid
 
 
 def test_static_route_404s_for_an_unknown_example():
