@@ -413,7 +413,16 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None
     Runs via Popen (not subprocess.run) so stderr can be streamed live for the wait/start
     detection above. encoding="utf-8", errors="replace" — never text=True — per the
     "process trap" lesson (a build123d/OCP subprocess can reset the locale to C and mis-
-    decode otherwise)."""
+    decode otherwise).
+
+    Fix round 1 (review): the first version had a dedicated thread reading proc.stderr
+    WHILE the main thread's proc.communicate(timeout=timeout) also services proc.stderr
+    internally — two readers racing the same pipe fd can split/lose bytes between them (a
+    "waiting for build lock" line could land in communicate()'s discarded buffer instead
+    of here), and communicate() closing stderr out from under the live reader can raise
+    mid-iteration. Fixed by draining BOTH pipes ourselves, one thread each, and using
+    proc.wait(timeout=...) on the main thread instead of communicate() — wait() never
+    touches the pipes, so there is exactly one reader per fd."""
     cmd = [sys.executable, "-m", "cad_v5", spec, "--once", "--json", "--ask",
            "--coder", coder, "--target", "onshape"]
     if image:
@@ -422,6 +431,7 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None
     waiting = False
     started_fired = False
     log_lines = []
+    stdout_chunks = []
 
     def _fire_started():
         nonlocal started_fired
@@ -433,17 +443,28 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None
                 except Exception as e:
                     print(f"[telegram] on_started callback failed: {e}", flush=True)
 
+    def _pump_stdout(proc):
+        # The ONLY reader of proc.stdout — never also read via communicate().
+        try:
+            stdout_chunks.append(proc.stdout.read())
+        except Exception:
+            pass
+
     def _pump_stderr(proc):
+        # The ONLY reader of proc.stderr — never also read via communicate().
         nonlocal waiting
-        for line in proc.stderr:
-            line = line.rstrip("\n")
-            if not line:
-                continue
-            log_lines.append(line)
-            if _WAIT_RE.search(line):
-                waiting = True
-            elif waiting:
-                _fire_started()
+        try:
+            for line in proc.stderr:
+                line = line.rstrip("\n")
+                if not line:
+                    continue
+                log_lines.append(line)
+                if _WAIT_RE.search(line):
+                    waiting = True
+                elif waiting:
+                    _fire_started()
+        except Exception:
+            pass
 
     try:
         proc = subprocess.Popen(cmd, cwd=os.path.expanduser("~/.openclaw/skills/cad-builder"),
@@ -452,25 +473,36 @@ def run_v5_build(spec, coder, timeout=BUILD_TIMEOUT, image=None, on_started=None
     except Exception as e:
         return None, str(e), False
 
-    t = threading.Thread(target=_pump_stderr, args=(proc,), daemon=True)
-    t.start()
+    t_out = threading.Thread(target=_pump_stdout, args=(proc,), daemon=True)
+    t_err = threading.Thread(target=_pump_stderr, args=(proc,), daemon=True)
+    t_out.start()
+    t_err.start()
     try:
-        stdout, _ = proc.communicate(timeout=timeout)
+        proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        proc.kill()                    # exactly as before — just kill and reap
         try:
-            proc.communicate(timeout=5)
+            proc.wait(timeout=5)
         except Exception:
             pass
-        t.join(timeout=5)
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
         return None, "Build timed out.", waiting
-    t.join(timeout=5)
+    except Exception as e:
+        # Restore the old subprocess.run path's broad catch: anything other than a
+        # timeout (e.g. an OSError off a broken pipe) is a build failure to report with
+        # the specific "Build failed: {err}" text, not left to propagate up into
+        # worker()'s generic "Something went wrong" catch-all.
+        return None, str(e), False
+    t_out.join(timeout=5)
+    t_err.join(timeout=5)
     if not started_fired:
         _fire_started()      # never waited at all — still tell the caller the build ran
+    stdout = "".join(stdout_chunks)
     # The process exited (successfully or not) — whatever it was doing, it was not sitting
     # in a timeout while waiting for the lock, so the third field is False either way; only
     # the subprocess.TimeoutExpired branch above ever reports True.
-    for line in reversed((stdout or "").strip().splitlines()):
+    for line in reversed(stdout.strip().splitlines()):
         line = line.strip()
         if line.startswith("{"):
             try:

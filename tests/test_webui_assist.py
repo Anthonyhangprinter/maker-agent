@@ -23,11 +23,25 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "webui"))
 
 
+class _FakeStdout:
+    """`_run_build`'s stdout-draining thread only ever calls `.read()` once (fix round 1:
+    it no longer shares `proc.communicate()` with the stderr thread)."""
+    def __init__(self, text):
+        self._text = text
+
+    def read(self):
+        return self._text
+
+
 class _FakePopen:
     """A real (not Mock-based) stand-in for subprocess.Popen, context-manager-correct,
     so the worker thread's `_run_build` never shells out to the real engine while active."""
     def __init__(self, *a, **kw):
         self.stderr = iter([])
+        self.stdout = _FakeStdout(json.dumps({"ok": True}))
+
+    def wait(self, timeout=None):
+        return 0
 
     def communicate(self, timeout=None):
         return json.dumps({"ok": True}), ""

@@ -447,33 +447,64 @@ def _run_build(job: dict):
     env = {**os.environ, "CAD_FRONTEND": "web"}
     if job.get("candidates"):
         env["CAD_CANDIDATES"] = job["candidates"]      # best-of-N first-turn sampling
-    proc = subprocess.Popen(cmd, cwd=str(SKILL_ROOT), env=env, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Fix round 1 (review): a dedicated thread reading proc.stderr WHILE the main thread's
+    # proc.communicate(timeout=...) also services proc.stderr internally is two readers
+    # racing one pipe fd — a "waiting for build lock" line can land in communicate()'s
+    # discarded buffer instead of here (the whole point of this thread, and what the
+    # waiting_gpu status / GPU-busy banner depend on), and communicate() closing stderr
+    # out from under the live reader can raise mid-iteration. Fixed the same way as
+    # integration/cad-telegram.py's run_v5_build: one thread drains stdout, one drains
+    # stderr, and the main thread uses proc.wait(timeout=...) instead of communicate() —
+    # wait() never touches the pipes, so there is exactly one reader per fd. Also drops
+    # text=True for encoding="utf-8", errors="replace" (the "process trap" lesson).
+    proc = subprocess.Popen(cmd, cwd=str(SKILL_ROOT), env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            encoding="utf-8", errors="replace")
+    stdout_chunks = []
+
+    def _read_stdout():
+        try:
+            stdout_chunks.append(proc.stdout.read())
+        except Exception:
+            pass
 
     def _read_stderr():
-        for line in proc.stderr:
-            line = line.rstrip()
-            if not line:
-                continue
-            job["log"].append(line)
-            # The engine logs this exact line while blocked behind another frontend's build.
-            if _WAIT_RE.search(line):
-                job["status"] = "waiting_gpu"
-            elif job["status"] == "waiting_gpu":
-                job["status"] = "running"
+        try:
+            for line in proc.stderr:
+                line = line.rstrip()
+                if not line:
+                    continue
+                job["log"].append(line)
+                # The engine logs this exact line while blocked behind another frontend's build.
+                if _WAIT_RE.search(line):
+                    job["status"] = "waiting_gpu"
+                elif job["status"] == "waiting_gpu":
+                    job["status"] = "running"
+        except Exception:
+            pass
 
-    t = threading.Thread(target=_read_stderr, daemon=True)
-    t.start()
+    t_out = threading.Thread(target=_read_stdout, daemon=True)
+    t_err = threading.Thread(target=_read_stderr, daemon=True)
+    t_out.start()
+    t_err.start()
     try:
-        stdout, _ = proc.communicate(timeout=BUILD_TIMEOUT)
+        proc.wait(timeout=BUILD_TIMEOUT)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        proc.kill()                    # exactly as before — just kill and reap
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
         job["status"], job["error"] = "error", "build timed out"
         return
-    t.join(timeout=5)
+    t_out.join(timeout=5)
+    t_err.join(timeout=5)
+    stdout = "".join(stdout_chunks)
 
     result = None
-    for line in reversed((stdout or "").strip().splitlines()):
+    for line in reversed(stdout.strip().splitlines()):
         line = line.strip()
         if line.startswith("{"):
             try:

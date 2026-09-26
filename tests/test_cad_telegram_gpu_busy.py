@@ -163,20 +163,37 @@ def test_enqueue_no_notice_when_holder_is_another_satine_build(monkeypatch, tmp_
 
 
 # ── run_v5_build: streaming wait/start detection ─────────────────────────────────
+#
+# Fix round 1 (review): run_v5_build no longer reads stdout via proc.communicate() (that
+# was the bug — a second reader racing the dedicated stderr thread on the same pipe fd).
+# It now reads stdout via its own thread's proc.stdout.read(), and the main thread calls
+# proc.wait(timeout=...) instead of communicate(). _FakeProc below mirrors that contract.
+
+class _FakeStdout:
+    def __init__(self, text):
+        self._text = text
+
+    def read(self):
+        return self._text
+
 
 class _FakeProc:
-    """Stands in for subprocess.Popen: stderr yields the given lines, stdout/communicate
-    return the given result once "started"."""
+    """Stands in for subprocess.Popen: stderr yields the given lines (read by the real
+    stderr-pump thread), stdout is read once by the real stdout-pump thread's
+    proc.stdout.read() — this fake still exercises run_v5_build's actual two-thread
+    plumbing, it just isn't a real OS process. The genuine-race coverage (two REAL pipe
+    fds, a REAL child process) is in test_run_v5_build_real_subprocess_* below, per the
+    review: a fake object can't reproduce a two-readers-on-one-fd race either way, so it
+    was never going to catch this bug, but it still needs to match the new interface."""
     def __init__(self, stderr_lines, stdout_text, delay=0.0):
-        self._stderr_lines = stderr_lines
         self.stderr = iter(stderr_lines)
-        self._stdout_text = stdout_text
+        self.stdout = _FakeStdout(stdout_text)
         self._delay = delay
 
-    def communicate(self, timeout=None):
+    def wait(self, timeout=None):
         if self._delay:
             time.sleep(self._delay)
-        return self._stdout_text, ""
+        return 0
 
     def kill(self):
         pass
@@ -220,7 +237,7 @@ def test_run_v5_build_never_fires_on_started_without_a_callback(monkeypatch):
 
 def test_run_v5_build_reports_timed_out_waiting_true_on_timeout_while_waiting(monkeypatch):
     class _HangingProc(_FakeProc):
-        def communicate(self, timeout=None):
+        def wait(self, timeout=None):
             raise subprocess.TimeoutExpired(cmd="x", timeout=timeout)
 
     monkeypatch.setattr(ct.subprocess, "Popen",
@@ -229,6 +246,22 @@ def test_run_v5_build_reports_timed_out_waiting_true_on_timeout_while_waiting(mo
     assert result is None
     assert err == "Build timed out."
     assert timed_out_waiting is True
+
+
+def test_run_v5_build_returns_error_string_on_a_non_timeout_exception(monkeypatch):
+    """Fix round 1: restore the old subprocess.run path's broad catch — any exception
+    other than a timeout (e.g. an OSError off a broken pipe inside proc.wait()) must come
+    back as (None, str(e), False), not propagate out of run_v5_build uncaught."""
+    class _BrokenPipeProc(_FakeProc):
+        def wait(self, timeout=None):
+            raise OSError("broken pipe")
+
+    monkeypatch.setattr(ct.subprocess, "Popen",
+                        lambda *a, **kw: _BrokenPipeProc(["waiting for build lock"], ""))
+    result, err, timed_out_waiting = ct.run_v5_build("a gear", "auto")
+    assert result is None
+    assert err == "broken pipe"
+    assert timed_out_waiting is False
 
 
 def test_run_v5_build_on_started_exception_never_propagates(monkeypatch):
@@ -243,3 +276,64 @@ def test_run_v5_build_on_started_exception_never_propagates(monkeypatch):
 
     result, err, timed_out_waiting = ct.run_v5_build("a gear", "auto", on_started=boom)
     assert result == {"ok": True}
+
+
+# ── run_v5_build: REAL, unmocked subprocess (fix round 1, review item 3) ─────────────
+#
+# The _FakeProc tests above exercise run_v5_build's Python-level logic (the wait/start
+# state machine, on_started firing) but replace subprocess.Popen entirely, so they give
+# no signal on the actual bug the review found: two threads racing ONE real OS pipe fd.
+# These two tests swap in a real child process (via a thin subprocess.Popen wrapper that
+# redirects the argv to a tiny inline script, since run_v5_build hardcodes its own argv/
+# cwd) so stdout and stderr are genuine OS pipes read concurrently by real threads while
+# the main thread blocks in a real proc.wait() — proving both streams are fully captured
+# and the wait line is detected, with the real Popen/thread/wait() plumbing this task
+# added, not a stand-in for it.
+
+def _redirect_to_script(script: str):
+    """A subprocess.Popen replacement that ignores run_v5_build's own argv/cwd and runs
+    `script` under the real interpreter instead, passing through every other kwarg
+    (stdout/stderr/encoding/errors/env) unchanged so the real Popen/pipe/thread behaviour
+    under test is untouched."""
+    real_popen = subprocess.Popen
+
+    def _popen(cmd, **kwargs):
+        kwargs.pop("cwd", None)
+        return real_popen([sys.executable, "-c", script], **kwargs)
+
+    return _popen
+
+
+def test_run_v5_build_real_subprocess_captures_both_streams_and_detects_wait_line(monkeypatch):
+    child = (
+        "import sys, time\n"
+        "sys.stderr.write('waiting for build lock\\n'); sys.stderr.flush()\n"
+        "time.sleep(0.05)\n"
+        "sys.stderr.write('now building\\n'); sys.stderr.flush()\n"
+        "time.sleep(0.05)\n"
+        "print('{\"ok\": true, \"marker\": \"real-subprocess\"}')\n"
+    )
+    monkeypatch.setattr(ct.subprocess, "Popen", _redirect_to_script(child))
+    fired = []
+    result, err, timed_out_waiting = ct.run_v5_build(
+        "a gear", "auto", on_started=lambda: fired.append(True))
+    assert result == {"ok": True, "marker": "real-subprocess"}
+    assert err == ""
+    assert timed_out_waiting is False
+    assert fired == [True]     # the wait line was seen and detected leaving that state
+
+
+def test_run_v5_build_real_subprocess_timeout_with_a_sleeping_child(monkeypatch):
+    child = (
+        "import sys, time\n"
+        "sys.stderr.write('waiting for build lock\\n'); sys.stderr.flush()\n"
+        "time.sleep(30)\n"
+    )
+    monkeypatch.setattr(ct.subprocess, "Popen", _redirect_to_script(child))
+    fired = []
+    result, err, timed_out_waiting = ct.run_v5_build(
+        "a gear", "auto", timeout=1, on_started=lambda: fired.append(True))
+    assert result is None
+    assert err == "Build timed out."
+    assert timed_out_waiting is True   # still in "waiting for build lock" when killed
+    assert fired == []                 # never left the wait state before the kill
