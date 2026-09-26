@@ -25,11 +25,16 @@ Library:
   from geom_bands import score_against_reference   # returns dict incl. "band"
 """
 from pathlib import Path
+from types import SimpleNamespace
 import argparse
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
+
+DEFAULT_SCORE_TIMEOUT_SEC = 300
 
 _GEOM = Path.home() / "repos" / "cadqueryeval" / "src" / "cadqueryeval" / "geometry.py"
 
@@ -97,11 +102,74 @@ def normalize_stl(src: Path, dst: Path, target_diag: float = 100.0) -> float:
     return f
 
 
+class ScoreTimeout(Exception):
+    """Raised (and always caught, inside score_against_reference itself) when the
+    registration checker does not return within its wall-clock budget."""
+
+
+# Fields of cadqueryeval's GeometryCheckResult that band_of()/_vol_diff_pct() actually
+# read, in the shape re-buildable from a subprocess's stdout (see _run_check_bounded).
+_CHECK_RESULT_FIELDS = (
+    "is_watertight", "is_single_component", "bbox_accurate", "chamfer_distance",
+    "hausdorff_95p", "reference_volume", "generated_volume", "errors",
+)
+
+
+def _check_worker_main(argv: list) -> None:
+    """Internal subprocess entry point, dispatched from __main__ below before argparse
+    ever runs -- never called directly by a human. Computes perform_geometry_checks on
+    the two mesh paths given and prints ONE line of JSON with the fields
+    _run_check_bounded needs, so the parent process can bound the call with a real
+    wall-clock timeout (perform_geometry_checks itself has no timeout knob, and its
+    RANSAC+ICP registration can spin forever on a pathological mesh)."""
+    gen_stl, ref_stl, components = Path(argv[0]), Path(argv[1]), int(argv[2])
+    r = perform_geometry_checks(gen_stl, ref_stl, expected_components=components)
+    payload = {"all_passed": bool(r.all_passed)}
+    for f in _CHECK_RESULT_FIELDS:
+        v = getattr(r, f, None)
+        payload[f] = (v[:3] if f == "errors" and v else v)
+    print(json.dumps(payload, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+
+
+def _run_check_bounded(gen_stl: Path, ref_stl: Path, expected_components: int,
+                       timeout: float):
+    """Runs perform_geometry_checks in its OWN subprocess (this same script, re-invoked
+    with a hidden `--check-worker` mode), bounded by `timeout` seconds wall clock.
+
+    Why: measured 2026-09-26, pair cfb20363 hung gate/scoring for 40+ minutes on a 54MB
+    candidate STL -- the registration checker has no internal timeout and a
+    pathologically large/degenerate mesh can make its ICP alignment spin indefinitely. A
+    candidate that large is itself evidence of a bad build, not a correct-but-slow one, so
+    past `timeout` this raises ScoreTimeout (caught by score_against_reference's own
+    caller below, which records band 'crash' / reason 'score_timeout') rather than
+    blocking a whole overnight sampling run on one pair. Runs via subprocess.run(...,
+    encoding="utf-8", errors="replace") per the repo's OCP/OCCT locale-trap rule, never
+    text=True."""
+    cmd = [sys.executable, "-X", "utf8", str(Path(__file__).resolve()), "--check-worker",
+          str(gen_stl), str(ref_stl), str(expected_components)]
+    env = dict(os.environ, PYTHONUTF8="1")
+    try:
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                              timeout=timeout, env=env)
+    except subprocess.TimeoutExpired as e:
+        raise ScoreTimeout(f"scorer exceeded {timeout}s wall clock") from e
+    if proc.returncode != 0:
+        raise RuntimeError(f"check-worker failed (exit {proc.returncode}): "
+                          f"{proc.stderr[-500:]}")
+    line = next((ln for ln in reversed(proc.stdout.splitlines()) if ln.strip()), None)
+    if line is None:
+        raise RuntimeError(f"check-worker produced no output: stderr={proc.stderr[-500:]!r}")
+    return SimpleNamespace(**json.loads(line))
+
+
 def score_against_reference(candidate: Path, reference_stl: Path, expected_components: int = 1,
-                            normalize: bool = False) -> dict:
+                            normalize: bool = False,
+                            timeout: float = DEFAULT_SCORE_TIMEOUT_SEC) -> dict:
     """Score a candidate STEP/STL against a reference STL. Never raises: a candidate that
-    fails to convert or crashes the checker is a scored 'fail', not an exception — samplers
-    call this in bulk and one broken solid must not kill the run.
+    fails to convert or crashes the checker is a scored 'fail' (or, past `timeout` seconds,
+    a scored 'crash' with reason 'score_timeout' -- see _run_check_bounded), never an
+    exception -- samplers call this in bulk and one broken or hung solid must not kill the
+    run.
 
     normalize=True scales BOTH meshes to a bounding-box diagonal of 100 before the existing
     checks, so absolute-mm thresholds (Chamfer/volume bands) stay meaningful for suites given
@@ -126,8 +194,13 @@ def score_against_reference(candidate: Path, reference_stl: Path, expected_compo
                 extra = {"normalized": True, "scale_candidate": fc, "scale_reference": fr}
             ref_diag = _ref_diagonal_mm(cmp_reference_stl)
             out["ref_diag_mm"] = round(ref_diag, 2)
-            r = perform_geometry_checks(gen_stl, cmp_reference_stl,
-                                        expected_components=expected_components)
+            try:
+                r = _run_check_bounded(gen_stl, cmp_reference_stl, expected_components, timeout)
+            except ScoreTimeout as e:
+                out["band"] = "crash"
+                out["reason"] = "score_timeout"
+                out["errors"] = [str(e)]
+                return {**out, **extra}
         vol = _vol_diff_pct(r)
         out.update({
             "band": band_of(r, ref_diag),
@@ -158,4 +231,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-worker":
+        _check_worker_main(sys.argv[2:])
+        sys.exit(0)
     main()
