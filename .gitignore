@@ -30,3 +30,7 @@ unsloth_compiled_cache/
 lab/state/*
 !lab/state/specs.jsonl
 !lab/state/val_specs.json
+
+# round-2 training data: Claude-generated, kept local (terms + size)
+lab/rounds/*/train.jsonl
+lab/rounds/*/val.jsonl

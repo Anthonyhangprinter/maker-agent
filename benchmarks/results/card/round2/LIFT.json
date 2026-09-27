@@ -1,0 +1,84 @@
+{
+  "baseline": "gemma-4-31b",
+  "baseline_for": {},
+  "table": {
+    "gemma-4-31b": {
+      "n": 85,
+      "ref_n": 85,
+      "invalid_ratio": 0.08235294117647059,
+      "gate_clean_rate": 0.8588235294117647,
+      "acceptance": 0.7727272727272727,
+      "match_rate": 0.3176470588235294,
+      "median_wall_s": 34.6,
+      "tokens_per_build": 559.3176470588236,
+      "base": "gemma-4-31b",
+      "base_n": 85,
+      "base_metrics": {
+        "n": 85,
+        "ref_n": 85,
+        "invalid_ratio": 0.08235294117647059,
+        "gate_clean_rate": 0.8588235294117647,
+        "acceptance": 0.7727272727272727,
+        "match_rate": 0.3176470588235294,
+        "median_wall_s": 34.6,
+        "tokens_per_build": 559.3176470588236
+      },
+      "delta": {
+        "invalid_ratio": 0,
+        "gate_clean_rate": 0,
+        "acceptance": 0,
+        "match_rate": 0,
+        "median_wall_s": 0
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 0,
+          "worsened": 0
+        },
+        "match_rate": {
+          "improved": 0,
+          "worsened": 0
+        }
+      }
+    },
+    "gemma-4-31b-cad-r2": {
+      "n": 85,
+      "ref_n": 85,
+      "invalid_ratio": 0.11764705882352941,
+      "gate_clean_rate": 0.8235294117647058,
+      "acceptance": 0.7545454545454545,
+      "match_rate": 0.2823529411764706,
+      "median_wall_s": 28.9,
+      "tokens_per_build": 325.56470588235294,
+      "base": "gemma-4-31b",
+      "base_n": 85,
+      "base_metrics": {
+        "n": 85,
+        "ref_n": 85,
+        "invalid_ratio": 0.08235294117647059,
+        "gate_clean_rate": 0.8588235294117647,
+        "acceptance": 0.7727272727272727,
+        "match_rate": 0.3176470588235294,
+        "median_wall_s": 34.6,
+        "tokens_per_build": 559.3176470588236
+      },
+      "delta": {
+        "invalid_ratio": 0.03529411764705882,
+        "gate_clean_rate": -0.03529411764705881,
+        "acceptance": -0.018181818181818188,
+        "match_rate": -0.03529411764705881,
+        "median_wall_s": -5.700000000000003
+      },
+      "flips": {
+        "invalid_ratio": {
+          "improved": 2,
+          "worsened": 5
+        },
+        "match_rate": {
+          "improved": 2,
+          "worsened": 5
+        }
+      }
+    }
+  }
+}

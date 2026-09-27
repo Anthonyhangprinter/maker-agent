@@ -73,7 +73,19 @@ PUBLIC_SUITES = ("cadprompt", "text2cadquery", "heldout-cqe")
 # This worktree carries no specs.json for the two big public suites (they are gitignored,
 # regenerated once by scripts/fetch_external.py and living only where that was last run) --
 # see run_card.py's own --suite-root docstring for why. The main checkout has them.
-MAIN_CHECKOUT = Path.home() / ".openclaw" / "skills" / "cad-builder"
+#
+# BUG FOUND 2026-09-28 (round 2's real eval run, the first time this path was ever GPU-
+# exercised -- the 2026-09-25 prep notes only ran --materialize-only/--score-existing/
+# --score-only, all CPU, none of which touch --suite-root): run_card.py's --suite-root
+# REPLACES its own BENCH = HERE / "benchmarks" wholesale (main()'s own
+# `BENCH = Path(ns.suite_root).resolve()`), so the path passed here must already point AT
+# a benchmarks/-shaped directory (specs.json direct children), not the repo root one level
+# above it. The bare repo root silently loaded 0 specs for cadprompt/text2cadquery/
+# heldout-cqe (load_suite's own `if not (d / "specs.json").exists(): return [], {}` never
+# raises), which fell out of run_card.py's main() as an EMPTY "Public suites" table with
+# n=0 for every arm -- no error, no crash, just a quietly wrong DECISION.md. Verified: the
+# repo root has no top-level cadprompt/ dir at all; benchmarks/cadprompt/specs.json exists.
+MAIN_CHECKOUT = Path.home() / ".openclaw" / "skills" / "cad-builder" / "benchmarks"
 
 
 # ---------------------------------------------------------------------------

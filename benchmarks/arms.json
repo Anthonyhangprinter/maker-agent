@@ -149,6 +149,17 @@
       "extra_args": "--chat-template-kwargs {\"enable_thinking\":false}",
       "hf": null,
       "notes": "Phase 3 round 1: gemma-4-31b's base model with a LoRA adapter merged in (QLoRA r16, alpha 16, language layers only, lr 1e-4, 2 epochs, 242 train / 21 val rows compiled from the harvest via lab/compile.py --strengths reference,cross_pass,same_pass), quantized plain Q4_K_M with the Unsloth importance matrix (NOT the stock arm's Unsloth UD dynamic quant -- a different recipe, note it when comparing card results). Adapter: /home/theultimatecunt/lab-scratch/round1-adapter-20260921-092522/adapter."
+    },
+    {
+      "name": "gemma-4-31b-cad-r2",
+      "alias": "gemma-4-31b-cad-r2",
+      "role": "comparison",
+      "gguf": "/home/theultimatecunt/lab-scratch/rounds/round2-store/gemma-4-31b-cad-r2-Q4_K_M.gguf",
+      "mmproj": "gemma-4-31B-it-GGUF/mmproj-F16.gguf",
+      "ctx": 16384,
+      "extra_args": "--chat-template-kwargs {\"enable_thinking\":false}",
+      "hf": null,
+      "notes": "Phase 3 round 2 (codefirst teacher-verified data, 2026-09-27): gemma-4-31b's base model with a LoRA adapter merged in (QLoRA r16, alpha 16, language layers only, lr 1e-4, 1 epoch -- reduced from round 1's 2 given ~6.1x round 1's row count, 1409 train / 54 val rows kept at max-seq 5120, compiled via lab/compile_codefirst.py from 1,164 Claude-Opus-5.5 codefirst teacher pairs, non-match/valid fixed-engine-Gemma rows oversampled 3x, prompts include the engine-fix Notes/API-reference block so train prompts match serve prompts), quantized plain Q4_K_M with the Unsloth importance matrix (NOT the stock arm's Unsloth UD dynamic quant -- a different recipe, note it when comparing card results). role=comparison, never the default arm until a card actually clears the ship bar. Adapter: /home/theultimatecunt/lab-scratch/round1-adapter-20260927-104129/adapter."
     }
   ],
   "critics": [

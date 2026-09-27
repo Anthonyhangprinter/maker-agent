@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "stamp": "stock_nofix",
+    "mode": "oneshot",
+    "arms": [
+      "gemma-4-31b"
+    ],
+    "suites": [
+      "cadprompt",
+      "text2cadquery",
+      "heldout-cqe"
+    ],
+    "limit": 0,
+    "started": "2026-09-28T03:41:05",
+    "variant": "",
+    "knobs": {
+      "variant": "",
+      "candidates": 0,
+      "no_fewshots": false,
+      "critic": "",
+      "critic_url": "",
+      "subset": "phase1"
+    },
+    "subset": "phase1",
+    "finished": "2026-09-28T04:41:43"
+  },
+  "summary": {
+    "gemma-4-31b|owner-refs": {
+      "arm": "gemma-4-31b",
+      "suite": "owner-refs",
+      "n": 18,
+      "valid": 11,
+      "invalid_ratio": 0.3888888888888889,
+      "gate_clean": 3,
+      "acceptance": 0.5555555555555556,
+      "bands": {
+        "match": 3,
+        "valid": 1,
+        "near_miss": 6,
+        "fail": 1
+      },
+      "median_wall_s": 88.8,
+      "tokens_out": 35433,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|cadprompt": {
+      "arm": "gemma-4-31b",
+      "suite": "cadprompt",
+      "n": 30,
+      "valid": 28,
+      "invalid_ratio": 0.06666666666666667,
+      "gate_clean": 28,
+      "acceptance": 0.7666666666666667,
+      "bands": {
+        "match": 15,
+        "valid": 5,
+        "near_miss": 7,
+        "fail": 1
+      },
+      "median_wall_s": 30.75,
+      "tokens_out": 13546,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|text2cadquery": {
+      "arm": "gemma-4-31b",
+      "suite": "text2cadquery",
+      "n": 30,
+      "valid": 29,
+      "invalid_ratio": 0.03333333333333333,
+      "gate_clean": 28,
+      "acceptance": 0.8,
+      "bands": {
+        "match": 0,
+        "valid": 2,
+        "near_miss": 17,
+        "fail": 10
+      },
+      "median_wall_s": 31.0,
+      "tokens_out": 13289,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|heldout-cqe": {
+      "arm": "gemma-4-31b",
+      "suite": "heldout-cqe",
+      "n": 25,
+      "valid": 20,
+      "invalid_ratio": 0.2,
+      "gate_clean": 17,
+      "acceptance": 0.76,
+      "bands": {
+        "match": 14,
+        "valid": 5,
+        "near_miss": 1,
+        "fail": 0
+      },
+      "median_wall_s": 40.1,
+      "tokens_out": 17173,
+      "helper_rows": 0
+    }
+  }
+}

@@ -81,3 +81,75 @@ trivially solved, tier 4 the genuine hard tail) -- consistent with the fixes alr
 closed most of the EASY misses (mechanical crashes) the pre-fix 2026-09-26 measurement
 found, leaving geometry-level near-misses as the dominant remaining failure mode on tiers
 3-4.
+
+## Steps 2-5: compile, train, ship, eval -- verdict NO-SHIP (2026-09-27 to 28)
+
+**Compile.** `lab/compile_codefirst.py` over all 5 pair sources (1,164 pairs, 0 dropped),
+notes/API-reference block now injected into the rendered prompt to match serve time (a
+train/serve mismatch this round fixed -- verified a rendered row contains the
+`API REFERENCE` block when relevant). Weighting changed to 3x any row whose fixed-Gemma
+band is NOT match/valid, 1x the rest (previously any non-"match" row, which wrongly
+included "valid" builds). Before weighting: train 1106 / val 58 (frozen 5% spec-level
+split), 187 hard train rows. After 3x weighting: **train 1480**, val unchanged at 58.
+
+**Train.** `lab/round1.sh --data lab/rounds/round2 --epochs 1` (epochs dropped from round
+1's 2: 1480 rows is ~6.1x round 1's 242, and the hard tail already gets 3x exposure per
+epoch via oversampling). Rank 16/alpha 16/lr 1e-4/max-seq 5120 unchanged. 1409/1480 train
+rows kept (71 dropped over max-seq), 54/58 val rows kept. 353 steps, 9h9m wall, peak VRAM
+21.7GB. **train_loss 0.1899, eval_loss 0.1563** (single epoch, computed once at the end).
+
+**Ship.** Merged, converted, quantized (Q4_K_M + Unsloth imatrix), registered as
+`gemma-4-31b-cad-r2` (`benchmarks/arms.json`, `role: "comparison"`, never the default --
+`~/.openclaw/cad.json` untouched). `ship.py verify` failed its first three attempts with a
+false negative: its throwaway smoke server hardcodes port 8093, which collides with the
+always-on `gpu-notice.service` (Casa AI's maintenance-notice stub) -- every failing attempt
+was actually talking to the notice stub, not the model. A manual diagnostic on a free port
+proved the arm writes correct `from build123d import *` code; re-verifying with
+`--port 8096` passed cleanly (cube/bracket/text all ok).
+
+**Eval.** Three-arm comparison (stock-no-fixes / stock-with-fixes / r2-with-fixes) on round
+1's own 85 public specs (cadprompt/text2cadquery/heldout-cqe, phase1 subset) plus the 18
+owner references, one sample each, run inside a single continuous `gpu_window.sh` hold
+(materialize -> build r2 -> build stock+fixes -> build stock-no-fixes -> score, all in one
+process) so no other CAD frontend could slip a build in and evict the maker arm mid-run.
+Found and fixed a real bug in `lab/eval_round.py` along the way: `MAIN_CHECKOUT` pointed
+one directory too high for `run_card.py --suite-root` (which replaces `BENCH` wholesale),
+so the very first attempt silently built 0 public specs for every arm (n=0 tables, no
+error) while the owner-refs-18 rows built fine. Fixed the constant, re-ran ONLY the missing
+public-85 builds for all 3 arm-configs (owner-refs rows reused untouched), and added a hard
+row-count sanity gate (exactly 85 public / 18 owner per arm, `SystemExit` otherwise) before
+ever scoring again.
+
+### r2+fixes vs stock+fixes (the ship/no-ship table, round 1's rule)
+
+| suite | arm | n | invalid | match | flips (invalid) | flips (match) |
+|---|---|---|---|---|---|---|
+| public-85 | gemma-4-31b (baseline) | 85 | 8.2% | 31.8% | - | - |
+| public-85 | gemma-4-31b-cad-r2 | 85 | 11.8% | 28.2% | +2/-5 | +2/-5 |
+| owner-refs-18 | gemma-4-31b (baseline) | 18 | 50.0% | 11.1% | - | - |
+| owner-refs-18 | gemma-4-31b-cad-r2 | 18 | 38.9% | 22.2% | +3/-1 | +2/-0 |
+
+**Verdict: NO-SHIP.** r2 genuinely improves the harder, hand-verified owner set (invalid
+50%->38.9%, match doubles 11.1%->22.2%, flips net positive both ways) -- exactly the hard
+tail this round targeted -- but regresses on the easier public-85 suite (invalid
+8.2%->11.8%, match 31.8%->28.2%, flips net negative both ways). Round 1's rule requires no
+regression on BOTH tables, so this fails it. `~/.openclaw/cad.json` stays on stock
+`gemma-4-31b`; `gemma-4-31b-cad-r2` is registered for comparison only.
+
+### Engine-fix gain alone (stock+fixes vs stock-no-fixes, same two suites)
+
+| suite | arm | n | invalid | match | flips (invalid) |
+|---|---|---|---|---|---|
+| public-85 | gemma-4-31b-nofix (baseline) | 85 | 9% | 34% | - |
+| public-85 | gemma-4-31b (fixes on) | 85 | 8% | 32% | +6/-5 |
+| owner-refs-18 | gemma-4-31b-nofix (baseline) | 18 | 39% | 17% | - |
+| owner-refs-18 | gemma-4-31b (fixes on) | 18 | 50% | 11% | +1/-3 |
+
+Roughly a wash to slightly negative on both suites at n=85/18 -- consistent with the
+2026-09-26 finding that the fixes matter most on the genuinely hard tail (166 pairs stock
+Gemma failed outright), not on suites where stock already solves most specs one-shot; not
+a contradiction of that finding, just a different, easier population.
+
+Full tables: `DECISION.md` (the invalid first attempt is kept at `DECISION.invalid-0135.md`
+for the record), `LIFT.md`/`OWNER-REFS-LIFT.md`, `FIXGAIN-LIFT.md`/
+`FIXGAIN-OWNER-REFS-LIFT.md`.
