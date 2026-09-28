@@ -1,0 +1,173 @@
+{
+  "meta": {
+    "stamp": "round2",
+    "mode": "oneshot",
+    "arms": [
+      "gemma-4-31b"
+    ],
+    "suites": [
+      "cadprompt",
+      "text2cadquery",
+      "heldout-cqe"
+    ],
+    "limit": 0,
+    "started": "2026-09-28T02:34:05",
+    "variant": "",
+    "knobs": {
+      "variant": "",
+      "candidates": 0,
+      "no_fewshots": false,
+      "critic": "",
+      "critic_url": "",
+      "subset": "phase1"
+    },
+    "subset": "phase1",
+    "finished": "2026-09-28T03:40:55"
+  },
+  "summary": {
+    "gemma-4-31b-cad-r2|owner-refs": {
+      "arm": "gemma-4-31b-cad-r2",
+      "suite": "owner-refs",
+      "n": 18,
+      "valid": 11,
+      "invalid_ratio": 0.3888888888888889,
+      "gate_clean": 4,
+      "acceptance": 0.5,
+      "bands": {
+        "match": 4,
+        "valid": 3,
+        "near_miss": 2,
+        "fail": 2
+      },
+      "median_wall_s": 72.75,
+      "tokens_out": 23519,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|owner-refs": {
+      "arm": "gemma-4-31b",
+      "suite": "owner-refs",
+      "n": 18,
+      "valid": 9,
+      "invalid_ratio": 0.5,
+      "gate_clean": 6,
+      "acceptance": 0.4444444444444444,
+      "bands": {
+        "match": 2,
+        "valid": 0,
+        "near_miss": 6,
+        "fail": 1
+      },
+      "median_wall_s": 99.0,
+      "tokens_out": 49533,
+      "helper_rows": 0
+    },
+    "gemma-4-31b-cad-r2|cadprompt": {
+      "arm": "gemma-4-31b-cad-r2",
+      "suite": "cadprompt",
+      "n": 30,
+      "valid": 25,
+      "invalid_ratio": 0.16666666666666666,
+      "gate_clean": 25,
+      "acceptance": 0.6333333333333333,
+      "bands": {
+        "match": 13,
+        "valid": 5,
+        "near_miss": 3,
+        "fail": 4
+      },
+      "median_wall_s": 26.45,
+      "tokens_out": 8187,
+      "helper_rows": 0
+    },
+    "gemma-4-31b-cad-r2|text2cadquery": {
+      "arm": "gemma-4-31b-cad-r2",
+      "suite": "text2cadquery",
+      "n": 30,
+      "valid": 29,
+      "invalid_ratio": 0.03333333333333333,
+      "gate_clean": 27,
+      "acceptance": 0.8333333333333334,
+      "bands": {
+        "match": 0,
+        "valid": 1,
+        "near_miss": 17,
+        "fail": 11
+      },
+      "median_wall_s": 25.0,
+      "tokens_out": 8428,
+      "helper_rows": 0
+    },
+    "gemma-4-31b-cad-r2|heldout-cqe": {
+      "arm": "gemma-4-31b-cad-r2",
+      "suite": "heldout-cqe",
+      "n": 25,
+      "valid": 21,
+      "invalid_ratio": 0.16,
+      "gate_clean": 18,
+      "acceptance": 0.78,
+      "bands": {
+        "match": 11,
+        "valid": 5,
+        "near_miss": 4,
+        "fail": 1
+      },
+      "median_wall_s": 33.7,
+      "tokens_out": 11058,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|cadprompt": {
+      "arm": "gemma-4-31b",
+      "suite": "cadprompt",
+      "n": 30,
+      "valid": 27,
+      "invalid_ratio": 0.1,
+      "gate_clean": 27,
+      "acceptance": 0.7333333333333333,
+      "bands": {
+        "match": 12,
+        "valid": 6,
+        "near_miss": 7,
+        "fail": 2
+      },
+      "median_wall_s": 32.35,
+      "tokens_out": 14718,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|text2cadquery": {
+      "arm": "gemma-4-31b",
+      "suite": "text2cadquery",
+      "n": 30,
+      "valid": 28,
+      "invalid_ratio": 0.06666666666666667,
+      "gate_clean": 27,
+      "acceptance": 0.8,
+      "bands": {
+        "match": 0,
+        "valid": 1,
+        "near_miss": 20,
+        "fail": 7
+      },
+      "median_wall_s": 31.15,
+      "tokens_out": 14251,
+      "helper_rows": 0
+    },
+    "gemma-4-31b|heldout-cqe": {
+      "arm": "gemma-4-31b",
+      "suite": "heldout-cqe",
+      "n": 25,
+      "valid": 23,
+      "invalid_ratio": 0.08,
+      "gate_clean": 19,
+      "acceptance": 0.78,
+      "bands": {
+        "match": 15,
+        "valid": 2,
+        "near_miss": 4,
+        "fail": 2
+      },
+      "median_wall_s": 40.9,
+      "tokens_out": 18573,
+      "helper_rows": 0
+    }
+  }
+}

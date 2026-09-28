@@ -1,0 +1,159 @@
+{
+ "build123d_version": "0.10.0",
+ "entries": {
+  "fillet": {
+   "sig": "fillet(objects, radius)",
+   "doc": "Fillet the given sequence of edges or vertices.",
+   "fact": "takes the EDGES and radius=; the part is implied by the edges: fillet(part.edges().filter_by(...), radius=r)"
+  },
+  "chamfer": {
+   "sig": "chamfer(objects, length, length2=None, angle=None, reference=None) -> Part",
+   "doc": "Chamfer the given sequence of edges or vertices."
+  },
+  "ShapeList.filter_by": {
+   "sig": "ShapeList.filter_by(filter_by, reverse=False) -> ShapeList",
+   "doc": "filter by Axis, Plane, or GeomType"
+  },
+  "ShapeList.group_by": {
+   "sig": "ShapeList.group_by(group_by=..., reverse=False, tol_digits=6) -> GroupBy",
+   "doc": "group by",
+   "fact": "returns GroupBy: index it ([0] / [-1]) to get a ShapeList before .sort_by/.filter_by or fillet/chamfer"
+  },
+  "ShapeList.sort_by": {
+   "sig": "ShapeList.sort_by(sort_by=..., reverse=False) -> ShapeList",
+   "doc": "sort by"
+  },
+  "Edge.center": {
+   "sig": "Edge.center(center_of=CenterOf.GEOMETRY) -> Vector",
+   "doc": "Center of object",
+   "fact": "a METHOD: e.center().Z, not e.center.z"
+  },
+  "Edge.start_point": {
+   "sig": "Edge.start_point() -> Vector",
+   "doc": "The start point of this edge",
+   "fact": "a METHOD (also end_point()): e.start_point().X"
+  },
+  "Vector": {
+   "sig": "Vector(X, Y, Z) | Vector(X, Y) | Vector(v)",
+   "doc": "Create a 3-dimensional vector",
+   "fact": "components are .X .Y .Z (uppercase; .x/.y/.z do not exist)"
+  },
+  "Shape.bounding_box": {
+   "sig": "Shape.bounding_box(optimal=True) -> BoundBox",
+   "doc": "Create a bounding box for this Shape."
+  },
+  "Pos": {
+   "sig": "Pos(v) | Pos(X=0, Y=0, Z=0)",
+   "doc": "A position only sub-class of Location"
+  },
+  "Rotation": {
+   "sig": "Rotation(rotation, ordering) | Rotation(X=0, Y=0, Z=0, ordering=Intrinsic.XYZ)",
+   "doc": "Subclass of Location used only for object rotation"
+  },
+  "Cone": {
+   "sig": "Cone(bottom_radius, top_radius, height, arc_size=360)",
+   "doc": "Create a cone defined by bottom radius, top radius, and height."
+  },
+  "Torus": {
+   "sig": "Torus(major_radius, minor_radius, minor_start_angle=0, minor_end_angle=360, major_angle=360)",
+   "doc": "Create a torus defined by major and minor radii."
+  },
+  "extrude": {
+   "sig": "extrude(to_extrude=None, amount=None, dir=None, until=None, target=None, both=False, taper=0) -> Part",
+   "doc": "Extrude a sketch or face by an amount or until another object."
+  },
+  "revolve": {
+   "sig": "revolve(profiles=None, axis=..., revolution_arc=360) -> Part",
+   "doc": "Revolve the profile or pending sketches/face about the given axis."
+  },
+  "loft": {
+   "sig": "loft(sections=None, ruled=False) -> Part",
+   "doc": "Loft the pending sketches/faces, across all workplanes, into a solid."
+  },
+  "make_face": {
+   "sig": "make_face(edges=None) -> Sketch",
+   "doc": "Create a face from the given perimeter edges."
+  },
+  "Polyline": {
+   "sig": "Polyline(*pts, close=False)",
+   "doc": "Create a sequence of straight lines defined by successive points."
+  },
+  "Plane": {
+   "sig": "Plane(origin, x_dir=None, z_dir=(0, 0, 1)) | Plane(face, x_dir=None) | Plane(location) | Plane(axis, x_dir=None)",
+   "doc": "Plane"
+  },
+  "mirror": {
+   "sig": "mirror(objects=None, about=...)",
+   "doc": "Mirror a sequence of objects over the given plane."
+  },
+  "Compound": {
+   "sig": "Compound(children=None)",
+   "doc": "A Compound in build123d is a topological entity representing a collection of geometric shapes grouped toget..."
+  },
+  "bolt_circle": {
+   "sig": "bolt_circle(count, bolt_circle_d, hole_d, depth, start_angle=0)",
+   "doc": "Union of `count` cylindrical hole-cutters equally spaced on a bolt circle of diameter `bolt_circle_d`, axis...",
+   "import": "from b123d.domain import bolt_circle"
+  },
+  "cross_bore": {
+   "sig": "cross_bore(diameter, length, axis='x')",
+   "doc": "Cutting cylinder for a bore through the SIDE of a part — a radial / cross / wrist-pin hole.",
+   "import": "from b123d.domain import cross_bore"
+  },
+  "counterbore_cutter": {
+   "sig": "counterbore_cutter(through_d, bore_d, bore_depth, depth)",
+   "doc": "Cutter for a COUNTERBORED hole (socket-head screw)",
+   "import": "from b123d.domain import counterbore_cutter"
+  },
+  "countersink_cutter": {
+   "sig": "countersink_cutter(through_d, head_d, depth, head_angle=90)",
+   "doc": "Cutter for a COUNTERSUNK hole (flat-head screw)",
+   "import": "from b123d.domain import countersink_cutter"
+  },
+  "gusset": {
+   "sig": "gusset(leg_h, leg_v, thickness)",
+   "doc": "Right-triangle reinforcing brace (gusset).",
+   "import": "from b123d.domain import gusset"
+  },
+  "ring_groove": {
+   "sig": "ring_groove(part_radius, depth, width)",
+   "doc": "Cutter for a shallow circumferential ring groove on the OUTER surface of a cylinder — piston ring grooves,...",
+   "import": "from b123d.domain import ring_groove"
+  },
+  "spur_gear": {
+   "sig": "spur_gear(teeth, module_mm, width_mm, bore_mm=0, pressure_angle=20)",
+   "doc": "Involute spur gear.",
+   "import": "from b123d.domain import spur_gear"
+  },
+  "hex_bolt": {
+   "sig": "hex_bolt(size_mm, length_mm=80, pitch_mm=None)",
+   "doc": "M-series hex head bolt.",
+   "import": "from b123d.domain import hex_bolt"
+  },
+  "structural_section": {
+   "sig": "structural_section(d_mm, bf_mm, tf_mm, tw_mm, length_mm=1000, mitre=False)",
+   "doc": "I/H structural section.",
+   "import": "from b123d.domain import structural_section"
+  },
+  "iso_thread": {
+   "sig": "iso_thread(major_diameter, pitch, length, external=True)",
+   "doc": "A real ISO 60° thread helix (external by default).",
+   "import": "from b123d.warehouse import iso_thread"
+  },
+  "screw": {
+   "sig": "screw(size='M5-0.8', length=20, head='socket', modelled_thread=False)",
+   "doc": "A standard metric screw.",
+   "import": "from b123d.warehouse import screw"
+  },
+  "nut": {
+   "sig": "nut(size='M5-0.8', modelled_thread=False)",
+   "doc": "An ISO hex nut.",
+   "import": "from b123d.warehouse import nut"
+  },
+  "ball_bearing": {
+   "sig": "ball_bearing(size='M8-22-7')",
+   "doc": "A single-row deep-groove ball bearing.",
+   "import": "from b123d.warehouse import ball_bearing"
+  }
+ }
+}

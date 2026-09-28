@@ -1,0 +1,90 @@
+{
+  "round": "2 (prep)",
+  "command": "python3 lab/compile_codefirst.py --pairs benchmarks/results/card/codefirst-scale-2026-09-25/claude-opus-5-5/pairs.jsonl --pairs benchmarks/results/card/codefirst-pilot-2026-09-24/claude-opus-5-5/pairs.jsonl --pairs benchmarks/results/card/codefirst-batch2-2026-09-25/claude-opus-5-5/pairs.jsonl --pairs benchmarks/results/card/codefirst-batch2-2026-09-25/pilot/claude-opus-5-5/pairs.jsonl --pairs benchmarks/results/card/codefirst-batch3-2026-09-26/claude-opus-5-5/pairs.jsonl --gemma-baseline benchmarks/results/card/round2/gemma_fixed_baseline.jsonl --oversample-gemma-fail 3 --out-dir lab/rounds/round2",
+  "timestamp": "2026-09-27T00:40:44.045626+00:00",
+  "dry_run": false,
+  "pairs_files": [
+    "benchmarks/results/card/codefirst-scale-2026-09-25/claude-opus-5-5/pairs.jsonl",
+    "benchmarks/results/card/codefirst-pilot-2026-09-24/claude-opus-5-5/pairs.jsonl",
+    "benchmarks/results/card/codefirst-batch2-2026-09-25/claude-opus-5-5/pairs.jsonl",
+    "benchmarks/results/card/codefirst-batch2-2026-09-25/pilot/claude-opus-5-5/pairs.jsonl",
+    "benchmarks/results/card/codefirst-batch3-2026-09-26/claude-opus-5-5/pairs.jsonl"
+  ],
+  "gemma_baseline_files": [
+    "benchmarks/results/card/round2/gemma_fixed_baseline.jsonl"
+  ],
+  "oversample_gemma_fail": 3,
+  "exclude_gemma_match_tier1": false,
+  "approved_ids_file": null,
+  "approved_ids_count": null,
+  "owner_references_dir": "/home/theultimatecunt/CAD/references",
+  "owner_references_count": 18,
+  "val_frac": 0.05,
+  "seed": 1,
+  "val_specs_source": "created",
+  "val_specs_file": "/home/theultimatecunt/.openclaw/skills/cad-builder/.claude/worktrees/agent-aea80feb02c5c565b/lab/rounds/round2/val_specs.json",
+  "val_specs_count": 58,
+  "pairs_total_loaded": 1164,
+  "pool_after_filter": 1164,
+  "counts": {
+    "train": {
+      "total": 1480,
+      "by_tier_gemma_band": {
+        "tier1|gemma_match": 145,
+        "tier2|gemma_match": 385,
+        "tier2|gemma_near_miss": 186,
+        "tier2|gemma_valid": 57,
+        "tier2|gemma_crash": 27,
+        "tier2|gemma_fail": 18,
+        "tier3|gemma_valid": 42,
+        "tier3|gemma_match": 215,
+        "tier3|gemma_near_miss": 111,
+        "tier3|gemma_crash": 81,
+        "tier4|gemma_valid": 9,
+        "tier4|gemma_match": 66,
+        "tier4|gemma_near_miss": 78,
+        "tier4|gemma_crash": 27,
+        "tier4|gemma_fail": 24,
+        "tier3|gemma_fail": 9
+      }
+    },
+    "val": {
+      "total": 58,
+      "by_tier_gemma_band": {
+        "tier1|gemma_match": 8,
+        "tier2|gemma_match": 21,
+        "tier2|gemma_crash": 1,
+        "tier2|gemma_near_miss": 5,
+        "tier3|gemma_match": 10,
+        "tier3|gemma_crash": 2,
+        "tier4|gemma_match": 3,
+        "tier3|gemma_valid": 3,
+        "tier4|gemma_near_miss": 2,
+        "tier4|gemma_valid": 1,
+        "tier3|gemma_near_miss": 2
+      }
+    }
+  },
+  "gemma_baseline_coverage": {
+    "pairs_with_gemma_row": 1164,
+    "pairs_without_gemma_row": 0,
+    "gemma_band_breakdown": {
+      "match": 853,
+      "near_miss": 134,
+      "valid": 112,
+      "crash": 48,
+      "fail": 17
+    }
+  },
+  "dropped_total": 0,
+  "dropped_by_reason": {},
+  "sha256": {
+    "train.jsonl": "6ee498963d515e8af6b30a22428a1308b0137545c38d0e4f1a33b9dba1df67a8",
+    "val.jsonl": "f89aa83bef07e9d01f7422ff0054810e6c62b8ffbb049a47b5f50d6ebb58c018"
+  },
+  "template": {
+    "path": "/mnt/nvme-apps/LinuxModels/gemma-4-31B-it-unsloth-bnb-4bit/chat_template.jinja",
+    "from_checkpoint": true
+  },
+  "out_dir": "lab/rounds/round2"
+}
