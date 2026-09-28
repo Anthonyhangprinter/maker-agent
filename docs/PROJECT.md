@@ -1165,3 +1165,67 @@ Full writeup: `docs/FINDINGS-1.0.md`. Summary here for the running log.
   weaker than the harvest's own gate (porting the fix is a v2 item so benchmark cards stay
   comparable); the harvest's through-hole text parser misses some phrasings; the pre-existing
   `tests/test_n1_offline.py` failure is unchanged.
+
+---
+
+## 2026-09-24/28: Round 2 — code-first verified teacher data (measured, NO-SHIP)
+
+Post-release follow-up campaign (branch `teacher-codefirst-2026-09-24`, merged locally into
+`master` 2026-09-28, merge commit `1321974`; push to GitHub pending owner go-ahead).
+
+- **Owner references as a held-out answer key.** 18 owner SolidWorks parts converted via a
+  public Onshape doc to STEP/spec at `~/CAD/references/<slug>/`, never trained on. Fully
+  specifying the spec (datum + every station/step length, not just sizes) reversed the
+  2026-09-19 "teacher not worth it" call: Opus 5.5 went 7/18 first-try vs Gemma's 1/18 once
+  specs were fully determined.
+- **Teacher pipeline (`lab/teacher_codefirst.py`):** design as build123d code, build and
+  measure it (`scripts/measure_part.py`), write the spec from the measurements, blind rebuild
+  from spec text alone must band=match with equal feature counts — verified by construction,
+  not by a judge. **1,164 kept pairs** (pilot 29, batch2 241 + 8, batch3 443, scale 443) for
+  ~$120 of Claude Opus 5.5 via the Batch API, key `~/.openclaw/cad-teacher.key` (dedicated,
+  local-only; Vesper/Hermes never hold it).
+- **Owner review (FreeCAD overlays), 50 pairs total across 4 rounds:** batch1 pilot 8, batch1
+  scale 12, batch2 15, batch3 15 — all accepted (one measurer fix for missed corner fillets,
+  one part accepted as tolerable). Scorer calibrated to these labels, agreement 13/24 → 17/24
+  (`scorer-calibration-2026-09-24`): near_miss = single solid + bbox within max(5mm,10%),
+  owner-ref match overrides the `gate_spec` text veto, reference STEP-volume sidecars for all
+  18, 300s hard timeout per candidate (subprocess worker; one pair hung the gate 40+ min on a
+  54MB STL before the timeout was added).
+- **Engine fixes, no training (commit 76f8cda):** `code_normalise.py` (Vector `.x`→`.X`,
+  method-as-attribute repair, helper auto-imports, `_mm` keyword) and `api_ref.py`
+  (introspected build123d API reference injected into the retrieval prompt). Measured on
+  Gemma's 166 hard teacher-pair failures: 0 → 87 → **101** match+valid (normaliser alone
+  recovered 63 of 112 crashes with 0 regressions on 561 passing builds; API docs added flips
+  +42/-24, ~200-270 extra prompt tokens). These fixes moved nothing on the public/owner eval
+  sets, so the round-2 fine-tune had to be compared against **stock+fixes**, not bare stock.
+- **Fixed-engine Gemma baseline over the full 1,164-pair pool:** 965/1,164 (82.9%) match+valid
+  (tier 1 100%, tier 2 84.8%, tier 3 79.2%, tier 4 63.7%). The 199 non-match/valid rows are
+  round 2's oversampling target (3x weight).
+- **Round-2 fine-tune:** QLoRA r16, 1 epoch (reduced from round 1's 2 given ~6.1x the row
+  count), 1,409 train / 54 val rows at max-seq 5120, val loss 0.156, ~9h. Quantised Q4_K_M with
+  the Unsloth importance matrix (a different recipe from the stock arm's UD dynamic quant —
+  note this when comparing card results). Arm `gemma-4-31b-cad-r2`, GGUF at
+  `~/lab-scratch/rounds/round2-store/`, registered `role: comparison` in `benchmarks/arms.json`.
+- **Verdict: NO-SHIP**, same call as round 1. vs stock+fixes: public-85 match 28% vs 32%
+  (flips +2/-5), invalid 12% vs 8%; owner-18 match 22% vs 11% (flips +2/-0), invalid 39% vs 50%.
+  For reference, stock-nofix vs stock+fixes on public-85 was match 34% vs 32%, invalid 9% vs
+  8% — the fixes themselves are a wash on these eval sets even though they recovered 101/166
+  hard teacher pairs. All deltas are inside paired-flip noise. `~/.openclaw/cad.json` stays on
+  stock `gemma-4-31b`, `maker.enabled: true`. Full numbers:
+  `benchmarks/results/card/round2/{DECISION,LIFT,OWNER-REFS-LIFT,FIXGAIN-LIFT,
+  FIXGAIN-OWNER-REFS-LIFT,NOTES}.md`.
+- **Conclusion:** the bottleneck has moved from data volume to data verification and eval
+  coverage — only 18 real held-out parts exist, and public benchmarks are under-specified. Next
+  step needs a larger, fully-specified held-out set, and per the owner's framing, Andrew's help
+  on how to train effectively (draft update, not sent:
+  `~/Documents/maker-agent/andrew-update-2026-09-28.md`).
+- **Web UI, shipped alongside (master, unpushed):** Examples gallery (24 gate-verified parts
+  from the owner review rounds, `webui/static/examples/`), creation-history restore/wipe guards
+  on `sessions.json` (refuses empty overwrites, 7 daily backups, `CAD_WEB_SESSIONS_FILE` for
+  tests), per-build/per-turn model chip (`cad_v5.config.model_identity()`), and TripoSR local
+  as the default mesh-mode provider (Meshy demoted to `MESH_PROVIDER=meshy` opt-in).
+- **Known bugs found this round:** the lab arm-restore / `run_card` arm cycle can silently
+  rewrite `~/.openclaw/cad.json` with `maker.enabled=false` (seen 2026-09-28 04:41, fixed by
+  hand — check `cad.json` after any arm-switching lab run); `ship.py`'s verify step hardcodes
+  port 8093, which now clashes with `gpu-notice.service` (use `--port 8096`);
+  `lab/gpu_window.sh`'s default lock wait is 3600s.

@@ -200,3 +200,16 @@ cd benchmarks/judge-eval && python3 run_judge.py && python3 report.py
 | Yield | 12.1 good pairs per GPU-hour overall; 12.2 before the gate fix, 4.4 during the think-pass starvation, 14.0 after the scheduler fix |
 | Reference pool | 51 of 301 reference specs solved by Sunday night; the pool was spent, so the run was not extended |
 | Left over | 107 unconfirmed candidates, 21 specs with disagreeing samples, 353 cold specs, 3 exhausted |
+
+## Postscript: Round 2 (2026-09-24/28), NO-SHIP
+
+This report's own "Next steps" (owner reference geometry as a confirmer, API-misuse
+documentation retrieval, measuring vague-prompt lift) is exactly what round 2 tried. Result:
+1,164 code-first verified teacher pairs (~$120), an engine normaliser + API-reference fix that
+recovered 101/166 of Gemma's own hard teacher-pair failures with no training, and a QLoRA
+fine-tune (`gemma-4-31b-cad-r2`) that came in level with stock on both public-85 and the 18
+owner references, same result as round 1. `cad.json` stays on stock `gemma-4-31b`. The
+bottleneck has moved from data volume to verification and eval coverage: 1,164 pairs did not
+move the needle where only 18 real held-out parts and under-specified public suites exist to
+measure against. Full numbers: `docs/PROJECT.md`'s 2026-09-24/28 section and
+`benchmarks/results/card/round2/DECISION.md`.
