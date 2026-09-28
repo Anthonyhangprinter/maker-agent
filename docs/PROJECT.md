@@ -1168,7 +1168,7 @@ Full writeup: `docs/FINDINGS-1.0.md`. Summary here for the running log.
 
 ---
 
-## 2026-09-24/28: Round 2 — code-first verified teacher data (measured, NO-SHIP)
+## 2026-09-24/28: Round 2, code-first verified teacher data (measured, NO-SHIP)
 
 Post-release follow-up campaign (branch `teacher-codefirst-2026-09-24`, merged locally into
 `master` 2026-09-28, merge commit `1321974`; push to GitHub pending owner go-ahead).
@@ -1180,12 +1180,12 @@ Post-release follow-up campaign (branch `teacher-codefirst-2026-09-24`, merged l
   specs were fully determined.
 - **Teacher pipeline (`lab/teacher_codefirst.py`):** design as build123d code, build and
   measure it (`scripts/measure_part.py`), write the spec from the measurements, blind rebuild
-  from spec text alone must band=match with equal feature counts — verified by construction,
+  from spec text alone must band=match with equal feature counts, verified by construction,
   not by a judge. **1,164 kept pairs** (pilot 29, batch2 241 + 8, batch3 443, scale 443) for
   ~$120 of Claude Opus 5.5 via the Batch API, key `~/.openclaw/cad-teacher.key` (dedicated,
   local-only; Vesper/Hermes never hold it).
 - **Owner review (FreeCAD overlays), 50 pairs total across 4 rounds:** batch1 pilot 8, batch1
-  scale 12, batch2 15, batch3 15 — all accepted (one measurer fix for missed corner fillets,
+  scale 12, batch2 15, batch3 15, all accepted (one measurer fix for missed corner fillets,
   one part accepted as tolerable). Scorer calibrated to these labels, agreement 13/24 → 17/24
   (`scorer-calibration-2026-09-24`): near_miss = single solid + bbox within max(5mm,10%),
   owner-ref match overrides the `gate_spec` text veto, reference STEP-volume sidecars for all
@@ -1203,19 +1203,19 @@ Post-release follow-up campaign (branch `teacher-codefirst-2026-09-24`, merged l
   round 2's oversampling target (3x weight).
 - **Round-2 fine-tune:** QLoRA r16, 1 epoch (reduced from round 1's 2 given ~6.1x the row
   count), 1,409 train / 54 val rows at max-seq 5120, val loss 0.156, ~9h. Quantised Q4_K_M with
-  the Unsloth importance matrix (a different recipe from the stock arm's UD dynamic quant —
+  the Unsloth importance matrix (a different recipe from the stock arm's UD dynamic quant,
   note this when comparing card results). Arm `gemma-4-31b-cad-r2`, GGUF at
   `~/lab-scratch/rounds/round2-store/`, registered `role: comparison` in `benchmarks/arms.json`.
 - **Verdict: NO-SHIP**, same call as round 1. vs stock+fixes: public-85 match 28% vs 32%
   (flips +2/-5), invalid 12% vs 8%; owner-18 match 22% vs 11% (flips +2/-0), invalid 39% vs 50%.
   For reference, stock-nofix vs stock+fixes on public-85 was match 34% vs 32%, invalid 9% vs
-  8% — the fixes themselves are a wash on these eval sets even though they recovered 101/166
+  8%, the fixes themselves are a wash on these eval sets even though they recovered 101/166
   hard teacher pairs. All deltas are inside paired-flip noise. `~/.openclaw/cad.json` stays on
   stock `gemma-4-31b`, `maker.enabled: true`. Full numbers:
   `benchmarks/results/card/round2/{DECISION,LIFT,OWNER-REFS-LIFT,FIXGAIN-LIFT,
   FIXGAIN-OWNER-REFS-LIFT,NOTES}.md`.
 - **Conclusion:** the bottleneck has moved from data volume to data verification and eval
-  coverage — only 18 real held-out parts exist, and public benchmarks are under-specified. Next
+  coverage: only 18 real held-out parts exist, and public benchmarks are under-specified. Next
   step needs a larger, fully-specified held-out set, and per the owner's framing, Andrew's help
   on how to train effectively (draft update, not sent:
   `~/Documents/maker-agent/andrew-update-2026-09-28.md`).
@@ -1226,6 +1226,6 @@ Post-release follow-up campaign (branch `teacher-codefirst-2026-09-24`, merged l
   as the default mesh-mode provider (Meshy demoted to `MESH_PROVIDER=meshy` opt-in).
 - **Known bugs found this round:** the lab arm-restore / `run_card` arm cycle can silently
   rewrite `~/.openclaw/cad.json` with `maker.enabled=false` (seen 2026-09-28 04:41, fixed by
-  hand — check `cad.json` after any arm-switching lab run); `ship.py`'s verify step hardcodes
+  hand, check `cad.json` after any arm-switching lab run); `ship.py`'s verify step hardcodes
   port 8093, which now clashes with `gpu-notice.service` (use `--port 8096`);
   `lab/gpu_window.sh`'s default lock wait is 3600s.
