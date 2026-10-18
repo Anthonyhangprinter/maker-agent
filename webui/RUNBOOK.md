@@ -61,9 +61,17 @@ tailscale serve status     # verify: 8443 → proxy http://127.0.0.1:8090
   `_title_for` retries that case twice, then keeps the fallback.
 - Beta testers (2026-08-03): `tailscale serve` stamps requests with `Tailscale-User-Login`/
   `Tailscale-User-Name`, so every job records its submitter (shown as a pill on the job card).
-  Jobs from any login NOT in `OWNER_LOGINS` (app.py) ping the owner's Telegram via Satine's
-  bot (token read from openclaw.json, chat `OWNER_CHAT_ID`) on queue, chat-revise, and
-  completion (with render photo). Localhost + owner logins stay silent. Friends get access
+  Jobs from any login NOT in `OWNER_LOGINS` (app.py) ping the owner's Telegram through
+  Morai's bot (token `TELEGRAM_BOT_TOKEN` and chat `TELEGRAM_HOME_CHANNEL` read from
+  `~/.hermes/.env` at send time, falling back to Satine's bot from openclaw.json and
+  `OWNER_CHAT_ID`) on queue, chat-revise, and completion (with render photo), prefixed
+  "CAD web (guest):". Every ping also leaves a bus note `cad-web` to `morai` on topic `cad`
+  (not relayed to Telegram a second time; module path overridable with `CAD_WEB_BUS_LIB`).
+  Guests are locked to their own work: each job stores the submitter's lowercase `login`,
+  and the jobs list, job fetch, delete, chat, rescale, artifacts and mesh files all refuse
+  or hide other people's jobs (404/403). The `/api/lab/*` endpoints return 403 for guests,
+  and a guest may have at most `GUEST_MAX_PENDING` = 3 queued/waiting/running jobs (429
+  beyond that). Localhost + owner logins stay silent and uncapped. Friends get access
   via Tailscale **node sharing** (admin console → machine → Share); optionally scope
   `autogroup:shared` to port 8443 in the tailnet ACL so shared users can't reach LibreChat.
 

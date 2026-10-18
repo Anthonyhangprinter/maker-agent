@@ -110,18 +110,66 @@ def _bot_token() -> str | None:
         return None
 
 
+HERMES_ENV = Path.home() / ".hermes" / ".env"
+# Shared message bus (Bridge Bus tab + Morai read it). Imported by path at send time; any
+# failure is silent. Topic "cad" is deliberately NOT one the bus-relay cron forwards.
+BUS_LIB = Path(os.environ.get(
+    "CAD_WEB_BUS_LIB", str(Path.home() / ".hermes" / "plugins" / "bus" / "bus_lib.py")))
+
+
+def _read_env(path) -> dict:
+    """KEY=VALUE lines of a dotenv file, quotes stripped, comments/blank ignored. Never raises."""
+    out: dict = {}
+    try:
+        for line in Path(path).read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith("export "):
+                line = line[7:].lstrip()
+            k, _, v = line.partition("=")
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]
+            out[k.strip()] = v
+    except Exception:
+        pass
+    return out
+
+
+def _bus_post(text: str):
+    """Best-effort bus note cad-web -> morai on topic `cad`; skipped silently if unavailable."""
+    try:
+        if not BUS_LIB.is_file():
+            return
+        import importlib.util as ilu
+        spec_ = ilu.spec_from_file_location("cad_web_bus_lib", BUS_LIB)
+        mod = ilu.module_from_spec(spec_)
+        spec_.loader.exec_module(mod)
+        mod.post("cad-web", "cad", text[:3900], to="morai")
+    except Exception:
+        pass
+
+
 def _notify(text: str, photo: str | None = None):
-    """Best-effort Telegram ping to the owner, off-thread — must never block or fail a job."""
-    token = _bot_token()
-    if not token:
-        return
+    """Best-effort ping to the owner, off-thread, never raises. Sent through Morai's bot
+    (token + home chat from ~/.hermes/.env, read at send time); falls back to Satine's bot
+    (openclaw.json) when either is missing. Also leaves a bus note on topic `cad`."""
+    env = _read_env(HERMES_ENV)
+    token = env.get("TELEGRAM_BOT_TOKEN") or ""
+    chat = env.get("TELEGRAM_HOME_CHANNEL") or ""
+    if not (token and chat):
+        token, chat = _bot_token(), OWNER_CHAT_ID
 
     def _send():
+        _bus_post(text)
+        if not token:
+            return
         try:
             if photo and Path(photo).is_file():
                 boundary = uuid.uuid4().hex
                 body = b""
-                for k, v in (("chat_id", OWNER_CHAT_ID), ("caption", text[:1000])):
+                for k, v in (("chat_id", chat), ("caption", text[:1000])):
                     body += (f"--{boundary}\r\nContent-Disposition: form-data; "
                              f"name=\"{k}\"\r\n\r\n{v}\r\n").encode()
                 body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo\"; "
@@ -132,7 +180,7 @@ def _notify(text: str, photo: str | None = None):
                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
             else:
                 data = urllib.parse.urlencode(
-                    {"chat_id": OWNER_CHAT_ID, "text": text[:4000]}).encode()
+                    {"chat_id": chat, "text": text[:4000]}).encode()
                 req = urllib.request.Request(
                     f"https://api.telegram.org/bot{token}/sendMessage", data=data)
             urllib.request.urlopen(req, timeout=15)
@@ -152,11 +200,38 @@ def _visitor(request: Request) -> tuple[str, bool]:
     return label, login not in OWNER_LOGINS
 
 
+GUEST_MAX_PENDING = 3
+_PENDING = ("queued", "waiting_gpu", "running")
+
+
+def _guest_login(request: Request) -> str:
+    """Lowercased tailnet login when the visitor is a guest, else "" (owner / loopback)."""
+    _, guest = _visitor(request)
+    return request.headers.get("tailscale-user-login", "").strip().lower() if guest else ""
+
+
+def _guest_owns_build(login: str, build_id: str) -> bool:
+    with _jobs_lock:
+        for j in _jobs.values():
+            if j.get("login") != login:
+                continue
+            r = j.get("result") or {}
+            bd = r.get("build_dir_fs")
+            if (bd and Path(bd).name == build_id) or r.get("build_id") == build_id:
+                return True
+    return False
+
+
+def _cap_error() -> HTTPException:
+    return HTTPException(429, f"{GUEST_MAX_PENDING} builds already pending, "
+                              f"wait for one to finish")
+
+
 def _ping_outcome(job: dict):
     r = job.get("result") or {}
     status = {"done": "✅ finished", "error": "❌ failed",
               "needs_clarification": "❓ needs answers"}.get(job["status"], job["status"])
-    line = (f"CAD web: {status} — {job.get('user', '?')}: "
+    line = (f"CAD web (guest): {status} — {job.get('user', '?')}: "
             f"“{(job.get('spec') or 'image-only build')[:120]}”")
     if job.get("error"):
         line += f"\n{str(job['error'])[:200]}"
@@ -765,24 +840,34 @@ async def api_build(request: Request, spec: str = Form(""), coder: str = Form("a
         image_path = str(UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}")
         Path(image_path).write_bytes(data)
     user, guest = _visitor(request)
+    login = _guest_login(request)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": coder, "image": image_path,
         "candidates": candidates, "fewshots": fewshots != "off", "lang": lang,
         "engine_mode": engine_mode if engine_mode in ("fluid", "loop") else "fluid",
         "composed_spec": composed_spec, "parameters": params_list or None,
-        "user": user, "guest": guest,
+        "user": user, "guest": guest, "login": login,
         "status": "queued", "log": deque(maxlen=300), "result": None, "error": None,
         "created_at": time.time(), "updated_at": time.time(),
     }
     job["title"] = _fallback_title(job)       # real title lands when the build finishes
     with _jobs_lock:
-        job["queued_ahead"] = sum(1 for j in _jobs.values()
-                                  if j["status"] in ("queued", "running", "waiting_gpu"))
-        _jobs[job["id"]] = job
+        if login and sum(1 for j in _jobs.values() if j.get("login") == login
+                         and j["status"] in _PENDING) >= GUEST_MAX_PENDING:
+            capped = True
+        else:
+            capped = False
+            job["queued_ahead"] = sum(1 for j in _jobs.values()
+                                      if j["status"] in ("queued", "running", "waiting_gpu"))
+            _jobs[job["id"]] = job
+    if capped:
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
+        raise _cap_error()
     _persist()
     _queue.put(job["id"])
     if guest:
-        _notify(f"CAD web: 🛠 {user} queued a build — "
+        _notify(f"CAD web (guest): 🛠 {user} queued a build — "
                 f"“{(spec or 'image-only')[:150]}” ({job['queued_ahead']} ahead)")
     return {"job_id": job["id"], "queued_ahead": job["queued_ahead"]}
 
@@ -797,12 +882,16 @@ def api_chat(payload: dict, request: Request):
         job = _jobs.get(job_id)
     if job is None:
         raise HTTPException(404, "unknown job (jobs do not survive a restart)")
+    glogin = _guest_login(request)
+    if glogin and job.get("login") != glogin:
+        raise HTTPException(403, "that creation belongs to someone else")
     if job.get("kind") == "mesh":
         raise HTTPException(400, "chat revise isn't wired for mesh jobs yet")
     if job["status"] not in ("done", "error") or not (job.get("result") or {}).get("build_dir_fs"):
         raise HTTPException(409, "job has no completed build to revise yet")
     user, guest = _visitor(request)
     job["user"], job["guest"] = user, guest        # attribute the revise turn to its author
+    job.setdefault("login", glogin)                # ownership stays with the creator
     job.setdefault("chat", []).append({"role": "user", "text": msg, "ts": time.time()})
     job["pending_chat"] = msg
     job["status"] = "queued"
@@ -810,13 +899,13 @@ def api_chat(payload: dict, request: Request):
     _persist()
     _queue.put(job_id)
     if guest:
-        _notify(f"CAD web: 💬 {user} revising "
+        _notify(f"CAD web (guest): 💬 {user} revising "
                 f"“{(job.get('spec') or 'image-only build')[:80]}”: {msg[:200]}")
     return {"ok": True}
 
 
 @app.post("/api/rescale")
-def api_rescale(payload: dict):
+def api_rescale(payload: dict, request: Request):
     """The CADAM slider loop, two backends:
 
     OpenSCAD (`build_id`, unchanged): substitute parameter values in a build's .scad and
@@ -835,7 +924,10 @@ def api_rescale(payload: dict):
     build_id = str(payload.get("build_id", "") or "")
     job_id = str(payload.get("job_id", "") or "")
     params = payload.get("params") or {}
+    glogin = _guest_login(request)
     if build_id:
+        if glogin and not _guest_owns_build(glogin, build_id):
+            raise HTTPException(403, "that creation belongs to someone else")
         if not re.fullmatch(r"scad_[0-9_]+", build_id):
             raise HTTPException(400, "not an openscad build")
         build_dir = BUILDS_DIR / build_id
@@ -871,6 +963,8 @@ def api_rescale(payload: dict):
         job = _jobs.get(job_id)
     if job is None:
         raise HTTPException(404, "unknown job (jobs do not survive a restart)")
+    if glogin and job.get("login") != glogin:
+        raise HTTPException(403, "that creation belongs to someone else")
     if job.get("kind") == "mesh":
         raise HTTPException(400, "rescale isn't wired for mesh jobs")
     build_dir_fs = (job.get("result") or {}).get("build_dir_fs", "")
@@ -888,8 +982,13 @@ def api_rescale(payload: dict):
             continue
     if not clean:
         raise HTTPException(400, "no valid numeric parameters given")
-    job["pending_rescale"] = clean
-    job["status"] = "queued"
+    with _jobs_lock:
+        if glogin and sum(1 for j in _jobs.values() if j.get("login") == glogin
+                          and j["status"] in _PENDING) >= GUEST_MAX_PENDING:
+            raise _cap_error()
+        job.setdefault("login", glogin)
+        job["pending_rescale"] = clean
+        job["status"] = "queued"
     job["updated_at"] = time.time()
     _persist()
     _queue.put(job_id)
@@ -923,25 +1022,39 @@ async def api_mesh(request: Request, spec: str = Form(""),
         image_path = str(UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}")
         Path(image_path).write_bytes(data)
     user, guest = _visitor(request)
+    login = _guest_login(request)
     job = {
         "id": uuid.uuid4().hex[:12], "spec": spec, "coder": "-", "image": image_path,
-        "user": user, "guest": guest,
+        "user": user, "guest": guest, "login": login,
         "kind": "mesh", "status": "queued", "log": deque(maxlen=300),
         "result": None, "error": None,
         "created_at": time.time(), "updated_at": time.time(),
     }
     job["title"] = _fallback_title(job)
     with _jobs_lock:
-        _jobs[job["id"]] = job
+        capped = bool(login) and sum(1 for j in _jobs.values() if j.get("login") == login
+                                     and j["status"] in _PENDING) >= GUEST_MAX_PENDING
+        if not capped:
+            _jobs[job["id"]] = job
+    if capped:
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
+        raise _cap_error()
     _persist()
     _mesh_queue.put(job["id"])
     if guest:
-        _notify(f"CAD web: 🛠 {user} queued a mesh — “{(spec or 'image-only')[:150]}”")
+        _notify(f"CAD web (guest): 🛠 {user} queued a mesh — “{(spec or 'image-only')[:150]}”")
     return {"job_id": job["id"]}
 
 
 @app.get("/meshes/{job_id}/{filename}")
-def meshes(job_id: str, filename: str):
+def meshes(job_id: str, filename: str, request: Request):
+    glogin = _guest_login(request)
+    if glogin:
+        with _jobs_lock:
+            j = _jobs.get(job_id)
+        if j is None or j.get("login") != glogin:
+            raise HTTPException(404, "not found")
     target = (meshmod.MESHES_DIR / job_id / filename).resolve()
     if not str(target).startswith(str(meshmod.MESHES_DIR.resolve()) + os.sep):
         raise HTTPException(404, "not found")
@@ -981,8 +1094,14 @@ BENCHCAD_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "b
 LIFT_LATEST = SKILL_ROOT / "benchmarks" / "results" / "card" / "latest" / "LIFT.json"
 
 
+def _no_guests(request: Request):
+    if _guest_login(request):
+        raise HTTPException(403, "not available to guests")
+
+
 @app.get("/api/lab/card")
-def api_lab_card():
+def api_lab_card(request: Request):
+    _no_guests(request)
     """The latest benchmark card (scripts/run_card.py) — arm x suite summary rows."""
     if not CARD_LATEST.exists():
         raise HTTPException(404, "no card yet: run scripts/run_card.py")
@@ -990,7 +1109,8 @@ def api_lab_card():
 
 
 @app.get("/api/lab/benchcad")
-def api_lab_benchcad():
+def api_lab_benchcad(request: Request):
+    _no_guests(request)
     """The latest official BenchCAD run, if one has been done alongside the card."""
     if not BENCHCAD_LATEST.exists():
         raise HTTPException(404, "no benchcad run yet")
@@ -998,7 +1118,8 @@ def api_lab_benchcad():
 
 
 @app.get("/api/lab/lift")
-def api_lab_lift():
+def api_lab_lift(request: Request):
+    _no_guests(request)
     """The latest lift table (scripts/lift_report.py) — per-arm deltas vs the baseline arm."""
     if not LIFT_LATEST.exists():
         raise HTTPException(404, "no lift table yet: run scripts/lift_report.py")
@@ -1006,30 +1127,35 @@ def api_lab_lift():
 
 
 @app.get("/api/jobs/{job_id}")
-def api_job(job_id: str):
+def api_job(job_id: str, request: Request):
+    glogin = _guest_login(request)
     with _jobs_lock:
         job = _jobs.get(job_id)
-    if job is None:
+    if job is None or (glogin and job.get("login") != glogin):
         raise HTTPException(404, "unknown job (jobs do not survive a server restart)")
     return _job_public(job)
 
 
 @app.get("/api/jobs")
-def api_jobs():
-    """The creation rail: light rows only, newest activity first."""
+def api_jobs(request: Request):
+    """The creation rail: light rows only, newest activity first. Guests see only their own."""
+    glogin = _guest_login(request)
     with _jobs_lock:
-        jobs = sorted(_jobs.values(),
+        jobs = sorted((j for j in _jobs.values() if not glogin or j.get("login") == glogin),
                       key=lambda j: j.get("updated_at", j["created_at"]), reverse=True)
         return [_job_light(j) for j in jobs]
 
 
 @app.delete("/api/jobs/{job_id}")
-def api_delete_job(job_id: str):
+def api_delete_job(job_id: str, request: Request):
     """Remove a creation from the rail. Artifacts stay on disk for the engine to prune."""
     with _jobs_lock:
         job = _jobs.get(job_id)
         if job is None:
             raise HTTPException(404, "unknown job")
+        glogin = _guest_login(request)
+        if glogin and job.get("login") != glogin:
+            raise HTTPException(403, "that creation belongs to someone else")
         if job["status"] in ("queued", "running", "waiting_gpu"):
             raise HTTPException(409, "can't delete a creation while it is building")
         _jobs.pop(job_id, None)
@@ -1039,7 +1165,10 @@ def api_delete_job(job_id: str):
 
 
 @app.get("/artifacts/{build_id}/{filename}")
-def artifacts(build_id: str, filename: str):
+def artifacts(build_id: str, filename: str, request: Request):
+    glogin = _guest_login(request)
+    if glogin and not _guest_owns_build(glogin, build_id):
+        raise HTTPException(404, "not found")
     target = (BUILDS_DIR / build_id / filename).resolve()
     if not str(target).startswith(str(BUILDS_DIR) + os.sep):
         raise HTTPException(404, "not found")
